@@ -1,5 +1,6 @@
 * {
     margin: 0px;
+    white-space: nowrap;
     box-sizing: border-box;
     overscroll-behavior-y: none;
 }
@@ -67,6 +68,18 @@ body {
     margin: 30px 0px auto;
 }
 
+div#settings {
+
+    width: 100%;
+    height: 50px;
+
+    padding: 10px;
+
+    display: flex;
+    align-items: center;
+
+}
+
 button#connection {
 
     padding: 10px;
@@ -90,14 +103,54 @@ button#connection.disconnect {
     background-color: red;
 }
 
-input#prompt {
+div#input,
+div#output {
 
+    width: 50vw;
+    height: calc(100vh - 88px);
+
+    display: inline-block;
+
+    white-space: normal;
+    vertical-align: top;
+
+    overflow: scroll;
+
+    color: white;
+
+}
+
+div#input .pointer {
+    color: cyan;
+}
+
+div#output .pointer {
+    color: magenta;
+}
+
+div#output .error {
+    color: crimson;
+}
+
+textarea#prompt {
+
+    width: 100%;
+
+    bottom: 0px;
     padding: 10px;
 
-    outline: none;
-    cursor: text;
+    position: fixed;
 
-    border: none;
-    border-radius: 5px;
+    outline: none;
+    box-shadow: none;
+    border-style: none;
+    border-top: 1px dashed white;
+
+    background-color: black;
+    caret-color: white;
+    color: white;
+
+    cursor: text;
+    resize: none;
 
 }
