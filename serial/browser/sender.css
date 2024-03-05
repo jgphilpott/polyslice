@@ -1,0 +1,19 @@
+button#connection {
+
+    padding: 10px;
+    color: white;
+
+    border: none;
+    border-radius: 5px;
+
+    font-weight: bold;
+
+}
+
+button#connection.connect {
+    background-color: green;
+}
+
+button#connection.disconnect {
+    background-color: red;
+}
