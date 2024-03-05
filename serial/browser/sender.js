@@ -1,30 +1,45 @@
 var device
 
 document.addEventListener("DOMContentLoaded", event => {
-    let connection = document.getElementById("connection")
-    connection.addEventListener("click", async () => {
-        try {
 
-            device = await navigator.serial.requestPort()
+    if (navigator.serial) {
 
-            await device.open({baudRate: 115200})
+        let connection = $("#connection")
 
-            console.log("Opened: ", device)
-            console.log("Info: ", device.getInfo())
+        $("#compatible").css("display", "block")
 
-            const encoder = new TextEncoder()
-            const writer = device.writable.getWriter()
+        connection.on("click", async () => {
 
-            await writer.write(encoder.encode("G28\n"))
+            try {
 
-            writer.releaseLock()
+                device = await navigator.serial.requestPort()
 
-            await device.close()
+                await device.open({baudRate: 115200})
 
-        } catch (error) {
+                console.log("Opened: ", device)
+                console.log("Info: ", device.getInfo())
 
-            console.log(error)
+                const encoder = new TextEncoder()
+                const writer = device.writable.getWriter()
 
-        }
-    })
+                await writer.write(encoder.encode("G28\n"))
+
+                writer.releaseLock()
+
+                await device.close()
+
+            } catch (error) {
+
+                console.log(error)
+
+            }
+
+        })
+
+    } else {
+
+        $("#incompatible").css("display", "block")
+
+    }
+
 })

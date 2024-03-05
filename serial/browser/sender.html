@@ -1,16 +1,42 @@
 <html>
     <head>
 
-        <title>Web Serial API G-code Sender</title>
+        <title>Web G-code Sender</title>
 
         <link rel="stylesheet" href="./sender.css">
+
+        <script src="./libs/jquery.min.js"></script>
         <script src="./sender.js"></script>
 
     </head>
     <body>
 
-        <button id="connection" class="connect">Connect</button>
-        <input type="text" id="prompt">
+        <a href="https://github.com/jgphilpott/polyslice" target="_blank">
+
+            <img title="Fork Me" id="forkme" src="../../imgs/forkme/right/white.png">
+
+        </a>
+
+        <div id="compatible">
+
+            <button id="connection" class="connect">Connect</button>
+
+            <input id="prompt" type="text">
+
+        </div>
+
+        <div id="incompatible">
+
+            <img title="Error" id="error" src="../../imgs/icons/error.png">
+
+            <p id="warning">
+                <b>
+                    Sorry, this browser is not compatible with <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API" target="_blank">Web Serial API</a>. Please try a different browser or upgrade to the latest version.
+                    You can view a compatibility matrix <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility" target="_blank">here</a>.
+                </b>
+            </p>
+
+        </div>
 
     </body>
 </html>

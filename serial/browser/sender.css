@@ -1,12 +1,84 @@
+* {
+    margin: 0px;
+    box-sizing: border-box;
+    overscroll-behavior-y: none;
+}
+
+::-webkit-scrollbar {
+    display: none;
+}
+
+body {
+    background-color: black;
+}
+
+#forkme {
+
+    top: 0px;
+    right: 0px;
+
+    width: 150px;
+    height: 150px;
+
+    cursor: pointer;
+    position: fixed;
+
+    z-index: calc(9e999);
+
+    clip-path: polygon(15px 0px, 60px 0px, 150px 90px, 150px 135px);
+
+}
+
+#compatible,
+#incompatible {
+    display: none;
+}
+
+#compatible {
+    width: 100vw;
+    height: 100vh;
+}
+
+#incompatible {
+
+    width: 50%;
+
+    border: 3px solid red;
+    border-radius: 10px;
+
+    margin: 10% auto;
+    padding: 30px;
+
+}
+
+#incompatible img#error {
+
+    width: 100px;
+    height: 100px;
+
+    margin: auto;
+    display:block;
+
+}
+
+#incompatible p#warning,
+#incompatible p#warning a {
+    color: white;
+    margin: 30px 0px auto;
+}
+
 button#connection {
 
     padding: 10px;
+
+    outline: none;
+    cursor: pointer;
+
     color: white;
+    font-weight: bold;
 
     border: none;
     border-radius: 5px;
-
-    font-weight: bold;
 
 }
 
@@ -16,4 +88,16 @@ button#connection.connect {
 
 button#connection.disconnect {
     background-color: red;
+}
+
+input#prompt {
+
+    padding: 10px;
+
+    outline: none;
+    cursor: text;
+
+    border: none;
+    border-radius: 5px;
+
 }
