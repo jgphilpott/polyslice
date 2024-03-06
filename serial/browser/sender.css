@@ -229,8 +229,39 @@ div#output .time {
     color: gray;
 }
 
+div#input .info,
+div#output .info {
+    color: aqua;
+}
+
+div#input .success,
+div#output .success {
+    color: lime;
+}
+
+div#input .error,
 div#output .error {
-    color: crimson;
+    color: red;
+}
+
+div#input b.x,
+div#output b.x {
+    color: #E74C3C;
+}
+
+div#input b.y,
+div#output b.y {
+    color: #27AE60;
+}
+
+div#input b.z,
+div#output b.z {
+    color: #3498DB;
+}
+
+div#input b.e,
+div#output b.e {
+    color: #F1C40F;
 }
 
 textarea#prompt {

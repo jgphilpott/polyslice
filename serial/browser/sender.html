@@ -38,7 +38,7 @@
                 <input id="baud-rate" class="control" name="Baud Rate" inputmode="numeric" value="115200">
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#buffersize" target="_blank">Buffer Size</a>
-                <input id="buffer-size" class="control" name="Buffer Size" inputmode="numeric" value="255">
+                <input id="buffer-size" class="control" name="Buffer Size" inputmode="numeric" value="1024">
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#databits" target="_blank">Data Bits</a>
                 <input id="data-bits" class="control" name="Data Bits" inputmode="numeric" value="8">
@@ -48,15 +48,19 @@
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#flowcontrol" target="_blank">Flow Control</a>
                 <select id="flow-control" class="control" name="Flow Control">
+
                     <option value="none" selected>None</option>
                     <option value="hardware">Hardware</option>
+
                 </select>
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#parity" target="_blank">Parity</a>
                 <select id="parity" class="control" name="Parity">
+
                     <option value="none" selected>None</option>
                     <option value="even">Even</option>
                     <option value="odd">Odd</option>
+
                 </select>
 
             </div>

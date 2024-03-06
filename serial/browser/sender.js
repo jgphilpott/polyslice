@@ -1,4 +1,5 @@
 let device = {}
+let history = []
 
 async function connect() {
 
@@ -14,12 +15,14 @@ async function connect() {
         let parity = String($("#parity").val())
 
         await device.open({
+
             baudRate: baudRate,
             bufferSize: bufferSize,
             dataBits: dataBits,
             stopBits: stopBits,
             flowControl: flowControl,
             parity: parity
+
         })
 
         connected()
@@ -28,7 +31,7 @@ async function connect() {
 
     } catch (error) {
 
-        console.log("Failed to connect with serial port: " + error)
+        console.log("Failed to connect with serial port: ", error)
 
     }
 
@@ -44,7 +47,7 @@ async function disconnect() {
 
     } catch (error) {
 
-        console.log("Failed to disconnect with serial port: " + error)
+        console.log("Failed to disconnect with serial port: ", error)
 
     }
 
@@ -61,8 +64,7 @@ function connected() {
     $("button#connection").addClass("disconnect")
     $("button#connection").removeClass("connect")
 
-    let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
-    $("#output").append("<p>" + time + "<span class='pointer'> >>> </span>Connected</p>")
+    log("output", "<span class='success'>Connected</span>")
 
     console.log("Connected with: ", device)
 
@@ -81,14 +83,14 @@ function disconnected() {
     $("button#connection").addClass("connect")
     $("button#connection").removeClass("disconnect")
 
-    let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
-    $("#output").append("<p>" + time + "<span class='pointer'> >>> </span>Disconnected</p>")
+    log("output", "<span class='error'>Disconnected</span>")
 
     console.log("Disconnected with: ", device)
 
 }
 
 async function read() {
+
     while (device.readable) {
 
         const decoder = new TextDecoder()
@@ -102,19 +104,18 @@ async function read() {
 
                 const {value, done} = await reader.read()
 
-                let text = decoder.decode(value).replace("echo:", "")
-                let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+                let text = decoder.decode(value).replace("echo:", "").replace("\n", " ")
 
-                if (text.toLowerCase().includes("unknown")) {
+                text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
+                text = text.replace("busy:", "<span class='info'>Busy:</span>")
+                text = text.replace("ok", "<span class='success'>OK</span>")
 
-                    text = "<span class='error'>" + text + "</span>"
+                text = text.replace("X:", "<b class='x'>X:</b> ")
+                text = text.replace("Y:", "<b class='y'>Y:</b> ")
+                text = text.replace("Z:", "<b class='z'>Z:</b> ")
+                text = text.replace("E:", "<b class='e'>E:</b> ")
 
-                }
-
-                $("#output").append("<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>")
-
-                let output = document.getElementById("output")
-                output.scrollTop = output.scrollHeight
+                log("output", text)
 
                 if (done) break
 
@@ -133,6 +134,7 @@ async function read() {
         }
 
     }
+
 }
 
 async function write(text) {
@@ -146,26 +148,50 @@ async function write(text) {
 
 }
 
+function log(zone, text) {
+
+    let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+
+    $("#" + zone + "").append("<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>")
+
+    zone = document.getElementById(zone)
+
+    zone.scrollTop = zone.scrollHeight
+
+}
+
 document.addEventListener("DOMContentLoaded", (event) => {
 
     if (navigator.serial) {
 
+        let commandIndex = 0
+
         $("#compatible").css("display", "block")
 
         navigator.serial.addEventListener("connect", (event) => {
+
             connected()
+
         })
 
         navigator.serial.addEventListener("disconnect", (event) => {
+
             disconnected()
+
         })
 
         $("button#connection").on("click", async (event) => {
+
             if (device.connected) {
+
                 disconnect()
+
             } else {
+
                 connect()
+
             }
+
         })
 
         $("div#settings .control").on("change", async (event) => {
@@ -173,36 +199,81 @@ document.addEventListener("DOMContentLoaded", (event) => {
             if (device.connected) disconnect()
 
             let setting = $(event.target).attr("name")
-            let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
 
-            $("#output").append("<p>" + time + "<span class='pointer'> >>> </span>Connection Setting Changed: <b>" + setting + "</b></p>")
+            log("output", "<span class='info'>Connection Setting Changed:</span> " + setting + "")
 
         })
 
         $("textarea#prompt").on("keydown", async (event) => {
 
+            let prompt = $(event.target).val()
+
             if (event.key == "Enter" && !event.shiftKey) {
+
+                commandIndex = 0
 
                 event.preventDefault()
 
-                let text = $(event.target).val() + "\n"
-                let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+                if (prompt.length) {
 
-                $("#input").append("<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>")
+                    history.unshift(prompt)
 
-                let input = document.getElementById("input")
-                input.scrollTop = input.scrollHeight
+                    let text = prompt + "\n"
 
-                $(event.target).val("").change()
-                $(event.target).attr("rows", 1)
+                    $(event.target).val("").change()
+                    $(event.target).attr("rows", 1)
 
-                write(text)
+                    text.split("\n").forEach((command) => {
+
+                        if (command.length) log("input", command)
+
+                    })
+
+                    write(text)
+
+                }
 
             } else if (event.key == "Enter" && event.shiftKey) {
 
-                rows = Number($(event.target).attr("rows"))
+                let rows = Number($(event.target).attr("rows"))
 
                 $(event.target).attr("rows", rows + 1)
+
+            } else if ((event.key == "ArrowUp" || event.key == "ArrowDown") && history.length) {
+
+                let cursor = Number($(event.target).prop("selectionStart"))
+                let size = Number($(event.target).val().length)
+
+                if (event.key == "ArrowUp" && cursor == 0) {
+
+                    commandIndex += 1
+
+                    if (commandIndex > history.length) commandIndex = history.length
+
+                    $(event.target).attr("rows", history[commandIndex - 1].split("\n").length)
+                    $(event.target).val(history[commandIndex - 1])
+
+                }
+
+                if (event.key == "ArrowDown" && cursor == size) {
+
+                    commandIndex -= 1
+
+                    if (commandIndex < 0) commandIndex = 0
+
+                    if (commandIndex) {
+
+                        $(event.target).attr("rows", history[commandIndex - 1].split("\n").length)
+                        $(event.target).val(history[commandIndex - 1])
+
+                    } else {
+
+                        $(event.target).val("").change()
+                        $(event.target).attr("rows", 1)
+
+                    }
+
+                }
 
             }
 
@@ -217,5 +288,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 })
 
 window.onbeforeunload = (event) => {
+
     disconnect()
+
 }
