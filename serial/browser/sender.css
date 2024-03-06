@@ -1,8 +1,12 @@
 * {
+
     margin: 0px;
-    white-space: nowrap;
-    box-sizing: border-box;
+
+    overflow-x: hidden;
     overscroll-behavior-y: none;
+
+    box-sizing: border-box;
+
 }
 
 ::-webkit-scrollbar {
@@ -11,6 +15,7 @@
 
 body {
     background-color: black;
+    font-family: Arial, Helvetica, sans-serif;
 }
 
 #forkme {
@@ -64,8 +69,8 @@ body {
 
 #incompatible p#warning,
 #incompatible p#warning a {
-    color: white;
     margin: 30px 0px auto;
+    color: white;
 }
 
 div#settings {
@@ -80,9 +85,25 @@ div#settings {
 
 }
 
+div#settings a {
+    margin: 5px;
+    color: white;
+    text-decoration: none;
+}
+
+div#settings img#help {
+
+    width: 25px;
+    height: 25px;
+
+    cursor: pointer;
+
+}
+
 button#connection {
 
-    padding: 10px;
+    margin: 10px;
+    padding: 7px;
 
     outline: none;
     cursor: pointer;
@@ -103,29 +124,109 @@ button#connection.disconnect {
     background-color: red;
 }
 
+input.control,
+select.control {
+
+    width: 65px;
+    height: 20px;
+
+    margin-right: 7px;
+
+    outline: none;
+    box-shadow: none;
+
+    border-radius: 5px;
+    border: 1px solid white;
+
+    color: white;
+    background-color: black;
+
+}
+
+#buffer-size.control,
+#data-bits.control,
+#stop-bits.control {
+    width: 50px;
+}
+
+#flow-control.control {
+    width: 85px;
+}
+
+div.headings {
+    white-space: nowrap;
+}
+
+div.heading {
+    width: 50%;
+    padding: 10px;
+    display: inline-block;
+}
+
+h2#input-heading {
+    color: cyan;
+    font-size: 30px;
+    text-align: center;
+}
+
+h2#output-heading {
+    color: magenta;
+    font-size: 30px;
+    text-align: center;
+}
+
+div#history {
+    white-space: nowrap;
+}
+
 div#input,
 div#output {
 
-    width: 50vw;
-    height: calc(100vh - 88px);
+    width: calc(50vw - 2px);
+    height: calc(100vh - 145px);
 
     display: inline-block;
 
     white-space: normal;
     vertical-align: top;
 
-    overflow: scroll;
+    overflow-x: hidden;
+    overflow-y: scroll;
 
     color: white;
 
+    padding: 10px;
+
+}
+
+div#input p,
+div#output p {
+    white-space: pre-wrap;
+    word-break: break-all;
+    word-wrap: break-word;
+}
+
+div#input {
+    border-top: 1px solid cyan;
+    border-right: 1px dashed white;
 }
 
 div#input .pointer {
     color: cyan;
 }
 
+div#output {
+    border-top: 1px solid magenta;
+    border-left: 1px dashed white;
+}
+
 div#output .pointer {
     color: magenta;
+}
+
+div#input .time,
+div#output .time {
+    color: gray;
 }
 
 div#output .error {
@@ -144,7 +245,7 @@ textarea#prompt {
     outline: none;
     box-shadow: none;
     border-style: none;
-    border-top: 1px dashed white;
+    border-top: 1px solid white;
 
     background-color: black;
     caret-color: white;

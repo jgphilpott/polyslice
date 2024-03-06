@@ -6,7 +6,21 @@ async function connect() {
 
         device = await navigator.serial.requestPort()
 
-        await device.open({baudRate: 115200})
+        let baudRate = Number($("#baud-rate").val())
+        let bufferSize = Number($("#buffer-size").val())
+        let dataBits = Number($("#data-bits").val())
+        let stopBits = Number($("#stop-bits").val())
+        let flowControl = String($("#flow-control").val())
+        let parity = String($("#parity").val())
+
+        await device.open({
+            baudRate: baudRate,
+            bufferSize: bufferSize,
+            dataBits: dataBits,
+            stopBits: stopBits,
+            flowControl: flowControl,
+            parity: parity
+        })
 
         connected()
 
@@ -47,6 +61,9 @@ function connected() {
     $("button#connection").addClass("disconnect")
     $("button#connection").removeClass("connect")
 
+    let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+    $("#output").append("<p>" + time + "<span class='pointer'> >>> </span>Connected</p>")
+
     console.log("Connected with: ", device)
 
     $("textarea#prompt").focus()
@@ -63,6 +80,9 @@ function disconnected() {
 
     $("button#connection").addClass("connect")
     $("button#connection").removeClass("disconnect")
+
+    let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+    $("#output").append("<p>" + time + "<span class='pointer'> >>> </span>Disconnected</p>")
 
     console.log("Disconnected with: ", device)
 
@@ -83,7 +103,7 @@ async function read() {
                 const {value, done} = await reader.read()
 
                 let text = decoder.decode(value).replace("echo:", "")
-                let time = new Date().toLocaleTimeString([], {hour12: false})
+                let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
 
                 if (text.toLowerCase().includes("unknown")) {
 
@@ -132,9 +152,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         $("#compatible").css("display", "block")
 
-        let connection = $("button#connection")
-        let prompt = $("textarea#prompt")
-
         navigator.serial.addEventListener("connect", (event) => {
             connected()
         })
@@ -143,14 +160,33 @@ document.addEventListener("DOMContentLoaded", (event) => {
             disconnected()
         })
 
-        prompt.on("keydown", async (event) => {
+        $("button#connection").on("click", async (event) => {
+            if (device.connected) {
+                disconnect()
+            } else {
+                connect()
+            }
+        })
+
+        $("div#settings .control").on("change", async (event) => {
+
+            if (device.connected) disconnect()
+
+            let setting = $(event.target).attr("name")
+            let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+
+            $("#output").append("<p>" + time + "<span class='pointer'> >>> </span>Connection Setting Changed: <b>" + setting + "</b></p>")
+
+        })
+
+        $("textarea#prompt").on("keydown", async (event) => {
 
             if (event.key == "Enter" && !event.shiftKey) {
 
                 event.preventDefault()
 
                 let text = $(event.target).val() + "\n"
-                let time = new Date().toLocaleTimeString([], {hour12: false})
+                let time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
 
                 $("#input").append("<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>")
 
@@ -170,14 +206,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
             }
 
-        })
-
-        connection.on("click", async () => {
-            if (device.connected) {
-                disconnect()
-            } else {
-                connect()
-            }
         })
 
     } else {
