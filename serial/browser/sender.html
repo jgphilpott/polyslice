@@ -9,8 +9,11 @@
         <link rel="shortcut icon" id="light-scheme-icon" href="../../imgs/favicon/black.png">
         <link rel="shortcut icon" id="dark-scheme-icon" href="../../imgs/favicon/white.png">
 
-        <script src="libs/faviconScheme.js"></script>
+        <script src="./libs/faviconScheme.js"></script>
+        <script src="./libs/localStorage.js"></script>
         <script src="./libs/jquery.min.js"></script>
+        <script src="./libs/casefy.js"></script>
+
         <script src="./sender.js"></script>
 
     </head>
@@ -35,21 +38,21 @@
                 <button id="connection" class="connect">Connect</button>
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#baudrate" target="_blank">Baud Rate</a>
-                <input id="baud-rate" class="control" name="Baud Rate" inputmode="numeric" value="115200">
+                <input id="baud-rate" class="control" name="Baud Rate" type="number" inputmode="numeric" step="1" min="1">
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#buffersize" target="_blank">Buffer Size</a>
-                <input id="buffer-size" class="control" name="Buffer Size" inputmode="numeric" value="1024">
+                <input id="buffer-size" class="control" name="Buffer Size" type="number" inputmode="numeric" step="1" min="1">
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#databits" target="_blank">Data Bits</a>
-                <input id="data-bits" class="control" name="Data Bits" inputmode="numeric" value="8">
+                <input id="data-bits" class="control" name="Data Bits" type="number" inputmode="numeric" step="1" min="7" max="8">
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#stopbits" target="_blank">Stop Bits</a>
-                <input id="stop-bits" class="control" name="Stop Bits" inputmode="numeric" value="1">
+                <input id="stop-bits" class="control" name="Stop Bits" type="number" inputmode="numeric" step="1" min="1" max="2">
 
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#flowcontrol" target="_blank">Flow Control</a>
                 <select id="flow-control" class="control" name="Flow Control">
 
-                    <option value="none" selected>None</option>
+                    <option value="none">None</option>
                     <option value="hardware">Hardware</option>
 
                 </select>
@@ -57,7 +60,7 @@
                 <a href="https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#parity" target="_blank">Parity</a>
                 <select id="parity" class="control" name="Parity">
 
-                    <option value="none" selected>None</option>
+                    <option value="none">None</option>
                     <option value="even">Even</option>
                     <option value="odd">Odd</option>
 

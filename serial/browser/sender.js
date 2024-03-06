@@ -1,6 +1,13 @@
 let device = {}
 let history = []
 
+let baudRateDefault = 115200
+let bufferSizeDefault = 1024
+let dataBitsDefault = 8
+let stopBitsDefault = 1
+let flowControlDefault = "none"
+let parityDefault = "none"
+
 async function connect() {
 
     try {
@@ -31,6 +38,8 @@ async function connect() {
 
     } catch (error) {
 
+        log("output", "<span class='error'>Failed to Connect</span>")
+
         console.log("Failed to connect with serial port: ", error)
 
     }
@@ -46,6 +55,8 @@ async function disconnect() {
         disconnected()
 
     } catch (error) {
+
+        log("output", "<span class='error'>Failed to Disconnect</span>")
 
         console.log("Failed to disconnect with serial port: ", error)
 
@@ -168,30 +179,75 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         $("#compatible").css("display", "block")
 
+        let baudRate = localRead("baudRate") != null ? localRead("baudRate") : baudRateDefault
+        let bufferSize = localRead("bufferSize") != null ? localRead("bufferSize") : bufferSizeDefault
+        let dataBits = localRead("dataBits") != null ? localRead("dataBits") : dataBitsDefault
+        let stopBits = localRead("stopBits") != null ? localRead("stopBits") : stopBitsDefault
+        let flowControl = localRead("flowControl") != null ? localRead("flowControl") : flowControlDefault
+        let parity = localRead("parity") != null ? localRead("parity") : parityDefault
+
+        if (typeof baudRate == "number" && baudRate > 0) {
+            $("input#baud-rate").val(baudRate)
+            localWrite("baudRate", baudRate)
+        } else {
+            $("input#baud-rate").val(baudRateDefault)
+            localWrite("baudRate", baudRateDefault)
+        }
+
+        if (typeof bufferSize == "number" && bufferSize > 0) {
+            $("input#buffer-size").val(bufferSize)
+            localWrite("bufferSize", bufferSize)
+        } else {
+            $("input#buffer-size").val(bufferSizeDefault)
+            localWrite("bufferSize", bufferSizeDefault)
+        }
+
+        if (typeof dataBits == "number" && (dataBits == 7 || dataBits == 8)) {
+            $("input#data-bits").val(dataBits)
+            localWrite("dataBits", dataBits)
+        } else {
+            $("input#data-bits").val(dataBitsDefault)
+            localWrite("dataBits", dataBitsDefault)
+        }
+
+        if (typeof stopBits == "number" && (dataBits == 1 || dataBits == 2)) {
+            $("input#stop-bits").val(stopBits)
+            localWrite("stopBits", stopBits)
+        } else {
+            $("input#stop-bits").val(stopBitsDefault)
+            localWrite("stopBits", stopBitsDefault)
+        }
+
+        if (["none", "hardware"].includes(flowControl)) {
+            $("select#flow-control").val(flowControl)
+            localWrite("flowControl", flowControl)
+        } else {
+            $("select#flow-control").val(flowControlDefault)
+            localWrite("flowControl", flowControlDefault)
+        }
+
+        if (["none", "even", "odd"].includes(parity)) {
+            $("select#parity").val(parity)
+            localWrite("parity", parity)
+        } else {
+            $("select#parity").val(parityDefault)
+            localWrite("parity", parityDefault)
+        }
+
         navigator.serial.addEventListener("connect", (event) => {
-
             connected()
-
         })
 
         navigator.serial.addEventListener("disconnect", (event) => {
-
             disconnected()
-
         })
 
         $("button#connection").on("click", async (event) => {
-
             if (device.connected) {
-
                 disconnect()
-
             } else {
-
                 connect()
-
             }
-
         })
 
         $("div#settings .control").on("change", async (event) => {
@@ -199,14 +255,21 @@ document.addEventListener("DOMContentLoaded", (event) => {
             if (device.connected) disconnect()
 
             let setting = $(event.target).attr("name")
+            let key = camelize($(event.target).attr("id"))
 
-            log("output", "<span class='info'>Connection Setting Changed:</span> " + setting + "")
+            newValue = $(event.target).val()
+            oldValue = localRead(key)
+
+            localWrite(key, newValue)
+
+            log("output", "<span class='info'>Connection Setting Changed</span>")
+            log("output", "<b>" + setting + ":</b> " + oldValue + " > " + newValue + "")
 
         })
 
         $("textarea#prompt").on("keydown", async (event) => {
 
-            let prompt = $(event.target).val()
+            let prompt = $(event.target).val().trim()
 
             if (event.key == "Enter" && !event.shiftKey) {
 
@@ -220,9 +283,6 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
                     let text = prompt + "\n"
 
-                    $(event.target).val("").change()
-                    $(event.target).attr("rows", 1)
-
                     text.split("\n").forEach((command) => {
 
                         if (command.length) log("input", command)
@@ -232,6 +292,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
                     write(text)
 
                 }
+
+                $(event.target).val("").change()
+                $(event.target).attr("rows", 1)
 
             } else if (event.key == "Enter" && event.shiftKey) {
 
@@ -288,7 +351,5 @@ document.addEventListener("DOMContentLoaded", (event) => {
 })
 
 window.onbeforeunload = (event) => {
-
     disconnect()
-
 }
