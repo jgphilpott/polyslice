@@ -94,15 +94,32 @@ div#settings {
 }
 
 div#settings a {
+
     margin: 5px;
+
     color: white;
     text-decoration: none;
+
+    display: flex;
+    align-items: center;
+
 }
 
 div#settings img#help {
 
     width: 25px;
     height: 25px;
+
+    cursor: pointer;
+
+}
+
+div#settings img#reset {
+
+    margin: 5px;
+
+    width: 20px;
+    height: 20px;
 
     cursor: pointer;
 
@@ -287,7 +304,7 @@ textarea#prompt {
     border-top: 1px solid white;
 
     background-color: black;
-    caret-color: white;
+    caret-color: cyan;
     color: white;
 
     cursor: text;
