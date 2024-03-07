@@ -187,36 +187,40 @@ async function write(text) {
 
 async function reset() {
 
-    history = []
-    commandIndex = 0
+    if (confirm("Are you sure you want to reset? This will clear your logs and restore all settings to their default values.")) {
 
-    localWrite("inputs", [])
-    localWrite("outputs", [])
-    localWrite("history", [])
+        history = []
+        commandIndex = 0
 
-    $("img#reset").rotate(360)
+        localWrite("inputs", [])
+        localWrite("outputs", [])
+        localWrite("history", [])
 
-    if (device.connected) await disconnect()
+        $("img#reset").rotate(360)
 
-    $("textarea#prompt").val("").change()
-    $("textarea#prompt").attr("rows", 1)
+        if (device.connected) await disconnect()
 
-    $("input#baud-rate").val(baudRateDefault)
-    $("input#buffer-size").val(bufferSizeDefault)
-    $("input#data-bits").val(dataBitsDefault)
-    $("input#stop-bits").val(stopBitsDefault)
-    $("select#flow-control").val(flowControlDefault)
-    $("select#parity").val(parityDefault)
+        $("textarea#prompt").val("").change()
+        $("textarea#prompt").attr("rows", 1)
 
-    localWrite("baudRate", baudRateDefault)
-    localWrite("bufferSize", bufferSizeDefault)
-    localWrite("dataBits", dataBitsDefault)
-    localWrite("stopBits", stopBitsDefault)
-    localWrite("flowControl", flowControlDefault)
-    localWrite("parity", parityDefault)
+        $("input#baud-rate").val(baudRateDefault)
+        $("input#buffer-size").val(bufferSizeDefault)
+        $("input#data-bits").val(dataBitsDefault)
+        $("input#stop-bits").val(stopBitsDefault)
+        $("select#flow-control").val(flowControlDefault)
+        $("select#parity").val(parityDefault)
 
-    $("#output").empty()
-    $("#input").empty()
+        localWrite("baudRate", baudRateDefault)
+        localWrite("bufferSize", bufferSizeDefault)
+        localWrite("dataBits", dataBitsDefault)
+        localWrite("stopBits", stopBitsDefault)
+        localWrite("flowControl", flowControlDefault)
+        localWrite("parity", parityDefault)
+
+        $("#output").empty()
+        $("#input").empty()
+
+    }
 
 }
 

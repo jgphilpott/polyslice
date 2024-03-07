@@ -179,6 +179,7 @@ select.control {
 }
 
 div.headings {
+    height: 60px;
     white-space: nowrap;
 }
 
@@ -208,7 +209,7 @@ div#input,
 div#output {
 
     width: calc(50vw - 2px);
-    height: calc(100vh - 145px);
+    height: calc(100vh - 150px);
 
     display: inline-block;
 
@@ -220,15 +221,19 @@ div#output {
 
     color: white;
 
-    padding: 10px;
+    padding: 5px 10px;
 
 }
 
 div#input p,
 div#output p {
+
     white-space: pre-wrap;
     word-break: break-all;
     word-wrap: break-word;
+
+    font-size: 16px;
+
 }
 
 div#input {
@@ -295,6 +300,8 @@ textarea#prompt {
 
     bottom: 0px;
     padding: 10px;
+
+    font-size: 16px;
 
     position: fixed;
 
