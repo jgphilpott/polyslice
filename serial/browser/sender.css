@@ -201,14 +201,10 @@ h2#output-heading {
     text-align: center;
 }
 
-div#history {
-    white-space: nowrap;
-}
-
 div#input,
 div#output {
 
-    width: calc(50vw - 2px);
+    width: calc(50vw - 0px);
     height: calc(100vh - 150px);
 
     display: inline-block;
@@ -237,8 +233,12 @@ div#output p {
 }
 
 div#input {
+
+    float: left;
+
     border-top: 1px solid cyan;
-    border-right: 1px dashed white;
+    border-right: 0.5px solid white;
+
 }
 
 div#input .pointer {
@@ -246,8 +246,12 @@ div#input .pointer {
 }
 
 div#output {
+
+    float: right;
+
     border-top: 1px solid magenta;
-    border-left: 1px dashed white;
+    border-left: 0.5px solid white;
+
 }
 
 div#output .pointer {
@@ -308,9 +312,13 @@ textarea#prompt {
     outline: none;
     box-shadow: none;
     border-style: none;
-    border-top: 1px solid white;
 
+    background-image: linear-gradient(to right, black 50%, white 50%);
+    background-repeat: repeat-x;
+    background-size: 10px 1px;
     background-color: black;
+    background-position: top;
+
     caret-color: cyan;
     color: white;
 

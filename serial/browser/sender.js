@@ -255,7 +255,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         let inputs = localRead("inputs")
         let outputs = localRead("outputs")
-        let history = localRead("history")
+
+        history = localRead("history")
 
         baudRate = baudRate != null ? baudRate : baudRateDefault
         bufferSize = bufferSize != null ? bufferSize : bufferSizeDefault
