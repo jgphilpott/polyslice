@@ -4,6 +4,7 @@
         "forkme",
         "gcode",
         "polyslice",
+        "srcset",
         "usbserial"
     ],
     "files.exclude": {}
