@@ -1,8 +1,10 @@
 {
+    "cSpell.language": "en-US",
     "cSpell.words": [
         "forkme",
         "gcode",
         "polyslice",
         "usbserial"
-    ]
+    ],
+    "files.exclude": {}
 }
