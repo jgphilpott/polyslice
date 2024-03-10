@@ -168,6 +168,19 @@ select.control {
 
 }
 
+input#colors,
+input#emojis {
+
+    margin-right: 7px;
+
+    outline: none;
+    box-shadow: none;
+
+    border-radius: 5px;
+    border: 1px solid white;
+
+}
+
 #buffer-size.control,
 #data-bits.control,
 #stop-bits.control {
@@ -232,6 +245,12 @@ div#output p {
 
 }
 
+span.emoji {
+    line-height: 1;
+    font-size: 0.75em;
+    vertical-align: middle;
+}
+
 div#input {
 
     float: left;
@@ -258,43 +277,35 @@ div#output .pointer {
     color: magenta;
 }
 
-div#input .time,
-div#output .time {
+span.time {
     color: gray;
 }
 
-div#input .info,
-div#output .info {
-    color: aqua;
+span.info {
+    color: dodgerblue;
 }
 
-div#input .success,
-div#output .success {
-    color: lime;
-}
-
-div#input .error,
-div#output .error {
+span.error {
     color: red;
 }
 
-div#input b.x,
-div#output b.x {
+span.success {
+    color: lime;
+}
+
+b.x {
     color: #E74C3C;
 }
 
-div#input b.y,
-div#output b.y {
+b.y {
     color: #27AE60;
 }
 
-div#input b.z,
-div#output b.z {
+b.z {
     color: #3498DB;
 }
 
-div#input b.e,
-div#output b.e {
+b.e {
     color: #F1C40F;
 }
 

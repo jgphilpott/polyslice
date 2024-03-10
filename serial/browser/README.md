@@ -17,31 +17,45 @@ I failed to find what I was looking for online so I built this app as a result. 
 
 The app uses [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API) to create the connection with the [serial port](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort) and write/read data. This is currently the only method that I am aware of to create such a connection, the only drawback is that it is not supported by all browsers yet, you can view a compatibility matrix [here](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility).
 
+### Connection Settings
+
 The [connection method](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open) takes six parameters (although only one is required), you can read more about them below:
 
-### [Baud Rate](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#baudrate)
+#### [Baud Rate](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#baudrate)
 
 This is the **only mandatory argument** when making the connection. It should be a positive, non-zero integer indicating the baud rate at which serial communication should be established. I have found that `115200` is a good default for 3D printers. However, if you are having a problem connecting try looking up the recommended baud rate for your printer/firmware version.
 
-### [Buffer Size](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#buffersize)
+#### [Buffer Size](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#buffersize)
 
 An unsigned long integer indicating the size of the read and write buffers that are to be established. If not passed, defaults to `255` ... or `1024` in this application.
 
-### [Data Bits](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#databits)
+#### [Data Bits](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#databits)
 
 An integer value of `7` or `8` indicating the number of data bits per frame. If not passed, defaults to `8`.
 
-### [Stop Bits](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#stopbits)
+#### [Stop Bits](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#stopbits)
 
 An integer value of `1` or `2` indicating the number of stop bits at the end of the frame. If not passed, defaults to `1`.
 
-### [Flow Control](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#flowcontrol)
+#### [Flow Control](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#flowcontrol)
 
 The flow control type, either `'none'` or `'hardware'`. The default value is `'none'`.
 
-### [Parity](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#parity)
+#### [Parity](https://developer.mozilla.org/en-US/docs/Web/API/SerialPort/open#parity)
 
 The parity mode, either `'none'`, `'even'`, or `'odd'`. The default value is `'none'`.
+
+### Style Settings
+
+In addition to the connection settings you can also customize your UI with the following style settings:
+
+#### Colors
+
+A simple checkbox to toggle on/off the use of colors in the logs.
+
+#### Emojis
+
+A simple checkbox to toggle on/off the use of emojis in the logs.
 
 # Resources
 

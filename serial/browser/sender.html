@@ -1,10 +1,14 @@
 <!DOCTYPE html>
-<html>
+<html lang="en-US" dir="ltr">
     <head>
+
+        <meta charset="utf-8">
 
         <title>Web G-code Sender</title>
 
         <link rel="stylesheet" href="./sender.css">
+
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
         <link rel="shortcut icon" id="light-scheme-icon" href="../../imgs/favicon/black.png">
         <link rel="shortcut icon" id="dark-scheme-icon" href="../../imgs/favicon/white.png">
@@ -20,7 +24,7 @@
     </head>
     <body>
 
-        <a href="https://github.com/jgphilpott/polyslice" target="_blank">
+        <a href="https://github.com/jgphilpott/polyslice">
 
             <img title="Fork Me" id="forkme" src="../../imgs/forkme/right/orange.png">
 
@@ -30,7 +34,7 @@
 
             <div id="settings">
 
-                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md" target="_blank">
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md">
 
                     <img title="Help" id="help" src="../../imgs/icons/help.png">
 
@@ -40,19 +44,19 @@
 
                 <img title="Reset" id="reset" src="../../imgs/icons/reset.png">
 
-                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#baud-rate" target="_blank">Baud Rate</a>
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#baud-rate">Baud Rate</a>
                 <input id="baud-rate" class="control" name="Baud Rate" type="number" inputmode="numeric" step="1" min="1">
 
-                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#buffer-size" target="_blank">Buffer Size</a>
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#buffer-size">Buffer Size</a>
                 <input id="buffer-size" class="control" name="Buffer Size" type="number" inputmode="numeric" step="1" min="1">
 
-                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#data-bits" target="_blank">Data Bits</a>
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#data-bits">Data Bits</a>
                 <input id="data-bits" class="control" name="Data Bits" type="number" inputmode="numeric" step="1" min="7" max="8">
 
-                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#stop-bits" target="_blank">Stop Bits</a>
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#stop-bits">Stop Bits</a>
                 <input id="stop-bits" class="control" name="Stop Bits" type="number" inputmode="numeric" step="1" min="1" max="2">
 
-                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#flow-control" target="_blank">Flow Control</a>
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#flow-control">Flow Control</a>
                 <select id="flow-control" class="control" name="Flow Control">
 
                     <option value="none">None</option>
@@ -60,7 +64,7 @@
 
                 </select>
 
-                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#parity" target="_blank">Parity</a>
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#parity">Parity</a>
                 <select id="parity" class="control" name="Parity">
 
                     <option value="none">None</option>
@@ -68,6 +72,12 @@
                     <option value="odd">Odd</option>
 
                 </select>
+
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#colors">Colors</a>
+                <input id="colors" name="Colors" type="checkbox">
+
+                <a href="https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#emojis">Emojis</a>
+                <input id="emojis" name="Emojis" type="checkbox">
 
             </div>
 
@@ -105,8 +115,8 @@
 
             <p id="warning">
                 <b>
-                    Sorry, this browser is not compatible with <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API" target="_blank">Web Serial API</a>. Please try a different browser or upgrade to the latest version.
-                    You can view a compatibility matrix <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility" target="_blank">here</a>.
+                    Sorry, this browser is not compatible with <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API">Web Serial API</a>. Please try a different browser or upgrade to the latest version.
+                    You can view a compatibility matrix <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility">here</a>.
                 </b>
             </p>
 

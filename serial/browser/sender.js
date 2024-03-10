@@ -13,6 +13,9 @@ let stopBitsDefault = 1
 let flowControlDefault = "none"
 let parityDefault = "none"
 
+let colorsDefault = true
+let emojisDefault = true
+
 async function connect() {
 
     try {
@@ -143,6 +146,7 @@ async function read() {
 
                 let text = decoder.decode(value).replace("echo:", "").replace("\n", " ")
 
+                text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
                 text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
                 text = text.replace("busy:", "<span class='info'>Busy:</span>")
                 text = text.replace("ok", "<span class='success'>OK</span>")
@@ -209,6 +213,8 @@ async function reset() {
         $("input#stop-bits").val(stopBitsDefault)
         $("select#flow-control").val(flowControlDefault)
         $("select#parity").val(parityDefault)
+        $("input#colors").prop("checked", colorsDefault)
+        $("input#emojis").prop("checked", emojisDefault)
 
         localWrite("baudRate", baudRateDefault)
         localWrite("bufferSize", bufferSizeDefault)
@@ -216,11 +222,56 @@ async function reset() {
         localWrite("stopBits", stopBitsDefault)
         localWrite("flowControl", flowControlDefault)
         localWrite("parity", parityDefault)
+        localWrite("colors", colorsDefault)
+        localWrite("emojis", emojisDefault)
+
+        toggleStyle("colors", colorsDefault)
+        toggleStyle("emojis", emojisDefault)
 
         $("#output").empty()
         $("#input").empty()
 
     }
+
+}
+
+function toggleStyle(type, value) {
+
+    let noColors =
+
+        `<style class='no-colors'>
+            b.x,
+            b.y,
+            b.z,
+            b.e,
+            span.info,
+            span.error,
+            span.success {
+                color: white;
+            }
+        </style>`
+
+    let noEmojis =
+
+        `<style class='no-emojis'>
+            span.emoji {
+                display: none;
+            }
+        </style>`
+
+    if (value) {
+
+        if (type == "colors") $("style.no-colors").remove()
+        if (type == "emojis") $("style.no-emojis").remove()
+
+    } else {
+
+        if (type == "colors") $(noColors).appendTo("head")
+        if (type == "emojis") $(noEmojis).appendTo("head")
+
+    }
+
+    localWrite(type, value)
 
 }
 
@@ -253,6 +304,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let flowControl = localRead("flowControl")
         let parity = localRead("parity")
 
+        let colors = localRead("colors")
+        let emojis = localRead("emojis")
+
         let inputs = localRead("inputs")
         let outputs = localRead("outputs")
 
@@ -265,26 +319,13 @@ document.addEventListener("DOMContentLoaded", (event) => {
         flowControl = flowControl != null ? flowControl : flowControlDefault
         parity = parity != null ? parity : parityDefault
 
+        colors = colors != null ? colors : colorsDefault
+        emojis = emojis != null ? emojis : emojisDefault
+
         inputs = inputs != null ? inputs : []
         outputs = outputs != null ? outputs : []
+
         history = history != null ? history : []
-
-        localWrite("inputs", inputs)
-        localWrite("outputs", outputs)
-
-        inputs.forEach((input) => {
-            $("#input").append(input)
-        })
-
-        outputs.forEach((output) => {
-            $("#output").append(output)
-        })
-
-        let input = document.getElementById("input")
-        let output = document.getElementById("output")
-
-        input.scrollTop = input.scrollHeight
-        output.scrollTop = output.scrollHeight
 
         if (typeof baudRate == "number" && baudRate > 0) {
             $("input#baud-rate").val(baudRate)
@@ -334,6 +375,43 @@ document.addEventListener("DOMContentLoaded", (event) => {
             localWrite("parity", parityDefault)
         }
 
+        if (typeof colors == "boolean") {
+            $("input#colors").prop("checked", colors)
+            toggleStyle("colors", colors)
+            localWrite("colors", colors)
+        } else {
+            $("input#colors").prop("checked", colorsDefault)
+            toggleStyle("colors", colorsDefault)
+            localWrite("colors", colorsDefault)
+        }
+
+        if (typeof emojis == "boolean") {
+            $("input#emojis").prop("checked", emojis)
+            toggleStyle("emojis", emojis)
+            localWrite("emojis", emojis)
+        } else {
+            $("input#emojis").prop("checked", emojisDefault)
+            toggleStyle("emojis", emojisDefault)
+            localWrite("emojis", emojisDefault)
+        }
+
+        inputs.forEach((input) => {
+            $("#input").append(input)
+        })
+
+        outputs.forEach((output) => {
+            $("#output").append(output)
+        })
+
+        localWrite("inputs", inputs)
+        localWrite("outputs", outputs)
+
+        let input = document.getElementById("input")
+        let output = document.getElementById("output")
+
+        input.scrollTop = input.scrollHeight
+        output.scrollTop = output.scrollHeight
+
         navigator.serial.addEventListener("connect", (event) => {
             connected()
         })
@@ -375,6 +453,15 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         })
 
+        $("input#colors, input#emojis").on("change", (event) => {
+
+            let value = $(event.target).prop("checked")
+            let type = $(event.target).attr("id")
+
+            toggleStyle(type, value)
+
+        })
+
         $("textarea#prompt").on("keydown", async (event) => {
 
             let prompt = $(event.target).val().trim()
@@ -385,6 +472,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
                 event.preventDefault()
 
+                prompt = prompt.toUpperCase()
+
                 if (prompt.length) {
 
                     history.unshift(prompt)
@@ -393,7 +482,28 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
                     text.split("\n").forEach((command) => {
 
-                        if (command.length) log("input", command)
+                        if (command.length) {
+
+                            // Autohome
+                            if (command.includes("G28")) command += "<span class='emoji'> 🏠</span>" // Go home.
+
+                            // Move
+                            if (command.includes("G0")) command += "<span class='emoji'> 👣</span>" // Non-extrusion movement.
+                            if (command.includes("G1")) command += "<span class='emoji'> 👣</span>" // Extrusion movement.
+
+                            // Temperature
+                            if (command.includes("M104")) command += "<span class='emoji'> 🔥</span>" // Set nozzle temperature.
+                            if (command.includes("M109")) command += "<span class='emoji'> 🔥⏰</span>" // Wait for nozzle temperature.
+                            if (command.includes("M140")) command += "<span class='emoji'> 🔥</span>" // Set bed temperature.
+                            if (command.includes("M190")) command += "<span class='emoji'> 🔥⏰</span>" // Wait for bed temperature.
+
+                            // Fan
+                            if (command.includes("M106")) command += "<span class='emoji'> 🪭</span>" // Set fan speed.
+                            if (command.includes("M107")) command += "<span class='emoji'> 🪭🛑</span>" // Turn fan off.
+
+                            log("input", command)
+
+                        }
 
                     })
 
