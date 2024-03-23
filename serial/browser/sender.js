@@ -148,6 +148,7 @@ async function read() {
 
                 text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
                 text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
+                text = text.replace("Settings Stored", "<span class='info'>Settings Stored</span>")
                 text = text.replace("Error:", "<span class='error'>Error:</span>")
                 text = text.replace("busy:", "<span class='info'>Busy:</span>")
                 text = text.replace("ok", "<span class='success'>OK</span>")
@@ -171,6 +172,10 @@ async function read() {
 
                 if (text.includes("W:")) {
                     text += "<span class='emoji'> ⏰</span>"
+                }
+
+                if (text.includes("Settings Stored")) {
+                    text += "<span class='emoji'> 💾</span>"
                 }
 
                 if (text.includes("kill")) {
@@ -533,6 +538,11 @@ document.addEventListener("DOMContentLoaded", (event) => {
                             // Reports
                             if (command.includes("M114")) command += "<span class='emoji'> 📌</span>" // Report Current Position.
                             if (command.includes("M105")) command += "<span class='emoji'> 🌡️</span>" // Report Current Temperatures.
+
+                            // Settings
+                            if (command.includes("M500")) command += "<span class='emoji'> 💾</span>" // Save Settings.
+                            if (command.includes("M501")) command += "<span class='emoji'> 📂</span>" // Load Settings.
+                            if (command.includes("M502")) command += "<span class='emoji'> 🔄</span>" // Reset Settings.
 
                             // Shutdown
                             if (command.includes("M112")) command += "<span class='emoji'> 🛑</span>" // Full Shutdown.
