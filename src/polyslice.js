@@ -3,6 +3,7 @@ var Polyslice;
 
 Polyslice = class Polyslice {
   constructor(options = {}) {
+    this.gcode = "";
     this.newline = "\n";
     this.autohome = options.autohome != null ? options.autohome : options.autohome = true; // Boolean
   }
@@ -16,13 +17,44 @@ Polyslice = class Polyslice {
     return this;
   }
 
-  slice(target = {}) {
+  codeAutohome() {
+    return "G28" + this.newline;
+  }
+
+  // https://marlinfw.org/docs/gcode/G000-G001.html
+  codeLinearMove(x = null, y = null, z = null, e = null, f = null, s = null) {
     var gcode;
-    gcode = "";
-    if (this.autohome) {
-      gcode += "G28" + this.newline;
+    if (e === null) {
+      gcode = "G0";
+    } else {
+      gcode = "G1";
     }
-    return gcode;
+    if (x !== null && typeof x === "number") {
+      gcode += " X" + x;
+    }
+    if (y !== null && typeof y === "number") {
+      gcode += " Y" + y;
+    }
+    if (z !== null && typeof z === "number") {
+      gcode += " Z" + z;
+    }
+    if (e !== null && typeof e === "number") {
+      gcode += " E" + e;
+    }
+    if (f !== null && typeof f === "number") {
+      gcode += " F" + f;
+    }
+    if (s !== null && typeof s === "number") {
+      gcode += " S" + s;
+    }
+    return gcode + this.newline;
+  }
+
+  slice(target = {}) {
+    if (this.getAutohome()) {
+      this.gcode += this.codeAutohome();
+    }
+    return this.gcode;
   }
 
 };
