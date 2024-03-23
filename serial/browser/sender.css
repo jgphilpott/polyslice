@@ -309,6 +309,18 @@ b.e {
     color: #F1C40F;
 }
 
+b.t {
+    color: #B5A642; /* Brass */
+}
+
+b.b {
+    color: #B5A642; /* Brass */
+}
+
+b.w {
+    color: gray;
+}
+
 textarea#prompt {
 
     width: 100%;

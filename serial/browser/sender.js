@@ -148,6 +148,7 @@ async function read() {
 
                 text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
                 text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
+                text = text.replace("Error:", "<span class='error'>Error:</span>")
                 text = text.replace("busy:", "<span class='info'>Busy:</span>")
                 text = text.replace("ok", "<span class='success'>OK</span>")
 
@@ -155,6 +156,26 @@ async function read() {
                 text = text.replace("Y:", "<b class='y'>Y:</b> ")
                 text = text.replace("Z:", "<b class='z'>Z:</b> ")
                 text = text.replace("E:", "<b class='e'>E:</b> ")
+
+                text = text.replace("T:", "<b class='t'>T:</b> ")
+                text = text.replace("B:", "<b class='b'>B:</b> ")
+                text = text.replace("W:", "<b class='w'>W:</b> ")
+
+                if (text.includes("X:") && text.includes("Y:") && text.includes("Z:") && text.includes("E:")) {
+                    text += "<span class='emoji'> 📌</span>"
+                }
+
+                if (text.includes("T:") && text.includes("B:")) {
+                    text += "<span class='emoji'> 🌡️</span>"
+                }
+
+                if (text.includes("W:")) {
+                    text += "<span class='emoji'> ⏰</span>"
+                }
+
+                if (text.includes("kill")) {
+                    text += "<span class='emoji'> 💀</span>"
+                }
 
                 log("output", text)
 
@@ -497,9 +518,24 @@ document.addEventListener("DOMContentLoaded", (event) => {
                             if (command.includes("M140")) command += "<span class='emoji'> 🔥</span>" // Set bed temperature.
                             if (command.includes("M190")) command += "<span class='emoji'> 🔥⏰</span>" // Wait for bed temperature.
 
+                            // Measurement
+                            if (command.includes("G20")) command += "<span class='emoji'> 📏</span>" // Set length units to inches.
+                            if (command.includes("G21")) command += "<span class='emoji'> 📏</span>" // Set length units to millimeters.
+                            if (command.includes("M149")) command += "<span class='emoji'> 📏🌡️</span>" // Set temperature units to celsius [C], fahrenheit [F] or kelvin [K].
+
                             // Fan
                             if (command.includes("M106")) command += "<span class='emoji'> 🪭</span>" // Set fan speed.
-                            if (command.includes("M107")) command += "<span class='emoji'> 🪭🛑</span>" // Turn fan off.
+                            if (command.includes("M107")) command += "<span class='emoji'> 🪭🚫</span>" // Turn fan off.
+
+                            // Sound
+                            if (command.includes("M300")) command += "<span class='emoji'> 🔊</span>" // Play Sound.
+
+                            // Reports
+                            if (command.includes("M114")) command += "<span class='emoji'> 📌</span>" // Report Current Position.
+                            if (command.includes("M105")) command += "<span class='emoji'> 🌡️</span>" // Report Current Temperatures.
+
+                            // Shutdown
+                            if (command.includes("M112")) command += "<span class='emoji'> 🛑</span>" // Full Shutdown.
 
                             log("input", command)
 
