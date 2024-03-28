@@ -6,10 +6,15 @@ Polyslice = class Polyslice {
     this.gcode = "";
     this.newline = "\n";
     this.autohome = options.autohome != null ? options.autohome : options.autohome = true; // Boolean
+    this.workspacePlane = options.workspacePlane != null ? options.workspacePlane : options.workspacePlane = "XY"; // String ['XY', 'XZ', 'YZ']
   }
 
   getAutohome() {
     return this.autohome;
+  }
+
+  getWorkspacePlane() {
+    return this.workspacePlane;
   }
 
   setAutohome(autohome = true) {
@@ -17,18 +22,32 @@ Polyslice = class Polyslice {
     return this;
   }
 
+  setWorkspacePlane(plane = "XY") {
+    if (["XY", "XZ", "YZ"].includes(plane)) {
+      this.workspacePlane = String(plane);
+    }
+    return this;
+  }
+
   codeAutohome() {
     return "G28" + this.newline;
   }
 
-  // https://marlinfw.org/docs/gcode/G000-G001.html
-  codeLinearMove(x = null, y = null, z = null, e = null, f = null, s = null) {
-    var gcode;
-    if (e === null) {
-      gcode = "G0";
-    } else {
-      gcode = "G1";
+  codeWorkspacePlane() {
+    if (this.getWorkspacePlane() === "XY") {
+      return "G17" + this.newline;
     }
+    if (this.getWorkspacePlane() === "XZ") {
+      return "G18" + this.newline;
+    }
+    if (this.getWorkspacePlane() === "YZ") {
+      return "G19" + this.newline;
+    }
+  }
+
+  codeMovement(x = null, y = null, z = null, e = null, f = null, s = null) {
+    var gcode;
+    gcode = "";
     if (x !== null && typeof x === "number") {
       gcode += " X" + x;
     }
@@ -47,10 +66,55 @@ Polyslice = class Polyslice {
     if (s !== null && typeof s === "number") {
       gcode += " S" + s;
     }
+    return gcode;
+  }
+
+  // https://marlinfw.org/docs/gcode/G000-G001.html
+  codeLinearMovement(x = null, y = null, z = null, e = null, f = null, s = null) {
+    var gcode;
+    if (e === null) {
+      gcode = "G0";
+    } else {
+      gcode = "G1";
+    }
+    gcode += this.codeMovement(x, y, z, e, f, s);
     return gcode + this.newline;
   }
 
-  slice(target = {}) {
+  // https://marlinfw.org/docs/gcode/G002-G003.html
+  codeArcMovement(direction = "clockwise", x = null, y = null, z = null, e = null, f = null, s = null, i = null, j = null, r = null, p = null) {
+    var gcode;
+    if (direction === "clockwise") {
+      gcode = "G2";
+    } else {
+      gcode = "G3";
+    }
+    if ((i !== null || j !== null) && r === null) {
+      gcode += this.codeMovement(x, y, z, e, f, s);
+      if (i !== null && typeof i === "number") {
+        gcode += " I" + i;
+      }
+      if (j !== null && typeof j === "number") {
+        gcode += " J" + j;
+      }
+      if (p !== null && typeof p === "number") {
+        gcode += " P" + p;
+      }
+    } else if (i === null && j === null && r !== null && x !== null && y !== null) {
+      gcode += this.codeMovement(x, y, z, e, f, s);
+      if (r !== null && typeof r === "number") {
+        gcode += " R" + r;
+      }
+      if (p !== null && typeof p === "number") {
+        gcode += " P" + p;
+      }
+    } else {
+      console.error("Invalid Arc Movement Parameters");
+    }
+    return gcode + this.newline;
+  }
+
+  slice(scene = {}) {
     if (this.getAutohome()) {
       this.gcode += this.codeAutohome();
     }

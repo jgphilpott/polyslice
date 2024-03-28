@@ -510,42 +510,46 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
                         if (command.length) {
 
+                            command += " "
+
                             // Autohome
-                            if (command.includes("G28")) command += "<span class='emoji'> 🏠</span>" // Go home.
+                            if (command.includes("G28 ")) command += "<span class='emoji'>🏠</span>" // Go home.
 
                             // Move
-                            if (command.includes("G0")) command += "<span class='emoji'> 👣</span>" // Non-extrusion movement.
-                            if (command.includes("G1")) command += "<span class='emoji'> 👣</span>" // Extrusion movement.
+                            if (command.includes("G0 ")) command += "<span class='emoji'>👣 ➜</span>" // Non-extrusion movement.
+                            if (command.includes("G1 ")) command += "<span class='emoji'>👣 ➜</span>" // Extrusion movement.
+                            if (command.includes("G2 ")) command += "<span class='emoji'>👣 ⤵</span>" // Clockwise arc movement.
+                            if (command.includes("G3 ")) command += "<span class='emoji'>👣 ⤴</span>" // Counter clockwise arc movement.
 
                             // Temperature
-                            if (command.includes("M104")) command += "<span class='emoji'> 🔥</span>" // Set nozzle temperature.
-                            if (command.includes("M109")) command += "<span class='emoji'> 🔥⏰</span>" // Wait for nozzle temperature.
-                            if (command.includes("M140")) command += "<span class='emoji'> 🔥</span>" // Set bed temperature.
-                            if (command.includes("M190")) command += "<span class='emoji'> 🔥⏰</span>" // Wait for bed temperature.
+                            if (command.includes("M104 ")) command += "<span class='emoji'>🔥</span>" // Set nozzle temperature.
+                            if (command.includes("M109 ")) command += "<span class='emoji'>🔥⏰</span>" // Wait for nozzle temperature.
+                            if (command.includes("M140 ")) command += "<span class='emoji'>🔥</span>" // Set bed temperature.
+                            if (command.includes("M190 ")) command += "<span class='emoji'>🔥⏰</span>" // Wait for bed temperature.
 
                             // Measurement
-                            if (command.includes("G20")) command += "<span class='emoji'> 📏</span>" // Set length units to inches.
-                            if (command.includes("G21")) command += "<span class='emoji'> 📏</span>" // Set length units to millimeters.
-                            if (command.includes("M149")) command += "<span class='emoji'> 📏🌡️</span>" // Set temperature units to celsius [C], fahrenheit [F] or kelvin [K].
+                            if (command.includes("G20 ")) command += "<span class='emoji'>📏</span>" // Set length units to inches.
+                            if (command.includes("G21 ")) command += "<span class='emoji'>📏</span>" // Set length units to millimeters.
+                            if (command.includes("M149 ")) command += "<span class='emoji'>📏🌡️</span>" // Set temperature units to celsius [C], fahrenheit [F] or kelvin [K].
 
                             // Fan
-                            if (command.includes("M106")) command += "<span class='emoji'> 🪭</span>" // Set fan speed.
-                            if (command.includes("M107")) command += "<span class='emoji'> 🪭🚫</span>" // Turn fan off.
+                            if (command.includes("M106 ")) command += "<span class='emoji'>🪭</span>" // Set fan speed.
+                            if (command.includes("M107 ")) command += "<span class='emoji'>🪭🚫</span>" // Turn fan off.
 
                             // Sound
-                            if (command.includes("M300")) command += "<span class='emoji'> 🔊</span>" // Play Sound.
+                            if (command.includes("M300 ")) command += "<span class='emoji'>🔊</span>" // Play Sound.
 
                             // Reports
-                            if (command.includes("M114")) command += "<span class='emoji'> 📌</span>" // Report Current Position.
-                            if (command.includes("M105")) command += "<span class='emoji'> 🌡️</span>" // Report Current Temperatures.
+                            if (command.includes("M114 ")) command += "<span class='emoji'>📌</span>" // Report Current Position.
+                            if (command.includes("M105 ")) command += "<span class='emoji'>🌡️</span>" // Report Current Temperatures.
 
                             // Settings
-                            if (command.includes("M500")) command += "<span class='emoji'> 💾</span>" // Save Settings.
-                            if (command.includes("M501")) command += "<span class='emoji'> 📂</span>" // Load Settings.
-                            if (command.includes("M502")) command += "<span class='emoji'> 🔄</span>" // Reset Settings.
+                            if (command.includes("M500 ")) command += "<span class='emoji'>💾</span>" // Save Settings.
+                            if (command.includes("M501 ")) command += "<span class='emoji'>📂</span>" // Load Settings.
+                            if (command.includes("M502 ")) command += "<span class='emoji'>🔄</span>" // Reset Settings.
 
                             // Shutdown
-                            if (command.includes("M112")) command += "<span class='emoji'> 🛑</span>" // Full Shutdown.
+                            if (command.includes("M112 ")) command += "<span class='emoji'>🛑</span>" // Full Shutdown.
 
                             log("input", command)
 
