@@ -168,9 +168,19 @@ select.control {
 
 }
 
+input.control {
+    cursor: text;
+}
+
+select.control {
+    cursor: pointer;
+}
+
 input#timestamps,
 input#colors,
 input#emojis {
+
+    cursor: pointer;
 
     margin-right: 5px;
 
