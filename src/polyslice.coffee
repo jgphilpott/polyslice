@@ -24,7 +24,9 @@ class Polyslice
 
     setWorkspacePlane: (plane = "XY") ->
 
-        if ["XY", "XZ", "YZ"].includes(plane)
+        plane = plane.toUpperCase().trim()
+
+        if ["XY", "XZ", "YZ"].includes plane
 
             this.workspacePlane = String plane
 
@@ -81,13 +83,7 @@ class Polyslice
     # https://marlinfw.org/docs/gcode/G000-G001.html
     codeLinearMovement: (x = null, y = null, z = null, e = null, f = null, s = null) ->
 
-        if e is null
-
-            gcode = "G0"
-
-        else
-
-            gcode = "G1"
+        if e is null then gcode = "G0" else gcode = "G1"
 
         gcode += this.codeMovement x, y, z, e, f, s
 
@@ -96,13 +92,7 @@ class Polyslice
     # https://marlinfw.org/docs/gcode/G002-G003.html
     codeArcMovement: (direction = "clockwise", x = null, y = null, z = null, e = null, f = null, s = null, i = null, j = null, r = null, p = null) ->
 
-        if direction is "clockwise"
-
-            gcode = "G2"
-
-        else
-
-            gcode = "G3"
+        if direction is "clockwise" then gcode = "G2" else gcode = "G3"
 
         if (i isnt null or j isnt null) and r is null
 
@@ -137,6 +127,37 @@ class Polyslice
             console.error "Invalid Arc Movement Parameters"
 
         return gcode + this.newline
+
+    # https://marlinfw.org/docs/gcode/G004.html
+    # https://marlinfw.org/docs/gcode/M000-M001.html
+    codeDwell: (time = null, interruptible = true, message = "") ->
+
+        if interruptible then gcode = "M0" else gcode = "G4"
+
+        if time isnt null and typeof time is "number" and time > 0
+
+            gcode += " P" + time
+
+        if message and typeof message is "string"
+
+            gcode += " " + message
+
+        return gcode + this.newline
+
+    # https://marlinfw.org/docs/gcode/M108.html
+    codeInterrupt: ->
+
+        return "M108" + this.newline
+
+    # https://marlinfw.org/docs/gcode/M400.html
+    codeWait: ->
+
+        return "M400" + this.newline
+
+    # https://marlinfw.org/docs/gcode/M112.html
+    codeShutdown: ->
+
+        return "M112" + this.newline
 
     slice: (scene = {}) ->
 

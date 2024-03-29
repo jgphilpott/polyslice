@@ -23,6 +23,7 @@ Polyslice = class Polyslice {
   }
 
   setWorkspacePlane(plane = "XY") {
+    plane = plane.toUpperCase().trim();
     if (["XY", "XZ", "YZ"].includes(plane)) {
       this.workspacePlane = String(plane);
     }
@@ -112,6 +113,39 @@ Polyslice = class Polyslice {
       console.error("Invalid Arc Movement Parameters");
     }
     return gcode + this.newline;
+  }
+
+  // https://marlinfw.org/docs/gcode/G004.html
+  // https://marlinfw.org/docs/gcode/M000-M001.html
+  codeDwell(time = null, interruptible = true, message = "") {
+    var gcode;
+    if (interruptible) {
+      gcode = "M0";
+    } else {
+      gcode = "G4";
+    }
+    if (time !== null && typeof time === "number" && time > 0) {
+      gcode += " P" + time;
+    }
+    if (message && typeof message === "string") {
+      gcode += " " + message;
+    }
+    return gcode + this.newline;
+  }
+
+  // https://marlinfw.org/docs/gcode/M108.html
+  codeInterrupt() {
+    return "M108" + this.newline;
+  }
+
+  // https://marlinfw.org/docs/gcode/M400.html
+  codeWait() {
+    return "M400" + this.newline;
+  }
+
+  // https://marlinfw.org/docs/gcode/M112.html
+  codeShutdown() {
+    return "M112" + this.newline;
   }
 
   slice(scene = {}) {

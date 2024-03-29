@@ -532,6 +532,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
                             if (command.includes("G21 ")) command += "<span class='emoji'>📏</span>" // Set length units to millimeters.
                             if (command.includes("M149 ")) command += "<span class='emoji'>📏🌡️</span>" // Set temperature units to celsius [C], fahrenheit [F] or kelvin [K].
 
+                            // Pause/Wait
+                            if (command.includes("G4 ")) command += "<span class='emoji'>⏲️</span>" // Uninterruptible pause command.
+                            if (command.includes("M0 ")) command += "<span class='emoji'>⏰</span>" // Interruptible pause command.
+                            if (command.includes("M1 ")) command += "<span class='emoji'>⏰</span>" // Interruptible pause command.
+                            if (command.includes("M400 ")) command += "<span class='emoji'>💤</span>" // Wait for queue to finish.
+
                             // Fan
                             if (command.includes("M106 ")) command += "<span class='emoji'>🪭</span>" // Set fan speed.
                             if (command.includes("M107 ")) command += "<span class='emoji'>🪭🚫</span>" // Turn fan off.
