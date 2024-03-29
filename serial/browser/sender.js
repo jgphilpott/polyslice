@@ -13,6 +13,7 @@ let stopBitsDefault = 1
 let flowControlDefault = "none"
 let parityDefault = "none"
 
+let timestampsDefault = true
 let colorsDefault = true
 let emojisDefault = true
 
@@ -239,6 +240,7 @@ async function reset() {
         $("input#stop-bits").val(stopBitsDefault)
         $("select#flow-control").val(flowControlDefault)
         $("select#parity").val(parityDefault)
+        $("input#timestamps").prop("checked", timestampsDefault)
         $("input#colors").prop("checked", colorsDefault)
         $("input#emojis").prop("checked", emojisDefault)
 
@@ -248,9 +250,11 @@ async function reset() {
         localWrite("stopBits", stopBitsDefault)
         localWrite("flowControl", flowControlDefault)
         localWrite("parity", parityDefault)
+        localWrite("timestamps", timestampsDefault)
         localWrite("colors", colorsDefault)
         localWrite("emojis", emojisDefault)
 
+        toggleStyle("timestamps", timestampsDefault)
         toggleStyle("colors", colorsDefault)
         toggleStyle("emojis", emojisDefault)
 
@@ -263,6 +267,14 @@ async function reset() {
 
 function toggleStyle(type, value) {
 
+    let noTimestamps =
+
+        `<style class='no-timestamps'>
+            span.time {
+                display: none;
+            }
+        </style>`
+
     let noColors =
 
         `<style class='no-colors'>
@@ -270,6 +282,9 @@ function toggleStyle(type, value) {
             b.y,
             b.z,
             b.e,
+            b.t,
+            b.b,
+            b.w,
             span.info,
             span.error,
             span.success {
@@ -287,11 +302,13 @@ function toggleStyle(type, value) {
 
     if (value) {
 
+        if (type == "timestamps") $("style.no-timestamps").remove()
         if (type == "colors") $("style.no-colors").remove()
         if (type == "emojis") $("style.no-emojis").remove()
 
     } else {
 
+        if (type == "timestamps") $(noTimestamps).appendTo("head")
         if (type == "colors") $(noColors).appendTo("head")
         if (type == "emojis") $(noEmojis).appendTo("head")
 
@@ -330,6 +347,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
         let flowControl = localRead("flowControl")
         let parity = localRead("parity")
 
+        let timestamps = localRead("timestamps")
         let colors = localRead("colors")
         let emojis = localRead("emojis")
 
@@ -345,6 +363,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
         flowControl = flowControl != null ? flowControl : flowControlDefault
         parity = parity != null ? parity : parityDefault
 
+        timestamps = timestamps != null ? timestamps : timestampsDefault
         colors = colors != null ? colors : colorsDefault
         emojis = emojis != null ? emojis : emojisDefault
 
@@ -399,6 +418,16 @@ document.addEventListener("DOMContentLoaded", (event) => {
         } else {
             $("select#parity").val(parityDefault)
             localWrite("parity", parityDefault)
+        }
+
+        if (typeof timestamps == "boolean") {
+            $("input#timestamps").prop("checked", timestamps)
+            toggleStyle("timestamps", timestamps)
+            localWrite("timestamps", timestamps)
+        } else {
+            $("input#timestamps").prop("checked", timestampsDefault)
+            toggleStyle("timestamps", timestampsDefault)
+            localWrite("timestamps", timestampsDefault)
         }
 
         if (typeof colors == "boolean") {
@@ -479,7 +508,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         })
 
-        $("input#colors, input#emojis").on("change", (event) => {
+        $("input#timestamps, input#colors, input#emojis").on("change", (event) => {
 
             let value = $(event.target).prop("checked")
             let type = $(event.target).attr("id")
@@ -554,7 +583,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
                             if (command.includes("M501 ")) command += "<span class='emoji'>📂</span>" // Load Settings.
                             if (command.includes("M502 ")) command += "<span class='emoji'>🔄</span>" // Reset Settings.
 
-                            // Shutdown
+                            // Interrupt/Shutdown
+                            if (command.includes("M108 ")) command += "<span class='emoji'>⛔</span>" // Interrupt command.
                             if (command.includes("M112 ")) command += "<span class='emoji'>🛑</span>" // Full Shutdown.
 
                             log("input", command)

@@ -49,6 +49,10 @@ The parity mode, either `'none'`, `'even'`, or `'odd'`. The default value is `'n
 
 In addition to the connection settings you can also customize your UI with the following style settings:
 
+#### Timestamps
+
+A simple checkbox to toggle on/off the use of timestamps in the logs.
+
 #### Colors
 
 A simple checkbox to toggle on/off the use of colors in the logs.
