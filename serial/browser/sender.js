@@ -549,6 +549,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
                             if (command.includes("G1 ")) command += "<span class='emoji'>👣 ➜</span>" // Extrusion movement.
                             if (command.includes("G2 ")) command += "<span class='emoji'>👣 ⤵</span>" // Clockwise arc movement.
                             if (command.includes("G3 ")) command += "<span class='emoji'>👣 ⤴</span>" // Counter clockwise arc movement.
+                            if (command.includes("G5 ")) command += "<span class='emoji'>👣 ∿</span>" // Bézier curve movement.
 
                             // Temperature
                             if (command.includes("M104 ")) command += "<span class='emoji'>🔥</span>" // Set nozzle temperature.

@@ -30,10 +30,32 @@ Polyslice = class Polyslice {
     return this;
   }
 
-  codeAutohome() {
-    return "G28" + this.newline;
+  // https://marlinfw.org/docs/gcode/G028.html
+  codeAutohome(x = null, y = null, z = null, o = null, r = null, l = null) {
+    var gcode;
+    gcode = "G28";
+    if (x) {
+      gcode += " X";
+    }
+    if (y) {
+      gcode += " Y";
+    }
+    if (z) {
+      gcode += " Z";
+    }
+    if (o) {
+      gcode += " O";
+    }
+    if (l) {
+      gcode += " L";
+    }
+    if (typeof r === "number") {
+      gcode += " R" + r;
+    }
+    return gcode + this.newline;
   }
 
+  // https://marlinfw.org/docs/gcode/G017-G019.html
   codeWorkspacePlane() {
     if (this.getWorkspacePlane() === "XY") {
       return "G17" + this.newline;

@@ -32,10 +32,23 @@ class Polyslice
 
         return this
 
-    codeAutohome: ->
+    # https://marlinfw.org/docs/gcode/G028.html
+    codeAutohome: (x = null, y = null, z = null, o = null, r = null, l = null) ->
 
-        return "G28" + this.newline
+        gcode = "G28"
 
+        if x then gcode += " X"
+        if y then gcode += " Y"
+        if z then gcode += " Z"
+
+        if o then gcode += " O"
+        if l then gcode += " L"
+
+        if typeof r is "number" then gcode += " R" + r
+
+        return gcode + this.newline
+
+    # https://marlinfw.org/docs/gcode/G017-G019.html
     codeWorkspacePlane: ->
 
         if this.getWorkspacePlane() is "XY"
