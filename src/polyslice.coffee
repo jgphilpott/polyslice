@@ -54,27 +54,27 @@ class Polyslice
 
         gcode = ""
 
-        if x isnt null and typeof x is "number"
+        if typeof x is "number"
 
             gcode += " X" + x
 
-        if y isnt null and typeof y is "number"
+        if typeof y is "number"
 
             gcode += " Y" + y
 
-        if z isnt null and typeof z is "number"
+        if typeof z is "number"
 
             gcode += " Z" + z
 
-        if e isnt null and typeof e is "number"
+        if typeof e is "number"
 
             gcode += " E" + e
 
-        if f isnt null and typeof f is "number"
+        if typeof f is "number"
 
             gcode += " F" + f
 
-        if s isnt null and typeof s is "number"
+        if typeof s is "number"
 
             gcode += " S" + s
 
@@ -98,15 +98,15 @@ class Polyslice
 
             gcode += this.codeMovement x, y, z, e, f, s
 
-            if i isnt null and typeof i is "number"
+            if typeof i is "number"
 
                 gcode += " I" + i
 
-            if j isnt null and typeof j is "number"
+            if typeof j is "number"
 
                 gcode += " J" + j
 
-            if p isnt null and typeof p is "number"
+            if typeof p is "number"
 
                 gcode += " P" + p
 
@@ -114,11 +114,11 @@ class Polyslice
 
             gcode += this.codeMovement x, y, z, e, f, s
 
-            if r isnt null and typeof r is "number"
+            if typeof r is "number"
 
                 gcode += " R" + r
 
-            if p isnt null and typeof p is "number"
+            if typeof p is "number"
 
                 gcode += " P" + p
 
@@ -128,13 +128,54 @@ class Polyslice
 
         return gcode + this.newline
 
+    # https://marlinfw.org/docs/gcode/G005.html
+    codeBézierMovement: (controlPoints = []) ->
+
+        gcode = ""
+
+        for controlPoint, index in controlPoints
+
+            if typeof controlPoint.p is "number" and typeof controlPoint.q is "number"
+
+                if index is 0 and (typeof controlPoint.i isnt "number" or typeof controlPoint.j isnt "number")
+
+                    console.error "Invalid Bézier Movement Parameters"
+
+                else
+
+                    gcode += "G5"
+
+                    x = controlPoint.x
+                    y = controlPoint.y
+                    e = controlPoint.e
+                    f = controlPoint.f
+                    s = controlPoint.s
+
+                    gcode += this.codeMovement x, y, null, e, f, s
+
+                    if typeof controlPoint.i is "number" and typeof controlPoint.j is "number"
+
+                        gcode += " I" + controlPoint.i
+                        gcode += " J" + controlPoint.j
+
+                    gcode += " P" + controlPoint.p
+                    gcode += " Q" + controlPoint.q
+
+                    gcode += this.newline
+
+            else
+
+                console.error "Invalid Bézier Movement Parameters"
+
+        return gcode
+
     # https://marlinfw.org/docs/gcode/G004.html
     # https://marlinfw.org/docs/gcode/M000-M001.html
     codeDwell: (time = null, interruptible = true, message = "") ->
 
         if interruptible then gcode = "M0" else gcode = "G4"
 
-        if time isnt null and typeof time is "number" and time > 0
+        if typeof time is "number" and time > 0
 
             gcode += " P" + time
 

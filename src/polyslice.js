@@ -49,22 +49,22 @@ Polyslice = class Polyslice {
   codeMovement(x = null, y = null, z = null, e = null, f = null, s = null) {
     var gcode;
     gcode = "";
-    if (x !== null && typeof x === "number") {
+    if (typeof x === "number") {
       gcode += " X" + x;
     }
-    if (y !== null && typeof y === "number") {
+    if (typeof y === "number") {
       gcode += " Y" + y;
     }
-    if (z !== null && typeof z === "number") {
+    if (typeof z === "number") {
       gcode += " Z" + z;
     }
-    if (e !== null && typeof e === "number") {
+    if (typeof e === "number") {
       gcode += " E" + e;
     }
-    if (f !== null && typeof f === "number") {
+    if (typeof f === "number") {
       gcode += " F" + f;
     }
-    if (s !== null && typeof s === "number") {
+    if (typeof s === "number") {
       gcode += " S" + s;
     }
     return gcode;
@@ -92,27 +92,59 @@ Polyslice = class Polyslice {
     }
     if ((i !== null || j !== null) && r === null) {
       gcode += this.codeMovement(x, y, z, e, f, s);
-      if (i !== null && typeof i === "number") {
+      if (typeof i === "number") {
         gcode += " I" + i;
       }
-      if (j !== null && typeof j === "number") {
+      if (typeof j === "number") {
         gcode += " J" + j;
       }
-      if (p !== null && typeof p === "number") {
+      if (typeof p === "number") {
         gcode += " P" + p;
       }
     } else if (i === null && j === null && r !== null && x !== null && y !== null) {
       gcode += this.codeMovement(x, y, z, e, f, s);
-      if (r !== null && typeof r === "number") {
+      if (typeof r === "number") {
         gcode += " R" + r;
       }
-      if (p !== null && typeof p === "number") {
+      if (typeof p === "number") {
         gcode += " P" + p;
       }
     } else {
       console.error("Invalid Arc Movement Parameters");
     }
     return gcode + this.newline;
+  }
+
+  // https://marlinfw.org/docs/gcode/G005.html
+  codeBézierMovement(controlPoints = []) {
+    var controlPoint, e, f, gcode, index, k, len, s, x, y;
+    gcode = "";
+    for (index = k = 0, len = controlPoints.length; k < len; index = ++k) {
+      controlPoint = controlPoints[index];
+      if (typeof controlPoint.p === "number" && typeof controlPoint.q === "number") {
+        if (index === 0 && (typeof controlPoint.i !== "number" || typeof controlPoint.j !== "number")) {
+          console.error("Invalid Bézier Movement Parameters");
+        } else {
+          gcode += "G5";
+          x = controlPoint.x;
+          y = controlPoint.y;
+          e = controlPoint.e;
+          f = controlPoint.f;
+          s = controlPoint.s;
+          gcode += this.codeMovement(x, y, null, e, f, s);
+          if (typeof controlPoint.i === "number" && typeof controlPoint.j === "number") {
+            gcode += " I" + controlPoint.i;
+            gcode += " J" + controlPoint.j;
+          }
+          gcode += " P" + controlPoint.p;
+          gcode += " Q" + controlPoint.q;
+          gcode += this.newline;
+        }
+      } else {
+        console.error("Invalid Bézier Movement Parameters");
+      }
+    }
+    return gcode;
   }
 
   // https://marlinfw.org/docs/gcode/G004.html
@@ -124,7 +156,7 @@ Polyslice = class Polyslice {
     } else {
       gcode = "G4";
     }
-    if (time !== null && typeof time === "number" && time > 0) {
+    if (typeof time === "number" && time > 0) {
       gcode += " P" + time;
     }
     if (message && typeof message === "string") {
