@@ -438,6 +438,25 @@ class Polyslice
 
         return "M400" + this.newline
 
+    # https://marlinfw.org/docs/gcode/M300.html
+    codeTone: (duration, frequency) ->
+
+        gcode = "M300"
+
+        if typeof duration is "number" and duration > 0
+
+            if this.getTimeUnit() is "seconds"
+
+                duration *= 1000
+
+            gcode += " P" + duration
+
+        if typeof frequency is "number" and frequency > 0
+
+            gcode += " S" + frequency
+
+        return gcode + this.newline
+
     # https://marlinfw.org/docs/gcode/M117.html
     # https://marlinfw.org/docs/gcode/M118.html
     codeMessage: (message = "") ->

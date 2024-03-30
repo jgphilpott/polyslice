@@ -390,6 +390,22 @@ Polyslice = class Polyslice {
     return "M400" + this.newline;
   }
 
+  // https://marlinfw.org/docs/gcode/M300.html
+  codeTone(duration, frequency) {
+    var gcode;
+    gcode = "M300";
+    if (typeof duration === "number" && duration > 0) {
+      if (this.getTimeUnit() === "seconds") {
+        duration *= 1000;
+      }
+      gcode += " P" + duration;
+    }
+    if (typeof frequency === "number" && frequency > 0) {
+      gcode += " S" + frequency;
+    }
+    return gcode + this.newline;
+  }
+
   // https://marlinfw.org/docs/gcode/M117.html
   // https://marlinfw.org/docs/gcode/M118.html
   codeMessage(message = "") {
