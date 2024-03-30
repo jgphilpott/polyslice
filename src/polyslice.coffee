@@ -8,6 +8,10 @@ class Polyslice
         @autohome = options.autohome ?= true # Boolean
         @workspacePlane = options.workspacePlane ?= "XY" # String ['XY', 'XZ', 'YZ']
 
+        @timeUnit = options.timeUnit ?= "milliseconds" # String ['milliseconds', 'seconds']
+        @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches']
+        @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin']
+
     getAutohome: ->
 
         return this.autohome
@@ -15,6 +19,18 @@ class Polyslice
     getWorkspacePlane: ->
 
         return this.workspacePlane
+
+    getTimeUnit: ->
+
+        return this.timeUnit
+
+    getLengthUnit: ->
+
+        return this.lengthUnit
+
+    getTemperatureUnit: ->
+
+        return this.temperatureUnit
 
     setAutohome: (autohome = true) ->
 
@@ -29,6 +45,36 @@ class Polyslice
         if ["XY", "XZ", "YZ"].includes plane
 
             this.workspacePlane = String plane
+
+        return this
+
+    setTimeUnit: (unit = "milliseconds") ->
+
+        unit = unit.toLowerCase().trim()
+
+        if ["milliseconds", "seconds"].includes unit
+
+            this.timeUnit = String unit
+
+        return this
+
+    setLengthUnit: (unit = "millimeters") ->
+
+        unit = unit.toLowerCase().trim()
+
+        if ["millimeters", "inches"].includes unit
+
+            this.lengthUnit = String unit
+
+        return this
+
+    setTemperatureUnit: (unit = "celsius") ->
+
+        unit = unit.toLowerCase().trim()
+
+        if ["celsius", "fahrenheit", "kelvin"].includes unit
+
+            this.temperatureUnit = String unit
 
         return this
 
@@ -62,6 +108,33 @@ class Polyslice
         if this.getWorkspacePlane() is "YZ"
 
             return "G19" + this.newline
+
+    # https://marlinfw.org/docs/gcode/G021.html
+    # https://marlinfw.org/docs/gcode/G020.html
+    codeLengthUnit: ->
+
+        if this.getLengthUnit() is "millimeters"
+
+            return "G21" + this.newline
+
+        if this.getLengthUnit() is "inches"
+
+            return "G20" + this.newline
+
+    # https://marlinfw.org/docs/gcode/M149.html
+    codeTemperatureUnit: ->
+
+        if this.getTemperatureUnit() is "celsius"
+
+            return "M149 C" + this.newline
+
+        if this.getTemperatureUnit() is "fahrenheit"
+
+            return "M149 F" + this.newline
+
+        if this.getTemperatureUnit() is "kelvin"
+
+            return "M149 K" + this.newline
 
     codeMovement: (x = null, y = null, z = null, e = null, f = null, s = null) ->
 
@@ -190,7 +263,8 @@ class Polyslice
 
         if typeof time is "number" and time > 0
 
-            gcode += " P" + time
+            if this.getTimeUnit() is "milliseconds" then gcode += " P" + time
+            if this.getTimeUnit() is "seconds" then gcode += " S" + time
 
         if message and typeof message is "string"
 

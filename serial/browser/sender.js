@@ -223,6 +223,9 @@ async function reset() {
         history = []
         commandIndex = 0
 
+        usbVendorId = null
+        usbProductId = null
+
         localWrite("inputs", [])
         localWrite("outputs", [])
         localWrite("history", [])

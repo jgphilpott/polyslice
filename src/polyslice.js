@@ -7,6 +7,9 @@ Polyslice = class Polyslice {
     this.newline = "\n";
     this.autohome = options.autohome != null ? options.autohome : options.autohome = true; // Boolean
     this.workspacePlane = options.workspacePlane != null ? options.workspacePlane : options.workspacePlane = "XY"; // String ['XY', 'XZ', 'YZ']
+    this.timeUnit = options.timeUnit != null ? options.timeUnit : options.timeUnit = "milliseconds"; // String ['milliseconds', 'seconds']
+    this.lengthUnit = options.lengthUnit != null ? options.lengthUnit : options.lengthUnit = "millimeters"; // String ['millimeters', 'inches']
+    this.temperatureUnit = options.temperatureUnit != null ? options.temperatureUnit : options.temperatureUnit = "celsius"; // String ['celsius', 'fahrenheit', 'kelvin']
   }
 
   getAutohome() {
@@ -15,6 +18,18 @@ Polyslice = class Polyslice {
 
   getWorkspacePlane() {
     return this.workspacePlane;
+  }
+
+  getTimeUnit() {
+    return this.timeUnit;
+  }
+
+  getLengthUnit() {
+    return this.lengthUnit;
+  }
+
+  getTemperatureUnit() {
+    return this.temperatureUnit;
   }
 
   setAutohome(autohome = true) {
@@ -26,6 +41,30 @@ Polyslice = class Polyslice {
     plane = plane.toUpperCase().trim();
     if (["XY", "XZ", "YZ"].includes(plane)) {
       this.workspacePlane = String(plane);
+    }
+    return this;
+  }
+
+  setTimeUnit(unit = "milliseconds") {
+    unit = unit.toLowerCase().trim();
+    if (["milliseconds", "seconds"].includes(unit)) {
+      this.timeUnit = String(unit);
+    }
+    return this;
+  }
+
+  setLengthUnit(unit = "millimeters") {
+    unit = unit.toLowerCase().trim();
+    if (["millimeters", "inches"].includes(unit)) {
+      this.lengthUnit = String(unit);
+    }
+    return this;
+  }
+
+  setTemperatureUnit(unit = "celsius") {
+    unit = unit.toLowerCase().trim();
+    if (["celsius", "fahrenheit", "kelvin"].includes(unit)) {
+      this.temperatureUnit = String(unit);
     }
     return this;
   }
@@ -65,6 +104,30 @@ Polyslice = class Polyslice {
     }
     if (this.getWorkspacePlane() === "YZ") {
       return "G19" + this.newline;
+    }
+  }
+
+  // https://marlinfw.org/docs/gcode/G021.html
+  // https://marlinfw.org/docs/gcode/G020.html
+  codeLengthUnit() {
+    if (this.getLengthUnit() === "millimeters") {
+      return "G21" + this.newline;
+    }
+    if (this.getLengthUnit() === "inches") {
+      return "G20" + this.newline;
+    }
+  }
+
+  // https://marlinfw.org/docs/gcode/M149.html
+  codeTemperatureUnit() {
+    if (this.getTemperatureUnit() === "celsius") {
+      return "M149 C" + this.newline;
+    }
+    if (this.getTemperatureUnit() === "fahrenheit") {
+      return "M149 F" + this.newline;
+    }
+    if (this.getTemperatureUnit() === "kelvin") {
+      return "M149 K" + this.newline;
     }
   }
 
@@ -179,7 +242,12 @@ Polyslice = class Polyslice {
       gcode = "G4";
     }
     if (typeof time === "number" && time > 0) {
-      gcode += " P" + time;
+      if (this.getTimeUnit() === "milliseconds") {
+        gcode += " P" + time;
+      }
+      if (this.getTimeUnit() === "seconds") {
+        gcode += " S" + time;
+      }
     }
     if (message && typeof message === "string") {
       gcode += " " + message;
