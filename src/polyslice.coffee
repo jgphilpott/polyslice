@@ -12,6 +12,10 @@ class Polyslice
         @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches']
         @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin']
 
+        @nozzleTemperature = options.nozzleTemperature ?= 0 # Number
+        @bedTemperature = options.bedTemperature ?= 0 # Number
+        @fanSpeed = options.fanSpeed ?= 100 # Number 0-100
+
     getAutohome: ->
 
         return this.autohome
@@ -31,6 +35,18 @@ class Polyslice
     getTemperatureUnit: ->
 
         return this.temperatureUnit
+
+    getNozzleTemperature: ->
+
+        return this.nozzleTemperature
+
+    getBedTemperature: ->
+
+        return this.bedTemperature
+
+    getFanSpeed: ->
+
+        return this.fanSpeed
 
     setAutohome: (autohome = true) ->
 
@@ -75,6 +91,30 @@ class Polyslice
         if ["celsius", "fahrenheit", "kelvin"].includes unit
 
             this.temperatureUnit = String unit
+
+        return this
+
+    setNozzleTemperature: (temp = 0) ->
+
+        if typeof temp is "number" and temp >= 0
+
+            this.nozzleTemperature = Number temp
+
+        return this
+
+    setBedTemperature: (temp = 0) ->
+
+        if typeof temp is "number" and temp >= 0
+
+            this.bedTemperature = Number temp
+
+        return this
+
+    setFanSpeed: (speed = 100) ->
+
+        if typeof speed is "number" and speed >= 0 and speed <= 100
+
+            this.fanSpeed = Number speed
 
         return this
 
@@ -245,9 +285,9 @@ class Polyslice
 
                     x = controlPoint.x
                     y = controlPoint.y
-                    e = controlPoint.extrude
-                    f = controlPoint.feedrate
-                    s = controlPoint.power
+                    extrude = controlPoint.extrude
+                    feedrate = controlPoint.feedrate
+                    power = controlPoint.power
 
                     gcode += this.codeMovement x, y, null, extrude, feedrate, power
 
@@ -269,13 +309,21 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/M109.html
     # https://marlinfw.org/docs/gcode/M104.html
-    codeNozzleTemperature: (temp = 0, wait = true, index = null) ->
+    codeNozzleTemperature: (temp = null, wait = true, index = null) ->
+
+        if temp isnt null
+
+            this.setNozzleTemperature temp
+
+        else
+
+            temp = this.getNozzleTemperature()
 
         if wait
 
             gcode = "M109"
 
-            if typeof temp is "number" and temp > 0
+            if typeof temp is "number" and temp >= 0
 
                 gcode += " R" + temp
 
@@ -287,7 +335,7 @@ class Polyslice
 
             gcode = "M104"
 
-            if typeof temp is "number" and temp > 0
+            if typeof temp is "number" and temp >= 0
 
                 gcode += " S" + temp
 
@@ -299,13 +347,21 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/M190.html
     # https://marlinfw.org/docs/gcode/M140.html
-    codeBedTemperature: (temp = 0, wait = true, time = null) ->
+    codeBedTemperature: (temp = null, wait = true, time = null) ->
+
+        if temp isnt null
+
+            this.setBedTemperature temp
+
+        else
+
+            temp = this.getBedTemperature()
 
         if wait
 
             gcode = "M190"
 
-            if typeof temp is "number" and temp > 0
+            if typeof temp is "number" and temp >= 0
 
                 gcode += " R" + temp
 
@@ -321,9 +377,37 @@ class Polyslice
 
             gcode = "M140"
 
-            if typeof temp is "number" and temp > 0
+            if typeof temp is "number" and temp >= 0
 
                 gcode += " S" + temp
+
+        return gcode + this.newline
+
+    # https://marlinfw.org/docs/gcode/M106.html
+    # https://marlinfw.org/docs/gcode/M107.html
+    codeFanSpeed: (speed = null, index = null) ->
+
+        if speed isnt null
+
+            this.setFanSpeed speed
+
+        else
+
+            speed = this.getFanSpeed()
+
+        if typeof speed is "number" and speed >= 0 and speed <= 100
+
+            if speed > 0
+
+                gcode = "M106" + " S" + speed * 2.55
+
+            else
+
+                gcode = "M107"
+
+            if typeof index is "number"
+
+                gcode += " P" + index
 
         return gcode + this.newline
 
