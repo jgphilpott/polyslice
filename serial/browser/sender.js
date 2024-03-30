@@ -579,6 +579,10 @@ document.addEventListener("DOMContentLoaded", (event) => {
                             if (command.includes("M114 ")) command += "<span class='emoji'>📌</span>" // Report Current Position.
                             if (command.includes("M105 ")) command += "<span class='emoji'>🌡️</span>" // Report Current Temperatures.
 
+                            // Messaging
+                            if (command.includes("M117 ")) command += "<span class='emoji'>💬</span>" // Set an LCD Message.
+                            if (command.includes("M118 ")) command += "<span class='emoji'>📝</span>" // Send a message to the connected host.
+
                             // Settings
                             if (command.includes("M500 ")) command += "<span class='emoji'>💾</span>" // Save Settings.
                             if (command.includes("M501 ")) command += "<span class='emoji'>📂</span>" // Load Settings.

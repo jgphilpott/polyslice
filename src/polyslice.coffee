@@ -208,6 +208,12 @@ class Polyslice
 
         return "M400" + this.newline
 
+    # https://marlinfw.org/docs/gcode/M117.html
+    # https://marlinfw.org/docs/gcode/M118.html
+    codeMessage: (message = "") ->
+
+        return "M117 " + message + this.newline
+
     # https://marlinfw.org/docs/gcode/M112.html
     codeShutdown: ->
 
