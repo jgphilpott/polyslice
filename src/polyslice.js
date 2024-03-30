@@ -232,6 +232,54 @@ Polyslice = class Polyslice {
     return gcode;
   }
 
+  // https://marlinfw.org/docs/gcode/M109.html
+  // https://marlinfw.org/docs/gcode/M104.html
+  codeNozzleTemperature(temp = 0, wait = true, index = null) {
+    var gcode;
+    if (wait) {
+      gcode = "M109";
+      if (typeof temp === "number" && temp > 0) {
+        gcode += " R" + temp;
+      }
+      if (typeof index === "number") {
+        gcode += " T" + index;
+      }
+    } else {
+      gcode = "M104";
+      if (typeof temp === "number" && temp > 0) {
+        gcode += " S" + temp;
+      }
+      if (typeof index === "number") {
+        gcode += " T" + index;
+      }
+    }
+    return gcode + this.newline;
+  }
+
+  // https://marlinfw.org/docs/gcode/M190.html
+  // https://marlinfw.org/docs/gcode/M140.html
+  codeBedTemperature(temp = 0, wait = true, time = null) {
+    var gcode;
+    if (wait) {
+      gcode = "M190";
+      if (typeof temp === "number" && temp > 0) {
+        gcode += " R" + temp;
+      }
+      if (typeof time === "number" && time > 0) {
+        if (this.getTimeUnit() === "milliseconds") {
+          time /= 1000;
+        }
+        gcode += " T" + time;
+      }
+    } else {
+      gcode = "M140";
+      if (typeof temp === "number" && temp > 0) {
+        gcode += " S" + temp;
+      }
+    }
+    return gcode + this.newline;
+  }
+
   // https://marlinfw.org/docs/gcode/G004.html
   // https://marlinfw.org/docs/gcode/M000-M001.html
   codeDwell(time = null, interruptible = true, message = "") {
