@@ -70,7 +70,7 @@ Polyslice = class Polyslice {
   }
 
   // https://marlinfw.org/docs/gcode/G028.html
-  codeAutohome(x = null, y = null, z = null, o = null, r = null, l = null) {
+  codeAutohome(x = null, y = null, z = null, skip = null, raise = null, leveling = null) {
     var gcode;
     gcode = "G28";
     if (x) {
@@ -82,20 +82,23 @@ Polyslice = class Polyslice {
     if (z) {
       gcode += " Z";
     }
-    if (o) {
+    if (skip) {
       gcode += " O";
     }
-    if (l) {
+    if (leveling) {
       gcode += " L";
     }
-    if (typeof r === "number") {
-      gcode += " R" + r;
+    if (typeof raise === "number") {
+      gcode += " R" + raise;
     }
     return gcode + this.newline;
   }
 
   // https://marlinfw.org/docs/gcode/G017-G019.html
-  codeWorkspacePlane() {
+  codeWorkspacePlane(plane = null) {
+    if (plane !== null) {
+      this.setWorkspacePlane(plane);
+    }
     if (this.getWorkspacePlane() === "XY") {
       return "G17" + this.newline;
     }
@@ -109,7 +112,10 @@ Polyslice = class Polyslice {
 
   // https://marlinfw.org/docs/gcode/G021.html
   // https://marlinfw.org/docs/gcode/G020.html
-  codeLengthUnit() {
+  codeLengthUnit(unit = null) {
+    if (unit !== null) {
+      this.setLengthUnit(unit);
+    }
     if (this.getLengthUnit() === "millimeters") {
       return "G21" + this.newline;
     }
@@ -119,7 +125,10 @@ Polyslice = class Polyslice {
   }
 
   // https://marlinfw.org/docs/gcode/M149.html
-  codeTemperatureUnit() {
+  codeTemperatureUnit(unit = null) {
+    if (unit !== null) {
+      this.setTemperatureUnit(unit);
+    }
     if (this.getTemperatureUnit() === "celsius") {
       return "M149 C" + this.newline;
     }
@@ -131,7 +140,7 @@ Polyslice = class Polyslice {
     }
   }
 
-  codeMovement(x = null, y = null, z = null, e = null, f = null, s = null) {
+  codeMovement(x = null, y = null, z = null, extrude = null, feedrate = null, power = null) {
     var gcode;
     gcode = "";
     if (typeof x === "number") {
@@ -143,56 +152,56 @@ Polyslice = class Polyslice {
     if (typeof z === "number") {
       gcode += " Z" + z;
     }
-    if (typeof e === "number") {
-      gcode += " E" + e;
+    if (typeof extrude === "number") {
+      gcode += " E" + extrude;
     }
-    if (typeof f === "number") {
-      gcode += " F" + f;
+    if (typeof feedrate === "number") {
+      gcode += " F" + feedrate;
     }
-    if (typeof s === "number") {
-      gcode += " S" + s;
+    if (typeof power === "number") {
+      gcode += " S" + power;
     }
     return gcode;
   }
 
   // https://marlinfw.org/docs/gcode/G000-G001.html
-  codeLinearMovement(x = null, y = null, z = null, e = null, f = null, s = null) {
+  codeLinearMovement(x = null, y = null, z = null, extrude = null, feedrate = null, power = null) {
     var gcode;
-    if (e === null) {
+    if (extrude === null) {
       gcode = "G0";
     } else {
       gcode = "G1";
     }
-    gcode += this.codeMovement(x, y, z, e, f, s);
+    gcode += this.codeMovement(x, y, z, extrude, feedrate, power);
     return gcode + this.newline;
   }
 
   // https://marlinfw.org/docs/gcode/G002-G003.html
-  codeArcMovement(direction = "clockwise", x = null, y = null, z = null, e = null, f = null, s = null, i = null, j = null, r = null, p = null) {
+  codeArcMovement(direction = "clockwise", x = null, y = null, z = null, extrude = null, feedrate = null, power = null, xOffset = null, yOffset = null, radius = null, circles = null) {
     var gcode;
     if (direction === "clockwise") {
       gcode = "G2";
     } else {
       gcode = "G3";
     }
-    if ((i !== null || j !== null) && r === null) {
-      gcode += this.codeMovement(x, y, z, e, f, s);
-      if (typeof i === "number") {
-        gcode += " I" + i;
+    if ((xOffset !== null || yOffset !== null) && radius === null) {
+      gcode += this.codeMovement(x, y, z, extrude, feedrate, power);
+      if (typeof xOffset === "number") {
+        gcode += " I" + xOffset;
       }
-      if (typeof j === "number") {
-        gcode += " J" + j;
+      if (typeof yOffset === "number") {
+        gcode += " J" + yOffset;
       }
-      if (typeof p === "number") {
-        gcode += " P" + p;
+      if (typeof circles === "number") {
+        gcode += " P" + circles;
       }
-    } else if (i === null && j === null && r !== null && x !== null && y !== null) {
-      gcode += this.codeMovement(x, y, z, e, f, s);
-      if (typeof r === "number") {
-        gcode += " R" + r;
+    } else if (xOffset === null && yOffset === null && radius !== null && x !== null && y !== null) {
+      gcode += this.codeMovement(x, y, z, extrude, feedrate, power);
+      if (typeof radius === "number") {
+        gcode += " R" + radius;
       }
-      if (typeof p === "number") {
-        gcode += " P" + p;
+      if (typeof circles === "number") {
+        gcode += " P" + circles;
       }
     } else {
       console.error("Invalid Arc Movement Parameters");
@@ -202,27 +211,27 @@ Polyslice = class Polyslice {
 
   // https://marlinfw.org/docs/gcode/G005.html
   codeBézierMovement(controlPoints = []) {
-    var controlPoint, e, f, gcode, index, k, len, s, x, y;
+    var controlPoint, e, f, gcode, i, index, len, s, x, y;
     gcode = "";
-    for (index = k = 0, len = controlPoints.length; k < len; index = ++k) {
+    for (index = i = 0, len = controlPoints.length; i < len; index = ++i) {
       controlPoint = controlPoints[index];
-      if (typeof controlPoint.p === "number" && typeof controlPoint.q === "number") {
-        if (index === 0 && (typeof controlPoint.i !== "number" || typeof controlPoint.j !== "number")) {
+      if (typeof controlPoint.xOffsetEnd === "number" && typeof controlPoint.yOffsetEnd === "number") {
+        if (index === 0 && (typeof controlPoint.xOffsetStart !== "number" || typeof controlPoint.yOffsetStart !== "number")) {
           console.error("Invalid Bézier Movement Parameters");
         } else {
           gcode += "G5";
           x = controlPoint.x;
           y = controlPoint.y;
-          e = controlPoint.e;
-          f = controlPoint.f;
-          s = controlPoint.s;
-          gcode += this.codeMovement(x, y, null, e, f, s);
-          if (typeof controlPoint.i === "number" && typeof controlPoint.j === "number") {
-            gcode += " I" + controlPoint.i;
-            gcode += " J" + controlPoint.j;
+          e = controlPoint.extrude;
+          f = controlPoint.feedrate;
+          s = controlPoint.power;
+          gcode += this.codeMovement(x, y, null, extrude, feedrate, power);
+          if (typeof controlPoint.xOffsetStart === "number" && typeof controlPoint.yOffsetStart === "number") {
+            gcode += " I" + controlPoint.xOffsetStart;
+            gcode += " J" + controlPoint.yOffsetStart;
           }
-          gcode += " P" + controlPoint.p;
-          gcode += " Q" + controlPoint.q;
+          gcode += " P" + controlPoint.xOffsetEnd;
+          gcode += " Q" + controlPoint.yOffsetEnd;
           gcode += this.newline;
         }
       } else {

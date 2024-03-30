@@ -79,7 +79,7 @@ class Polyslice
         return this
 
     # https://marlinfw.org/docs/gcode/G028.html
-    codeAutohome: (x = null, y = null, z = null, o = null, r = null, l = null) ->
+    codeAutohome: (x = null, y = null, z = null, skip = null, raise = null, leveling = null) ->
 
         gcode = "G28"
 
@@ -87,15 +87,19 @@ class Polyslice
         if y then gcode += " Y"
         if z then gcode += " Z"
 
-        if o then gcode += " O"
-        if l then gcode += " L"
+        if skip then gcode += " O"
+        if leveling then gcode += " L"
 
-        if typeof r is "number" then gcode += " R" + r
+        if typeof raise is "number" then gcode += " R" + raise
 
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/G017-G019.html
-    codeWorkspacePlane: ->
+    codeWorkspacePlane: (plane = null) ->
+
+        if plane isnt null
+
+            this.setWorkspacePlane plane
 
         if this.getWorkspacePlane() is "XY"
 
@@ -111,7 +115,11 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/G021.html
     # https://marlinfw.org/docs/gcode/G020.html
-    codeLengthUnit: ->
+    codeLengthUnit: (unit = null) ->
+
+        if unit isnt null
+
+            this.setLengthUnit unit
 
         if this.getLengthUnit() is "millimeters"
 
@@ -122,7 +130,11 @@ class Polyslice
             return "G20" + this.newline
 
     # https://marlinfw.org/docs/gcode/M149.html
-    codeTemperatureUnit: ->
+    codeTemperatureUnit: (unit = null) ->
+
+        if unit isnt null
+
+            this.setTemperatureUnit unit
 
         if this.getTemperatureUnit() is "celsius"
 
@@ -136,7 +148,7 @@ class Polyslice
 
             return "M149 K" + this.newline
 
-    codeMovement: (x = null, y = null, z = null, e = null, f = null, s = null) ->
+    codeMovement: (x = null, y = null, z = null, extrude = null, feedrate = null, power = null) ->
 
         gcode = ""
 
@@ -152,61 +164,61 @@ class Polyslice
 
             gcode += " Z" + z
 
-        if typeof e is "number"
+        if typeof extrude is "number"
 
-            gcode += " E" + e
+            gcode += " E" + extrude
 
-        if typeof f is "number"
+        if typeof feedrate is "number"
 
-            gcode += " F" + f
+            gcode += " F" + feedrate
 
-        if typeof s is "number"
+        if typeof power is "number"
 
-            gcode += " S" + s
+            gcode += " S" + power
 
         return gcode
 
     # https://marlinfw.org/docs/gcode/G000-G001.html
-    codeLinearMovement: (x = null, y = null, z = null, e = null, f = null, s = null) ->
+    codeLinearMovement: (x = null, y = null, z = null, extrude = null, feedrate = null, power = null) ->
 
-        if e is null then gcode = "G0" else gcode = "G1"
+        if extrude is null then gcode = "G0" else gcode = "G1"
 
-        gcode += this.codeMovement x, y, z, e, f, s
+        gcode += this.codeMovement x, y, z, extrude, feedrate, power
 
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/G002-G003.html
-    codeArcMovement: (direction = "clockwise", x = null, y = null, z = null, e = null, f = null, s = null, i = null, j = null, r = null, p = null) ->
+    codeArcMovement: (direction = "clockwise", x = null, y = null, z = null, extrude = null, feedrate = null, power = null, xOffset = null, yOffset = null, radius = null, circles = null) ->
 
         if direction is "clockwise" then gcode = "G2" else gcode = "G3"
 
-        if (i isnt null or j isnt null) and r is null
+        if (xOffset isnt null or yOffset isnt null) and radius is null
 
-            gcode += this.codeMovement x, y, z, e, f, s
+            gcode += this.codeMovement x, y, z, extrude, feedrate, power
 
-            if typeof i is "number"
+            if typeof xOffset is "number"
 
-                gcode += " I" + i
+                gcode += " I" + xOffset
 
-            if typeof j is "number"
+            if typeof yOffset is "number"
 
-                gcode += " J" + j
+                gcode += " J" + yOffset
 
-            if typeof p is "number"
+            if typeof circles is "number"
 
-                gcode += " P" + p
+                gcode += " P" + circles
 
-        else if i is null and j is null and r isnt null and x isnt null and y isnt null
+        else if xOffset is null and yOffset is null and radius isnt null and x isnt null and y isnt null
 
-            gcode += this.codeMovement x, y, z, e, f, s
+            gcode += this.codeMovement x, y, z, extrude, feedrate, power
 
-            if typeof r is "number"
+            if typeof radius is "number"
 
-                gcode += " R" + r
+                gcode += " R" + radius
 
-            if typeof p is "number"
+            if typeof circles is "number"
 
-                gcode += " P" + p
+                gcode += " P" + circles
 
         else
 
@@ -221,9 +233,9 @@ class Polyslice
 
         for controlPoint, index in controlPoints
 
-            if typeof controlPoint.p is "number" and typeof controlPoint.q is "number"
+            if typeof controlPoint.xOffsetEnd is "number" and typeof controlPoint.yOffsetEnd is "number"
 
-                if index is 0 and (typeof controlPoint.i isnt "number" or typeof controlPoint.j isnt "number")
+                if index is 0 and (typeof controlPoint.xOffsetStart isnt "number" or typeof controlPoint.yOffsetStart isnt "number")
 
                     console.error "Invalid Bézier Movement Parameters"
 
@@ -233,19 +245,19 @@ class Polyslice
 
                     x = controlPoint.x
                     y = controlPoint.y
-                    e = controlPoint.e
-                    f = controlPoint.f
-                    s = controlPoint.s
+                    e = controlPoint.extrude
+                    f = controlPoint.feedrate
+                    s = controlPoint.power
 
-                    gcode += this.codeMovement x, y, null, e, f, s
+                    gcode += this.codeMovement x, y, null, extrude, feedrate, power
 
-                    if typeof controlPoint.i is "number" and typeof controlPoint.j is "number"
+                    if typeof controlPoint.xOffsetStart is "number" and typeof controlPoint.yOffsetStart is "number"
 
-                        gcode += " I" + controlPoint.i
-                        gcode += " J" + controlPoint.j
+                        gcode += " I" + controlPoint.xOffsetStart
+                        gcode += " J" + controlPoint.yOffsetStart
 
-                    gcode += " P" + controlPoint.p
-                    gcode += " Q" + controlPoint.q
+                    gcode += " P" + controlPoint.xOffsetEnd
+                    gcode += " Q" + controlPoint.yOffsetEnd
 
                     gcode += this.newline
 
