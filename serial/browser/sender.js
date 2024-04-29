@@ -54,7 +54,7 @@ async function connect() {
 
         })
 
-        connected()
+        await connected()
 
         read()
 
@@ -72,9 +72,15 @@ async function disconnect() {
 
     try {
 
-        await device.forget()
+        if (device.connected) {
 
-        disconnected()
+            device.connected = false
+
+            await device.forget()
+
+            await disconnected()
+
+        }
 
     } catch (error) {
 
@@ -86,7 +92,7 @@ async function disconnect() {
 
 }
 
-function connected() {
+async function connected() {
 
     device.connected = true
 
@@ -110,7 +116,7 @@ function connected() {
 
 }
 
-function disconnected() {
+async function disconnected() {
 
     device.connected = false
 
@@ -295,13 +301,13 @@ async function reset() {
         usbVendorId = null
         usbProductId = null
 
+        await disconnect()
+
         localWrite("inputs", [])
         localWrite("outputs", [])
         localWrite("history", [])
 
         $("img#reset").rotate(360)
-
-        if (device.connected) await disconnect()
 
         $("textarea#prompt").val("").change()
         $("textarea#prompt").attr("rows", 1)
