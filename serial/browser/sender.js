@@ -140,6 +140,8 @@ async function read() {
 
     while (device.readable) {
 
+        let response = ""
+
         const decoder = new TextDecoder()
         const reader = device.readable.getReader()
 
@@ -151,7 +153,35 @@ async function read() {
 
                 const {value, done} = await reader.read()
 
-                processOutput(decoder.decode(value))
+                let chunk = decoder.decode(value).replace(/\n|\r|\n\r|\r\n/g, "§")
+
+                if (chunk.includes("§")) {
+
+                    let lines = chunk.split("§")
+
+                    lines.forEach((line, index) => {
+
+                        response += line
+
+                        if (lines[index + 1] != undefined) {
+
+                            if (response.length) {
+
+                                processOutput(response)
+
+                            }
+
+                            response = ""
+
+                        }
+
+                    })
+
+                } else {
+
+                    response += chunk
+
+                }
 
                 if (done) break
 
