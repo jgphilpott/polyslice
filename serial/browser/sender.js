@@ -288,14 +288,14 @@ function processOutput(text) {
     text = text.replace("busy:", "<span class='info'>Busy:</span>")
     text = text.replace("ok", "<span class='success'>OK</span>")
 
-    text = text.replace("X:", "<b class='x'>X:</b> ")
-    text = text.replace("Y:", "<b class='y'>Y:</b> ")
-    text = text.replace("Z:", "<b class='z'>Z:</b> ")
-    text = text.replace("E:", "<b class='e'>E:</b> ")
+    text = text.replace(/X:/g, "<b class='x'>X:</b> ")
+    text = text.replace(/Y:/g, "<b class='y'>Y:</b> ")
+    text = text.replace(/Z:/g, "<b class='z'>Z:</b> ")
+    text = text.replace(/E:/g, "<b class='e'>E:</b> ")
 
-    text = text.replace("T:", "<b class='t'>T:</b> ")
-    text = text.replace("B:", "<b class='b'>B:</b> ")
-    text = text.replace("W:", "<b class='w'>W:</b> ")
+    text = text.replace(/T:/g, "<b class='t'>T:</b> ")
+    text = text.replace(/B:/g, "<b class='b'>B:</b> ")
+    text = text.replace(/W:/g, "<b class='w'>W:</b> ")
 
     if (text.includes("X:") && text.includes("Y:") && text.includes("Z:") && text.includes("E:")) {
         text += "<span class='emoji'> 📌</span>"
