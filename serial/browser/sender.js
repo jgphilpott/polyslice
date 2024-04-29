@@ -145,45 +145,7 @@ async function read() {
 
                 const {value, done} = await reader.read()
 
-                let text = decoder.decode(value).replace("echo:", "").replace("\n", " ")
-
-                text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
-                text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
-                text = text.replace("Settings Stored", "<span class='info'>Settings Stored</span>")
-                text = text.replace("Error:", "<span class='error'>Error:</span>")
-                text = text.replace("busy:", "<span class='info'>Busy:</span>")
-                text = text.replace("ok", "<span class='success'>OK</span>")
-
-                text = text.replace("X:", "<b class='x'>X:</b> ")
-                text = text.replace("Y:", "<b class='y'>Y:</b> ")
-                text = text.replace("Z:", "<b class='z'>Z:</b> ")
-                text = text.replace("E:", "<b class='e'>E:</b> ")
-
-                text = text.replace("T:", "<b class='t'>T:</b> ")
-                text = text.replace("B:", "<b class='b'>B:</b> ")
-                text = text.replace("W:", "<b class='w'>W:</b> ")
-
-                if (text.includes("X:") && text.includes("Y:") && text.includes("Z:") && text.includes("E:")) {
-                    text += "<span class='emoji'> 📌</span>"
-                }
-
-                if (text.includes("T:") && text.includes("B:")) {
-                    text += "<span class='emoji'> 🌡️</span>"
-                }
-
-                if (text.includes("W:")) {
-                    text += "<span class='emoji'> ⏰</span>"
-                }
-
-                if (text.includes("Settings Stored")) {
-                    text += "<span class='emoji'> 💾</span>"
-                }
-
-                if (text.includes("kill")) {
-                    text += "<span class='emoji'> 💀</span>"
-                }
-
-                log("output", text)
+                processOutput(decoder.decode(value))
 
                 if (done) break
 
@@ -193,9 +155,13 @@ async function read() {
 
             console.log("Stopped reading serial port.")
 
+            console.log(error)
+
         } finally {
 
             reader.releaseLock()
+
+            await disconnect()
 
             break
 
@@ -213,6 +179,109 @@ async function write(text) {
     await writer.write(encoder.encode(text))
 
     writer.releaseLock()
+
+}
+
+function processInput(text) {
+
+    text += " "
+
+    // Autohome
+    if (text.includes("G28 ")) text += "<span class='emoji'>🏠</span>" // Go home.
+
+    // Move
+    if (text.includes("G0 ")) text += "<span class='emoji'>👣 ➜</span>" // Non-extrusion movement.
+    if (text.includes("G1 ")) text += "<span class='emoji'>👣 ➜</span>" // Extrusion movement.
+    if (text.includes("G2 ")) text += "<span class='emoji'>👣 ⤵</span>" // Clockwise arc movement.
+    if (text.includes("G3 ")) text += "<span class='emoji'>👣 ⤴</span>" // Counter clockwise arc movement.
+    if (text.includes("G5 ")) text += "<span class='emoji'>👣 ∿</span>" // Bézier curve movement.
+
+    // Temperature
+    if (text.includes("M104 ")) text += "<span class='emoji'>🔥</span>" // Set nozzle temperature.
+    if (text.includes("M109 ")) text += "<span class='emoji'>🔥⏰</span>" // Wait for nozzle temperature.
+    if (text.includes("M140 ")) text += "<span class='emoji'>🔥</span>" // Set bed temperature.
+    if (text.includes("M190 ")) text += "<span class='emoji'>🔥⏰</span>" // Wait for bed temperature.
+
+    // Measurement
+    if (text.includes("G20 ")) text += "<span class='emoji'>📏</span>" // Set length units to inches.
+    if (text.includes("G21 ")) text += "<span class='emoji'>📏</span>" // Set length units to millimeters.
+    if (text.includes("M149 ")) text += "<span class='emoji'>📏🌡️</span>" // Set temperature units to celsius [C], fahrenheit [F] or kelvin [K].
+
+    // Pause/Wait
+    if (text.includes("G4 ")) text += "<span class='emoji'>⏲️</span>" // Uninterruptible pause command.
+    if (text.includes("M0 ")) text += "<span class='emoji'>⏰</span>" // Interruptible pause command.
+    if (text.includes("M1 ")) text += "<span class='emoji'>⏰</span>" // Interruptible pause command.
+    if (text.includes("M400 ")) text += "<span class='emoji'>💤</span>" // Wait for queue to finish.
+
+    // Fan
+    if (text.includes("M106 ")) text += "<span class='emoji'>🪭</span>" // Set fan speed.
+    if (text.includes("M107 ")) text += "<span class='emoji'>🪭🚫</span>" // Turn fan off.
+
+    // Sound
+    if (text.includes("M300 ")) text += "<span class='emoji'>🔊</span>" // Play Sound.
+
+    // Reports
+    if (text.includes("M114 ")) text += "<span class='emoji'>📌</span>" // Report Current Position.
+    if (text.includes("M105 ")) text += "<span class='emoji'>🌡️</span>" // Report Current Temperatures.
+
+    // Messaging
+    if (text.includes("M117 ")) text += "<span class='emoji'>💬</span>" // Set an LCD Message.
+    if (text.includes("M118 ")) text += "<span class='emoji'>📝</span>" // Send a message to the connected host.
+
+    // Settings
+    if (text.includes("M500 ")) text += "<span class='emoji'>💾</span>" // Save Settings.
+    if (text.includes("M501 ")) text += "<span class='emoji'>📂</span>" // Load Settings.
+    if (text.includes("M502 ")) text += "<span class='emoji'>🔄</span>" // Reset Settings.
+
+    // Interrupt/Shutdown
+    if (text.includes("M108 ")) text += "<span class='emoji'>⛔</span>" // Interrupt command.
+    if (text.includes("M112 ")) text += "<span class='emoji'>🛑</span>" // Full Shutdown.
+
+    log("input", text)
+
+}
+
+function processOutput(text) {
+
+    text = text.replace("echo:", "")
+
+    text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
+    text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
+    text = text.replace("Settings Stored", "<span class='info'>Settings Stored</span>")
+    text = text.replace("Error:", "<span class='error'>Error:</span>")
+    text = text.replace("busy:", "<span class='info'>Busy:</span>")
+    text = text.replace("ok", "<span class='success'>OK</span>")
+
+    text = text.replace("X:", "<b class='x'>X:</b> ")
+    text = text.replace("Y:", "<b class='y'>Y:</b> ")
+    text = text.replace("Z:", "<b class='z'>Z:</b> ")
+    text = text.replace("E:", "<b class='e'>E:</b> ")
+
+    text = text.replace("T:", "<b class='t'>T:</b> ")
+    text = text.replace("B:", "<b class='b'>B:</b> ")
+    text = text.replace("W:", "<b class='w'>W:</b> ")
+
+    if (text.includes("X:") && text.includes("Y:") && text.includes("Z:") && text.includes("E:")) {
+        text += "<span class='emoji'> 📌</span>"
+    }
+
+    if (text.includes("T:") && text.includes("B:")) {
+        text += "<span class='emoji'> 🌡️</span>"
+    }
+
+    if (text.includes("W:")) {
+        text += "<span class='emoji'> ⏰</span>"
+    }
+
+    if (text.includes("Settings Stored")) {
+        text += "<span class='emoji'> 💾</span>"
+    }
+
+    if (text.includes("kill")) {
+        text += "<span class='emoji'> 💀</span>"
+    }
+
+    log("output", text)
 
 }
 
@@ -268,6 +337,22 @@ async function reset() {
 
 }
 
+function log(zone, text) {
+
+    time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+    text = "<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>"
+
+    let logs = localRead(zone + "s"); logs.push(text)
+
+    $("#" + zone + "").append(text)
+
+    let div = document.getElementById(zone)
+    div.scrollTop = div.scrollHeight
+
+    localWrite(zone + "s", logs)
+
+}
+
 function toggleStyle(type, value) {
 
     let noTimestamps =
@@ -318,22 +403,6 @@ function toggleStyle(type, value) {
     }
 
     localWrite(type, value)
-
-}
-
-function log(zone, text) {
-
-    time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
-    text = "<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>"
-
-    let logs = localRead(zone + "s"); logs.push(text)
-
-    $("#" + zone + "").append(text)
-
-    let div = document.getElementById(zone)
-    div.scrollTop = div.scrollHeight
-
-    localWrite(zone + "s", logs)
 
 }
 
@@ -540,64 +609,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
                     text.split("\n").forEach((command) => {
 
-                        if (command.length) {
-
-                            command += " "
-
-                            // Autohome
-                            if (command.includes("G28 ")) command += "<span class='emoji'>🏠</span>" // Go home.
-
-                            // Move
-                            if (command.includes("G0 ")) command += "<span class='emoji'>👣 ➜</span>" // Non-extrusion movement.
-                            if (command.includes("G1 ")) command += "<span class='emoji'>👣 ➜</span>" // Extrusion movement.
-                            if (command.includes("G2 ")) command += "<span class='emoji'>👣 ⤵</span>" // Clockwise arc movement.
-                            if (command.includes("G3 ")) command += "<span class='emoji'>👣 ⤴</span>" // Counter clockwise arc movement.
-                            if (command.includes("G5 ")) command += "<span class='emoji'>👣 ∿</span>" // Bézier curve movement.
-
-                            // Temperature
-                            if (command.includes("M104 ")) command += "<span class='emoji'>🔥</span>" // Set nozzle temperature.
-                            if (command.includes("M109 ")) command += "<span class='emoji'>🔥⏰</span>" // Wait for nozzle temperature.
-                            if (command.includes("M140 ")) command += "<span class='emoji'>🔥</span>" // Set bed temperature.
-                            if (command.includes("M190 ")) command += "<span class='emoji'>🔥⏰</span>" // Wait for bed temperature.
-
-                            // Measurement
-                            if (command.includes("G20 ")) command += "<span class='emoji'>📏</span>" // Set length units to inches.
-                            if (command.includes("G21 ")) command += "<span class='emoji'>📏</span>" // Set length units to millimeters.
-                            if (command.includes("M149 ")) command += "<span class='emoji'>📏🌡️</span>" // Set temperature units to celsius [C], fahrenheit [F] or kelvin [K].
-
-                            // Pause/Wait
-                            if (command.includes("G4 ")) command += "<span class='emoji'>⏲️</span>" // Uninterruptible pause command.
-                            if (command.includes("M0 ")) command += "<span class='emoji'>⏰</span>" // Interruptible pause command.
-                            if (command.includes("M1 ")) command += "<span class='emoji'>⏰</span>" // Interruptible pause command.
-                            if (command.includes("M400 ")) command += "<span class='emoji'>💤</span>" // Wait for queue to finish.
-
-                            // Fan
-                            if (command.includes("M106 ")) command += "<span class='emoji'>🪭</span>" // Set fan speed.
-                            if (command.includes("M107 ")) command += "<span class='emoji'>🪭🚫</span>" // Turn fan off.
-
-                            // Sound
-                            if (command.includes("M300 ")) command += "<span class='emoji'>🔊</span>" // Play Sound.
-
-                            // Reports
-                            if (command.includes("M114 ")) command += "<span class='emoji'>📌</span>" // Report Current Position.
-                            if (command.includes("M105 ")) command += "<span class='emoji'>🌡️</span>" // Report Current Temperatures.
-
-                            // Messaging
-                            if (command.includes("M117 ")) command += "<span class='emoji'>💬</span>" // Set an LCD Message.
-                            if (command.includes("M118 ")) command += "<span class='emoji'>📝</span>" // Send a message to the connected host.
-
-                            // Settings
-                            if (command.includes("M500 ")) command += "<span class='emoji'>💾</span>" // Save Settings.
-                            if (command.includes("M501 ")) command += "<span class='emoji'>📂</span>" // Load Settings.
-                            if (command.includes("M502 ")) command += "<span class='emoji'>🔄</span>" // Reset Settings.
-
-                            // Interrupt/Shutdown
-                            if (command.includes("M108 ")) command += "<span class='emoji'>⛔</span>" // Interrupt command.
-                            if (command.includes("M112 ")) command += "<span class='emoji'>🛑</span>" // Full Shutdown.
-
-                            log("input", command)
-
-                        }
+                        if (command.length) processInput(command)
 
                     })
 
