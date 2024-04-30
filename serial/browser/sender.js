@@ -287,6 +287,9 @@ function processInput(text) {
     if (text.includes("M108 ")) text += "<span class='emoji'>⛔</span>" // Interrupt command.
     if (text.includes("M112 ")) text += "<span class='emoji'>🛑</span>" // Full Shutdown.
 
+    // Upload
+    if (text.includes("File Upload ")) text += "<span class='emoji'>⬆️</span>" // File was Uploaded.
+
     log("input", text)
 
 }
@@ -609,10 +612,9 @@ document.addEventListener("DOMContentLoaded", (event) => {
             reader.readAsText(file)
             reader.onload = (file) => {
 
-                let gcode = file.target.result
+                processInput("File Upload")
 
-                log("input", gcode)
-                write(gcode)
+                write(file.target.result)
 
             }
 
