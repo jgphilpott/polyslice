@@ -114,7 +114,8 @@ div#settings img#help {
 
 }
 
-div#settings img#reset {
+div#settings img#reset,
+div#settings img#upload {
 
     margin: 5px;
 
@@ -123,6 +124,18 @@ div#settings img#reset {
 
     cursor: pointer;
 
+}
+
+div#settings img#upload {
+
+    cursor: not-allowed;
+
+    opacity: 0.5;
+
+}
+
+div#settings input#uploader {
+    display: none;
 }
 
 button#connection {
@@ -192,10 +205,13 @@ input#emojis {
 
 }
 
-#buffer-size.control,
+#buffer-size.control {
+    width: 50px;
+}
+
 #data-bits.control,
 #stop-bits.control {
-    width: 50px;
+    width: 40px;
 }
 
 #flow-control.control {
@@ -340,6 +356,7 @@ textarea#prompt {
     padding: 10px;
 
     font-size: 16px;
+    max-height: 50vh;
 
     position: fixed;
 

@@ -108,6 +108,13 @@ function connected() {
 
     $("textarea#prompt").focus()
 
+    $("img#upload").css({
+
+        "cursor": "pointer",
+        "opacity": 1
+
+    })
+
 }
 
 function disconnected() {
@@ -127,6 +134,13 @@ function disconnected() {
 
     $("textarea#prompt").val("").change()
     $("textarea#prompt").attr("rows", 1)
+
+    $("img#upload").css({
+
+        "cursor": "not-allowed",
+        "opacity": 0.5
+
+    })
 
 }
 
@@ -476,6 +490,27 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         navigator.serial.addEventListener("disconnect", (event) => {
             disconnected()
+        })
+
+        $("img#upload").on("click", async (event) => {
+            if (device.connected) $("input#uploader").trigger("click")
+        })
+
+        $("input#uploader").on("change", async (event) => {
+
+            const reader = new FileReader()
+            const file = $(event.target)[0].files[0]
+
+            reader.readAsText(file)
+            reader.onload = (file) => {
+
+                let gcode = file.target.result
+
+                log("input", gcode)
+                write(gcode)
+
+            }
+
         })
 
         $("img#reset").on("click", async (event) => { reset() })
