@@ -114,6 +114,13 @@ async function connected() {
 
     $("textarea#prompt").focus()
 
+    $("img#upload").css({
+
+        "cursor": "pointer",
+        "opacity": 1
+
+    })
+
 }
 
 async function disconnected() {
@@ -133,6 +140,13 @@ async function disconnected() {
 
     $("textarea#prompt").val("").change()
     $("textarea#prompt").attr("rows", 1)
+
+    $("img#upload").css({
+
+        "cursor": "not-allowed",
+        "opacity": 0.5
+
+    })
 
 }
 
@@ -272,6 +286,9 @@ function processInput(text) {
     // Interrupt/Shutdown
     if (text.includes("M108 ")) text += "<span class='emoji'>⛔</span>" // Interrupt command.
     if (text.includes("M112 ")) text += "<span class='emoji'>🛑</span>" // Full Shutdown.
+
+    // Upload
+    if (text.includes("File Upload ")) text += "<span class='emoji'>⬆️</span>" // File was Uploaded.
 
     log("input", text)
 
@@ -581,6 +598,26 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         navigator.serial.addEventListener("disconnect", (event) => {
             disconnected()
+        })
+
+        $("img#upload").on("click", async (event) => {
+            if (device.connected) $("input#uploader").trigger("click")
+        })
+
+        $("input#uploader").on("change", async (event) => {
+
+            const reader = new FileReader()
+            const file = $(event.target)[0].files[0]
+
+            reader.readAsText(file)
+            reader.onload = (file) => {
+
+                processInput("File Upload")
+
+                write(file.target.result)
+
+            }
+
         })
 
         $("img#reset").on("click", async (event) => { reset() })
