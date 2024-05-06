@@ -28,10 +28,14 @@ async function connect() {
         if (usbVendorId && usbProductId) {
 
             device = await navigator.serial.requestPort({
+
                 filters: [{
+
                     usbVendorId: usbVendorId,
                     usbProductId: usbProductId
+
                 }]
+
             })
 
         } else {
@@ -118,12 +122,7 @@ async function connected() {
 
     $("textarea#prompt").focus()
 
-    $("img#upload").css({
-
-        "cursor": "pointer",
-        "opacity": 1
-
-    })
+    uploadable()
 
 }
 
@@ -146,12 +145,7 @@ async function disconnected() {
     $("textarea#prompt").val("").change()
     $("textarea#prompt").attr("rows", 1)
 
-    $("img#upload").css({
-
-        "cursor": "not-allowed",
-        "opacity": 0.5
-
-    })
+    uploadable()
 
 }
 
@@ -186,8 +180,6 @@ async function read() {
 
                             if (response.length) {
 
-                                processOutput(response)
-
                                 response = response.replace("echo:", "").trim()
 
                                 if (streaming && response == gcode[0]) {
@@ -204,9 +196,13 @@ async function read() {
 
                                         streaming = false
 
+                                        uploadable()
+
                                     }
 
                                 }
+
+                                processOutput(response)
 
                             }
 
@@ -320,8 +316,6 @@ function processInput(text) {
 }
 
 function processOutput(text) {
-
-    text = text.replace("echo:", "")
 
     text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
     text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
@@ -484,6 +478,34 @@ function toggleStyle(type, value) {
 
 }
 
+async function uploadable() {
+
+    if (device.connected && !streaming) {
+
+        $("img#upload").css({
+
+            "cursor": "pointer",
+            "opacity": 1
+
+        })
+
+        return true
+
+    } else {
+
+        $("img#upload").css({
+
+            "cursor": "not-allowed",
+            "opacity": 0.5
+
+        })
+
+        return false
+
+    }
+
+}
+
 document.addEventListener("DOMContentLoaded", (event) => {
 
     if (navigator.serial) {
@@ -626,7 +648,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
         })
 
         $("img#upload").on("click", async (event) => {
-            if (device.connected) $("input#uploader").trigger("click")
+            if (await uploadable()) $("input#uploader").trigger("click")
         })
 
         $("input#uploader").on("change", async (event) => {
@@ -654,6 +676,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
                     }
 
                     await write(gcode[0] + "\n")
+
+                    uploadable()
 
                 } else {
 
