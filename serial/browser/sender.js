@@ -1,7 +1,11 @@
+let gcode = []
 let device = {}
 
 let history = []
 let commandIndex = 0
+
+let streaming = null
+let streamEnabled = true
 
 let usbVendorId = null
 let usbProductId = null
@@ -125,6 +129,7 @@ async function connected() {
 
 async function disconnected() {
 
+    streaming = false
     device.connected = false
 
     $("button#connection").text("Connect")
@@ -173,9 +178,9 @@ async function read() {
 
                     let lines = chunk.split("§")
 
-                    lines.forEach((line, index) => {
+                    for (let index = 0; index < lines.length; index++) {
 
-                        response += line
+                        response += lines[index]
 
                         if (lines[index + 1] != undefined) {
 
@@ -183,13 +188,33 @@ async function read() {
 
                                 processOutput(response)
 
+                                response = response.replace("echo:", "").trim()
+
+                                if (streaming && response == gcode[0]) {
+
+                                    gcode.shift()
+
+                                    if (gcode.length) {
+
+                                        await write(gcode[0] + "\n")
+
+                                    } else {
+
+                                        await write("M111 S0\n")
+
+                                        streaming = false
+
+                                    }
+
+                                }
+
                             }
 
                             response = ""
 
                         }
 
-                    })
+                    }
 
                 } else {
 
@@ -592,12 +617,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
         input.scrollTop = input.scrollHeight
         output.scrollTop = output.scrollHeight
 
-        navigator.serial.addEventListener("connect", (event) => {
-            connected()
+        navigator.serial.addEventListener("connect", async (event) => {
+            await connected()
         })
 
-        navigator.serial.addEventListener("disconnect", (event) => {
-            disconnected()
+        navigator.serial.addEventListener("disconnect", async (event) => {
+            await disconnected()
         })
 
         $("img#upload").on("click", async (event) => {
@@ -610,11 +635,31 @@ document.addEventListener("DOMContentLoaded", (event) => {
             const file = $(event.target)[0].files[0]
 
             reader.readAsText(file)
-            reader.onload = (file) => {
+            reader.onload = async (file) => {
 
                 processInput("File Upload")
 
-                write(file.target.result)
+                if (streamEnabled) {
+
+                    streaming = true
+
+                    await write("M111 S1\n")
+
+                    for (var line of file.target.result.split(/\n|\r|\n\r|\r\n/)) {
+
+                        line = line.split(";")[0].trim()
+
+                        if (line) gcode.push(line)
+
+                    }
+
+                    await write(gcode[0] + "\n")
+
+                } else {
+
+                    write(file.target.result)
+
+                }
 
             }
 
@@ -653,7 +698,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         })
 
-        $("input#timestamps, input#colors, input#emojis").on("change", (event) => {
+        $("input#timestamps, input#colors, input#emojis").on("change", async (event) => {
 
             let value = $(event.target).prop("checked")
             let type = $(event.target).attr("id")
