@@ -282,7 +282,7 @@ async function write(text) {
 
 }
 
-function processInput(text, save = true) {
+async function processInput(text, save = true) {
 
     text += " "
 
@@ -337,14 +337,14 @@ function processInput(text, save = true) {
     if (text.includes("M108 ")) text += "<span class='emoji'>⛔</span>" // Interrupt command.
     if (text.includes("M112 ")) text += "<span class='emoji'>🛑</span>" // Full Shutdown.
 
-    // Upload
+    // Uploading/Streaming
     if (text.includes("File Upload ")) text += "<span class='emoji'>⬆️</span>" // File was Uploaded.
 
     log("input", text, save)
 
 }
 
-function processOutput(text, save = true) {
+async function processOutput(text, save = true) {
 
     text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
     text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
@@ -383,6 +383,27 @@ function processOutput(text, save = true) {
     }
 
     log("output", text, save)
+
+}
+
+async function log(zone, text, save = true) {
+
+    let div = document.getElementById(zone)
+
+    time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+    text = "<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>"
+
+    if (save) {
+
+        let logs = localRead(zone + "s"); logs.push(text)
+
+        localWrite(zone + "s", logs)
+
+    }
+
+    $("#" + zone + "").append(text)
+
+    div.scrollTop = div.scrollHeight
 
 }
 
@@ -440,28 +461,35 @@ async function reset() {
 
 }
 
-function log(zone, message, save = true) {
+async function uploadable() {
 
-    let div = document.getElementById(zone)
+    if (device.connected && !streaming) {
 
-    time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
-    message = "<p>" + time + "<span class='pointer'> >>> </span>" + message + "</p>"
+        $("img#upload").css({
 
-    if (save) {
+            "cursor": "pointer",
+            "opacity": 1
 
-        let logs = localRead(zone + "s"); logs.push(message)
+        })
 
-        localWrite(zone + "s", logs)
+        return true
+
+    } else {
+
+        $("img#upload").css({
+
+            "cursor": "not-allowed",
+            "opacity": 0.5
+
+        })
+
+        return false
 
     }
 
-    $("#" + zone + "").append(message)
-
-    div.scrollTop = div.scrollHeight
-
 }
 
-function toggleStyle(type, value) {
+async function toggleStyle(type, value) {
 
     let noTimestamps =
 
@@ -514,35 +542,7 @@ function toggleStyle(type, value) {
 
 }
 
-async function uploadable() {
-
-    if (device.connected && !streaming) {
-
-        $("img#upload").css({
-
-            "cursor": "pointer",
-            "opacity": 1
-
-        })
-
-        return true
-
-    } else {
-
-        $("img#upload").css({
-
-            "cursor": "not-allowed",
-            "opacity": 0.5
-
-        })
-
-        return false
-
-    }
-
-}
-
-document.addEventListener("DOMContentLoaded", (event) => {
+document.addEventListener("DOMContentLoaded", async (event) => {
 
     if (navigator.serial) {
 
@@ -771,7 +771,7 @@ document.addEventListener("DOMContentLoaded", (event) => {
             let value = $(event.target).prop("checked")
             let type = $(event.target).attr("id")
 
-            toggleStyle(type, value)
+            await toggleStyle(type, value)
 
         })
 
@@ -862,8 +862,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
 })
 
-$(window).on("focus", (event) => {
-    if (device.connected) {
+$(window).on("focus", async (event) => {
+    if (device.connected && (!streaming || streamInjection)) {
         $("textarea#prompt").focus()
     }
 })
