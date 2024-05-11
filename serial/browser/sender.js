@@ -4,11 +4,14 @@ let device = {}
 let history = []
 let commandIndex = 0
 
-let streaming = null
-let streamEnabled = true
-
 let usbVendorId = null
 let usbProductId = null
+
+let streaming = null
+let streamEnabled = true
+let streamInjection = true
+let streamSaveLogs = false
+let streamPrintLogs = true
 
 let baudRateDefault = 115200
 let bufferSizeDefault = 1024
@@ -128,8 +131,15 @@ async function connected() {
 
 async function disconnected() {
 
-    streaming = false
     device.connected = false
+
+    if (streaming) {
+
+        streaming = false
+
+        processInput("Data Stream Interrupted")
+
+    }
 
     $("button#connection").text("Connect")
 
@@ -182,27 +192,46 @@ async function read() {
 
                                 response = response.replace("echo:", "").trim()
 
-                                if (streaming && response == gcode[0]) {
+                                if (streaming) {
 
-                                    gcode.shift()
+                                    if (streamPrintLogs) {
 
-                                    if (gcode.length) {
-
-                                        await write(gcode[0] + "\n")
-
-                                    } else {
-
-                                        await write("M111 S0\n")
-
-                                        streaming = false
-
-                                        uploadable()
+                                        processOutput(response, streamSaveLogs)
 
                                     }
 
-                                }
+                                    if (response == gcode[0]) {
 
-                                processOutput(response)
+                                        gcode.shift()
+
+                                        if (gcode.length) {
+
+                                            await write(gcode[0] + "\n")
+
+                                        } else {
+
+                                            if (!streamInjection) {
+
+                                                $("textarea#prompt").prop("disabled", false)
+                                                $("textarea#prompt").focus()
+
+                                            }
+
+                                            await write("M111 S0\n")
+
+                                            streaming = false
+
+                                            uploadable()
+
+                                        }
+
+                                    }
+
+                                } else {
+
+                                    processOutput(response)
+
+                                }
 
                             }
 
@@ -253,7 +282,7 @@ async function write(text) {
 
 }
 
-function processInput(text) {
+function processInput(text, save = true) {
 
     text += " "
 
@@ -311,11 +340,11 @@ function processInput(text) {
     // Upload
     if (text.includes("File Upload ")) text += "<span class='emoji'>⬆️</span>" // File was Uploaded.
 
-    log("input", text)
+    log("input", text, save)
 
 }
 
-function processOutput(text) {
+function processOutput(text, save = true) {
 
     text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
     text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
@@ -353,7 +382,7 @@ function processOutput(text) {
         text += "<span class='emoji'> 💀</span>"
     }
 
-    log("output", text)
+    log("output", text, save)
 
 }
 
@@ -405,23 +434,30 @@ async function reset() {
         $("#output").empty()
         $("#input").empty()
 
+        uploadable()
+
     }
 
 }
 
-function log(zone, text) {
-
-    time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
-    text = "<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>"
-
-    let logs = localRead(zone + "s"); logs.push(text)
-
-    $("#" + zone + "").append(text)
+function log(zone, message, save = true) {
 
     let div = document.getElementById(zone)
-    div.scrollTop = div.scrollHeight
 
-    localWrite(zone + "s", logs)
+    time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+    message = "<p>" + time + "<span class='pointer'> >>> </span>" + message + "</p>"
+
+    if (save) {
+
+        let logs = localRead(zone + "s"); logs.push(message)
+
+        localWrite(zone + "s", logs)
+
+    }
+
+    $("#" + zone + "").append(message)
+
+    div.scrollTop = div.scrollHeight
 
 }
 
@@ -672,6 +708,14 @@ document.addEventListener("DOMContentLoaded", (event) => {
                         line = line.split(";")[0].trim()
 
                         if (line) gcode.push(line)
+
+                    }
+
+                    if (!streamInjection) {
+
+                        $("textarea#prompt").prop("disabled", true)
+                        $("textarea#prompt").val("").change()
+                        $("textarea#prompt").attr("rows", 1)
 
                     }
 
