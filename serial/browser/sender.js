@@ -71,7 +71,7 @@ async function connect() {
 
     } catch (error) {
 
-        log("output", "<span class='error'>Failed to Connect</span>")
+        processOutput("<span class='error'>Failed to Connect</span>")
 
         console.log("Failed to connect with serial port: ", error)
 
@@ -95,7 +95,7 @@ async function disconnect() {
 
     } catch (error) {
 
-        log("output", "<span class='error'>Failed to Disconnect</span>")
+        processOutput("<span class='error'>Failed to Disconnect</span>")
 
         console.log("Failed to disconnect with serial port: ", error)
 
@@ -119,7 +119,7 @@ async function connected() {
     $("button#connection").addClass("disconnect")
     $("button#connection").removeClass("connect")
 
-    log("output", "<span class='success'>Connected</span>")
+    processOutput("<span class='success'>Connected</span>")
 
     console.log("Connected with: ", device)
 
@@ -137,7 +137,7 @@ async function disconnected() {
 
         streaming = false
 
-        processInput("Data Stream Interrupted")
+        processInput("<span class='error'>File Upload Interrupted</span>")
 
     }
 
@@ -148,7 +148,7 @@ async function disconnected() {
     $("button#connection").addClass("connect")
     $("button#connection").removeClass("disconnect")
 
-    log("output", "<span class='error'>Disconnected</span>")
+    processOutput("<span class='error'>Disconnected</span>")
 
     console.log("Disconnected with: ", device)
 
@@ -209,6 +209,8 @@ async function read() {
                                             await write(gcode[0] + "\n")
 
                                         } else {
+
+                                            processInput("<span class='success'>File Upload Complete</span>")
 
                                             if (!streamInjection) {
 
@@ -338,7 +340,10 @@ async function processInput(text, save = true) {
     if (text.includes("M112 ")) text += "<span class='emoji'>🛑</span>" // Full Shutdown.
 
     // Uploading/Streaming
-    if (text.includes("File Upload ")) text += "<span class='emoji'>⬆️</span>" // File was Uploaded.
+    if (text.includes("File Uploaded")) text += "<span class='emoji'>📤</span>" // File was Uploaded.
+    if (text.includes("File Upload Started")) text += "<span class='emoji'>📤</span>" // File streaming started.
+    if (text.includes("File Upload Complete")) text += "<span class='emoji'>✅</span>" // File streaming complete.
+    if (text.includes("File Upload Interrupted")) text += "<span class='emoji'>❌</span>" // File streaming interrupted.
 
     log("input", text, save)
 
@@ -361,6 +366,10 @@ async function processOutput(text, save = true) {
     text = text.replace(/T:/g, "<b class='t'>T:</b> ")
     text = text.replace(/B:/g, "<b class='b'>B:</b> ")
     text = text.replace(/W:/g, "<b class='w'>W:</b> ")
+
+    if (text.includes("Connection Setting Changed")) {
+        text += "<span class='emoji'> 🛠️🛜</span>"
+    }
 
     if (text.includes("X:") && text.includes("Y:") && text.includes("Z:") && text.includes("E:")) {
         text += "<span class='emoji'> 📌</span>"
@@ -695,13 +704,13 @@ document.addEventListener("DOMContentLoaded", async (event) => {
             reader.readAsText(file)
             reader.onload = async (file) => {
 
-                processInput("File Upload")
-
                 if (streamEnabled) {
 
                     streaming = true
 
                     await write("M111 S1\n")
+
+                    processInput("<span class='info'>File Upload Started</span>")
 
                     for (var line of file.target.result.split(/\n|\r|\n\r|\r\n/)) {
 
@@ -724,6 +733,8 @@ document.addEventListener("DOMContentLoaded", async (event) => {
                     uploadable()
 
                 } else {
+
+                    processInput("<span class='success'>File Uploaded</span>")
 
                     write(file.target.result)
 
@@ -753,8 +764,8 @@ document.addEventListener("DOMContentLoaded", async (event) => {
             let oldValue = localRead(key)
             let newValue = $(event.target).val()
 
-            log("output", "<span class='info'>Connection Setting Changed</span>")
-            log("output", "<b>" + setting + ":</b> " + oldValue + " > " + newValue + "")
+            processOutput("<span class='info'>Connection Setting Changed</span>")
+            processOutput("<b>" + setting + ":</b> " + oldValue + " → " + newValue + "")
 
             if ($(event.target).prop("type") == "number") {
                 newValue = Number(newValue)
