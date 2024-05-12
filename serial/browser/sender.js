@@ -1,3 +1,4 @@
+let gcode = []
 let device = {}
 
 let history = []
@@ -5,6 +6,12 @@ let commandIndex = 0
 
 let usbVendorId = null
 let usbProductId = null
+
+let streaming = null
+let streamEnabled = true
+let streamInjection = true
+let streamSaveLogs = false
+let streamPrintLogs = true
 
 let baudRateDefault = 115200
 let bufferSizeDefault = 1024
@@ -24,10 +31,14 @@ async function connect() {
         if (usbVendorId && usbProductId) {
 
             device = await navigator.serial.requestPort({
+
                 filters: [{
+
                     usbVendorId: usbVendorId,
                     usbProductId: usbProductId
+
                 }]
+
             })
 
         } else {
@@ -60,7 +71,7 @@ async function connect() {
 
     } catch (error) {
 
-        log("output", "<span class='error'>Failed to Connect</span>")
+        processOutput("<span class='error'>Failed to Connect</span>")
 
         console.log("Failed to connect with serial port: ", error)
 
@@ -84,7 +95,7 @@ async function disconnect() {
 
     } catch (error) {
 
-        log("output", "<span class='error'>Failed to Disconnect</span>")
+        processOutput("<span class='error'>Failed to Disconnect</span>")
 
         console.log("Failed to disconnect with serial port: ", error)
 
@@ -108,24 +119,27 @@ async function connected() {
     $("button#connection").addClass("disconnect")
     $("button#connection").removeClass("connect")
 
-    log("output", "<span class='success'>Connected</span>")
+    processOutput("<span class='success'>Connected</span>")
 
     console.log("Connected with: ", device)
 
     $("textarea#prompt").focus()
 
-    $("img#upload").css({
-
-        "cursor": "pointer",
-        "opacity": 1
-
-    })
+    uploadable()
 
 }
 
 async function disconnected() {
 
     device.connected = false
+
+    if (streaming) {
+
+        streaming = false
+
+        processInput("<span class='error'>File Upload Interrupted</span>")
+
+    }
 
     $("button#connection").text("Connect")
 
@@ -134,19 +148,14 @@ async function disconnected() {
     $("button#connection").addClass("connect")
     $("button#connection").removeClass("disconnect")
 
-    log("output", "<span class='error'>Disconnected</span>")
+    processOutput("<span class='error'>Disconnected</span>")
 
     console.log("Disconnected with: ", device)
 
     $("textarea#prompt").val("").change()
     $("textarea#prompt").attr("rows", 1)
 
-    $("img#upload").css({
-
-        "cursor": "not-allowed",
-        "opacity": 0.5
-
-    })
+    uploadable()
 
 }
 
@@ -173,15 +182,58 @@ async function read() {
 
                     let lines = chunk.split("§")
 
-                    lines.forEach((line, index) => {
+                    for (let index = 0; index < lines.length; index++) {
 
-                        response += line
+                        response += lines[index]
 
                         if (lines[index + 1] != undefined) {
 
                             if (response.length) {
 
-                                processOutput(response)
+                                response = response.replace("echo:", "").trim()
+
+                                if (streaming) {
+
+                                    if (streamPrintLogs) {
+
+                                        processOutput(response, streamSaveLogs)
+
+                                    }
+
+                                    if (response == gcode[0]) {
+
+                                        gcode.shift()
+
+                                        if (gcode.length) {
+
+                                            await write(gcode[0] + "\n")
+
+                                        } else {
+
+                                            processInput("<span class='success'>File Upload Complete</span>")
+
+                                            if (!streamInjection) {
+
+                                                $("textarea#prompt").prop("disabled", false)
+                                                $("textarea#prompt").focus()
+
+                                            }
+
+                                            await write("M111 S0\n")
+
+                                            streaming = false
+
+                                            uploadable()
+
+                                        }
+
+                                    }
+
+                                } else {
+
+                                    processOutput(response)
+
+                                }
 
                             }
 
@@ -189,7 +241,7 @@ async function read() {
 
                         }
 
-                    })
+                    }
 
                 } else {
 
@@ -232,7 +284,7 @@ async function write(text) {
 
 }
 
-function processInput(text) {
+async function processInput(text, save = true) {
 
     text += " "
 
@@ -287,16 +339,17 @@ function processInput(text) {
     if (text.includes("M108 ")) text += "<span class='emoji'>⛔</span>" // Interrupt command.
     if (text.includes("M112 ")) text += "<span class='emoji'>🛑</span>" // Full Shutdown.
 
-    // Upload
-    if (text.includes("File Upload ")) text += "<span class='emoji'>⬆️</span>" // File was Uploaded.
+    // Uploading/Streaming
+    if (text.includes("File Uploaded")) text += "<span class='emoji'>📤</span>" // File was Uploaded.
+    if (text.includes("File Upload Started")) text += "<span class='emoji'>📤</span>" // File streaming started.
+    if (text.includes("File Upload Complete")) text += "<span class='emoji'>✅</span>" // File streaming complete.
+    if (text.includes("File Upload Interrupted")) text += "<span class='emoji'>❌</span>" // File streaming interrupted.
 
-    log("input", text)
+    log("input", text, save)
 
 }
 
-function processOutput(text) {
-
-    text = text.replace("echo:", "")
+async function processOutput(text, save = true) {
 
     text = text.replace("cold extrusion prevented", "<span class='info'>Cold Extrusion Prevented</span><span class='emoji'> 🧊</span>")
     text = text.replace("Unknown command:", "<span class='error'>Unknown command:</span>")
@@ -313,6 +366,10 @@ function processOutput(text) {
     text = text.replace(/T:/g, "<b class='t'>T:</b> ")
     text = text.replace(/B:/g, "<b class='b'>B:</b> ")
     text = text.replace(/W:/g, "<b class='w'>W:</b> ")
+
+    if (text.includes("Connection Setting Changed")) {
+        text += "<span class='emoji'> 🛠️🛜</span>"
+    }
 
     if (text.includes("X:") && text.includes("Y:") && text.includes("Z:") && text.includes("E:")) {
         text += "<span class='emoji'> 📌</span>"
@@ -334,7 +391,28 @@ function processOutput(text) {
         text += "<span class='emoji'> 💀</span>"
     }
 
-    log("output", text)
+    log("output", text, save)
+
+}
+
+async function log(zone, text, save = true) {
+
+    let div = document.getElementById(zone)
+
+    time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
+    text = "<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>"
+
+    if (save) {
+
+        let logs = localRead(zone + "s"); logs.push(text)
+
+        localWrite(zone + "s", logs)
+
+    }
+
+    $("#" + zone + "").append(text)
+
+    div.scrollTop = div.scrollHeight
 
 }
 
@@ -386,27 +464,41 @@ async function reset() {
         $("#output").empty()
         $("#input").empty()
 
+        uploadable()
+
     }
 
 }
 
-function log(zone, text) {
+async function uploadable() {
 
-    time = "<span class='time'>" + new Date().toLocaleTimeString([], {hour12: false}) + "</span>"
-    text = "<p>" + time + "<span class='pointer'> >>> </span>" + text + "</p>"
+    if (device.connected && !streaming) {
 
-    let logs = localRead(zone + "s"); logs.push(text)
+        $("img#upload").css({
 
-    $("#" + zone + "").append(text)
+            "cursor": "pointer",
+            "opacity": 1
 
-    let div = document.getElementById(zone)
-    div.scrollTop = div.scrollHeight
+        })
 
-    localWrite(zone + "s", logs)
+        return true
+
+    } else {
+
+        $("img#upload").css({
+
+            "cursor": "not-allowed",
+            "opacity": 0.5
+
+        })
+
+        return false
+
+    }
 
 }
 
-function toggleStyle(type, value) {
+async function toggleStyle(type, value) {
 
     let noTimestamps =
 
@@ -459,7 +551,7 @@ function toggleStyle(type, value) {
 
 }
 
-document.addEventListener("DOMContentLoaded", (event) => {
+document.addEventListener("DOMContentLoaded", async (event) => {
 
     if (navigator.serial) {
 
@@ -592,16 +684,16 @@ document.addEventListener("DOMContentLoaded", (event) => {
         input.scrollTop = input.scrollHeight
         output.scrollTop = output.scrollHeight
 
-        navigator.serial.addEventListener("connect", (event) => {
-            connected()
+        navigator.serial.addEventListener("connect", async (event) => {
+            await connected()
         })
 
-        navigator.serial.addEventListener("disconnect", (event) => {
-            disconnected()
+        navigator.serial.addEventListener("disconnect", async (event) => {
+            await disconnected()
         })
 
         $("img#upload").on("click", async (event) => {
-            if (device.connected) $("input#uploader").trigger("click")
+            if (await uploadable()) $("input#uploader").trigger("click")
         })
 
         $("input#uploader").on("change", async (event) => {
@@ -610,11 +702,43 @@ document.addEventListener("DOMContentLoaded", (event) => {
             const file = $(event.target)[0].files[0]
 
             reader.readAsText(file)
-            reader.onload = (file) => {
+            reader.onload = async (file) => {
 
-                processInput("File Upload")
+                if (streamEnabled) {
 
-                write(file.target.result)
+                    streaming = true
+
+                    await write("M111 S1\n")
+
+                    processInput("<span class='info'>File Upload Started</span>")
+
+                    for (var line of file.target.result.split(/\n|\r|\n\r|\r\n/)) {
+
+                        line = line.split(";")[0].trim()
+
+                        if (line) gcode.push(line)
+
+                    }
+
+                    if (!streamInjection) {
+
+                        $("textarea#prompt").prop("disabled", true)
+                        $("textarea#prompt").val("").change()
+                        $("textarea#prompt").attr("rows", 1)
+
+                    }
+
+                    await write(gcode[0] + "\n")
+
+                    uploadable()
+
+                } else {
+
+                    processInput("<span class='success'>File Uploaded</span>")
+
+                    write(file.target.result)
+
+                }
 
             }
 
@@ -640,8 +764,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
             let oldValue = localRead(key)
             let newValue = $(event.target).val()
 
-            log("output", "<span class='info'>Connection Setting Changed</span>")
-            log("output", "<b>" + setting + ":</b> " + oldValue + " > " + newValue + "")
+            processOutput("<span class='info'>Connection Setting Changed</span>")
+            processOutput("<b>" + setting + ":</b> " + oldValue + " → " + newValue + "")
 
             if ($(event.target).prop("type") == "number") {
                 newValue = Number(newValue)
@@ -653,12 +777,12 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
         })
 
-        $("input#timestamps, input#colors, input#emojis").on("change", (event) => {
+        $("input#timestamps, input#colors, input#emojis").on("change", async (event) => {
 
             let value = $(event.target).prop("checked")
             let type = $(event.target).attr("id")
 
-            toggleStyle(type, value)
+            await toggleStyle(type, value)
 
         })
 
@@ -749,8 +873,8 @@ document.addEventListener("DOMContentLoaded", (event) => {
 
 })
 
-$(window).on("focus", (event) => {
-    if (device.connected) {
+$(window).on("focus", async (event) => {
+    if (device.connected && (!streaming || streamInjection)) {
         $("textarea#prompt").focus()
     }
 })
