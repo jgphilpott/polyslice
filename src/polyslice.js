@@ -360,6 +360,28 @@ Polyslice = class Polyslice {
     return gcode + this.newline;
   }
 
+  codeTemperatureReport(auto = true, interval = 1, index = null, sensor = null) {
+    var gcode;
+    if (auto) {
+      gcode = "M155";
+      if (typeof interval === "number" && interval >= 0) {
+        if (this.getTimeUnit() === "milliseconds") {
+          interval /= 1000;
+        }
+        gcode += " S" + interval;
+      }
+    } else {
+      gcode = "M105";
+      if (typeof index === "number") {
+        gcode += " T" + index;
+      }
+      if (sensor) {
+        gcode += " R";
+      }
+    }
+    return gcode + this.newline;
+  }
+
   // https://marlinfw.org/docs/gcode/M106.html
   // https://marlinfw.org/docs/gcode/M107.html
   codeFanSpeed(speed = null, index = null) {
