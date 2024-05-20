@@ -486,6 +486,22 @@ Polyslice = class Polyslice {
     return "M115" + this.newline;
   }
 
+  // https://marlinfw.org/docs/gcode/M027.html
+  codeSDReport(auto = true, interval = 1, name = false) {
+    var gcode;
+    gcode = "M27";
+    if (name) {
+      gcode += " C";
+    }
+    if (auto && typeof interval === "number" && interval >= 0) {
+      if (this.getTimeUnit() === "milliseconds") {
+        interval /= 1000;
+      }
+      gcode += " S" + interval;
+    }
+    return gcode + this.newline;
+  }
+
   // https://marlinfw.org/docs/gcode/M073.html
   codeProgressReport(percent = null, time = null) {
     var gcode;
