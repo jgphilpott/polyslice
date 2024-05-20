@@ -465,6 +465,21 @@ class Polyslice
 
         return gcode + this.newline
 
+    # https://marlinfw.org/docs/gcode/M123.html
+    codeFanReport: (auto = true, interval = 1) ->
+
+        gcode = "M123"
+
+        if auto and typeof interval is "number" and interval >= 0
+
+            if this.getTimeUnit() is "milliseconds"
+
+                interval /= 1000
+
+            gcode += " S" + interval
+
+        return gcode + this.newline
+
     # https://marlinfw.org/docs/gcode/G004.html
     # https://marlinfw.org/docs/gcode/M000-M001.html
     codeDwell: (time = null, interruptible = true, message = "") ->
