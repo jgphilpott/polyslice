@@ -486,6 +486,24 @@ Polyslice = class Polyslice {
     return "M115" + this.newline;
   }
 
+  // https://marlinfw.org/docs/gcode/M073.html
+  codeProgressReport(percent = null, time = null) {
+    var gcode;
+    gcode = "M73";
+    if (typeof percent === "number" && percent >= 0) {
+      gcode += " P" + percent;
+    }
+    if (typeof time === "number" && time >= 0) {
+      if (this.getTimeUnit() === "milliseconds") {
+        time /= 60000;
+      } else if (this.getTimeUnit() === "seconds") {
+        time /= 60;
+      }
+      gcode += " R" + time;
+    }
+    return gcode + this.newline;
+  }
+
   slice(scene = {}) {
     if (this.getAutohome()) {
       this.gcode += this.codeAutohome();
