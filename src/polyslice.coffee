@@ -307,6 +307,8 @@ class Polyslice
 
         return gcode
 
+    # https://marlinfw.org/docs/gcode/M114.html
+    # https://marlinfw.org/docs/gcode/M154.html
     codePositionReport: (auto = true, interval = 1, real = false, detail = false, extruder = false) ->
 
         if auto
@@ -407,6 +409,8 @@ class Polyslice
 
         return gcode + this.newline
 
+    # https://marlinfw.org/docs/gcode/M105.html
+    # https://marlinfw.org/docs/gcode/M155.html
     codeTemperatureReport: (auto = true, interval = 1, index = null, sensor = null) ->
 
         if auto
@@ -517,6 +521,11 @@ class Polyslice
     codeShutdown: ->
 
         return "M112" + this.newline
+
+    # https://marlinfw.org/docs/gcode/M115.html
+    codeFirmwareReport: ->
+
+        return "M115" + this.newline
 
     slice: (scene = {}) ->
 
