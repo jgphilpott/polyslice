@@ -221,7 +221,7 @@ class Polyslice
     # https://marlinfw.org/docs/gcode/G000-G001.html
     codeLinearMovement: (x = null, y = null, z = null, extrude = null, feedrate = null, power = null) ->
 
-        if extrude is null then gcode = "G0" else gcode = "G1"
+        if not extrude then gcode = "G0" else gcode = "G1"
 
         gcode += this.codeMovement x, y, z, extrude, feedrate, power
 
@@ -306,6 +306,30 @@ class Polyslice
                 console.error "Invalid Bézier Movement Parameters"
 
         return gcode
+
+    codePositionReport: (auto = true, interval = 1, real = false, detail = false, extruder = false) ->
+
+        if auto
+
+            gcode = "M154"
+
+            if typeof interval is "number" and interval >= 0
+
+                if this.getTimeUnit() is "milliseconds"
+
+                    interval /= 1000
+
+                gcode += " S" + interval
+
+        else
+
+            gcode = "M114"
+
+            if real then gcode += " R"
+            if detail then gcode += " D"
+            if extruder then gcode += " E"
+
+        return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/M109.html
     # https://marlinfw.org/docs/gcode/M104.html
@@ -439,7 +463,7 @@ class Polyslice
         return "M400" + this.newline
 
     # https://marlinfw.org/docs/gcode/M300.html
-    codeTone: (duration, frequency) ->
+    codeTone: (duration = 1, frequency = 500) ->
 
         gcode = "M300"
 

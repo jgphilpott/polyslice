@@ -203,7 +203,7 @@ Polyslice = class Polyslice {
   // https://marlinfw.org/docs/gcode/G000-G001.html
   codeLinearMovement(x = null, y = null, z = null, extrude = null, feedrate = null, power = null) {
     var gcode;
-    if (extrude === null) {
+    if (!extrude) {
       gcode = "G0";
     } else {
       gcode = "G1";
@@ -275,6 +275,31 @@ Polyslice = class Polyslice {
       }
     }
     return gcode;
+  }
+
+  codePositionReport(auto = true, interval = 1, real = false, detail = false, extruder = false) {
+    var gcode;
+    if (auto) {
+      gcode = "M154";
+      if (typeof interval === "number" && interval >= 0) {
+        if (this.getTimeUnit() === "milliseconds") {
+          interval /= 1000;
+        }
+        gcode += " S" + interval;
+      }
+    } else {
+      gcode = "M114";
+      if (real) {
+        gcode += " R";
+      }
+      if (detail) {
+        gcode += " D";
+      }
+      if (extruder) {
+        gcode += " E";
+      }
+    }
+    return gcode + this.newline;
   }
 
   // https://marlinfw.org/docs/gcode/M109.html
@@ -391,7 +416,7 @@ Polyslice = class Polyslice {
   }
 
   // https://marlinfw.org/docs/gcode/M300.html
-  codeTone(duration, frequency) {
+  codeTone(duration = 1, frequency = 500) {
     var gcode;
     gcode = "M300";
     if (typeof duration === "number" && duration > 0) {
