@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="333" height="333" src="https://github.com/jgphilpott/polyslice/blob/main/imgs/logo.jpeg">
+    <img width="333" height="333" src="https://raw.githubusercontent.com/jgphilpott/polyslice/refs/heads/main/imgs/favicon/black.png">
 </p>
 
 # About
