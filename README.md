@@ -6,18 +6,30 @@
 
 An [FDM](https://en.wikipedia.org/wiki/Fused_filament_fabrication) [slicer](https://en.wikipedia.org/wiki/Slicer_(3D_printing)) designed specifically for [three.js](https://github.com/mrdoob/three.js) and inspired by the discussion on [this three.js issue](https://github.com/mrdoob/three.js/issues/17981). The idea is to be able to go straight from a mesh in a three.js scene to a machine usable [G-code](https://en.wikipedia.org/wiki/G-code), thus eliminating the need for intermediary file formats and 3rd party slicing software.
 
-[![npm version](https://badge.fury.io/js/polyslice.svg)](https://badge.fury.io/js/polyslice)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js CI](https://github.com/jgphilpott/polyslice/workflows/Node.js%20CI/badge.svg)](https://github.com/jgphilpott/polyslice/actions)
+<p align="center">
+  <a href="https://badge.fury.io/js/polyslice"><img src="https://badge.fury.io/js/polyslice.svg" alt="npm version"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://github.com/jgphilpott/polyslice/actions"><img src="https://github.com/jgphilpott/polyslice/workflows/Node.js%20CI/badge.svg" alt="Node.js CI"></a>
+</p>
 
 ## Installation
 
+### Node.js
 ```bash
 npm install polyslice three
 ```
 
+### Browser
+```html
+<!-- Include three.js first -->
+<script src="https://unpkg.com/three@0.168.0/build/three.min.js"></script>
+<!-- Include polyslice -->
+<script src="https://unpkg.com/polyslice/dist/index.browser.min.js"></script>
+```
+
 ## Quick Start
 
+### Node.js
 ```javascript
 const Polyslice = require('polyslice');
 
@@ -36,14 +48,32 @@ const gcode = slicer.codeAutohome() +
 console.log(gcode);
 ```
 
+### Browser
+```javascript
+// Polyslice is available as a global variable
+const slicer = new Polyslice({
+  nozzleTemperature: 200,
+  bedTemperature: 60,
+  fanSpeed: 100
+});
+
+// Generate some G-code
+const gcode = slicer.codeAutohome() + 
+             slicer.codeNozzleTemperature(200, false) +
+             slicer.codeLinearMovement(10, 10, 0.2, 0.1, 1500);
+
+console.log(gcode);
+```
+
 ## Features
 
 - 🚀 **Direct three.js integration** - Work directly with three.js meshes and scenes
 - 📝 **Comprehensive G-code generation** - Full set of G-code commands for FDM printing
 - ⚙️ **Configurable parameters** - Temperatures, speeds, units, and more
-- 🔧 **TypeScript support** - Full TypeScript definitions included
+- 🌐 **Universal compatibility** - Works in both Node.js and browser environments
 - 🧪 **Well tested** - Comprehensive test suite with Jest
-- 📦 **Multiple formats** - CommonJS, ESM, and minified builds
+- 📦 **Multiple formats** - CommonJS, ESM, and browser builds with minification
+- 🔧 **CoffeeScript source** - Clean, readable CoffeeScript codebase
 - 🌐 **Node.js ready** - Designed specifically for Node.js environments
 
 ## About
@@ -151,6 +181,51 @@ let gcode = slicer.slice(); // Basic initialization
 // Add layer-by-layer printing logic here...
 ```
 
+### Browser Integration
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Polyslice Browser Example</title>
+    <script src="https://unpkg.com/three@0.168.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/polyslice/dist/index.browser.min.js"></script>
+</head>
+<body>
+    <script>
+        // Create three.js scene
+        const scene = new THREE.Scene();
+        const geometry = new THREE.BoxGeometry(20, 20, 5);
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const cube = new THREE.Mesh(geometry, material);
+        scene.add(cube);
+
+        // Create slicer instance
+        const slicer = new Polyslice({
+            nozzleTemperature: 210,
+            bedTemperature: 60,
+            fanSpeed: 100
+        });
+
+        // Generate G-code
+        let gcode = '';
+        gcode += slicer.codeAutohome();
+        gcode += slicer.codeNozzleTemperature(210, true);
+        gcode += slicer.codeBedTemperature(60, true);
+        
+        // Simple square print
+        gcode += slicer.codeLinearMovement(0, 0, 0.2, null, 3000);
+        gcode += slicer.codeLinearMovement(20, 0, 0.2, 1, 1200);
+        gcode += slicer.codeLinearMovement(20, 20, 0.2, 1, 1200);
+        gcode += slicer.codeLinearMovement(0, 20, 0.2, 1, 1200);
+        gcode += slicer.codeLinearMovement(0, 0, 0.2, 1, 1200);
+        
+        console.log('Generated G-code:', gcode);
+    </script>
+</body>
+</html>
+```
+
 ## Development
 
 ```bash
@@ -183,10 +258,12 @@ npm run test:coverage # Run tests with coverage
 Multiple build targets are supported:
 
 ```bash
-npm run build:cjs    # CommonJS build
-npm run build:esm    # ES modules build
-npm run build:minify # Minified build
-npm run build        # All builds
+npm run build:node     # Node.js builds (CommonJS + ESM)
+npm run build:browser  # Browser build (IIFE)
+npm run build:cjs      # CommonJS build only
+npm run build:esm      # ES modules build only  
+npm run build:minify   # Minified builds
+npm run build          # All builds
 ```
 
 ## Tools

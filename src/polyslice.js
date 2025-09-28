@@ -535,4 +535,17 @@ class Polyslice {
 }
 
 // Export for Node.js and CommonJS environments
-module.exports = Polyslice;
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Polyslice;
+}
+
+// Export for browser environments
+if (typeof window !== 'undefined') {
+  window.Polyslice = Polyslice;
+}
+
+// Export for ES modules (will be handled by build system)
+if (typeof exports !== 'undefined') {
+  exports.Polyslice = Polyslice;
+  exports.default = Polyslice;
+}

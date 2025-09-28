@@ -1,22 +1,41 @@
 name: Polyslice Tests
 
 on:
-
   push:
-
     branches: [main, bug/**, feature/**]
-
   pull_request:
-
     branches: [main, bug/**, feature/**]
 
 jobs:
-
   polyslice-tests:
-
     name: Polyslice Tests
     runs-on: ubuntu-latest
-
+    
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 18.x, 20.x]
+    
     steps:
-
-        run: echo 'Polyslice Tests'
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run linting
+        run: npm run lint
+        
+      - name: Run tests
+        run: npm test
+        
+      - name: Build package
+        run: npm run build
+        
+      - name: Test built package
+        run: node -e "const Polyslice = require('./dist/index.js'); console.log('Built package works:', new Polyslice().codeAutohome().trim());"

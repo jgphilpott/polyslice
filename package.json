@@ -4,7 +4,7 @@
   "description": "An FDM slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
-  "types": "dist/index.d.ts",
+  "browser": "dist/index.browser.js",
   "files": [
     "dist",
     "src",
@@ -12,11 +12,12 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run build:cjs && npm run build:esm && npm run build:types",
+    "build": "npm run build:node && npm run build:browser",
+    "build:node": "npm run build:cjs && npm run build:esm",
+    "build:browser": "esbuild src/index.js --bundle --platform=browser --format=iife --global-name=Polyslice --outfile=dist/index.browser.js",
     "build:cjs": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/index.js",
     "build:esm": "esbuild src/index.js --bundle --platform=node --format=esm --outfile=dist/index.esm.js",
-    "build:types": "tsc --emitDeclarationOnly --outDir dist",
-    "build:minify": "uglifyjs dist/index.js -o dist/index.min.js --compress --mangle",
+    "build:minify": "uglifyjs dist/index.js -o dist/index.min.js --compress --mangle && uglifyjs dist/index.browser.js -o dist/index.browser.min.js --compress --mangle",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
