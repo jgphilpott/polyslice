@@ -12,7 +12,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "compile": "coffee -c src/*.coffee",
+    "compile": "npx coffee -c src/*.coffee",
     "pretest": "npm run compile",
     "build": "npm run compile && npm run build:node && npm run build:browser",
     "build:node": "npm run build:cjs && npm run build:esm",
