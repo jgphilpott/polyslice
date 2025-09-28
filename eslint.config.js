@@ -1,6 +1,5 @@
 module.exports = [
   {
-    // Only lint the hand-written index.js file
     files: ["src/index.js"],
     languageOptions: {
       ecmaVersion: 12,
