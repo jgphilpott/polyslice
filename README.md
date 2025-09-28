@@ -9,7 +9,7 @@ An [FDM](https://en.wikipedia.org/wiki/Fused_filament_fabrication) [slicer](http
 <p align="center">
   <a href="https://badge.fury.io/js/polyslice"><img src="https://badge.fury.io/js/polyslice.svg" alt="npm version"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://github.com/jgphilpott/polyslice/actions"><img src="https://github.com/jgphilpott/polyslice/workflows/Polyslice%20Tests/badge.svg" alt="Polyslice Tests"></a>
+  <a href="https://github.com/jgphilpott/polyslice/actions"><img src="https://github.com/jgphilpott/polyslice/actions/workflows/tests.yml/badge.svg" alt="Polyslice Tests"></a>
 </p>
 
 ## Installation
