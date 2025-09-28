@@ -1,4 +1,6 @@
 {
+    "git-graph.repository.onLoad.showCheckedOutBranch": true,
+    "githubPullRequests.codingAgent.uiIntegration": true,
     "cSpell.language": "en-US",
     "cSpell.words": [
         "autohome",

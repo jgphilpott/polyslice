@@ -1,7 +1,7 @@
 {
   "name": "polyslice",
-  "version": "1.0.0",
-  "description": "An FDM slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats",
+  "version": "25.9.0",
+  "description": "An FDM slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
@@ -28,14 +28,15 @@
   },
   "keywords": [
     "3d-printing",
-    "slicer",
-    "gcode",
     "three.js",
+    "slicer",
+    "slicing",
+    "gcode",
+    "mesh",
     "3d",
     "fdm",
-    "additive-manufacturing",
-    "mesh",
-    "slicing"
+    "sla",
+    "additive-manufacturing"
   ],
   "author": "Jacob Philpott <jacob@jgphilpott.com> (https://github.com/jgphilpott)",
   "license": "MIT",
@@ -51,22 +52,17 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "three": "^0.168.0"
-  },
-  "optionalDependencies": {
+    "three": "^0.168.0",
     "@jgphilpott/polyconvert": "*",
     "@jgphilpott/polytree": "*"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.5",
-    "@types/node": "^20.8.0",
     "esbuild": "^0.19.12",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-jest": "^27.4.2",
     "jest": "^29.7.0",
     "prettier": "^3.6.2",
-    "typescript": "^5.9.2",
     "uglify-js": "^3.19.3"
   },
   "jest": {

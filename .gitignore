@@ -1,26 +1,24 @@
-marlin
-*.txt
-
-# Node.js
+# Node
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 package-lock.json
+src/**/*.js
 yarn.lock
 
-# Build artifacts
+# Build Artifacts
 dist/
 coverage/
 *.tgz
 
-# IDE and editor files
+# IDE and Editor Files
 .vscode/settings.json
 .idea/
 *.swp
 *.swo
 
-# OS generated files
+# OS Files
 .DS_Store
 .DS_Store?
 ._*
@@ -33,6 +31,10 @@ Thumbs.db
 logs
 *.log
 
-# Temporary files
+# Temporary Files
 *.tmp
 *.temp
+
+# Other Files
+marlin
+*.txt

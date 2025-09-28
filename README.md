@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="333" height="333" src="https://raw.githubusercontent.com/jgphilpott/polyslice/refs/heads/main/imgs/favicon/black.png">
+    <img width="321" height="321" src="./imgs/logo-lowpoly.png">
 </p>
 
 # Polyslice
@@ -29,7 +29,7 @@ const slicer = new Polyslice({
 });
 
 // Generate some G-code
-const gcode = slicer.codeAutohome() + 
+const gcode = slicer.codeAutohome() +
              slicer.codeNozzleTemperature(200, false) +
              slicer.codeLinearMovement(10, 10, 0.2, 0.1, 1500);
 
@@ -62,7 +62,7 @@ const slicer = new Polyslice(options);
 
 **Options:**
 - `autohome` (boolean): Auto-home before slicing (default: true)
-- `workspacePlane` (string): XY, XZ, or YZ (default: 'XY')  
+- `workspacePlane` (string): XY, XZ, or YZ (default: 'XY')
 - `timeUnit` (string): 'milliseconds' or 'seconds' (default: 'milliseconds')
 - `lengthUnit` (string): 'millimeters' or 'inches' (default: 'millimeters')
 - `temperatureUnit` (string): 'celsius', 'fahrenheit', or 'kelvin' (default: 'celsius')
@@ -78,7 +78,7 @@ slicer.codeAutohome()                    // G28 - Auto-home all axes
 slicer.codeWorkspacePlane('XY')          // G17/G18/G19 - Set workspace plane
 slicer.codeLengthUnit('millimeters')     // G20/G21 - Set units
 
-// Temperature control  
+// Temperature control
 slicer.codeNozzleTemperature(200, true)  // M109/M104 - Set nozzle temp
 slicer.codeBedTemperature(60, true)      // M190/M140 - Set bed temp
 slicer.codeFanSpeed(100)                 // M106/M107 - Control fan
@@ -113,10 +113,10 @@ gcode += slicer.codeAutohome();
 gcode += slicer.codeNozzleTemperature(210, true);
 gcode += slicer.codeBedTemperature(60, true);
 
-// Draw square perimeter  
+// Draw square perimeter
 gcode += slicer.codeLinearMovement(0, 0, 0.2, null, 3000);    // Move to start
 gcode += slicer.codeLinearMovement(10, 0, 0.2, 0.5, 1200);   // Bottom edge
-gcode += slicer.codeLinearMovement(10, 10, 0.2, 0.5, 1200);  // Right edge  
+gcode += slicer.codeLinearMovement(10, 10, 0.2, 0.5, 1200);  // Right edge
 gcode += slicer.codeLinearMovement(0, 10, 0.2, 0.5, 1200);   // Top edge
 gcode += slicer.codeLinearMovement(0, 0, 0.2, 0.5, 1200);    // Left edge
 
@@ -174,7 +174,7 @@ The project includes comprehensive tests using Jest:
 
 ```bash
 npm test              # Run all tests
-npm run test:watch    # Run tests in watch mode  
+npm run test:watch    # Run tests in watch mode
 npm run test:coverage # Run tests with coverage
 ```
 
@@ -183,10 +183,10 @@ npm run test:coverage # Run tests with coverage
 Multiple build targets are supported:
 
 ```bash
-npm run build:cjs     # CommonJS build
-npm run build:esm     # ES modules build  
-npm run build:minify  # Minified build
-npm run build         # All builds
+npm run build:cjs    # CommonJS build
+npm run build:esm    # ES modules build
+npm run build:minify # Minified build
+npm run build        # All builds
 ```
 
 ## Tools
