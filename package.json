@@ -1,5 +1,5 @@
 {
-  "name": "polyslice",
+  "name": "@jgphilpott/polyslice",
   "version": "25.9.0",
   "description": "An FDM slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
@@ -28,6 +28,7 @@
     "prepublishOnly": "npm run build && npm run build:minify"
   },
   "keywords": [
+    "additive-manufacturing",
     "3d-printing",
     "three.js",
     "slicer",
@@ -36,10 +37,9 @@
     "mesh",
     "3d",
     "fdm",
-    "sla",
-    "additive-manufacturing"
+    "sla"
   ],
-  "author": "Jacob Philpott <jacob@jgphilpott.com> (https://github.com/jgphilpott)",
+  "author": "Jacob Philpott <jacob.philpott@gmx.com> (https://github.com/jgphilpott)",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -53,16 +53,16 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "three": "^0.168.0",
+    "three": "^0.180.0",
     "@jgphilpott/polyconvert": "*",
     "@jgphilpott/polytree": "*"
   },
   "devDependencies": {
-    "esbuild": "^0.19.12",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-jest": "^27.4.2",
-    "jest": "^29.7.0",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.36.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-jest": "^29.0.1",
+    "jest": "^30.2.0",
     "prettier": "^3.6.2",
     "uglify-js": "^3.19.3"
   },

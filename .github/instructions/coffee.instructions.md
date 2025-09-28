@@ -33,18 +33,18 @@ If you are unsure, prefer the more spacious option to maintain consistency with 
 - Follow standard JavaScript camelCase naming conventions for all variables.
 - **Do not use leading underscores** (`_variableName`) unless it's a true private convention.
 - **Use descriptive, full-form variable names** instead of cryptic abbreviations:
-  - ✅ Good: `for previousState in @previousStates`
-  - ❌ Bad: `for s in @previousStates`
+  - ✅ Good: `for previousState in previousStates`
+  - ❌ Bad: `for s in previousStates`
   - ✅ Good: `temporaryVertex`, `currentPolygon`
   - ❌ Bad: `tmpV`, `curPoly`
 - Prefer clarity over brevity - code is read more often than written.
 
 ## G-code Generation Guidelines
 
-- Maintain consistency with existing G-code command naming conventions
-- Use descriptive method names like `codeLinearMovement`, `codeAutohome`
-- Include proper G-code comments and references to Marlin documentation
-- Ensure all temperature, speed, and coordinate parameters are validated
+- Maintain consistency with existing G-code command naming conventions.
+- Use descriptive method names like `codeLinearMovement`, `codeAutohome`.
+- Include proper G-code comments and references to Marlin documentation.
+- Ensure all temperature, speed, and coordinate parameters are validated.
 
 ## Test Code Style Preferences
 
@@ -66,6 +66,6 @@ Adopt this naming in new geometry or test code when generating random coordinate
 
 ## Three.js Integration
 
-- When working with three.js objects, maintain clear separation between mesh processing and G-code generation
-- Use proper three.js naming conventions for geometry manipulation
-- Ensure mesh data extraction is compatible with both Node.js and browser environments
+- When working with three.js objects, maintain clear separation between mesh processing and G-code generation.
+- Use proper three.js naming conventions for geometry manipulation.
+- Ensure mesh data extraction is compatible with both Node.js and browser environments.
