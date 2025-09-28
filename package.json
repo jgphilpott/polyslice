@@ -1,5 +1,5 @@
 {
-  "name": "@jgphilpott/polyslice",
+  "name": "polyslice",
   "version": "25.9.0",
   "description": "An FDM slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
@@ -12,7 +12,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "npm run build:node && npm run build:browser",
+    "compile": "coffee -c src/*.coffee",
+    "pretest": "npm run compile",
+    "build": "npm run compile && npm run build:node && npm run build:browser",
     "build:node": "npm run build:cjs && npm run build:esm",
     "build:browser": "esbuild src/index.js --bundle --platform=browser --format=iife --global-name=Polyslice --outfile=dist/index.browser.js",
     "build:cjs": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/index.js",
@@ -58,6 +60,7 @@
     "@jgphilpott/polytree": "*"
   },
   "devDependencies": {
+    "coffeescript": "^2.7.0",
     "esbuild": "^0.25.10",
     "eslint": "^9.36.0",
     "eslint-config-prettier": "^10.1.8",
@@ -68,9 +71,13 @@
   },
   "jest": {
     "testEnvironment": "node",
+    "testMatch": [
+      "<rootDir>/src/**/*.test.js"
+    ],
     "collectCoverageFrom": [
       "src/**/*.js",
-      "!src/**/*.test.js"
+      "!src/**/*.test.js",
+      "!src/**/*.test.coffee"
     ],
     "coverageDirectory": "coverage",
     "coverageReporters": [

@@ -9,13 +9,18 @@ An [FDM](https://en.wikipedia.org/wiki/Fused_filament_fabrication) [slicer](http
 <p align="center">
   <a href="https://badge.fury.io/js/polyslice"><img src="https://badge.fury.io/js/polyslice.svg" alt="npm version"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
-  <a href="https://github.com/jgphilpott/polyslice/actions"><img src="https://github.com/jgphilpott/polyslice/workflows/Node.js%20CI/badge.svg" alt="Node.js CI"></a>
+  <a href="https://github.com/jgphilpott/polyslice/actions"><img src="https://github.com/jgphilpott/polyslice/workflows/Polyslice%20Tests/badge.svg" alt="Polyslice Tests"></a>
 </p>
 
 ## Installation
 
 ### Node.js
 
+```bash
+npm install three polyslice
+```
+
+Or with scoped name:
 ```bash
 npm install three @jgphilpott/polyslice
 ```
