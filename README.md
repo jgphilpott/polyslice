@@ -2,15 +2,15 @@
     <img width="321" height="321" src="./imgs/logo-lowpoly.png">
 </p>
 
-# Polyslice
-
-An [FDM](https://en.wikipedia.org/wiki/Fused_filament_fabrication) [slicer](https://en.wikipedia.org/wiki/Slicer_(3D_printing)) designed specifically for [three.js](https://github.com/mrdoob/three.js) and inspired by the discussion on [this three.js issue](https://github.com/mrdoob/three.js/issues/17981). The idea is to be able to go straight from a mesh in a three.js scene to a machine usable [G-code](https://en.wikipedia.org/wiki/G-code), thus eliminating the need for intermediary file formats and 3rd party slicing software.
-
 <p align="center">
   <a href="https://github.com/jgphilpott/polyslice/actions"><img src="https://github.com/jgphilpott/polyslice/actions/workflows/tests.yml/badge.svg" alt="Polyslice Tests"></a>
   <a href="https://badge.fury.io/js/@jgphilpott%2Fpolyslice"><img src="https://badge.fury.io/js/@jgphilpott%2Fpolyslice.svg" alt="npm version"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
 </p>
+
+# Polyslice
+
+An [FDM](https://en.wikipedia.org/wiki/Fused_filament_fabrication) [slicer](https://en.wikipedia.org/wiki/Slicer_(3D_printing)) designed specifically for [three.js](https://github.com/mrdoob/three.js) and inspired by the discussion on [this three.js issue](https://github.com/mrdoob/three.js/issues/17981). The idea is to be able to go straight from a mesh in a three.js scene to a machine usable [G-code](https://en.wikipedia.org/wiki/G-code), thus eliminating the need for intermediary file formats and 3rd party slicing software.
 
 ## Installation
 
@@ -125,9 +125,9 @@ slicer.codeArcMovement(...)              // G2/G3 - Arc movement.
 slicer.codeBézierMovement([...])         // G5 - Bézier curves.
 
 // Utilities
-slicer.codeMessage('Hello World!')      // M117 - Display message.
-slicer.codeDwell(1000)                  // G4/M0 - Pause/dwell.
-slicer.codeWait()                       // M400 - Wait for moves to finish.
+slicer.codeMessage('Hello World!')       // M117 - Display message.
+slicer.codeDwell(1000)                   // G4/M0 - Pause/dwell.
+slicer.codeWait()                        // M400 - Wait for moves to finish.
 ```
 
 ## Examples
@@ -150,11 +150,11 @@ gcode += slicer.codeNozzleTemperature(210, true);
 gcode += slicer.codeBedTemperature(60, true);
 
 // Draw square perimeter.
-gcode += slicer.codeLinearMovement(0, 0, 0.2, null, 3000);    // Move to start.
-gcode += slicer.codeLinearMovement(10, 0, 0.2, 0.5, 1200);   // Bottom edge.
-gcode += slicer.codeLinearMovement(10, 10, 0.2, 0.5, 1200);  // Right edge.
-gcode += slicer.codeLinearMovement(0, 10, 0.2, 0.5, 1200);   // Top edge.
-gcode += slicer.codeLinearMovement(0, 0, 0.2, 0.5, 1200);    // Left edge.
+gcode += slicer.codeLinearMovement(0, 0, 0.2, null, 3000);  // Move to start.
+gcode += slicer.codeLinearMovement(10, 0, 0.2, 0.5, 1200);  // Bottom edge.
+gcode += slicer.codeLinearMovement(10, 10, 0.2, 0.5, 1200); // Right edge.
+gcode += slicer.codeLinearMovement(0, 10, 0.2, 0.5, 1200);  // Top edge.
+gcode += slicer.codeLinearMovement(0, 0, 0.2, 0.5, 1200);   // Left edge.
 
 gcode += slicer.codeAutohome();
 
@@ -267,12 +267,12 @@ npm run test:coverage # Run tests with coverage.
 Multiple build targets are supported:
 
 ```bash
-npm run build:node     # Node.js builds (CommonJS + ESM).
-npm run build:browser  # Browser build (IIFE).
-npm run build:cjs      # CommonJS build only.
-npm run build:esm      # ES modules build only.
-npm run build:minify   # Minified builds.
-npm run build          # All builds.
+npm run build:node    # Node.js builds (CommonJS + ESM).
+npm run build:browser # Browser build (IIFE).
+npm run build:cjs     # CommonJS build only.
+npm run build:esm     # ES modules build only.
+npm run build:minify  # Minified builds.
+npm run build         # All builds.
 ```
 
 ## Tools
