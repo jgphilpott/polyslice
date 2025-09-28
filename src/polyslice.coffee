@@ -592,8 +592,11 @@ class Polyslice
 
 # Export the class for Node.js
 if typeof module isnt 'undefined' and module.exports
+
     module.exports = Polyslice
 
-# Export for browser environments  
+# Export for browser environments.
+
 if typeof window isnt 'undefined'
+
     window.Polyslice = Polyslice

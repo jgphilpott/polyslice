@@ -22,7 +22,7 @@ npm install three polyslice
 
 Or with scoped name:
 ```bash
-npm install three @jgphilpott/polyslice
+npm install three polyslice
 ```
 
 ### Browser
@@ -40,7 +40,7 @@ npm install three @jgphilpott/polyslice
 ### Node.js
 
 ```javascript
-const Polyslice = require('@jgphilpott/polyslice');
+const Polyslice = require('polyslice');
 
 // Create a slicer instance.
 const slicer = new Polyslice({
@@ -140,7 +140,7 @@ slicer.codeWait()                       // M400 - Wait for moves to finish.
 ### Basic Usage
 
 ```javascript
-const Polyslice = require('@jgphilpott/polyslice');
+const Polyslice = require('polyslice');
 
 const slicer = new Polyslice({
   nozzleTemperature: 210,
@@ -170,7 +170,7 @@ console.log(gcode);
 
 ```javascript
 const THREE = require('three');
-const Polyslice = require('@jgphilpott/polyslice');
+const Polyslice = require('polyslice');
 
 // Create three.js scene.
 const scene = new THREE.Scene();

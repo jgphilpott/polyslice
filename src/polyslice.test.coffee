@@ -56,7 +56,7 @@ describe 'Polyslice', ->
             slicer.setWorkspacePlane('YZ')
             expect(slicer.getWorkspacePlane()).toBe('YZ')
 
-            # Should ignore invalid values
+            # Should ignore invalid values.
             slicer.setWorkspacePlane('invalid')
             expect(slicer.getWorkspacePlane()).toBe('YZ') # unchanged
 
@@ -68,7 +68,7 @@ describe 'Polyslice', ->
             slicer.setTimeUnit('milliseconds')
             expect(slicer.getTimeUnit()).toBe('milliseconds')
 
-            # Should ignore invalid values
+            # Should ignore invalid values.
             slicer.setTimeUnit('invalid')
             expect(slicer.getTimeUnit()).toBe('milliseconds') # unchanged
 
@@ -80,7 +80,7 @@ describe 'Polyslice', ->
             slicer.setBedTemperature(65)
             expect(slicer.getBedTemperature()).toBe(65)
 
-            # Should ignore negative values
+            # Should ignore negative values.
             slicer.setNozzleTemperature(-10)
             expect(slicer.getNozzleTemperature()).toBe(210) # unchanged
 
@@ -89,7 +89,7 @@ describe 'Polyslice', ->
             slicer.setFanSpeed(50)
             expect(slicer.getFanSpeed()).toBe(50)
 
-            # Should ignore values outside range
+            # Should ignore values outside range.
             slicer.setFanSpeed(-10)
             expect(slicer.getFanSpeed()).toBe(50) # unchanged
 
