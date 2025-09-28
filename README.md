@@ -7,9 +7,9 @@
 An [FDM](https://en.wikipedia.org/wiki/Fused_filament_fabrication) [slicer](https://en.wikipedia.org/wiki/Slicer_(3D_printing)) designed specifically for [three.js](https://github.com/mrdoob/three.js) and inspired by the discussion on [this three.js issue](https://github.com/mrdoob/three.js/issues/17981). The idea is to be able to go straight from a mesh in a three.js scene to a machine usable [G-code](https://en.wikipedia.org/wiki/G-code), thus eliminating the need for intermediary file formats and 3rd party slicing software.
 
 <p align="center">
-  <a href="https://badge.fury.io/js/polyslice"><img src="https://badge.fury.io/js/polyslice.svg" alt="npm version"></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
   <a href="https://github.com/jgphilpott/polyslice/actions"><img src="https://github.com/jgphilpott/polyslice/actions/workflows/tests.yml/badge.svg" alt="Polyslice Tests"></a>
+  <a href="https://badge.fury.io/js/@jgphilpott%2Fpolyslice"><img src="https://badge.fury.io/js/@jgphilpott%2Fpolyslice.svg" alt="npm version"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
 </p>
 
 ## Installation
@@ -17,22 +17,17 @@ An [FDM](https://en.wikipedia.org/wiki/Fused_filament_fabrication) [slicer](http
 ### Node.js
 
 ```bash
-npm install three polyslice
-```
-
-Or with scoped name:
-```bash
-npm install three polyslice
+npm install @jgphilpott/polyslice
 ```
 
 ### Browser
 
 ```html
 <!-- Include three.js first -->
-<script src="https://unpkg.com/three@0.168.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.180.0/build/three.min.js"></script>
 
 <!-- Include Polyslice -->
-<script src="https://unpkg.com/polyslice/dist/index.browser.min.js"></script>
+<script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
 ```
 
 ## Quick Start
@@ -40,7 +35,7 @@ npm install three polyslice
 ### Node.js
 
 ```javascript
-const Polyslice = require('polyslice');
+const Polyslice = require('@jgphilpott/polyslice');
 
 // Create a slicer instance.
 const slicer = new Polyslice({
@@ -140,7 +135,7 @@ slicer.codeWait()                       // M400 - Wait for moves to finish.
 ### Basic Usage
 
 ```javascript
-const Polyslice = require('polyslice');
+const Polyslice = require('@jgphilpott/polyslice');
 
 const slicer = new Polyslice({
   nozzleTemperature: 210,
@@ -170,7 +165,7 @@ console.log(gcode);
 
 ```javascript
 const THREE = require('three');
-const Polyslice = require('polyslice');
+const Polyslice = require('@jgphilpott/polyslice');
 
 // Create three.js scene.
 const scene = new THREE.Scene();
@@ -200,7 +195,7 @@ let gcode = slicer.slice();
 <html>
     <head>
         <title>Polyslice Browser Example</title>
-        <script src="https://unpkg.com/three@0.168.0/build/three.min.js"></script>
+        <script src="https://unpkg.com/three@0.180.0/build/three.min.js"></script>
         <script src="https://unpkg.com/polyslice/dist/index.browser.min.js"></script>
     </head>
     <body>
