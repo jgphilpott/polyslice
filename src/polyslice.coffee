@@ -453,7 +453,7 @@ class Polyslice
 
             if speed > 0
 
-                gcode = "M106" + " S" + speed * 2.55
+                gcode = "M106" + " S" + Math.round(speed * 2.55)
 
             else
 
@@ -589,3 +589,14 @@ class Polyslice
             this.gcode += this.codeAutohome()
 
         return this.gcode
+
+# Export the class for Node.js
+if typeof module isnt 'undefined' and module.exports
+
+    module.exports = Polyslice
+
+# Export for browser environments.
+
+if typeof window isnt 'undefined'
+
+    window.Polyslice = Polyslice

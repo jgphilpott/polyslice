@@ -1,2 +1,42 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+yarn.lock
+
+# Compiled CoffeeScript (keep index.js for build process)
+src/**/*.js
+!src/index.js
+
+# Build Artifacts
+dist/
+coverage/
+*.tgz
+
+# IDE and Editor Files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs
+*.log
+
+# Temporary Files
+*.tmp
+*.temp
+
+# Other Files
 marlin
 *.txt
