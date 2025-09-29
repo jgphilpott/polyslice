@@ -12,26 +12,26 @@ class Polyslice
         @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches']
         @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin']
 
-        @nozzleTemperature = options.nozzleTemperature ?= 0 # Number
-        @bedTemperature = options.bedTemperature ?= 0 # Number
+        @nozzleTemperature = options.nozzleTemperature ?= 0 # Number (°C)
+        @bedTemperature = options.bedTemperature ?= 0 # Number (°C)
         @fanSpeed = options.fanSpeed ?= 100 # Number 0-100
 
-        # Slicing and extrusion settings
+        # Slicing and extrusion settings.
         @layerHeight = options.layerHeight ?= 0.2 # Number (mm)
         @extrusionMultiplier = options.extrusionMultiplier ?= 1.0 # Number (multiplier)
         @filamentDiameter = options.filamentDiameter ?= 1.75 # Number (mm)
         @nozzleDiameter = options.nozzleDiameter ?= 0.4 # Number (mm)
 
-        # Speed settings
+        # Speed settings.
         @perimeterSpeed = options.perimeterSpeed ?= 30 # Number (mm/s)
         @infillSpeed = options.infillSpeed ?= 60 # Number (mm/s)
         @travelSpeed = options.travelSpeed ?= 120 # Number (mm/s)
 
-        # Retraction settings
+        # Retraction settings.
         @retractionDistance = options.retractionDistance ?= 1.0 # Number (mm)
         @retractionSpeed = options.retractionSpeed ?= 40 # Number (mm/s)
 
-        # Build plate dimensions
+        # Build plate dimensions.
         @buildPlateWidth = options.buildPlateWidth ?= 220 # Number (mm)
         @buildPlateHeight = options.buildPlateHeight ?= 220 # Number (mm)
 
@@ -734,54 +734,63 @@ class Polyslice
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/G010-G011.html
-    # Retraction G-code using the configured retraction settings
+    # Retraction G-code using the configured retraction settings.
     codeRetract: (distance = null, speed = null) ->
 
         retractDistance = if distance isnt null then distance else this.getRetractionDistance()
         retractSpeed = if speed isnt null then speed else this.getRetractionSpeed()
 
         if retractDistance <= 0
+
             return "" # No retraction needed
 
         gcode = "G1"
 
         if this.getLengthUnit() is "millimeters"
+
             gcode += " E-" + retractDistance
+
         else
-            # Convert to inches if needed
-            gcode += " E-" + (retractDistance / 25.4)
+
+            gcode += " E-" + (retractDistance / 25.4) # Convert to inches if needed
 
         if retractSpeed > 0
+
             gcode += " F" + (retractSpeed * 60) # Convert mm/s to mm/min
 
         return gcode + this.newline
 
-    # Unretract/prime extruder using configured settings
+    # Unretract/prime extruder using configured settings.
     codeUnretract: (distance = null, speed = null) ->
 
         retractDistance = if distance isnt null then distance else this.getRetractionDistance()
         retractSpeed = if speed isnt null then speed else this.getRetractionSpeed()
 
         if retractDistance <= 0
+
             return "" # No unretraction needed
 
         gcode = "G1"
 
         if this.getLengthUnit() is "millimeters"
+
             gcode += " E" + retractDistance
+
         else
-            # Convert to inches if needed
-            gcode += " E" + (retractDistance / 25.4)
+
+            gcode += " E" + (retractDistance / 25.4) # Convert to inches if needed
 
         if retractSpeed > 0
+
             gcode += " F" + (retractSpeed * 60) # Convert mm/s to mm/min
 
         return gcode + this.newline
 
-    # Utility method to check if coordinates are within build plate bounds
+    # Utility method to check if coordinates are within build plate bounds.
     isWithinBounds: (x, y) ->
 
         if typeof x isnt "number" or typeof y isnt "number"
+
             return false
 
         halfWidth = this.getBuildPlateWidth() / 2
@@ -789,26 +798,27 @@ class Polyslice
 
         return x >= -halfWidth and x <= halfWidth and y >= -halfHeight and y <= halfHeight
 
-    # Calculate extrusion amount based on distance, layer height, and settings
+    # Calculate extrusion amount based on distance, layer height, and settings.
     calculateExtrusion: (distance, lineWidth = null) ->
 
         if typeof distance isnt "number" or distance <= 0
+
             return 0
 
-        # Use nozzle diameter as default line width if not specified
+        # Use nozzle diameter as default line width if not specified.
         width = if lineWidth isnt null then lineWidth else this.getNozzleDiameter()
 
         layerHeight = this.getLayerHeight()
         filamentRadius = this.getFilamentDiameter() / 2
         extrusionMultiplier = this.getExtrusionMultiplier()
 
-        # Calculate cross-sectional area of the extruded line
+        # Calculate cross-sectional area of the extruded line.
         lineArea = width * layerHeight
 
-        # Calculate cross-sectional area of the filament
+        # Calculate cross-sectional area of the filament.
         filamentArea = Math.PI * filamentRadius * filamentRadius
 
-        # Calculate extrusion length
+        # Calculate extrusion length.
         extrusionLength = (lineArea * distance * extrusionMultiplier) / filamentArea
 
         return extrusionLength

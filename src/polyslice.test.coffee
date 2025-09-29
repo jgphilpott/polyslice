@@ -1,4 +1,4 @@
-# Tests for the Polyslice class
+# Tests for the Polyslice class:
 
 Polyslice = require('./index')
 
@@ -46,6 +46,7 @@ describe 'Polyslice', ->
         test 'should create instance with custom options', ->
 
             customSlicer = new Polyslice({
+
                 autohome: false
                 workspacePlane: 'XZ'
                 timeUnit: 'seconds'
@@ -73,6 +74,7 @@ describe 'Polyslice', ->
                 # New build plate settings
                 buildPlateWidth: 300
                 buildPlateHeight: 300
+
             })
 
             expect(customSlicer.getAutohome()).toBe(false)
@@ -319,6 +321,7 @@ describe 'Polyslice', ->
 
             slicer.setAutohome(false)
             result = slicer.slice()
+
             expect(result).toBe('') # Should be empty without autohome
 
     describe 'Utility Methods', ->
@@ -383,10 +386,12 @@ describe 'Polyslice', ->
 
             slicer.setFilamentDiameter(3.0) # Change to 3mm filament
             result = slicer.calculateExtrusion(10) # 10mm distance
+
             expect(result).toBeCloseTo(0.113, 2) # Should be less filament needed for 3mm
 
         test 'should handle extrusion multiplier in calculations', ->
 
             slicer.setExtrusionMultiplier(1.2) # 20% over-extrusion
             result = slicer.calculateExtrusion(10)
+
             expect(result).toBeCloseTo(0.4, 2) # Should be 20% more than base calculation
