@@ -16,6 +16,25 @@ class Polyslice
         @bedTemperature = options.bedTemperature ?= 0 # Number
         @fanSpeed = options.fanSpeed ?= 100 # Number 0-100
 
+        # Slicing and extrusion settings
+        @layerHeight = options.layerHeight ?= 0.2 # Number (mm)
+        @extrusionMultiplier = options.extrusionMultiplier ?= 1.0 # Number (multiplier)
+        @filamentDiameter = options.filamentDiameter ?= 1.75 # Number (mm)
+        @nozzleDiameter = options.nozzleDiameter ?= 0.4 # Number (mm)
+
+        # Speed settings
+        @perimeterSpeed = options.perimeterSpeed ?= 30 # Number (mm/s)
+        @infillSpeed = options.infillSpeed ?= 60 # Number (mm/s)
+        @travelSpeed = options.travelSpeed ?= 120 # Number (mm/s)
+
+        # Retraction settings
+        @retractionDistance = options.retractionDistance ?= 1.0 # Number (mm)
+        @retractionSpeed = options.retractionSpeed ?= 40 # Number (mm/s)
+
+        # Build plate dimensions
+        @buildPlateWidth = options.buildPlateWidth ?= 220 # Number (mm)
+        @buildPlateHeight = options.buildPlateHeight ?= 220 # Number (mm)
+
     getAutohome: ->
 
         return this.autohome
@@ -47,6 +66,50 @@ class Polyslice
     getFanSpeed: ->
 
         return this.fanSpeed
+
+    getLayerHeight: ->
+
+        return this.layerHeight
+
+    getExtrusionMultiplier: ->
+
+        return this.extrusionMultiplier
+
+    getFilamentDiameter: ->
+
+        return this.filamentDiameter
+
+    getNozzleDiameter: ->
+
+        return this.nozzleDiameter
+
+    getPerimeterSpeed: ->
+
+        return this.perimeterSpeed
+
+    getInfillSpeed: ->
+
+        return this.infillSpeed
+
+    getTravelSpeed: ->
+
+        return this.travelSpeed
+
+    getRetractionDistance: ->
+
+        return this.retractionDistance
+
+    getRetractionSpeed: ->
+
+        return this.retractionSpeed
+
+    getBuildPlateWidth: ->
+
+        return this.buildPlateWidth
+
+    getBuildPlateHeight: ->
+
+        return this.buildPlateHeight
 
     setAutohome: (autohome = true) ->
 
@@ -115,6 +178,94 @@ class Polyslice
         if typeof speed is "number" and speed >= 0 and speed <= 100
 
             this.fanSpeed = Number speed
+
+        return this
+
+    setLayerHeight: (height = 0.2) ->
+
+        if typeof height is "number" and height > 0
+
+            this.layerHeight = Number height
+
+        return this
+
+    setExtrusionMultiplier: (multiplier = 1.0) ->
+
+        if typeof multiplier is "number" and multiplier > 0
+
+            this.extrusionMultiplier = Number multiplier
+
+        return this
+
+    setFilamentDiameter: (diameter = 1.75) ->
+
+        if typeof diameter is "number" and diameter > 0
+
+            this.filamentDiameter = Number diameter
+
+        return this
+
+    setNozzleDiameter: (diameter = 0.4) ->
+
+        if typeof diameter is "number" and diameter > 0
+
+            this.nozzleDiameter = Number diameter
+
+        return this
+
+    setPerimeterSpeed: (speed = 30) ->
+
+        if typeof speed is "number" and speed > 0
+
+            this.perimeterSpeed = Number speed
+
+        return this
+
+    setInfillSpeed: (speed = 60) ->
+
+        if typeof speed is "number" and speed > 0
+
+            this.infillSpeed = Number speed
+
+        return this
+
+    setTravelSpeed: (speed = 120) ->
+
+        if typeof speed is "number" and speed > 0
+
+            this.travelSpeed = Number speed
+
+        return this
+
+    setRetractionDistance: (distance = 1.0) ->
+
+        if typeof distance is "number" and distance >= 0
+
+            this.retractionDistance = Number distance
+
+        return this
+
+    setRetractionSpeed: (speed = 40) ->
+
+        if typeof speed is "number" and speed > 0
+
+            this.retractionSpeed = Number speed
+
+        return this
+
+    setBuildPlateWidth: (width = 220) ->
+
+        if typeof width is "number" and width > 0
+
+            this.buildPlateWidth = Number width
+
+        return this
+
+    setBuildPlateHeight: (height = 220) ->
+
+        if typeof height is "number" and height > 0
+
+            this.buildPlateHeight = Number height
 
         return this
 

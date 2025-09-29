@@ -24,6 +24,25 @@ describe 'Polyslice', ->
             expect(slicer.getBedTemperature()).toBe(0)
             expect(slicer.getFanSpeed()).toBe(100)
 
+            # Test new slicing and extrusion settings
+            expect(slicer.getLayerHeight()).toBe(0.2)
+            expect(slicer.getExtrusionMultiplier()).toBe(1.0)
+            expect(slicer.getFilamentDiameter()).toBe(1.75)
+            expect(slicer.getNozzleDiameter()).toBe(0.4)
+
+            # Test new speed settings
+            expect(slicer.getPerimeterSpeed()).toBe(30)
+            expect(slicer.getInfillSpeed()).toBe(60)
+            expect(slicer.getTravelSpeed()).toBe(120)
+
+            # Test new retraction settings
+            expect(slicer.getRetractionDistance()).toBe(1.0)
+            expect(slicer.getRetractionSpeed()).toBe(40)
+
+            # Test new build plate settings
+            expect(slicer.getBuildPlateWidth()).toBe(220)
+            expect(slicer.getBuildPlateHeight()).toBe(220)
+
         test 'should create instance with custom options', ->
 
             customSlicer = new Polyslice({
@@ -35,6 +54,25 @@ describe 'Polyslice', ->
                 nozzleTemperature: 200
                 bedTemperature: 60
                 fanSpeed: 75
+
+                # New slicing and extrusion settings
+                layerHeight: 0.3
+                extrusionMultiplier: 1.1
+                filamentDiameter: 3.0
+                nozzleDiameter: 0.6
+
+                # New speed settings
+                perimeterSpeed: 40
+                infillSpeed: 80
+                travelSpeed: 150
+
+                # New retraction settings
+                retractionDistance: 2.0
+                retractionSpeed: 50
+
+                # New build plate settings
+                buildPlateWidth: 300
+                buildPlateHeight: 300
             })
 
             expect(customSlicer.getAutohome()).toBe(false)
@@ -45,6 +83,19 @@ describe 'Polyslice', ->
             expect(customSlicer.getNozzleTemperature()).toBe(200)
             expect(customSlicer.getBedTemperature()).toBe(60)
             expect(customSlicer.getFanSpeed()).toBe(75)
+
+            # Test new settings
+            expect(customSlicer.getLayerHeight()).toBe(0.3)
+            expect(customSlicer.getExtrusionMultiplier()).toBe(1.1)
+            expect(customSlicer.getFilamentDiameter()).toBe(3.0)
+            expect(customSlicer.getNozzleDiameter()).toBe(0.6)
+            expect(customSlicer.getPerimeterSpeed()).toBe(40)
+            expect(customSlicer.getInfillSpeed()).toBe(80)
+            expect(customSlicer.getTravelSpeed()).toBe(150)
+            expect(customSlicer.getRetractionDistance()).toBe(2.0)
+            expect(customSlicer.getRetractionSpeed()).toBe(50)
+            expect(customSlicer.getBuildPlateWidth()).toBe(300)
+            expect(customSlicer.getBuildPlateHeight()).toBe(300)
 
     describe 'Setters and Getters', ->
 
@@ -95,6 +146,106 @@ describe 'Polyslice', ->
 
             slicer.setFanSpeed(150)
             expect(slicer.getFanSpeed()).toBe(50) # unchanged
+
+        test 'should set and get layer height', ->
+
+            slicer.setLayerHeight(0.15)
+            expect(slicer.getLayerHeight()).toBe(0.15)
+
+            slicer.setLayerHeight(0.3)
+            expect(slicer.getLayerHeight()).toBe(0.3)
+
+            # Should ignore zero and negative values.
+            slicer.setLayerHeight(0)
+            expect(slicer.getLayerHeight()).toBe(0.3) # unchanged
+
+            slicer.setLayerHeight(-0.1)
+            expect(slicer.getLayerHeight()).toBe(0.3) # unchanged
+
+        test 'should set and get extrusion multiplier', ->
+
+            slicer.setExtrusionMultiplier(0.9)
+            expect(slicer.getExtrusionMultiplier()).toBe(0.9)
+
+            slicer.setExtrusionMultiplier(1.2)
+            expect(slicer.getExtrusionMultiplier()).toBe(1.2)
+
+            # Should ignore zero and negative values.
+            slicer.setExtrusionMultiplier(0)
+            expect(slicer.getExtrusionMultiplier()).toBe(1.2) # unchanged
+
+            slicer.setExtrusionMultiplier(-0.5)
+            expect(slicer.getExtrusionMultiplier()).toBe(1.2) # unchanged
+
+        test 'should set and get filament diameter', ->
+
+            slicer.setFilamentDiameter(3.0)
+            expect(slicer.getFilamentDiameter()).toBe(3.0)
+
+            slicer.setFilamentDiameter(2.85)
+            expect(slicer.getFilamentDiameter()).toBe(2.85)
+
+            # Should ignore zero and negative values.
+            slicer.setFilamentDiameter(0)
+            expect(slicer.getFilamentDiameter()).toBe(2.85) # unchanged
+
+        test 'should set and get nozzle diameter', ->
+
+            slicer.setNozzleDiameter(0.6)
+            expect(slicer.getNozzleDiameter()).toBe(0.6)
+
+            slicer.setNozzleDiameter(0.8)
+            expect(slicer.getNozzleDiameter()).toBe(0.8)
+
+            # Should ignore zero and negative values.
+            slicer.setNozzleDiameter(0)
+            expect(slicer.getNozzleDiameter()).toBe(0.8) # unchanged
+
+        test 'should set and get speed settings', ->
+
+            # Test perimeter speed
+            slicer.setPerimeterSpeed(25)
+            expect(slicer.getPerimeterSpeed()).toBe(25)
+
+            # Test infill speed
+            slicer.setInfillSpeed(80)
+            expect(slicer.getInfillSpeed()).toBe(80)
+
+            # Test travel speed
+            slicer.setTravelSpeed(200)
+            expect(slicer.getTravelSpeed()).toBe(200)
+
+            # Should ignore zero and negative values.
+            slicer.setPerimeterSpeed(0)
+            expect(slicer.getPerimeterSpeed()).toBe(25) # unchanged
+
+        test 'should set and get retraction settings', ->
+
+            slicer.setRetractionDistance(1.5)
+            expect(slicer.getRetractionDistance()).toBe(1.5)
+
+            slicer.setRetractionSpeed(60)
+            expect(slicer.getRetractionSpeed()).toBe(60)
+
+            # Should allow zero retraction distance.
+            slicer.setRetractionDistance(0)
+            expect(slicer.getRetractionDistance()).toBe(0)
+
+            # Should ignore negative values.
+            slicer.setRetractionDistance(-1)
+            expect(slicer.getRetractionDistance()).toBe(0) # unchanged
+
+        test 'should set and get build plate dimensions', ->
+
+            slicer.setBuildPlateWidth(300)
+            expect(slicer.getBuildPlateWidth()).toBe(300)
+
+            slicer.setBuildPlateHeight(250)
+            expect(slicer.getBuildPlateHeight()).toBe(250)
+
+            # Should ignore zero and negative values.
+            slicer.setBuildPlateWidth(0)
+            expect(slicer.getBuildPlateWidth()).toBe(300) # unchanged
 
     describe 'G-code Generation', ->
 
