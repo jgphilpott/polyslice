@@ -41,7 +41,7 @@ describe 'Polyslice', ->
 
             # Test new build plate settings
             expect(slicer.getBuildPlateWidth()).toBe(220)
-            expect(slicer.getBuildPlateHeight()).toBe(220)
+            expect(slicer.getBuildPlateLength()).toBe(220)
 
         test 'should create instance with custom options', ->
 
@@ -73,7 +73,7 @@ describe 'Polyslice', ->
 
                 # New build plate settings
                 buildPlateWidth: 300
-                buildPlateHeight: 300
+                buildPlateLength: 300
 
             })
 
@@ -97,7 +97,7 @@ describe 'Polyslice', ->
             expect(customSlicer.getRetractionDistance()).toBe(2.0)
             expect(customSlicer.getRetractionSpeed()).toBe(50)
             expect(customSlicer.getBuildPlateWidth()).toBe(300)
-            expect(customSlicer.getBuildPlateHeight()).toBe(300)
+            expect(customSlicer.getBuildPlateLength()).toBe(300)
 
     describe 'Setters and Getters', ->
 
@@ -242,8 +242,8 @@ describe 'Polyslice', ->
             slicer.setBuildPlateWidth(300)
             expect(slicer.getBuildPlateWidth()).toBe(300)
 
-            slicer.setBuildPlateHeight(250)
-            expect(slicer.getBuildPlateHeight()).toBe(250)
+            slicer.setBuildPlateLength(250)
+            expect(slicer.getBuildPlateLength()).toBe(250)
 
             # Should ignore zero and negative values.
             slicer.setBuildPlateWidth(0)
@@ -309,6 +309,34 @@ describe 'Polyslice', ->
 
             fanOffCode = slicer.codeFanSpeed(0)
             expect(fanOffCode).toBe('M107\n') # Fan off
+
+        test 'should generate arc movement G-code', ->
+
+            # Test clockwise arc
+            arcCode = slicer.codeArcMovement("clockwise", 10, 10, null, null, null, null, 5, 0)
+            expect(arcCode).toBe('G2 X10 Y10 I5 J0\n')
+
+            # Test counterclockwise arc
+            arcCode = slicer.codeArcMovement("counterclockwise", 5, 5, null, null, null, null, 2, 2)
+            expect(arcCode).toBe('G3 X5 Y5 I2 J2\n')
+
+        test 'should generate message G-code', ->
+
+            messageCode = slicer.codeMessage("Test Message")
+            expect(messageCode).toBe('M117 Test Message\n')
+
+        test 'should generate wait G-code', ->
+
+            waitCode = slicer.codeWait()
+            expect(waitCode).toBe('M400\n')
+
+        test 'should generate dwell G-code', ->
+
+            dwellCode = slicer.codeDwell(1000)
+            expect(dwellCode).toBe('M0 P1000\n') # Interruptible dwell for 1000ms
+
+            nonInterruptibleDwell = slicer.codeDwell(500, false)
+            expect(nonInterruptibleDwell).toBe('G4 P500\n') # Non-interruptible dwell for 500ms
 
     describe 'Basic Slicing', ->
 

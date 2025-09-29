@@ -5,35 +5,38 @@ class Polyslice
         @gcode = ""
         @newline = "\n"
 
-        @autohome = options.autohome ?= true # Boolean
-        @workspacePlane = options.workspacePlane ?= "XY" # String ['XY', 'XZ', 'YZ']
+        # Basic printer configuration and behavior settings.
+        @autohome = options.autohome ?= true # Boolean.
+        @workspacePlane = options.workspacePlane ?= "XY" # String ['XY', 'XZ', 'YZ'].
 
-        @timeUnit = options.timeUnit ?= "milliseconds" # String ['milliseconds', 'seconds']
-        @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches']
-        @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin']
+        # Unit settings for time, distance, and temperature measurements.
+        @timeUnit = options.timeUnit ?= "milliseconds" # String ['milliseconds', 'seconds'].
+        @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches'].
+        @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin'].
 
-        @nozzleTemperature = options.nozzleTemperature ?= 0 # Number (°C)
-        @bedTemperature = options.bedTemperature ?= 0 # Number (°C)
-        @fanSpeed = options.fanSpeed ?= 100 # Number 0-100
+        # Temperature control settings for hotend and heated bed.
+        @nozzleTemperature = options.nozzleTemperature ?= 0 # Number (°C).
+        @bedTemperature = options.bedTemperature ?= 0 # Number (°C).
+        @fanSpeed = options.fanSpeed ?= 100 # Number 0-100.
 
         # Slicing and extrusion settings.
-        @layerHeight = options.layerHeight ?= 0.2 # Number (mm)
-        @extrusionMultiplier = options.extrusionMultiplier ?= 1.0 # Number (multiplier)
-        @filamentDiameter = options.filamentDiameter ?= 1.75 # Number (mm)
-        @nozzleDiameter = options.nozzleDiameter ?= 0.4 # Number (mm)
+        @layerHeight = options.layerHeight ?= 0.2 # Number (mm).
+        @extrusionMultiplier = options.extrusionMultiplier ?= 1.0 # Number (multiplier).
+        @filamentDiameter = options.filamentDiameter ?= 1.75 # Number (mm).
+        @nozzleDiameter = options.nozzleDiameter ?= 0.4 # Number (mm).
 
-        # Speed settings.
-        @perimeterSpeed = options.perimeterSpeed ?= 30 # Number (mm/s)
-        @infillSpeed = options.infillSpeed ?= 60 # Number (mm/s)
-        @travelSpeed = options.travelSpeed ?= 120 # Number (mm/s)
+        # Speed settings for different types of movements.
+        @perimeterSpeed = options.perimeterSpeed ?= 30 # Number (mm/s).
+        @infillSpeed = options.infillSpeed ?= 60 # Number (mm/s).
+        @travelSpeed = options.travelSpeed ?= 120 # Number (mm/s).
 
-        # Retraction settings.
-        @retractionDistance = options.retractionDistance ?= 1.0 # Number (mm)
-        @retractionSpeed = options.retractionSpeed ?= 40 # Number (mm/s)
+        # Retraction settings to prevent stringing during travel moves.
+        @retractionDistance = options.retractionDistance ?= 1.0 # Number (mm).
+        @retractionSpeed = options.retractionSpeed ?= 40 # Number (mm/s).
 
-        # Build plate dimensions.
-        @buildPlateWidth = options.buildPlateWidth ?= 220 # Number (mm)
-        @buildPlateHeight = options.buildPlateHeight ?= 220 # Number (mm)
+        # Build plate dimensions for bounds checking and validation.
+        @buildPlateWidth = options.buildPlateWidth ?= 220 # Number (mm).
+        @buildPlateLength = options.buildPlateLength ?= 220 # Number (mm).
 
     getAutohome: ->
 
@@ -107,9 +110,9 @@ class Polyslice
 
         return this.buildPlateWidth
 
-    getBuildPlateHeight: ->
+    getBuildPlateLength: ->
 
-        return this.buildPlateHeight
+        return this.buildPlateLength
 
     setAutohome: (autohome = true) ->
 
@@ -261,15 +264,16 @@ class Polyslice
 
         return this
 
-    setBuildPlateHeight: (height = 220) ->
+    setBuildPlateLength: (length = 220) ->
 
-        if typeof height is "number" and height > 0
+        if typeof length is "number" and length > 0
 
-            this.buildPlateHeight = Number height
+            this.buildPlateLength = Number length
 
         return this
 
     # https://marlinfw.org/docs/gcode/G028.html
+    # Generate autohome G-code command.
     codeAutohome: (x = null, y = null, z = null, skip = null, raise = null, leveling = null) ->
 
         gcode = "G28"
@@ -286,6 +290,7 @@ class Polyslice
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/G017-G019.html
+    # Set workspace plane for coordinate system interpretation.
     codeWorkspacePlane: (plane = null) ->
 
         if plane isnt null
@@ -306,6 +311,7 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/G021.html
     # https://marlinfw.org/docs/gcode/G020.html
+    # Set length units for coordinate measurements.
     codeLengthUnit: (unit = null) ->
 
         if unit isnt null
@@ -321,6 +327,7 @@ class Polyslice
             return "G20" + this.newline
 
     # https://marlinfw.org/docs/gcode/M149.html
+    # Set temperature units for thermal measurements.
     codeTemperatureUnit: (unit = null) ->
 
         if unit isnt null
@@ -339,6 +346,7 @@ class Polyslice
 
             return "M149 K" + this.newline
 
+    # Helper method to build movement parameter strings.
     codeMovement: (x = null, y = null, z = null, extrude = null, feedrate = null, power = null) ->
 
         gcode = ""
@@ -370,6 +378,7 @@ class Polyslice
         return gcode
 
     # https://marlinfw.org/docs/gcode/G000-G001.html
+    # Generate linear movement G-code command.
     codeLinearMovement: (x = null, y = null, z = null, extrude = null, feedrate = null, power = null) ->
 
         if not extrude then gcode = "G0" else gcode = "G1"
@@ -379,6 +388,7 @@ class Polyslice
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/G002-G003.html
+    # Generate arc movement G-code command.
     codeArcMovement: (direction = "clockwise", x = null, y = null, z = null, extrude = null, feedrate = null, power = null, xOffset = null, yOffset = null, radius = null, circles = null) ->
 
         if direction is "clockwise" then gcode = "G2" else gcode = "G3"
@@ -418,6 +428,7 @@ class Polyslice
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/G005.html
+    # Generate Bézier curve movement G-code commands.
     codeBézierMovement: (controlPoints = []) ->
 
         gcode = ""
@@ -460,6 +471,7 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/M114.html
     # https://marlinfw.org/docs/gcode/M154.html
+    # Generate position reporting G-code commands.
     codePositionReport: (auto = true, interval = 1, real = false, detail = false, extruder = false) ->
 
         if auto
@@ -486,6 +498,7 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/M109.html
     # https://marlinfw.org/docs/gcode/M104.html
+    # Generate nozzle temperature control G-code commands.
     codeNozzleTemperature: (temp = null, wait = true, index = null) ->
 
         if temp isnt null
@@ -524,6 +537,7 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/M190.html
     # https://marlinfw.org/docs/gcode/M140.html
+    # Generate bed temperature control G-code commands.
     codeBedTemperature: (temp = null, wait = true, time = null) ->
 
         if temp isnt null
@@ -590,6 +604,7 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/M106.html
     # https://marlinfw.org/docs/gcode/M107.html
+    # Generate fan speed control G-code commands.
     codeFanSpeed: (speed = null, index = null) ->
 
         if speed isnt null
@@ -734,7 +749,7 @@ class Polyslice
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/G010-G011.html
-    # Retraction G-code using the configured retraction settings.
+    # Generate retraction G-code using the configured retraction settings.
     codeRetract: (distance = null, speed = null) ->
 
         retractDistance = if distance isnt null then distance else this.getRetractionDistance()
@@ -760,7 +775,7 @@ class Polyslice
 
         return gcode + this.newline
 
-    # Unretract/prime extruder using configured settings.
+    # Generate unretract/prime G-code using configured settings.
     codeUnretract: (distance = null, speed = null) ->
 
         retractDistance = if distance isnt null then distance else this.getRetractionDistance()
@@ -794,9 +809,9 @@ class Polyslice
             return false
 
         halfWidth = this.getBuildPlateWidth() / 2
-        halfHeight = this.getBuildPlateHeight() / 2
+        halfLength = this.getBuildPlateLength() / 2
 
-        return x >= -halfWidth and x <= halfWidth and y >= -halfHeight and y <= halfHeight
+        return x >= -halfWidth and x <= halfWidth and y >= -halfLength and y <= halfLength
 
     # Calculate extrusion amount based on distance, layer height, and settings.
     calculateExtrusion: (distance, lineWidth = null) ->
