@@ -1,3 +1,6 @@
+# Import conversion utilities for unit handling.
+convert = require('@jgphilpott/polyconvert')
+
 class Polyslice
 
     constructor: (options = {}) ->
@@ -14,29 +17,82 @@ class Polyslice
         @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches'].
         @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin'].
 
-        # Temperature control settings for hotend and heated bed.
-        @nozzleTemperature = options.nozzleTemperature ?= 0 # Number (°C).
-        @bedTemperature = options.bedTemperature ?= 0 # Number (°C).
+        # Temperature control settings for hotend and heated bed (stored internally in Celsius).
+        @nozzleTemperature = this._convertTemperatureToInternal(options.nozzleTemperature ?= 0) # Number (°C internal).
+        @bedTemperature = this._convertTemperatureToInternal(options.bedTemperature ?= 0) # Number (°C internal).
         @fanSpeed = options.fanSpeed ?= 100 # Number 0-100.
 
-        # Slicing and extrusion settings.
-        @layerHeight = options.layerHeight ?= 0.2 # Number (mm).
+        # Slicing and extrusion settings (stored internally in millimeters).
+        @layerHeight = this._convertLengthToInternal(options.layerHeight ?= 0.2) # Number (mm internal).
         @extrusionMultiplier = options.extrusionMultiplier ?= 1.0 # Number (multiplier).
-        @filamentDiameter = options.filamentDiameter ?= 1.75 # Number (mm).
-        @nozzleDiameter = options.nozzleDiameter ?= 0.4 # Number (mm).
+        @filamentDiameter = this._convertLengthToInternal(options.filamentDiameter ?= 1.75) # Number (mm internal).
+        @nozzleDiameter = this._convertLengthToInternal(options.nozzleDiameter ?= 0.4) # Number (mm internal).
 
-        # Speed settings for different types of movements.
-        @perimeterSpeed = options.perimeterSpeed ?= 30 # Number (mm/s).
-        @infillSpeed = options.infillSpeed ?= 60 # Number (mm/s).
-        @travelSpeed = options.travelSpeed ?= 120 # Number (mm/s).
+        # Speed settings for different types of movements (stored internally in mm/s).
+        @perimeterSpeed = this._convertLengthToInternal(options.perimeterSpeed ?= 30) # Number (mm/s internal).
+        @infillSpeed = this._convertLengthToInternal(options.infillSpeed ?= 60) # Number (mm/s internal).
+        @travelSpeed = this._convertLengthToInternal(options.travelSpeed ?= 120) # Number (mm/s internal).
 
-        # Retraction settings to prevent stringing during travel moves.
-        @retractionDistance = options.retractionDistance ?= 1.0 # Number (mm).
-        @retractionSpeed = options.retractionSpeed ?= 40 # Number (mm/s).
+        # Retraction settings to prevent stringing during travel moves (stored internally in mm and mm/s).
+        @retractionDistance = this._convertLengthToInternal(options.retractionDistance ?= 1.0) # Number (mm internal).
+        @retractionSpeed = this._convertLengthToInternal(options.retractionSpeed ?= 40) # Number (mm/s internal).
 
-        # Build plate dimensions for bounds checking and validation.
-        @buildPlateWidth = options.buildPlateWidth ?= 220 # Number (mm).
-        @buildPlateLength = options.buildPlateLength ?= 220 # Number (mm).
+        # Build plate dimensions for bounds checking and validation (stored internally in mm).
+        @buildPlateWidth = this._convertLengthToInternal(options.buildPlateWidth ?= 220) # Number (mm internal).
+        @buildPlateLength = this._convertLengthToInternal(options.buildPlateLength ?= 220) # Number (mm internal).
+
+    # Internal helper methods for unit conversions.
+    # Convert user input to internal storage units.
+    _convertTemperatureToInternal: (temp) ->
+
+        return 0 if typeof temp isnt "number"
+
+        switch this.temperatureUnit
+            when "fahrenheit" then convert.temperature.fahrenheit.celsius(temp)
+            when "kelvin" then convert.temperature.kelvin.celsius(temp)
+            else temp # Already celsius or invalid unit
+
+    _convertLengthToInternal: (length) ->
+
+        return 0 if typeof length isnt "number"
+
+        switch this.lengthUnit
+            when "inches" then convert.length.inch.millimeter(length)
+            else length # Already millimeters or invalid unit
+
+    _convertTimeToInternal: (time) ->
+
+        return 0 if typeof time isnt "number"
+
+        switch this.timeUnit
+            when "seconds" then convert.time.second.millisecond(time)
+            else time # Already milliseconds or invalid unit
+
+    # Convert internal storage units to user output units.
+    _convertTemperatureFromInternal: (temp) ->
+
+        return 0 if typeof temp isnt "number"
+
+        switch this.temperatureUnit
+            when "fahrenheit" then convert.temperature.celsius.fahrenheit(temp)
+            when "kelvin" then convert.temperature.celsius.kelvin(temp)
+            else temp # Return celsius
+
+    _convertLengthFromInternal: (length) ->
+
+        return 0 if typeof length isnt "number"
+
+        switch this.lengthUnit
+            when "inches" then convert.length.millimeter.inch(length)
+            else length # Return millimeters
+
+    _convertTimeFromInternal: (time) ->
+
+        return 0 if typeof time isnt "number"
+
+        switch this.timeUnit
+            when "seconds" then convert.time.millisecond.second(time)
+            else time # Return milliseconds
 
     getAutohome: ->
 
@@ -60,11 +116,11 @@ class Polyslice
 
     getNozzleTemperature: ->
 
-        return this.nozzleTemperature
+        return this._convertTemperatureFromInternal(this.nozzleTemperature)
 
     getBedTemperature: ->
 
-        return this.bedTemperature
+        return this._convertTemperatureFromInternal(this.bedTemperature)
 
     getFanSpeed: ->
 
@@ -72,7 +128,7 @@ class Polyslice
 
     getLayerHeight: ->
 
-        return this.layerHeight
+        return this._convertLengthFromInternal(this.layerHeight)
 
     getExtrusionMultiplier: ->
 
@@ -80,39 +136,39 @@ class Polyslice
 
     getFilamentDiameter: ->
 
-        return this.filamentDiameter
+        return this._convertLengthFromInternal(this.filamentDiameter)
 
     getNozzleDiameter: ->
 
-        return this.nozzleDiameter
+        return this._convertLengthFromInternal(this.nozzleDiameter)
 
     getPerimeterSpeed: ->
 
-        return this.perimeterSpeed
+        return this._convertLengthFromInternal(this.perimeterSpeed)
 
     getInfillSpeed: ->
 
-        return this.infillSpeed
+        return this._convertLengthFromInternal(this.infillSpeed)
 
     getTravelSpeed: ->
 
-        return this.travelSpeed
+        return this._convertLengthFromInternal(this.travelSpeed)
 
     getRetractionDistance: ->
 
-        return this.retractionDistance
+        return this._convertLengthFromInternal(this.retractionDistance)
 
     getRetractionSpeed: ->
 
-        return this.retractionSpeed
+        return this._convertLengthFromInternal(this.retractionSpeed)
 
     getBuildPlateWidth: ->
 
-        return this.buildPlateWidth
+        return this._convertLengthFromInternal(this.buildPlateWidth)
 
     getBuildPlateLength: ->
 
-        return this.buildPlateLength
+        return this._convertLengthFromInternal(this.buildPlateLength)
 
     setAutohome: (autohome = true) ->
 
@@ -164,7 +220,7 @@ class Polyslice
 
         if typeof temp is "number" and temp >= 0
 
-            this.nozzleTemperature = Number temp
+            this.nozzleTemperature = this._convertTemperatureToInternal(temp)
 
         return this
 
@@ -172,7 +228,7 @@ class Polyslice
 
         if typeof temp is "number" and temp >= 0
 
-            this.bedTemperature = Number temp
+            this.bedTemperature = this._convertTemperatureToInternal(temp)
 
         return this
 
@@ -188,7 +244,7 @@ class Polyslice
 
         if typeof height is "number" and height > 0
 
-            this.layerHeight = Number height
+            this.layerHeight = this._convertLengthToInternal(height)
 
         return this
 
@@ -204,7 +260,7 @@ class Polyslice
 
         if typeof diameter is "number" and diameter > 0
 
-            this.filamentDiameter = Number diameter
+            this.filamentDiameter = this._convertLengthToInternal(diameter)
 
         return this
 
@@ -212,7 +268,7 @@ class Polyslice
 
         if typeof diameter is "number" and diameter > 0
 
-            this.nozzleDiameter = Number diameter
+            this.nozzleDiameter = this._convertLengthToInternal(diameter)
 
         return this
 
@@ -220,7 +276,7 @@ class Polyslice
 
         if typeof speed is "number" and speed > 0
 
-            this.perimeterSpeed = Number speed
+            this.perimeterSpeed = this._convertLengthToInternal(speed)
 
         return this
 
@@ -228,7 +284,7 @@ class Polyslice
 
         if typeof speed is "number" and speed > 0
 
-            this.infillSpeed = Number speed
+            this.infillSpeed = this._convertLengthToInternal(speed)
 
         return this
 
@@ -236,7 +292,7 @@ class Polyslice
 
         if typeof speed is "number" and speed > 0
 
-            this.travelSpeed = Number speed
+            this.travelSpeed = this._convertLengthToInternal(speed)
 
         return this
 
@@ -244,7 +300,7 @@ class Polyslice
 
         if typeof distance is "number" and distance >= 0
 
-            this.retractionDistance = Number distance
+            this.retractionDistance = this._convertLengthToInternal(distance)
 
         return this
 
@@ -252,7 +308,7 @@ class Polyslice
 
         if typeof speed is "number" and speed > 0
 
-            this.retractionSpeed = Number speed
+            this.retractionSpeed = this._convertLengthToInternal(speed)
 
         return this
 
@@ -260,7 +316,7 @@ class Polyslice
 
         if typeof width is "number" and width > 0
 
-            this.buildPlateWidth = Number width
+            this.buildPlateWidth = this._convertLengthToInternal(width)
 
         return this
 
@@ -268,7 +324,7 @@ class Polyslice
 
         if typeof length is "number" and length > 0
 
-            this.buildPlateLength = Number length
+            this.buildPlateLength = this._convertLengthToInternal(length)
 
         return this
 
@@ -507,7 +563,7 @@ class Polyslice
 
         else
 
-            temp = this.getNozzleTemperature()
+            temp = this.nozzleTemperature # Use internal storage for G-code generation
 
         if wait
 
@@ -546,7 +602,7 @@ class Polyslice
 
         else
 
-            temp = this.getBedTemperature()
+            temp = this.bedTemperature # Use internal storage for G-code generation
 
         if wait
 
@@ -576,6 +632,7 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/M105.html
     # https://marlinfw.org/docs/gcode/M155.html
+    # Generate temperature reporting G-code commands.
     codeTemperatureReport: (auto = true, interval = 1, index = null, sensor = null) ->
 
         if auto
@@ -632,6 +689,7 @@ class Polyslice
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/M123.html
+    # Generate fan status reporting G-code commands.
     codeFanReport: (auto = true, interval = 1) ->
 
         gcode = "M123"
@@ -648,6 +706,7 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/G004.html
     # https://marlinfw.org/docs/gcode/M000-M001.html
+    # Generate pause/dwell G-code commands.
     codeDwell: (time = null, interruptible = true, message = "") ->
 
         if interruptible then gcode = "M0" else gcode = "G4"
@@ -664,16 +723,19 @@ class Polyslice
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/M108.html
+    # Generate emergency interrupt G-code command.
     codeInterrupt: ->
 
         return "M108" + this.newline
 
     # https://marlinfw.org/docs/gcode/M400.html
+    # Generate wait for moves completion G-code command.
     codeWait: ->
 
         return "M400" + this.newline
 
     # https://marlinfw.org/docs/gcode/M300.html
+    # Generate buzzer/tone G-code command.
     codeTone: (duration = 1, frequency = 500) ->
 
         gcode = "M300"
@@ -694,21 +756,25 @@ class Polyslice
 
     # https://marlinfw.org/docs/gcode/M117.html
     # https://marlinfw.org/docs/gcode/M118.html
+    # Generate display message G-code command.
     codeMessage: (message = "") ->
 
         return "M117 " + message + this.newline
 
     # https://marlinfw.org/docs/gcode/M112.html
+    # Generate emergency shutdown G-code command.
     codeShutdown: ->
 
         return "M112" + this.newline
 
     # https://marlinfw.org/docs/gcode/M115.html
+    # Generate firmware info request G-code command.
     codeFirmwareReport: ->
 
         return "M115" + this.newline
 
     # https://marlinfw.org/docs/gcode/M027.html
+    # Generate SD card status reporting G-code commands.
     codeSDReport: (auto = true, interval = 1, name = false) ->
 
         gcode = "M27"
@@ -726,6 +792,7 @@ class Polyslice
         return gcode + this.newline
 
     # https://marlinfw.org/docs/gcode/M073.html
+    # Generate print progress reporting G-code commands.
     codeProgressReport: (percent = null, time = null) ->
 
         gcode = "M73"
@@ -752,8 +819,8 @@ class Polyslice
     # Generate retraction G-code using the configured retraction settings.
     codeRetract: (distance = null, speed = null) ->
 
-        retractDistance = if distance isnt null then distance else this.getRetractionDistance()
-        retractSpeed = if speed isnt null then speed else this.getRetractionSpeed()
+        retractDistance = if distance isnt null then distance else this.retractionDistance # Use internal storage
+        retractSpeed = if speed isnt null then speed else this.retractionSpeed # Use internal storage
 
         if retractDistance <= 0
 
@@ -778,8 +845,8 @@ class Polyslice
     # Generate unretract/prime G-code using configured settings.
     codeUnretract: (distance = null, speed = null) ->
 
-        retractDistance = if distance isnt null then distance else this.getRetractionDistance()
-        retractSpeed = if speed isnt null then speed else this.getRetractionSpeed()
+        retractDistance = if distance isnt null then distance else this.retractionDistance # Use internal storage
+        retractSpeed = if speed isnt null then speed else this.retractionSpeed # Use internal storage
 
         if retractDistance <= 0
 

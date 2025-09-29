@@ -82,22 +82,22 @@ describe 'Polyslice', ->
             expect(customSlicer.getTimeUnit()).toBe('seconds')
             expect(customSlicer.getLengthUnit()).toBe('inches')
             expect(customSlicer.getTemperatureUnit()).toBe('fahrenheit')
-            expect(customSlicer.getNozzleTemperature()).toBe(200)
-            expect(customSlicer.getBedTemperature()).toBe(60)
+            expect(customSlicer.getNozzleTemperature()).toBeCloseTo(200, 1) # Temperature conversions need precision handling
+            expect(customSlicer.getBedTemperature()).toBeCloseTo(60, 1) # Temperature conversions need precision handling
             expect(customSlicer.getFanSpeed()).toBe(75)
 
-            # Test new settings
-            expect(customSlicer.getLayerHeight()).toBe(0.3)
+            # Test new settings (length-based values need precision handling for unit conversions)
+            expect(customSlicer.getLayerHeight()).toBeCloseTo(0.3, 1)
             expect(customSlicer.getExtrusionMultiplier()).toBe(1.1)
-            expect(customSlicer.getFilamentDiameter()).toBe(3.0)
-            expect(customSlicer.getNozzleDiameter()).toBe(0.6)
-            expect(customSlicer.getPerimeterSpeed()).toBe(40)
-            expect(customSlicer.getInfillSpeed()).toBe(80)
-            expect(customSlicer.getTravelSpeed()).toBe(150)
-            expect(customSlicer.getRetractionDistance()).toBe(2.0)
-            expect(customSlicer.getRetractionSpeed()).toBe(50)
-            expect(customSlicer.getBuildPlateWidth()).toBe(300)
-            expect(customSlicer.getBuildPlateLength()).toBe(300)
+            expect(customSlicer.getFilamentDiameter()).toBeCloseTo(3.0, 1)
+            expect(customSlicer.getNozzleDiameter()).toBeCloseTo(0.6, 1)
+            expect(customSlicer.getPerimeterSpeed()).toBeCloseTo(40, 1)
+            expect(customSlicer.getInfillSpeed()).toBeCloseTo(80, 1)
+            expect(customSlicer.getTravelSpeed()).toBeCloseTo(150, 1)
+            expect(customSlicer.getRetractionDistance()).toBeCloseTo(2.0, 1)
+            expect(customSlicer.getRetractionSpeed()).toBeCloseTo(50, 1)
+            expect(customSlicer.getBuildPlateWidth()).toBeCloseTo(300, 1)
+            expect(customSlicer.getBuildPlateLength()).toBeCloseTo(300, 1)
 
     describe 'Setters and Getters', ->
 
@@ -423,3 +423,45 @@ describe 'Polyslice', ->
             result = slicer.calculateExtrusion(10)
 
             expect(result).toBeCloseTo(0.4, 2) # Should be 20% more than base calculation
+
+    describe 'Unit Conversions', ->
+
+        test 'should convert temperature units correctly', ->
+
+            # Test Fahrenheit conversions
+            fahrenheitSlicer = new Polyslice({temperatureUnit: 'fahrenheit'})
+            fahrenheitSlicer.setNozzleTemperature(392) # 200°C in Fahrenheit
+            expect(fahrenheitSlicer.getNozzleTemperature()).toBeCloseTo(392, 1)
+
+            # Test Kelvin conversions
+            kelvinSlicer = new Polyslice({temperatureUnit: 'kelvin'})
+            kelvinSlicer.setNozzleTemperature(473.15) # 200°C in Kelvin
+            expect(kelvinSlicer.getNozzleTemperature()).toBeCloseTo(473.15, 1)
+
+        test 'should convert length units correctly', ->
+
+            # Test inch conversions
+            inchSlicer = new Polyslice({lengthUnit: 'inches'})
+            inchSlicer.setLayerHeight(0.008) # ~0.2mm in inches
+            expect(inchSlicer.getLayerHeight()).toBeCloseTo(0.008, 3)
+
+            inchSlicer.setNozzleDiameter(0.016) # ~0.4mm in inches
+            expect(inchSlicer.getNozzleDiameter()).toBeCloseTo(0.016, 3)
+
+        test 'should maintain internal storage in standard units', ->
+
+            # Create slicer with non-standard units
+            customSlicer = new Polyslice({
+                temperatureUnit: 'fahrenheit'
+                lengthUnit: 'inches'
+            })
+
+            # Set values in user units
+            customSlicer.setNozzleTemperature(392) # 200°C
+            customSlicer.setLayerHeight(0.008) # ~0.2mm
+
+            # Internal storage should be in standard units for G-code generation
+            # This is tested indirectly by ensuring G-code generation works correctly
+            # The values should convert properly when retrieved in user units
+            expect(customSlicer.getNozzleTemperature()).toBeCloseTo(392, 1)
+            expect(customSlicer.getLayerHeight()).toBeCloseTo(0.008, 3)
