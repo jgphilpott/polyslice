@@ -48,8 +48,10 @@ class Polyslice
         return 0 if typeof temp isnt "number"
 
         switch this.temperatureUnit
+
             when "fahrenheit" then convert.temperature.fahrenheit.celsius(temp)
             when "kelvin" then convert.temperature.kelvin.celsius(temp)
+
             else temp # Already celsius or invalid unit
 
     _convertLengthToInternal: (length) ->
@@ -57,7 +59,9 @@ class Polyslice
         return 0 if typeof length isnt "number"
 
         switch this.lengthUnit
+
             when "inches" then convert.length.inch.millimeter(length)
+
             else length # Already millimeters or invalid unit
 
     _convertTimeToInternal: (time) ->
@@ -65,7 +69,9 @@ class Polyslice
         return 0 if typeof time isnt "number"
 
         switch this.timeUnit
+
             when "seconds" then convert.time.second.millisecond(time)
+
             else time # Already milliseconds or invalid unit
 
     # Convert internal storage units to user output units.
@@ -74,8 +80,10 @@ class Polyslice
         return 0 if typeof temp isnt "number"
 
         switch this.temperatureUnit
+
             when "fahrenheit" then convert.temperature.celsius.fahrenheit(temp)
             when "kelvin" then convert.temperature.celsius.kelvin(temp)
+
             else temp # Return celsius
 
     _convertLengthFromInternal: (length) ->
@@ -83,7 +91,9 @@ class Polyslice
         return 0 if typeof length isnt "number"
 
         switch this.lengthUnit
+
             when "inches" then convert.length.millimeter.inch(length)
+
             else length # Return millimeters
 
     _convertTimeFromInternal: (time) ->
@@ -91,7 +101,9 @@ class Polyslice
         return 0 if typeof time isnt "number"
 
         switch this.timeUnit
+
             when "seconds" then convert.time.millisecond.second(time)
+
             else time # Return milliseconds
 
     getAutohome: ->
@@ -563,7 +575,7 @@ class Polyslice
 
         else
 
-            temp = this.nozzleTemperature # Use internal storage for G-code generation
+            temp = this.nozzleTemperature
 
         if wait
 
@@ -602,7 +614,7 @@ class Polyslice
 
         else
 
-            temp = this.bedTemperature # Use internal storage for G-code generation
+            temp = this.bedTemperature
 
         if wait
 
@@ -919,7 +931,6 @@ if typeof module isnt 'undefined' and module.exports
     module.exports = Polyslice
 
 # Export for browser environments.
-
 if typeof window isnt 'undefined'
 
     window.Polyslice = Polyslice
