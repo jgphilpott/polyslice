@@ -320,3 +320,73 @@ describe 'Polyslice', ->
             slicer.setAutohome(false)
             result = slicer.slice()
             expect(result).toBe('') # Should be empty without autohome
+
+    describe 'Utility Methods', ->
+
+        test 'should generate retraction G-code', ->
+
+            result = slicer.codeRetract()
+            expect(result).toBe('G1 E-1 F2400\n') # Default 1mm at 40mm/s (2400mm/min)
+
+            # Test custom values
+            result = slicer.codeRetract(2.0, 50)
+            expect(result).toBe('G1 E-2 F3000\n')
+
+            # Test zero retraction
+            result = slicer.codeRetract(0, 50)
+            expect(result).toBe('') # Should return empty string
+
+        test 'should generate unretract G-code', ->
+
+            result = slicer.codeUnretract()
+            expect(result).toBe('G1 E1 F2400\n') # Default 1mm at 40mm/s
+
+            # Test custom values
+            result = slicer.codeUnretract(1.5, 30)
+            expect(result).toBe('G1 E1.5 F1800\n')
+
+        test 'should check build plate bounds', ->
+
+            # Within bounds
+            expect(slicer.isWithinBounds(0, 0)).toBe(true)
+            expect(slicer.isWithinBounds(100, 100)).toBe(true)
+            expect(slicer.isWithinBounds(-100, -100)).toBe(true)
+            expect(slicer.isWithinBounds(110, 110)).toBe(true) # Exactly at edge
+
+            # Outside bounds
+            expect(slicer.isWithinBounds(111, 0)).toBe(false)
+            expect(slicer.isWithinBounds(0, 111)).toBe(false)
+            expect(slicer.isWithinBounds(-111, 0)).toBe(false)
+            expect(slicer.isWithinBounds(0, -111)).toBe(false)
+
+            # Invalid inputs
+            expect(slicer.isWithinBounds('100', 100)).toBe(false)
+            expect(slicer.isWithinBounds(100, null)).toBe(false)
+
+        test 'should calculate extrusion amounts', ->
+
+            # Basic calculation with default settings
+            # Default: 0.4mm nozzle, 0.2mm layer height, 1.75mm filament, 1.0 multiplier
+            result = slicer.calculateExtrusion(10) # 10mm distance
+            expect(result).toBeCloseTo(0.333, 2) # Approximately 0.33mm of filament
+
+            # Test with custom line width
+            result = slicer.calculateExtrusion(10, 0.5) # Wider line
+            expect(result).toBeCloseTo(0.416, 2)
+
+            # Test edge cases
+            expect(slicer.calculateExtrusion(0)).toBe(0)
+            expect(slicer.calculateExtrusion(-5)).toBe(0)
+            expect(slicer.calculateExtrusion('invalid')).toBe(0)
+
+        test 'should handle different filament diameters in calculations', ->
+
+            slicer.setFilamentDiameter(3.0) # Change to 3mm filament
+            result = slicer.calculateExtrusion(10) # 10mm distance
+            expect(result).toBeCloseTo(0.113, 2) # Should be less filament needed for 3mm
+
+        test 'should handle extrusion multiplier in calculations', ->
+
+            slicer.setExtrusionMultiplier(1.2) # 20% over-extrusion
+            result = slicer.calculateExtrusion(10)
+            expect(result).toBeCloseTo(0.4, 2) # Should be 20% more than base calculation
