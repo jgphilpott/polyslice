@@ -1,5 +1,5 @@
 # Import conversion utilities for unit handling.
-conversions = require('./conversions')
+conversions = require('./utils/conversions')
 
 class Polyslice
 

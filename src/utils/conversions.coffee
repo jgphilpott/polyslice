@@ -6,7 +6,8 @@ convert = require('@jgphilpott/polyconvert')
 # Export conversion helper functions
 module.exports =
 
-    # Convert user input to internal storage units
+    # Convert user input to internal storage units.
+
     convertTemperatureToInternal: (temp, temperatureUnit) ->
 
         return 0 if typeof temp isnt "number"
@@ -98,7 +99,8 @@ module.exports =
             when "gradian" then convert.angle.gradian.degree(angle)
             else angle # Already degrees or invalid unit
 
-    # Convert internal storage units to user output units
+    # Convert internal storage units to user output units.
+
     convertTemperatureFromInternal: (temp, temperatureUnit) ->
 
         return 0 if typeof temp isnt "number"
