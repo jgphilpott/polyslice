@@ -1,8 +1,9 @@
-# Import conversion utilities for unit handling.
-conversions = require('./utils/conversions')
-polyconvert = require('@jgphilpott/polyconvert')
 coders = require('./utils/coders')
 helpers = require('./utils/helpers')
+conversions = require('./utils/conversions')
+
+polyconvert = require('@jgphilpott/polyconvert')
+polytree = require('@jgphilpott/polytree')
 
 class Polyslice
 
@@ -167,7 +168,6 @@ class Polyslice
 
     setSpeedUnit: (unit = "millimeterSecond") ->
 
-        # Speed unit should match polyconvert naming (e.g., millimeterSecond, inchSecond)
         if ["millimeterSecond", "inchSecond", "meterSecond"].includes unit
 
             this.speedUnit = String unit
