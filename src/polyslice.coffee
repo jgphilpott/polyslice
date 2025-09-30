@@ -61,7 +61,6 @@ class Polyslice
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
         @adhesionType = options.adhesionType ?= "skirt" # String ['skirt', 'brim', 'raft'].
 
-
     # Getters
 
     getAutohome: ->
