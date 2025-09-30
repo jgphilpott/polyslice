@@ -1,3 +1,10 @@
+coders = require('./utils/coders')
+helpers = require('./utils/helpers')
+conversions = require('./utils/conversions')
+
+polyconvert = require('@jgphilpott/polyconvert')
+polytree = require('@jgphilpott/polytree')
+
 class Polyslice
 
     constructor: (options = {}) ->
@@ -5,16 +12,56 @@ class Polyslice
         @gcode = ""
         @newline = "\n"
 
-        @autohome = options.autohome ?= true # Boolean
-        @workspacePlane = options.workspacePlane ?= "XY" # String ['XY', 'XZ', 'YZ']
+        # Basic printer configuration and behavior settings.
+        @autohome = options.autohome ?= true # Boolean.
+        @workspacePlane = options.workspacePlane ?= "XY" # String ['XY', 'XZ', 'YZ'].
 
-        @timeUnit = options.timeUnit ?= "milliseconds" # String ['milliseconds', 'seconds']
-        @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches']
-        @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin']
+        # Unit settings for time, distance, and temperature measurements.
+        @timeUnit = options.timeUnit ?= "milliseconds" # String ['milliseconds', 'seconds'].
+        @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches'].
+        @speedUnit = options.speedUnit ?= "millimeterSecond" # String ['millimeterSecond', 'inchSecond', 'meterSecond'].
+        @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin'].
 
-        @nozzleTemperature = options.nozzleTemperature ?= 0 # Number
-        @bedTemperature = options.bedTemperature ?= 0 # Number
-        @fanSpeed = options.fanSpeed ?= 100 # Number 0-100
+        # Temperature control settings for hotend and heated bed (stored internally in Celsius).
+        @nozzleTemperature = conversions.temperatureToInternal(options.nozzleTemperature ?= 0, this.temperatureUnit) # Number (°C internal).
+        @bedTemperature = conversions.temperatureToInternal(options.bedTemperature ?= 0, this.temperatureUnit) # Number (°C internal).
+        @fanSpeed = options.fanSpeed ?= 100 # Number 0-100.
+
+        # Slicing and extrusion settings (stored internally in millimeters).
+        @layerHeight = conversions.lengthToInternal(options.layerHeight ?= 0.2, this.lengthUnit) # Number (mm internal).
+        @extrusionMultiplier = options.extrusionMultiplier ?= 1.0 # Number (multiplier).
+        @filamentDiameter = conversions.lengthToInternal(options.filamentDiameter ?= 1.75, this.lengthUnit) # Number (mm internal).
+        @nozzleDiameter = conversions.lengthToInternal(options.nozzleDiameter ?= 0.4, this.lengthUnit) # Number (mm internal).
+
+        # Speed settings for different types of movements (stored internally in mm/s).
+        @perimeterSpeed = conversions.speedToInternal(options.perimeterSpeed ?= 30, this.speedUnit) # Number (mm/s internal).
+        @infillSpeed = conversions.speedToInternal(options.infillSpeed ?= 60, this.speedUnit) # Number (mm/s internal).
+        @travelSpeed = conversions.speedToInternal(options.travelSpeed ?= 120, this.speedUnit) # Number (mm/s internal).
+
+        # Retraction settings to prevent stringing during travel moves (stored internally in mm and mm/s).
+        @retractionDistance = conversions.lengthToInternal(options.retractionDistance ?= 1.0, this.lengthUnit) # Number (mm internal).
+        @retractionSpeed = conversions.speedToInternal(options.retractionSpeed ?= 40, this.speedUnit) # Number (mm/s internal).
+
+        # Build plate dimensions for bounds checking and validation (stored internally in mm).
+        @buildPlateWidth = conversions.lengthToInternal(options.buildPlateWidth ?= 220, this.lengthUnit) # Number (mm internal).
+        @buildPlateLength = conversions.lengthToInternal(options.buildPlateLength ?= 220, this.lengthUnit) # Number (mm internal).
+
+        # Infill settings for interior structure and strength.
+        @infillDensity = options.infillDensity ?= 20 # Number 0-100 (percentage).
+        @infillPattern = options.infillPattern ?= "grid" # String ['grid', 'lines', 'triangles', 'cubic', 'gyroid', 'honeycomb'].
+        @shellHorizontalThickness = conversions.lengthToInternal(options.shellHorizontalThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
+        @shellVerticalThickness = conversions.lengthToInternal(options.shellVerticalThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
+
+        # Support structure settings for overhangs and bridges.
+        @supportEnabled = options.supportEnabled ?= false # Boolean.
+        @supportType = options.supportType ?= "normal" # String ['normal', 'tree'].
+        @supportPlacement = options.supportPlacement ?= "buildPlate" # String ['everywhere', 'buildPlate'].
+
+        # Build plate adhesion settings for first layer stability.
+        @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
+        @adhesionType = options.adhesionType ?= "skirt" # String ['skirt', 'brim', 'raft'].
+
+    # Getters
 
     getAutohome: ->
 
@@ -36,17 +83,103 @@ class Polyslice
 
         return this.temperatureUnit
 
+    getSpeedUnit: ->
+
+        return this.speedUnit
+
     getNozzleTemperature: ->
 
-        return this.nozzleTemperature
+        return conversions.temperatureFromInternal(this.nozzleTemperature, this.temperatureUnit)
 
     getBedTemperature: ->
 
-        return this.bedTemperature
+        return conversions.temperatureFromInternal(this.bedTemperature, this.temperatureUnit)
 
     getFanSpeed: ->
 
         return this.fanSpeed
+
+    getLayerHeight: ->
+
+        return conversions.lengthFromInternal(this.layerHeight, this.lengthUnit)
+
+    getExtrusionMultiplier: ->
+
+        return this.extrusionMultiplier
+
+    getFilamentDiameter: ->
+
+        return conversions.lengthFromInternal(this.filamentDiameter, this.lengthUnit)
+
+    getNozzleDiameter: ->
+
+        return conversions.lengthFromInternal(this.nozzleDiameter, this.lengthUnit)
+
+    getPerimeterSpeed: ->
+
+        return conversions.speedFromInternal(this.perimeterSpeed, this.speedUnit)
+
+    getInfillSpeed: ->
+
+        return conversions.speedFromInternal(this.infillSpeed, this.speedUnit)
+
+    getTravelSpeed: ->
+
+        return conversions.speedFromInternal(this.travelSpeed, this.speedUnit)
+
+    getRetractionDistance: ->
+
+        return conversions.lengthFromInternal(this.retractionDistance, this.lengthUnit)
+
+    getRetractionSpeed: ->
+
+        return conversions.speedFromInternal(this.retractionSpeed, this.speedUnit)
+
+    getBuildPlateWidth: ->
+
+        return conversions.lengthFromInternal(this.buildPlateWidth, this.lengthUnit)
+
+    getBuildPlateLength: ->
+
+        return conversions.lengthFromInternal(this.buildPlateLength, this.lengthUnit)
+
+    getInfillDensity: ->
+
+        return this.infillDensity
+
+    getInfillPattern: ->
+
+        return this.infillPattern
+
+    getShellHorizontalThickness: ->
+
+        return conversions.lengthFromInternal(this.shellHorizontalThickness, this.lengthUnit)
+
+    getShellVerticalThickness: ->
+
+        return conversions.lengthFromInternal(this.shellVerticalThickness, this.lengthUnit)
+
+    getSupportEnabled: ->
+
+        return this.supportEnabled
+
+    getSupportType: ->
+
+        return this.supportType
+
+    getSupportPlacement: ->
+
+        return this.supportPlacement
+
+    getAdhesionEnabled: ->
+
+        return this.adhesionEnabled
+
+    getAdhesionType: ->
+
+        return this.adhesionType
+
+    # Setters
 
     setAutohome: (autohome = true) ->
 
@@ -84,6 +217,14 @@ class Polyslice
 
         return this
 
+    setSpeedUnit: (unit = "millimeterSecond") ->
+
+        if ["millimeterSecond", "inchSecond", "meterSecond"].includes unit
+
+            this.speedUnit = String unit
+
+        return this
+
     setTemperatureUnit: (unit = "celsius") ->
 
         unit = unit.toLowerCase().trim()
@@ -98,7 +239,7 @@ class Polyslice
 
         if typeof temp is "number" and temp >= 0
 
-            this.nozzleTemperature = Number temp
+            this.nozzleTemperature = conversions.temperatureToInternal(temp, this.temperatureUnit)
 
         return this
 
@@ -106,7 +247,7 @@ class Polyslice
 
         if typeof temp is "number" and temp >= 0
 
-            this.bedTemperature = Number temp
+            this.bedTemperature = conversions.temperatureToInternal(temp, this.temperatureUnit)
 
         return this
 
@@ -118,469 +259,256 @@ class Polyslice
 
         return this
 
-    # https://marlinfw.org/docs/gcode/G028.html
-    codeAutohome: (x = null, y = null, z = null, skip = null, raise = null, leveling = null) ->
+    setLayerHeight: (height = 0.2) ->
 
-        gcode = "G28"
+        if typeof height is "number" and height > 0
 
-        if x then gcode += " X"
-        if y then gcode += " Y"
-        if z then gcode += " Z"
+            this.layerHeight = conversions.lengthToInternal(height, this.lengthUnit)
 
-        if skip then gcode += " O"
-        if leveling then gcode += " L"
+        return this
 
-        if typeof raise is "number" then gcode += " R" + raise
+    setExtrusionMultiplier: (multiplier = 1.0) ->
 
-        return gcode + this.newline
+        if typeof multiplier is "number" and multiplier > 0
 
-    # https://marlinfw.org/docs/gcode/G017-G019.html
-    codeWorkspacePlane: (plane = null) ->
+            this.extrusionMultiplier = Number multiplier
 
-        if plane isnt null
+        return this
 
-            this.setWorkspacePlane plane
+    setFilamentDiameter: (diameter = 1.75) ->
 
-        if this.getWorkspacePlane() is "XY"
+        if typeof diameter is "number" and diameter > 0
 
-            return "G17" + this.newline
+            this.filamentDiameter = conversions.lengthToInternal(diameter, this.lengthUnit)
 
-        if this.getWorkspacePlane() is "XZ"
+        return this
 
-            return "G18" + this.newline
+    setNozzleDiameter: (diameter = 0.4) ->
 
-        if this.getWorkspacePlane() is "YZ"
+        if typeof diameter is "number" and diameter > 0
 
-            return "G19" + this.newline
+            this.nozzleDiameter = conversions.lengthToInternal(diameter, this.lengthUnit)
 
-    # https://marlinfw.org/docs/gcode/G021.html
-    # https://marlinfw.org/docs/gcode/G020.html
-    codeLengthUnit: (unit = null) ->
+        return this
 
-        if unit isnt null
+    setPerimeterSpeed: (speed = 30) ->
 
-            this.setLengthUnit unit
+        if typeof speed is "number" and speed > 0
 
-        if this.getLengthUnit() is "millimeters"
+            this.perimeterSpeed = conversions.speedToInternal(speed, this.speedUnit)
 
-            return "G21" + this.newline
+        return this
 
-        if this.getLengthUnit() is "inches"
+    setInfillSpeed: (speed = 60) ->
 
-            return "G20" + this.newline
+        if typeof speed is "number" and speed > 0
 
-    # https://marlinfw.org/docs/gcode/M149.html
-    codeTemperatureUnit: (unit = null) ->
+            this.infillSpeed = conversions.speedToInternal(speed, this.speedUnit)
 
-        if unit isnt null
+        return this
 
-            this.setTemperatureUnit unit
+    setTravelSpeed: (speed = 120) ->
 
-        if this.getTemperatureUnit() is "celsius"
+        if typeof speed is "number" and speed > 0
 
-            return "M149 C" + this.newline
+            this.travelSpeed = conversions.speedToInternal(speed, this.speedUnit)
 
-        if this.getTemperatureUnit() is "fahrenheit"
+        return this
 
-            return "M149 F" + this.newline
+    setRetractionDistance: (distance = 1.0) ->
 
-        if this.getTemperatureUnit() is "kelvin"
+        if typeof distance is "number" and distance >= 0
 
-            return "M149 K" + this.newline
+            this.retractionDistance = conversions.lengthToInternal(distance, this.lengthUnit)
 
-    codeMovement: (x = null, y = null, z = null, extrude = null, feedrate = null, power = null) ->
+        return this
 
-        gcode = ""
+    setRetractionSpeed: (speed = 40) ->
 
-        if typeof x is "number"
+        if typeof speed is "number" and speed > 0
 
-            gcode += " X" + x
+            this.retractionSpeed = conversions.speedToInternal(speed, this.speedUnit)
 
-        if typeof y is "number"
+        return this
 
-            gcode += " Y" + y
+    setBuildPlateWidth: (width = 220) ->
 
-        if typeof z is "number"
+        if typeof width is "number" and width > 0
 
-            gcode += " Z" + z
+            this.buildPlateWidth = conversions.lengthToInternal(width, this.lengthUnit)
 
-        if typeof extrude is "number"
+        return this
 
-            gcode += " E" + extrude
+    setBuildPlateLength: (length = 220) ->
 
-        if typeof feedrate is "number"
+        if typeof length is "number" and length > 0
 
-            gcode += " F" + feedrate
+            this.buildPlateLength = conversions.lengthToInternal(length, this.lengthUnit)
 
-        if typeof power is "number"
+        return this
 
-            gcode += " S" + power
+    setInfillDensity: (density = 20) ->
 
-        return gcode
+        if typeof density is "number" and density >= 0 and density <= 100
 
-    # https://marlinfw.org/docs/gcode/G000-G001.html
-    codeLinearMovement: (x = null, y = null, z = null, extrude = null, feedrate = null, power = null) ->
+            this.infillDensity = Number density
 
-        if not extrude then gcode = "G0" else gcode = "G1"
+        return this
 
-        gcode += this.codeMovement x, y, z, extrude, feedrate, power
+    setInfillPattern: (pattern = "grid") ->
 
-        return gcode + this.newline
+        pattern = pattern.toLowerCase().trim()
 
-    # https://marlinfw.org/docs/gcode/G002-G003.html
-    codeArcMovement: (direction = "clockwise", x = null, y = null, z = null, extrude = null, feedrate = null, power = null, xOffset = null, yOffset = null, radius = null, circles = null) ->
+        if ["grid", "lines", "triangles", "cubic", "gyroid", "honeycomb"].includes pattern
 
-        if direction is "clockwise" then gcode = "G2" else gcode = "G3"
+            this.infillPattern = String pattern
 
-        if (xOffset isnt null or yOffset isnt null) and radius is null
+        return this
 
-            gcode += this.codeMovement x, y, z, extrude, feedrate, power
+    setShellHorizontalThickness: (thickness = 0.8) ->
 
-            if typeof xOffset is "number"
+        if typeof thickness is "number" and thickness >= 0
 
-                gcode += " I" + xOffset
+            this.shellHorizontalThickness = conversions.lengthToInternal(thickness, this.lengthUnit)
 
-            if typeof yOffset is "number"
+        return this
 
-                gcode += " J" + yOffset
+    setShellVerticalThickness: (thickness = 0.8) ->
 
-            if typeof circles is "number"
+        if typeof thickness is "number" and thickness >= 0
 
-                gcode += " P" + circles
+            this.shellVerticalThickness = conversions.lengthToInternal(thickness, this.lengthUnit)
 
-        else if xOffset is null and yOffset is null and radius isnt null and x isnt null and y isnt null
+        return this
 
-            gcode += this.codeMovement x, y, z, extrude, feedrate, power
+    setSupportEnabled: (enabled = false) ->
 
-            if typeof radius is "number"
+        this.supportEnabled = Boolean enabled
 
-                gcode += " R" + radius
+        return this
 
-            if typeof circles is "number"
+    setSupportType: (type = "normal") ->
 
-                gcode += " P" + circles
+        type = type.toLowerCase().trim()
 
-        else
+        if ["normal", "tree"].includes type
 
-            console.error "Invalid Arc Movement Parameters"
+            this.supportType = String type
 
-        return gcode + this.newline
+        return this
 
-    # https://marlinfw.org/docs/gcode/G005.html
-    codeBézierMovement: (controlPoints = []) ->
+    setSupportPlacement: (placement = "buildPlate") ->
 
-        gcode = ""
+        placement = placement.toLowerCase().trim()
 
-        for controlPoint, index in controlPoints
+        if ["everywhere", "buildPlate"].includes placement
 
-            if typeof controlPoint.xOffsetEnd is "number" and typeof controlPoint.yOffsetEnd is "number"
+            this.supportPlacement = String placement
 
-                if index is 0 and (typeof controlPoint.xOffsetStart isnt "number" or typeof controlPoint.yOffsetStart isnt "number")
+        return this
 
-                    console.error "Invalid Bézier Movement Parameters"
+    setAdhesionEnabled: (enabled = false) ->
 
-                else
+        this.adhesionEnabled = Boolean enabled
 
-                    gcode += "G5"
+        return this
 
-                    x = controlPoint.x
-                    y = controlPoint.y
-                    extrude = controlPoint.extrude
-                    feedrate = controlPoint.feedrate
-                    power = controlPoint.power
+    setAdhesionType: (type = "skirt") ->
 
-                    gcode += this.codeMovement x, y, null, extrude, feedrate, power
+        type = type.toLowerCase().trim()
 
-                    if typeof controlPoint.xOffsetStart is "number" and typeof controlPoint.yOffsetStart is "number"
+        if ["skirt", "brim", "raft"].includes type
 
-                        gcode += " I" + controlPoint.xOffsetStart
-                        gcode += " J" + controlPoint.yOffsetStart
+            this.adhesionType = String type
 
-                    gcode += " P" + controlPoint.xOffsetEnd
-                    gcode += " Q" + controlPoint.yOffsetEnd
+        return this
 
-                    gcode += this.newline
+    # Coder method delegates
 
-            else
+    codeAutohome: (x, y, z, skip, raise, leveling) ->
+        coders.codeAutohome(this, x, y, z, skip, raise, leveling)
 
-                console.error "Invalid Bézier Movement Parameters"
+    codeWorkspacePlane: (plane) ->
+        coders.codeWorkspacePlane(this, plane)
 
-        return gcode
+    codeLengthUnit: (unit) ->
+        coders.codeLengthUnit(this, unit)
 
-    # https://marlinfw.org/docs/gcode/M114.html
-    # https://marlinfw.org/docs/gcode/M154.html
-    codePositionReport: (auto = true, interval = 1, real = false, detail = false, extruder = false) ->
+    codeTemperatureUnit: (unit) ->
+        coders.codeTemperatureUnit(this, unit)
 
-        if auto
+    codeMovement: (x, y, z, extrude, feedrate, power) ->
+        coders.codeMovement(this, x, y, z, extrude, feedrate, power)
 
-            gcode = "M154"
+    codeLinearMovement: (x, y, z, extrude, feedrate, power) ->
+        coders.codeLinearMovement(this, x, y, z, extrude, feedrate, power)
 
-            if typeof interval is "number" and interval >= 0
+    codeArcMovement: (direction, x, y, z, extrude, feedrate, power, xOffset, yOffset, radius, circles) ->
+        coders.codeArcMovement(this, direction, x, y, z, extrude, feedrate, power, xOffset, yOffset, radius, circles)
 
-                if this.getTimeUnit() is "milliseconds"
+    codeBézierMovement: (controlPoints) ->
+        coders.codeBézierMovement(this, controlPoints)
 
-                    interval /= 1000
+    codePositionReport: (auto, interval, real, detail, extruder) ->
+        coders.codePositionReport(this, auto, interval, real, detail, extruder)
 
-                gcode += " S" + interval
+    codeNozzleTemperature: (temp, wait, index) ->
+        coders.codeNozzleTemperature(this, temp, wait, index)
 
-        else
+    codeBedTemperature: (temp, wait, time) ->
+        coders.codeBedTemperature(this, temp, wait, time)
 
-            gcode = "M114"
+    codeTemperatureReport: (auto, interval, index, sensor) ->
+        coders.codeTemperatureReport(this, auto, interval, index, sensor)
 
-            if real then gcode += " R"
-            if detail then gcode += " D"
-            if extruder then gcode += " E"
+    codeFanSpeed: (speed, index) ->
+        coders.codeFanSpeed(this, speed, index)
 
-        return gcode + this.newline
+    codeFanReport: (auto, interval) ->
+        coders.codeFanReport(this, auto, interval)
 
-    # https://marlinfw.org/docs/gcode/M109.html
-    # https://marlinfw.org/docs/gcode/M104.html
-    codeNozzleTemperature: (temp = null, wait = true, index = null) ->
+    codeDwell: (time, interruptible, message) ->
+        coders.codeDwell(this, time, interruptible, message)
 
-        if temp isnt null
-
-            this.setNozzleTemperature temp
-
-        else
-
-            temp = this.getNozzleTemperature()
-
-        if wait
-
-            gcode = "M109"
-
-            if typeof temp is "number" and temp >= 0
-
-                gcode += " R" + temp
-
-            if typeof index is "number"
-
-                gcode += " T" + index
-
-        else
-
-            gcode = "M104"
-
-            if typeof temp is "number" and temp >= 0
-
-                gcode += " S" + temp
-
-            if typeof index is "number"
-
-                gcode += " T" + index
-
-        return gcode + this.newline
-
-    # https://marlinfw.org/docs/gcode/M190.html
-    # https://marlinfw.org/docs/gcode/M140.html
-    codeBedTemperature: (temp = null, wait = true, time = null) ->
-
-        if temp isnt null
-
-            this.setBedTemperature temp
-
-        else
-
-            temp = this.getBedTemperature()
-
-        if wait
-
-            gcode = "M190"
-
-            if typeof temp is "number" and temp >= 0
-
-                gcode += " R" + temp
-
-            if typeof time is "number" and time > 0
-
-                if this.getTimeUnit() is "milliseconds"
-
-                    time /= 1000
-
-                gcode += " T" + time
-
-        else
-
-            gcode = "M140"
-
-            if typeof temp is "number" and temp >= 0
-
-                gcode += " S" + temp
-
-        return gcode + this.newline
-
-    # https://marlinfw.org/docs/gcode/M105.html
-    # https://marlinfw.org/docs/gcode/M155.html
-    codeTemperatureReport: (auto = true, interval = 1, index = null, sensor = null) ->
-
-        if auto
-
-            gcode = "M155"
-
-            if typeof interval is "number" and interval >= 0
-
-                if this.getTimeUnit() is "milliseconds"
-
-                    interval /= 1000
-
-                gcode += " S" + interval
-
-        else
-
-            gcode = "M105"
-
-            if typeof index is "number"
-
-                gcode += " T" + index
-
-            if sensor then gcode += " R"
-
-        return gcode + this.newline
-
-    # https://marlinfw.org/docs/gcode/M106.html
-    # https://marlinfw.org/docs/gcode/M107.html
-    codeFanSpeed: (speed = null, index = null) ->
-
-        if speed isnt null
-
-            this.setFanSpeed speed
-
-        else
-
-            speed = this.getFanSpeed()
-
-        if typeof speed is "number" and speed >= 0 and speed <= 100
-
-            if speed > 0
-
-                gcode = "M106" + " S" + Math.round(speed * 2.55)
-
-            else
-
-                gcode = "M107"
-
-            if typeof index is "number"
-
-                gcode += " P" + index
-
-        return gcode + this.newline
-
-    # https://marlinfw.org/docs/gcode/M123.html
-    codeFanReport: (auto = true, interval = 1) ->
-
-        gcode = "M123"
-
-        if auto and typeof interval is "number" and interval >= 0
-
-            if this.getTimeUnit() is "milliseconds"
-
-                interval /= 1000
-
-            gcode += " S" + interval
-
-        return gcode + this.newline
-
-    # https://marlinfw.org/docs/gcode/G004.html
-    # https://marlinfw.org/docs/gcode/M000-M001.html
-    codeDwell: (time = null, interruptible = true, message = "") ->
-
-        if interruptible then gcode = "M0" else gcode = "G4"
-
-        if typeof time is "number" and time > 0
-
-            if this.getTimeUnit() is "milliseconds" then gcode += " P" + time
-            if this.getTimeUnit() is "seconds" then gcode += " S" + time
-
-        if message and typeof message is "string"
-
-            gcode += " " + message
-
-        return gcode + this.newline
-
-    # https://marlinfw.org/docs/gcode/M108.html
     codeInterrupt: ->
+        coders.codeInterrupt(this)
 
-        return "M108" + this.newline
-
-    # https://marlinfw.org/docs/gcode/M400.html
     codeWait: ->
+        coders.codeWait(this)
 
-        return "M400" + this.newline
+    codeTone: (duration, frequency) ->
+        coders.codeTone(this, duration, frequency)
 
-    # https://marlinfw.org/docs/gcode/M300.html
-    codeTone: (duration = 1, frequency = 500) ->
+    codeMessage: (message) ->
+        coders.codeMessage(this, message)
 
-        gcode = "M300"
-
-        if typeof duration is "number" and duration > 0
-
-            if this.getTimeUnit() is "seconds"
-
-                duration *= 1000
-
-            gcode += " P" + duration
-
-        if typeof frequency is "number" and frequency > 0
-
-            gcode += " S" + frequency
-
-        return gcode + this.newline
-
-    # https://marlinfw.org/docs/gcode/M117.html
-    # https://marlinfw.org/docs/gcode/M118.html
-    codeMessage: (message = "") ->
-
-        return "M117 " + message + this.newline
-
-    # https://marlinfw.org/docs/gcode/M112.html
     codeShutdown: ->
+        coders.codeShutdown(this)
 
-        return "M112" + this.newline
-
-    # https://marlinfw.org/docs/gcode/M115.html
     codeFirmwareReport: ->
+        coders.codeFirmwareReport(this)
 
-        return "M115" + this.newline
+    codeSDReport: (auto, interval, name) ->
+        coders.codeSDReport(this, auto, interval, name)
 
-    # https://marlinfw.org/docs/gcode/M027.html
-    codeSDReport: (auto = true, interval = 1, name = false) ->
+    codeProgressReport: (percent, time) ->
+        coders.codeProgressReport(this, percent, time)
 
-        gcode = "M27"
+    codeRetract: (distance, speed) ->
+        coders.codeRetract(this, distance, speed)
 
-        if name then gcode += " C"
+    codeUnretract: (distance, speed) ->
+        coders.codeUnretract(this, distance, speed)
 
-        if auto and typeof interval is "number" and interval >= 0
+    # Helper method delegates
 
-            if this.getTimeUnit() is "milliseconds"
+    isWithinBounds: (x, y) ->
+        helpers.isWithinBounds(this, x, y)
 
-                interval /= 1000
+    calculateExtrusion: (distance, lineWidth) ->
+        helpers.calculateExtrusion(this, distance, lineWidth)
 
-            gcode += " S" + interval
-
-        return gcode + this.newline
-
-    # https://marlinfw.org/docs/gcode/M073.html
-    codeProgressReport: (percent = null, time = null) ->
-
-        gcode = "M73"
-
-        if typeof percent is "number" and percent >= 0
-
-            gcode += " P" + percent
-
-        if typeof time is "number" and time >= 0
-
-            if this.getTimeUnit() is "milliseconds"
-
-                time /= 60000
-
-            else if this.getTimeUnit() is "seconds"
-
-                time /= 60
-
-            gcode += " R" + time
-
-        return gcode + this.newline
+    # Main slicing method
 
     slice: (scene = {}) ->
 
@@ -596,7 +524,6 @@ if typeof module isnt 'undefined' and module.exports
     module.exports = Polyslice
 
 # Export for browser environments.
-
 if typeof window isnt 'undefined'
 
     window.Polyslice = Polyslice
