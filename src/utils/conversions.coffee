@@ -1,193 +1,193 @@
 # Unit conversion utilities for Polyslice
 # All conversions use @jgphilpott/polyconvert library
 
-convert = require('@jgphilpott/polyconvert')
+polyconvert = require('@jgphilpott/polyconvert')
 
 # Export conversion helper functions
 module.exports =
 
     # Convert user input to internal storage units.
 
-    convertTemperatureToInternal: (temp, temperatureUnit) ->
+    temperatureToInternal: (temp, temperatureUnit) ->
 
         return 0 if typeof temp isnt "number"
 
         switch temperatureUnit
-            when "fahrenheit" then convert.temperature.fahrenheit.celsius(temp)
-            when "kelvin" then convert.temperature.kelvin.celsius(temp)
+            when "fahrenheit" then polyconvert.temperature.fahrenheit.celsius(temp)
+            when "kelvin" then polyconvert.temperature.kelvin.celsius(temp)
             else temp # Already celsius or invalid unit
 
-    convertLengthToInternal: (length, lengthUnit) ->
+    lengthToInternal: (length, lengthUnit) ->
 
         return 0 if typeof length isnt "number"
 
         switch lengthUnit
-            when "inches" then convert.length.inch.millimeter(length)
+            when "inches" then polyconvert.length.inch.millimeter(length)
             else length # Already millimeters or invalid unit
 
-    convertSpeedToInternal: (speed, speedUnit) ->
+    speedToInternal: (speed, speedUnit) ->
 
         return 0 if typeof speed isnt "number"
 
         switch speedUnit
-            when "inchSecond" then convert.speed.inchSecond.millimeterSecond(speed)
-            when "meterSecond" then convert.speed.meterSecond.millimeterSecond(speed)
+            when "inchSecond" then polyconvert.speed.inchSecond.millimeterSecond(speed)
+            when "meterSecond" then polyconvert.speed.meterSecond.millimeterSecond(speed)
             else speed # Already millimeterSecond or invalid unit
 
-    convertTimeToInternal: (time, timeUnit) ->
+    timeToInternal: (time, timeUnit) ->
 
         return 0 if typeof time isnt "number"
 
         switch timeUnit
-            when "seconds" then convert.time.second.millisecond(time)
+            when "seconds" then polyconvert.time.second.millisecond(time)
             else time # Already milliseconds or invalid unit
 
-    convertVolumeToInternal: (volume, volumeUnit) ->
+    volumeToInternal: (volume, volumeUnit) ->
 
         return 0 if typeof volume isnt "number"
 
         switch volumeUnit
-            when "inchCu" then convert.volume.inchCu.millimeterCu(volume)
-            when "centimeterCu" then convert.volume.centimeterCu.millimeterCu(volume)
+            when "inchCu" then polyconvert.volume.inchCu.millimeterCu(volume)
+            when "centimeterCu" then polyconvert.volume.centimeterCu.millimeterCu(volume)
             else volume # Already millimeterCu or invalid unit
 
-    convertMassToInternal: (mass, massUnit) ->
+    massToInternal: (mass, massUnit) ->
 
         return 0 if typeof mass isnt "number"
 
         switch massUnit
-            when "ounce" then convert.mass.ounce.gram(mass)
-            when "kilogram" then convert.mass.kilogram.gram(mass)
-            when "pound" then convert.mass.pound.gram(mass)
+            when "ounce" then polyconvert.mass.ounce.gram(mass)
+            when "kilogram" then polyconvert.mass.kilogram.gram(mass)
+            when "pound" then polyconvert.mass.pound.gram(mass)
             else mass # Already grams or invalid unit
 
-    convertDensityToInternal: (density, densityUnit) ->
+    densityToInternal: (density, densityUnit) ->
 
         return 0 if typeof density isnt "number"
 
         switch densityUnit
-            when "ounceInchCu" then convert.density.ounceInchCu.gramCentimeterCu(density)
-            when "kilogramMeterCu" then convert.density.kilogramMeterCu.gramCentimeterCu(density)
-            when "poundFootCu" then convert.density.poundFootCu.gramCentimeterCu(density)
+            when "ounceInchCu" then polyconvert.density.ounceInchCu.gramCentimeterCu(density)
+            when "kilogramMeterCu" then polyconvert.density.kilogramMeterCu.gramCentimeterCu(density)
+            when "poundFootCu" then polyconvert.density.poundFootCu.gramCentimeterCu(density)
             else density # Already gramCentimeterCu or invalid unit
 
-    convertDataToInternal: (data, dataUnit) ->
+    dataToInternal: (data, dataUnit) ->
 
         return 0 if typeof data isnt "number"
 
         switch dataUnit
-            when "kilobyte" then convert.data.kilobyte.megabyte(data)
-            when "gigabyte" then convert.data.gigabyte.megabyte(data)
-            when "terabyte" then convert.data.terabyte.megabyte(data)
+            when "kilobyte" then polyconvert.data.kilobyte.megabyte(data)
+            when "gigabyte" then polyconvert.data.gigabyte.megabyte(data)
+            when "terabyte" then polyconvert.data.terabyte.megabyte(data)
             else data # Already megabyte or invalid unit
 
-    convertAreaToInternal: (area, areaUnit) ->
+    areaToInternal: (area, areaUnit) ->
 
         return 0 if typeof area isnt "number"
 
         switch areaUnit
-            when "inchSq" then convert.area.inchSq.millimeterSq(area)
-            when "centimeterSq" then convert.area.centimeterSq.millimeterSq(area)
+            when "inchSq" then polyconvert.area.inchSq.millimeterSq(area)
+            when "centimeterSq" then polyconvert.area.centimeterSq.millimeterSq(area)
             else area # Already millimeterSq or invalid unit
 
-    convertAngleToInternal: (angle, angleUnit) ->
+    angleToInternal: (angle, angleUnit) ->
 
         return 0 if typeof angle isnt "number"
 
         switch angleUnit
-            when "radian" then convert.angle.radian.degree(angle)
-            when "gradian" then convert.angle.gradian.degree(angle)
+            when "radian" then polyconvert.angle.radian.degree(angle)
+            when "gradian" then polyconvert.angle.gradian.degree(angle)
             else angle # Already degrees or invalid unit
 
     # Convert internal storage units to user output units.
 
-    convertTemperatureFromInternal: (temp, temperatureUnit) ->
+    temperatureFromInternal: (temp, temperatureUnit) ->
 
         return 0 if typeof temp isnt "number"
 
         switch temperatureUnit
-            when "fahrenheit" then convert.temperature.celsius.fahrenheit(temp)
-            when "kelvin" then convert.temperature.celsius.kelvin(temp)
+            when "fahrenheit" then polyconvert.temperature.celsius.fahrenheit(temp)
+            when "kelvin" then polyconvert.temperature.celsius.kelvin(temp)
             else temp # Return celsius
 
-    convertLengthFromInternal: (length, lengthUnit) ->
+    lengthFromInternal: (length, lengthUnit) ->
 
         return 0 if typeof length isnt "number"
 
         switch lengthUnit
-            when "inches" then convert.length.millimeter.inch(length)
+            when "inches" then polyconvert.length.millimeter.inch(length)
             else length # Return millimeters
 
-    convertSpeedFromInternal: (speed, speedUnit) ->
+    speedFromInternal: (speed, speedUnit) ->
 
         return 0 if typeof speed isnt "number"
 
         switch speedUnit
-            when "inchSecond" then convert.speed.millimeterSecond.inchSecond(speed)
-            when "meterSecond" then convert.speed.millimeterSecond.meterSecond(speed)
+            when "inchSecond" then polyconvert.speed.millimeterSecond.inchSecond(speed)
+            when "meterSecond" then polyconvert.speed.millimeterSecond.meterSecond(speed)
             else speed # Return millimeterSecond
 
-    convertTimeFromInternal: (time, timeUnit) ->
+    timeFromInternal: (time, timeUnit) ->
 
         return 0 if typeof time isnt "number"
 
         switch timeUnit
-            when "seconds" then convert.time.millisecond.second(time)
+            when "seconds" then polyconvert.time.millisecond.second(time)
             else time # Return milliseconds
 
-    convertVolumeFromInternal: (volume, volumeUnit) ->
+    volumeFromInternal: (volume, volumeUnit) ->
 
         return 0 if typeof volume isnt "number"
 
         switch volumeUnit
-            when "inchCu" then convert.volume.millimeterCu.inchCu(volume)
-            when "centimeterCu" then convert.volume.millimeterCu.centimeterCu(volume)
+            when "inchCu" then polyconvert.volume.millimeterCu.inchCu(volume)
+            when "centimeterCu" then polyconvert.volume.millimeterCu.centimeterCu(volume)
             else volume # Return millimeterCu
 
-    convertMassFromInternal: (mass, massUnit) ->
+    massFromInternal: (mass, massUnit) ->
 
         return 0 if typeof mass isnt "number"
 
         switch massUnit
-            when "ounce" then convert.mass.gram.ounce(mass)
-            when "kilogram" then convert.mass.gram.kilogram(mass)
-            when "pound" then convert.mass.gram.pound(mass)
+            when "ounce" then polyconvert.mass.gram.ounce(mass)
+            when "kilogram" then polyconvert.mass.gram.kilogram(mass)
+            when "pound" then polyconvert.mass.gram.pound(mass)
             else mass # Return grams
 
-    convertDensityFromInternal: (density, densityUnit) ->
+    densityFromInternal: (density, densityUnit) ->
 
         return 0 if typeof density isnt "number"
 
         switch densityUnit
-            when "ounceInchCu" then convert.density.gramCentimeterCu.ounceInchCu(density)
-            when "kilogramMeterCu" then convert.density.gramCentimeterCu.kilogramMeterCu(density)
-            when "poundFootCu" then convert.density.gramCentimeterCu.poundFootCu(density)
+            when "ounceInchCu" then polyconvert.density.gramCentimeterCu.ounceInchCu(density)
+            when "kilogramMeterCu" then polyconvert.density.gramCentimeterCu.kilogramMeterCu(density)
+            when "poundFootCu" then polyconvert.density.gramCentimeterCu.poundFootCu(density)
             else density # Return gramCentimeterCu
 
-    convertDataFromInternal: (data, dataUnit) ->
+    dataFromInternal: (data, dataUnit) ->
 
         return 0 if typeof data isnt "number"
 
         switch dataUnit
-            when "kilobyte" then convert.data.megabyte.kilobyte(data)
-            when "gigabyte" then convert.data.megabyte.gigabyte(data)
-            when "terabyte" then convert.data.megabyte.terabyte(data)
+            when "kilobyte" then polyconvert.data.megabyte.kilobyte(data)
+            when "gigabyte" then polyconvert.data.megabyte.gigabyte(data)
+            when "terabyte" then polyconvert.data.megabyte.terabyte(data)
             else data # Return megabyte
 
-    convertAreaFromInternal: (area, areaUnit) ->
+    areaFromInternal: (area, areaUnit) ->
 
         return 0 if typeof area isnt "number"
 
         switch areaUnit
-            when "inchSq" then convert.area.millimeterSq.inchSq(area)
-            when "centimeterSq" then convert.area.millimeterSq.centimeterSq(area)
+            when "inchSq" then polyconvert.area.millimeterSq.inchSq(area)
+            when "centimeterSq" then polyconvert.area.millimeterSq.centimeterSq(area)
             else area # Return millimeterSq
 
-    convertAngleFromInternal: (angle, angleUnit) ->
+    angleFromInternal: (angle, angleUnit) ->
 
         return 0 if typeof angle isnt "number"
 
         switch angleUnit
-            when "radian" then convert.angle.degree.radian(angle)
-            when "gradian" then convert.angle.degree.gradian(angle)
+            when "radian" then polyconvert.angle.degree.radian(angle)
+            when "gradian" then polyconvert.angle.degree.gradian(angle)
             else angle # Return degrees
