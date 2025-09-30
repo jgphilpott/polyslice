@@ -465,3 +465,20 @@ describe 'Polyslice', ->
             # The values should convert properly when retrieved in user units
             expect(customSlicer.getNozzleTemperature()).toBeCloseTo(392, 1)
             expect(customSlicer.getLayerHeight()).toBeCloseTo(0.008, 3)
+
+        test 'should convert speed units correctly', ->
+
+            # Test inch/second conversions
+            inchSpeedSlicer = new Polyslice({speedUnit: 'inchSecond'})
+            inchSpeedSlicer.setPerimeterSpeed(1.18) # ~30mm/s in inches/s
+            expect(inchSpeedSlicer.getPerimeterSpeed()).toBeCloseTo(1.18, 2)
+
+            # Test meter/second conversions
+            meterSpeedSlicer = new Polyslice({speedUnit: 'meterSecond'})
+            meterSpeedSlicer.setTravelSpeed(0.12) # ~120mm/s in meters/s
+            expect(meterSpeedSlicer.getTravelSpeed()).toBeCloseTo(0.12, 2)
+
+            # Test default millimeter/second
+            defaultSlicer = new Polyslice()
+            defaultSlicer.setInfillSpeed(60)
+            expect(defaultSlicer.getInfillSpeed()).toBe(60)
