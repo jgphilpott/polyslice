@@ -46,6 +46,22 @@ class Polyslice
         @buildPlateWidth = conversions.lengthToInternal(options.buildPlateWidth ?= 220, this.lengthUnit) # Number (mm internal).
         @buildPlateLength = conversions.lengthToInternal(options.buildPlateLength ?= 220, this.lengthUnit) # Number (mm internal).
 
+        # Infill settings for interior structure and strength.
+        @infillDensity = options.infillDensity ?= 20 # Number 0-100 (percentage).
+        @infillPattern = options.infillPattern ?= "grid" # String ['grid', 'lines', 'triangles', 'cubic', 'gyroid', 'honeycomb'].
+        @shellHorizontalThickness = conversions.lengthToInternal(options.shellHorizontalThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
+        @shellVerticalThickness = conversions.lengthToInternal(options.shellVerticalThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
+
+        # Support structure settings for overhangs and bridges.
+        @supportEnabled = options.supportEnabled ?= false # Boolean.
+        @supportType = options.supportType ?= "normal" # String ['normal', 'tree'].
+        @supportPlacement = options.supportPlacement ?= "buildPlate" # String ['everywhere', 'buildPlate'].
+
+        # Build plate adhesion settings for first layer stability.
+        @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
+        @adhesionType = options.adhesionType ?= "skirt" # String ['skirt', 'brim', 'raft'].
+
+
     # Getters
 
     getAutohome: ->
@@ -127,6 +143,42 @@ class Polyslice
     getBuildPlateLength: ->
 
         return conversions.lengthFromInternal(this.buildPlateLength, this.lengthUnit)
+
+    getInfillDensity: ->
+
+        return this.infillDensity
+
+    getInfillPattern: ->
+
+        return this.infillPattern
+
+    getShellHorizontalThickness: ->
+
+        return conversions.lengthFromInternal(this.shellHorizontalThickness, this.lengthUnit)
+
+    getShellVerticalThickness: ->
+
+        return conversions.lengthFromInternal(this.shellVerticalThickness, this.lengthUnit)
+
+    getSupportEnabled: ->
+
+        return this.supportEnabled
+
+    getSupportType: ->
+
+        return this.supportType
+
+    getSupportPlacement: ->
+
+        return this.supportPlacement
+
+    getAdhesionEnabled: ->
+
+        return this.adhesionEnabled
+
+    getAdhesionType: ->
+
+        return this.adhesionType
 
     # Setters
 
@@ -293,6 +345,82 @@ class Polyslice
         if typeof length is "number" and length > 0
 
             this.buildPlateLength = conversions.lengthToInternal(length, this.lengthUnit)
+
+        return this
+
+    setInfillDensity: (density = 20) ->
+
+        if typeof density is "number" and density >= 0 and density <= 100
+
+            this.infillDensity = Number density
+
+        return this
+
+    setInfillPattern: (pattern = "grid") ->
+
+        pattern = pattern.toLowerCase().trim()
+
+        if ["grid", "lines", "triangles", "cubic", "gyroid", "honeycomb"].includes pattern
+
+            this.infillPattern = String pattern
+
+        return this
+
+    setShellHorizontalThickness: (thickness = 0.8) ->
+
+        if typeof thickness is "number" and thickness >= 0
+
+            this.shellHorizontalThickness = conversions.lengthToInternal(thickness, this.lengthUnit)
+
+        return this
+
+    setShellVerticalThickness: (thickness = 0.8) ->
+
+        if typeof thickness is "number" and thickness >= 0
+
+            this.shellVerticalThickness = conversions.lengthToInternal(thickness, this.lengthUnit)
+
+        return this
+
+    setSupportEnabled: (enabled = false) ->
+
+        this.supportEnabled = Boolean enabled
+
+        return this
+
+    setSupportType: (type = "normal") ->
+
+        type = type.toLowerCase().trim()
+
+        if ["normal", "tree"].includes type
+
+            this.supportType = String type
+
+        return this
+
+    setSupportPlacement: (placement = "buildPlate") ->
+
+        placement = placement.toLowerCase().trim()
+
+        if ["everywhere", "buildPlate"].includes placement
+
+            this.supportPlacement = String placement
+
+        return this
+
+    setAdhesionEnabled: (enabled = false) ->
+
+        this.adhesionEnabled = Boolean enabled
+
+        return this
+
+    setAdhesionType: (type = "skirt") ->
+
+        type = type.toLowerCase().trim()
+
+        if ["skirt", "brim", "raft"].includes type
+
+            this.adhesionType = String type
 
         return this
 

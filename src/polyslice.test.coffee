@@ -43,6 +43,21 @@ describe 'Polyslice', ->
             expect(slicer.getBuildPlateWidth()).toBe(220)
             expect(slicer.getBuildPlateLength()).toBe(220)
 
+            # Test new infill settings
+            expect(slicer.getInfillDensity()).toBe(20)
+            expect(slicer.getInfillPattern()).toBe('grid')
+            expect(slicer.getShellHorizontalThickness()).toBe(0.8)
+            expect(slicer.getShellVerticalThickness()).toBe(0.8)
+
+            # Test new support settings
+            expect(slicer.getSupportEnabled()).toBe(false)
+            expect(slicer.getSupportType()).toBe('normal')
+            expect(slicer.getSupportPlacement()).toBe('buildPlate')
+
+            # Test new adhesion settings
+            expect(slicer.getAdhesionEnabled()).toBe(false)
+            expect(slicer.getAdhesionType()).toBe('skirt')
+
         test 'should create instance with custom options', ->
 
             customSlicer = new Polyslice({
@@ -482,3 +497,84 @@ describe 'Polyslice', ->
             defaultSlicer = new Polyslice()
             defaultSlicer.setInfillSpeed(60)
             expect(defaultSlicer.getInfillSpeed()).toBe(60)
+
+    describe 'Advanced Slicing Settings', ->
+
+        test 'should set and get infill settings', ->
+
+            slicer.setInfillDensity(25)
+            expect(slicer.getInfillDensity()).toBe(25)
+
+            slicer.setInfillPattern('gyroid')
+            expect(slicer.getInfillPattern()).toBe('gyroid')
+
+            slicer.setInfillPattern('honeycomb')
+            expect(slicer.getInfillPattern()).toBe('honeycomb')
+
+            # Test invalid pattern (should not change)
+            slicer.setInfillPattern('invalid')
+            expect(slicer.getInfillPattern()).toBe('honeycomb')
+
+            # Test density boundaries
+            slicer.setInfillDensity(0)
+            expect(slicer.getInfillDensity()).toBe(0)
+
+            slicer.setInfillDensity(100)
+            expect(slicer.getInfillDensity()).toBe(100)
+
+        test 'should set and get shell thickness settings', ->
+
+            slicer.setShellHorizontalThickness(1.2)
+            expect(slicer.getShellHorizontalThickness()).toBe(1.2)
+
+            slicer.setShellVerticalThickness(1.0)
+            expect(slicer.getShellVerticalThickness()).toBe(1.0)
+
+            # Test with inches
+            inchSlicer = new Polyslice({lengthUnit: 'inches'})
+            inchSlicer.setShellHorizontalThickness(0.047) # ~1.2mm
+            expect(inchSlicer.getShellHorizontalThickness()).toBeCloseTo(0.047, 3)
+
+        test 'should set and get support settings', ->
+
+            expect(slicer.getSupportEnabled()).toBe(false)
+
+            slicer.setSupportEnabled(true)
+            expect(slicer.getSupportEnabled()).toBe(true)
+
+            slicer.setSupportType('tree')
+            expect(slicer.getSupportType()).toBe('tree')
+
+            slicer.setSupportPlacement('everywhere')
+            expect(slicer.getSupportPlacement()).toBe('everywhere')
+
+            # Test invalid type (should not change)
+            slicer.setSupportType('invalid')
+            expect(slicer.getSupportType()).toBe('tree')
+
+        test 'should set and get adhesion settings', ->
+
+            expect(slicer.getAdhesionEnabled()).toBe(false)
+
+            slicer.setAdhesionEnabled(true)
+            expect(slicer.getAdhesionEnabled()).toBe(true)
+
+            slicer.setAdhesionType('brim')
+            expect(slicer.getAdhesionType()).toBe('brim')
+
+            slicer.setAdhesionType('raft')
+            expect(slicer.getAdhesionType()).toBe('raft')
+
+            # Test invalid type (should not change)
+            slicer.setAdhesionType('invalid')
+            expect(slicer.getAdhesionType()).toBe('raft')
+
+        test 'should support all infill patterns', ->
+
+            patterns = ['grid', 'lines', 'triangles', 'cubic', 'gyroid', 'honeycomb']
+
+            for pattern in patterns
+                slicer.setInfillPattern(pattern)
+                expect(slicer.getInfillPattern()).toBe(pattern)
+
+            return # Explicitly return undefined for Jest
