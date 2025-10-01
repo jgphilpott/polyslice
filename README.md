@@ -106,6 +106,48 @@ const slicer = new Polyslice(options);
 - `bedTemperature` (number): Bed temperature (default: 0).
 - `fanSpeed` (number): Fan speed percentage 0-100 (default: 100).
 
+### Printer Configuration
+
+The `Printer` class provides pre-configured settings for popular 3D printers, simplifying the setup process.
+
+```javascript
+const { Printer } = require('@jgphilpott/polyslice');
+
+// Create a printer instance.
+const printer = new Printer('Ender3');
+
+// Get printer specifications.
+console.log(printer.getSize());        // { x: 220, y: 220, z: 250 }
+console.log(printer.getNozzle(0));     // { filament: 1.75, diameter: 0.4, gantry: 25 }
+console.log(printer.getHeatedBed());   // true
+
+// Modify printer settings.
+printer.setSizeX(250);
+printer.setNozzle(0, 1.75, 0.6, 30);
+
+// List all available printers.
+console.log(printer.listAvailablePrinters());
+```
+
+**Available Printers:**
+
+- `Ender3`, `Ender3V2`, `Ender5` - Creality Ender series
+- `PrusaI3MK3S`, `PrusaMini` - Prusa Research printers
+- `AnycubicI3Mega` - Anycubic printer
+- `CR10` - Creality large format printer
+- `ArtillerySidewinderX1` - Artillery printer
+- `UltimakerS5` - Ultimaker professional printer (2.85mm filament)
+- `FlashForgeCreatorPro` - FlashForge dual extruder printer
+- `Raise3DPro2` - Raise3D professional printer
+
+**Printer Properties:**
+
+- `size` (object): Build volume dimensions `{ x, y, z }` in millimeters
+- `shape` (string): Build plate shape - 'rectangular' or 'circular'
+- `centred` (boolean): Whether origin is at center or corner
+- `heated` (object): Heating capabilities `{ volume, bed }`
+- `nozzles` (array): Array of nozzle configurations with `filament`, `diameter`, and `gantry` properties
+
 ### G-code Generation Methods
 
 ```javascript
@@ -159,6 +201,34 @@ gcode += slicer.codeLinearMovement(0, 0, 0.2, 0.5, 1200);   // Left edge.
 gcode += slicer.codeAutohome();
 
 console.log(gcode);
+```
+
+### Using Printer Configurations
+
+```javascript
+const { Polyslice, Printer } = require('@jgphilpott/polyslice');
+
+// Create a printer instance with your printer model.
+const printer = new Printer('Ender3');
+
+// Access printer specifications.
+console.log(`Build volume: ${printer.getSizeX()} x ${printer.getSizeY()} x ${printer.getSizeZ()} mm`);
+console.log(`Nozzle diameter: ${printer.getNozzle(0).diameter} mm`);
+console.log(`Filament diameter: ${printer.getNozzle(0).filament} mm`);
+
+// Customize printer settings if needed.
+printer.setSizeZ(300);  // Modify build height.
+
+// Create a slicer instance.
+// (Future: Printer integration with Polyslice will be added)
+const slicer = new Polyslice({
+  nozzleTemperature: 210,
+  bedTemperature: 60,
+  buildPlateWidth: printer.getSizeX(),
+  buildPlateLength: printer.getSizeY()
+});
+
+console.log('Slicer configured for:', printer.getModel());
 ```
 
 ### Three.js Integration
