@@ -8,12 +8,14 @@
  */
 
 const Polyslice = require('./polyslice');
+const Printer = require('./printer');
 
 // Re-export the main class.
 module.exports = Polyslice;
 
 // Named exports for convenience.
 module.exports.Polyslice = Polyslice;
+module.exports.Printer = Printer;
 
 // Export default for ES module compatibility.
 module.exports.default = Polyslice;
