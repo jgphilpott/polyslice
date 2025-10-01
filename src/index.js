@@ -8,7 +8,7 @@
  */
 
 const Polyslice = require('./polyslice');
-const Printer = require('./printer');
+const Printer = require('./config/printer');
 
 // Re-export the main class.
 module.exports = Polyslice;

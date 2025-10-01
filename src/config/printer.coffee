@@ -1,4 +1,4 @@
-printers = require('./data/printers')
+printers = require('./printers')
 
 class Printer
 
