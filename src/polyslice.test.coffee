@@ -578,3 +578,229 @@ describe 'Polyslice', ->
                 expect(slicer.getInfillPattern()).toBe(pattern)
 
             return # Explicitly return undefined for Jest
+
+    describe 'Printer and Filament Integration', ->
+
+        Printer = require('./config/printer')
+        Filament = require('./config/filament')
+
+        test 'should initialize with null printer and filament by default', ->
+
+            expect(slicer.getPrinter()).toBeNull()
+            expect(slicer.getFilament()).toBeNull()
+
+        test 'should accept Printer instance in constructor', ->
+
+            printer = new Printer('Ender3')
+            slicerWithPrinter = new Polyslice({ printer: printer })
+
+            expect(slicerWithPrinter.getPrinter()).toBe(printer)
+            expect(slicerWithPrinter.getBuildPlateWidth()).toBe(220)
+            expect(slicerWithPrinter.getBuildPlateLength()).toBe(220)
+            expect(slicerWithPrinter.getNozzleDiameter()).toBe(0.4)
+            expect(slicerWithPrinter.getFilamentDiameter()).toBe(1.75)
+
+        test 'should accept Filament instance in constructor', ->
+
+            filament = new Filament('GenericPLA')
+            slicerWithFilament = new Polyslice({ filament: filament })
+
+            expect(slicerWithFilament.getFilament()).toBe(filament)
+            expect(slicerWithFilament.getNozzleTemperature()).toBe(200)
+            expect(slicerWithFilament.getBedTemperature()).toBe(60)
+            expect(slicerWithFilament.getFanSpeed()).toBe(100)
+            expect(slicerWithFilament.getRetractionDistance()).toBe(5)
+            expect(slicerWithFilament.getRetractionSpeed()).toBe(45)
+
+        test 'should accept both Printer and Filament in constructor', ->
+
+            printer = new Printer('PrusaI3MK3S')
+            filament = new Filament('PrusamentPLA')
+            slicerWithBoth = new Polyslice({ printer: printer, filament: filament })
+
+            expect(slicerWithBoth.getPrinter()).toBe(printer)
+            expect(slicerWithBoth.getFilament()).toBe(filament)
+
+            # Printer settings
+            expect(slicerWithBoth.getBuildPlateWidth()).toBe(250)
+            expect(slicerWithBoth.getBuildPlateLength()).toBe(210)
+            expect(slicerWithBoth.getNozzleDiameter()).toBe(0.4)
+
+            # Filament settings
+            expect(slicerWithBoth.getNozzleTemperature()).toBe(215)
+            expect(slicerWithBoth.getBedTemperature()).toBe(60)
+            expect(slicerWithBoth.getFanSpeed()).toBe(100)
+
+            # Filament diameter should come from filament, not printer
+            expect(slicerWithBoth.getFilamentDiameter()).toBe(1.75)
+
+        test 'should allow custom options to override printer settings', ->
+
+            printer = new Printer('Ender3')
+            slicerWithOverride = new Polyslice({
+                printer: printer
+                buildPlateWidth: 250
+                nozzleDiameter: 0.6
+            })
+
+            # Custom values override printer values
+            expect(slicerWithOverride.getBuildPlateWidth()).toBe(250)
+            expect(slicerWithOverride.getNozzleDiameter()).toBe(0.6)
+
+            # Non-overridden values use printer defaults
+            expect(slicerWithOverride.getBuildPlateLength()).toBe(220)
+
+        test 'should allow custom options to override filament settings', ->
+
+            filament = new Filament('GenericPLA')
+            slicerWithOverride = new Polyslice({
+                filament: filament
+                nozzleTemperature: 210
+                bedTemperature: 0
+                fanSpeed: 80
+            })
+
+            # Custom values override filament values
+            expect(slicerWithOverride.getNozzleTemperature()).toBe(210)
+            expect(slicerWithOverride.getBedTemperature()).toBe(0)
+            expect(slicerWithOverride.getFanSpeed()).toBe(80)
+
+            # Non-overridden values use filament defaults
+            expect(slicerWithOverride.getRetractionDistance()).toBe(5)
+
+        test 'should allow custom options to override both printer and filament', ->
+
+            printer = new Printer('Ender3')
+            filament = new Filament('GenericPETG')
+            slicerWithOverrides = new Polyslice({
+                printer: printer
+                filament: filament
+                buildPlateWidth: 200
+                nozzleTemperature: 250
+            })
+
+            # Custom values override
+            expect(slicerWithOverrides.getBuildPlateWidth()).toBe(200)
+            expect(slicerWithOverrides.getNozzleTemperature()).toBe(250)
+
+            # Printer values used where not overridden
+            expect(slicerWithOverrides.getBuildPlateLength()).toBe(220)
+
+            # Filament values used where not overridden
+            expect(slicerWithOverrides.getBedTemperature()).toBe(80)
+            expect(slicerWithOverrides.getFanSpeed()).toBe(50)
+
+        test 'should update settings with setPrinter method', ->
+
+            printer = new Printer('Ender3')
+            slicer.setPrinter(printer)
+
+            expect(slicer.getPrinter()).toBe(printer)
+            expect(slicer.getBuildPlateWidth()).toBe(220)
+            expect(slicer.getBuildPlateLength()).toBe(220)
+            expect(slicer.getNozzleDiameter()).toBe(0.4)
+
+        test 'should update settings with setFilament method', ->
+
+            filament = new Filament('GenericABS')
+            slicer.setFilament(filament)
+
+            expect(slicer.getFilament()).toBe(filament)
+            expect(slicer.getNozzleTemperature()).toBe(240)
+            expect(slicer.getBedTemperature()).toBe(100)
+            expect(slicer.getFanSpeed()).toBe(0) # ABS uses no fan
+
+        test 'should override existing settings when setPrinter is called', ->
+
+            # Start with Ender3
+            printer1 = new Printer('Ender3')
+            slicerTest = new Polyslice({ printer: printer1 })
+            expect(slicerTest.getBuildPlateWidth()).toBe(220)
+
+            # Switch to larger printer
+            printer2 = new Printer('CR10')
+            slicerTest.setPrinter(printer2)
+            expect(slicerTest.getBuildPlateWidth()).toBe(300)
+            expect(slicerTest.getBuildPlateLength()).toBe(300)
+
+        test 'should override existing settings when setFilament is called', ->
+
+            # Start with PLA
+            filament1 = new Filament('GenericPLA')
+            slicerTest = new Polyslice({ filament: filament1 })
+            expect(slicerTest.getNozzleTemperature()).toBe(200)
+
+            # Switch to PETG
+            filament2 = new Filament('GenericPETG')
+            slicerTest.setFilament(filament2)
+            expect(slicerTest.getNozzleTemperature()).toBe(240)
+            expect(slicerTest.getBedTemperature()).toBe(80)
+
+        test 'should allow setting printer to null', ->
+
+            printer = new Printer('Ender3')
+            slicerTest = new Polyslice({ printer: printer })
+            expect(slicerTest.getPrinter()).toBe(printer)
+
+            slicerTest.setPrinter(null)
+            expect(slicerTest.getPrinter()).toBeNull()
+
+        test 'should allow setting filament to null', ->
+
+            filament = new Filament('GenericPLA')
+            slicerTest = new Polyslice({ filament: filament })
+            expect(slicerTest.getFilament()).toBe(filament)
+
+            slicerTest.setFilament(null)
+            expect(slicerTest.getFilament()).toBeNull()
+
+        test 'should return this for method chaining with setPrinter', ->
+
+            printer = new Printer('Ender3')
+            result = slicer.setPrinter(printer)
+            expect(result).toBe(slicer)
+
+        test 'should return this for method chaining with setFilament', ->
+
+            filament = new Filament('GenericPLA')
+            result = slicer.setFilament(filament)
+            expect(result).toBe(slicer)
+
+        test 'should work with different printer sizes', ->
+
+            # Test with compact printer
+            compact = new Printer('PrusaMini')
+            slicerCompact = new Polyslice({ printer: compact })
+            expect(slicerCompact.getBuildPlateWidth()).toBe(180)
+            expect(slicerCompact.getBuildPlateLength()).toBe(180)
+
+            # Test with large printer
+            large = new Printer('CR10S5')
+            slicerLarge = new Polyslice({ printer: large })
+            expect(slicerLarge.getBuildPlateWidth()).toBe(500)
+            expect(slicerLarge.getBuildPlateLength()).toBe(500)
+
+        test 'should work with different filament types', ->
+
+            # Test with TPU (flexible)
+            tpu = new Filament('GenericTPU')
+            slicerTPU = new Polyslice({ filament: tpu })
+            expect(slicerTPU.getNozzleTemperature()).toBe(220)
+            expect(slicerTPU.getRetractionDistance()).toBe(2) # TPU uses minimal retraction
+
+            # Test with Nylon
+            nylon = new Filament('GenericNylon')
+            slicerNylon = new Polyslice({ filament: nylon })
+            expect(slicerNylon.getNozzleTemperature()).toBe(250)
+            expect(slicerNylon.getBedTemperature()).toBe(80)
+
+        test 'should handle 2.85mm filament from printer and filament', ->
+
+            # Ultimaker printer with 2.85mm filament
+            printer = new Printer('UltimakerS5')
+            filament = new Filament('UltimakerPLA')
+            slicerUltimaker = new Polyslice({ printer: printer, filament: filament })
+
+            # Filament diameter should come from filament, not printer
+            expect(slicerUltimaker.getFilamentDiameter()).toBe(2.85)
+

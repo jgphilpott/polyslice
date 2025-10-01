@@ -12,6 +12,32 @@ class Polyslice
         @gcode = ""
         @newline = "\n"
 
+        # Printer and filament configuration objects.
+        @printer = options.printer ?= null # Printer instance or null.
+        @filament = options.filament ?= null # Filament instance or null.
+
+        printerSettings = {} # Apply printer settings if provided (before applying other options).
+
+        if @printer
+
+            printerSettings.buildPlateWidth = @printer.getSizeX()
+            printerSettings.buildPlateLength = @printer.getSizeY()
+            printerSettings.nozzleDiameter = @printer.getNozzle(0).diameter
+            printerSettings.filamentDiameter = @printer.getNozzle(0).filament
+
+        filamentSettings = {} # Apply filament settings if provided (before applying other options).
+
+        if @filament
+
+            filamentSettings.nozzleTemperature = @filament.getNozzleTemperature()
+            filamentSettings.bedTemperature = @filament.getBedTemperature()
+
+            filamentSettings.retractionDistance = @filament.getRetractionDistance()
+            filamentSettings.retractionSpeed = @filament.getRetractionSpeed()
+            filamentSettings.filamentDiameter = @filament.getDiameter()
+
+            filamentSettings.fanSpeed = @filament.getFan()
+
         # Basic printer configuration and behavior settings.
         @autohome = options.autohome ?= true # Boolean.
         @workspacePlane = options.workspacePlane ?= "XY" # String ['XY', 'XZ', 'YZ'].
@@ -23,15 +49,16 @@ class Polyslice
         @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin'].
 
         # Temperature control settings for hotend and heated bed (stored internally in Celsius).
-        @nozzleTemperature = conversions.temperatureToInternal(options.nozzleTemperature ?= 0, this.temperatureUnit) # Number (°C internal).
-        @bedTemperature = conversions.temperatureToInternal(options.bedTemperature ?= 0, this.temperatureUnit) # Number (°C internal).
-        @fanSpeed = options.fanSpeed ?= 100 # Number 0-100.
+        # Options override printer/filament settings.
+        @nozzleTemperature = conversions.temperatureToInternal(options.nozzleTemperature ? filamentSettings.nozzleTemperature ? 0, this.temperatureUnit) # Number (°C internal).
+        @bedTemperature = conversions.temperatureToInternal(options.bedTemperature ? filamentSettings.bedTemperature ? 0, this.temperatureUnit) # Number (°C internal).
+        @fanSpeed = options.fanSpeed ? filamentSettings.fanSpeed ? 100 # Number 0-100.
 
         # Slicing and extrusion settings (stored internally in millimeters).
         @layerHeight = conversions.lengthToInternal(options.layerHeight ?= 0.2, this.lengthUnit) # Number (mm internal).
         @extrusionMultiplier = options.extrusionMultiplier ?= 1.0 # Number (multiplier).
-        @filamentDiameter = conversions.lengthToInternal(options.filamentDiameter ?= 1.75, this.lengthUnit) # Number (mm internal).
-        @nozzleDiameter = conversions.lengthToInternal(options.nozzleDiameter ?= 0.4, this.lengthUnit) # Number (mm internal).
+        @filamentDiameter = conversions.lengthToInternal(options.filamentDiameter ? filamentSettings.filamentDiameter ? printerSettings.filamentDiameter ? 1.75, this.lengthUnit) # Number (mm internal).
+        @nozzleDiameter = conversions.lengthToInternal(options.nozzleDiameter ? printerSettings.nozzleDiameter ? 0.4, this.lengthUnit) # Number (mm internal).
 
         # Speed settings for different types of movements (stored internally in mm/s).
         @perimeterSpeed = conversions.speedToInternal(options.perimeterSpeed ?= 30, this.speedUnit) # Number (mm/s internal).
@@ -39,12 +66,12 @@ class Polyslice
         @travelSpeed = conversions.speedToInternal(options.travelSpeed ?= 120, this.speedUnit) # Number (mm/s internal).
 
         # Retraction settings to prevent stringing during travel moves (stored internally in mm and mm/s).
-        @retractionDistance = conversions.lengthToInternal(options.retractionDistance ?= 1.0, this.lengthUnit) # Number (mm internal).
-        @retractionSpeed = conversions.speedToInternal(options.retractionSpeed ?= 40, this.speedUnit) # Number (mm/s internal).
+        @retractionDistance = conversions.lengthToInternal(options.retractionDistance ? filamentSettings.retractionDistance ? 1.0, this.lengthUnit) # Number (mm internal).
+        @retractionSpeed = conversions.speedToInternal(options.retractionSpeed ? filamentSettings.retractionSpeed ? 40, this.speedUnit) # Number (mm/s internal).
 
         # Build plate dimensions for bounds checking and validation (stored internally in mm).
-        @buildPlateWidth = conversions.lengthToInternal(options.buildPlateWidth ?= 220, this.lengthUnit) # Number (mm internal).
-        @buildPlateLength = conversions.lengthToInternal(options.buildPlateLength ?= 220, this.lengthUnit) # Number (mm internal).
+        @buildPlateWidth = conversions.lengthToInternal(options.buildPlateWidth ? printerSettings.buildPlateWidth ? 220, this.lengthUnit) # Number (mm internal).
+        @buildPlateLength = conversions.lengthToInternal(options.buildPlateLength ? printerSettings.buildPlateLength ? 220, this.lengthUnit) # Number (mm internal).
 
         # Infill settings for interior structure and strength.
         @infillDensity = options.infillDensity ?= 20 # Number 0-100 (percentage).
@@ -178,6 +205,14 @@ class Polyslice
     getAdhesionType: ->
 
         return this.adhesionType
+
+    getPrinter: ->
+
+        return this.printer
+
+    getFilament: ->
+
+        return this.filament
 
     # Setters
 
@@ -420,6 +455,43 @@ class Polyslice
         if ["skirt", "brim", "raft"].includes type
 
             this.adhesionType = String type
+
+        return this
+
+    setPrinter: (printer) ->
+
+        if printer # Apply printer settings and override existing configuration.
+
+            this.printer = printer
+            this.buildPlateWidth = conversions.lengthToInternal(printer.getSizeX(), this.lengthUnit)
+            this.buildPlateLength = conversions.lengthToInternal(printer.getSizeY(), this.lengthUnit)
+            this.nozzleDiameter = conversions.lengthToInternal(printer.getNozzle(0).diameter, this.lengthUnit)
+
+            if not this.filament # Update filament diameter from printer if no filament is set.
+
+                this.filamentDiameter = conversions.lengthToInternal(printer.getNozzle(0).filament, this.lengthUnit)
+
+        else
+
+            this.printer = null
+
+        return this
+
+    setFilament: (filament) ->
+
+        if filament # Apply filament settings and override existing configuration.
+
+            this.filament = filament
+            this.nozzleTemperature = conversions.temperatureToInternal(filament.getNozzleTemperature(), this.temperatureUnit)
+            this.bedTemperature = conversions.temperatureToInternal(filament.getBedTemperature(), this.temperatureUnit)
+            this.fanSpeed = filament.getFan()
+            this.retractionDistance = conversions.lengthToInternal(filament.getRetractionDistance(), this.lengthUnit)
+            this.retractionSpeed = conversions.speedToInternal(filament.getRetractionSpeed(), this.speedUnit)
+            this.filamentDiameter = conversions.lengthToInternal(filament.getDiameter(), this.lengthUnit)
+
+        else
+
+            this.filament = null
 
         return this
 

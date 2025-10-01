@@ -105,6 +105,133 @@ const slicer = new Polyslice(options);
 - `nozzleTemperature` (number): Nozzle temperature (default: 0).
 - `bedTemperature` (number): Bed temperature (default: 0).
 - `fanSpeed` (number): Fan speed percentage 0-100 (default: 100).
+- `printer` (Printer): Printer instance for automatic configuration (default: null).
+- `filament` (Filament): Filament instance for automatic configuration (default: null).
+
+**Using Printer and Filament for Automatic Configuration:**
+
+When you provide `printer` and/or `filament` instances, the slicer automatically configures itself with optimal settings:
+
+```javascript
+const { Polyslice, Printer, Filament } = require('@jgphilpott/polyslice');
+
+// Automatic configuration from printer and filament
+const slicer = new Polyslice({
+  printer: new Printer('Ender3'),
+  filament: new Filament('GenericPLA')
+});
+// Automatically sets: build plate size, nozzle diameter, temperatures, retraction, etc.
+```
+
+**Configuration Priority:**
+
+Settings are applied in this order (highest priority first):
+1. Custom options you provide
+2. Filament settings
+3. Printer settings
+4. Default values
+
+```javascript
+// Custom bedTemperature overrides filament setting
+const slicer = new Polyslice({
+  printer: new Printer('Ender3'),
+  filament: new Filament('GenericPLA'),
+  bedTemperature: 0  // Overrides filament's 60°C bed temperature
+});
+```
+
+### Printer Configuration
+
+The `Printer` class provides pre-configured settings for popular 3D printers, simplifying the setup process.
+
+```javascript
+const { Printer } = require('@jgphilpott/polyslice');
+
+// Create a printer instance.
+const printer = new Printer('Ender3');
+
+// Get printer specifications.
+console.log(printer.getSize());        // { x: 220, y: 220, z: 250 }
+console.log(printer.getNozzle(0));     // { filament: 1.75, diameter: 0.4, gantry: 25 }
+console.log(printer.getHeatedBed());   // true
+
+// Modify printer settings.
+printer.setSizeX(250);
+printer.setNozzle(0, 1.75, 0.6, 30);
+
+// List all available printers.
+console.log(printer.listAvailablePrinters());
+```
+
+**Available Printers (44 total):**
+
+- **Creality Ender series**: `Ender3`, `Ender3V2`, `Ender3Pro`, `Ender3S1`, `Ender5`, `Ender6`
+- **Creality large format**: `CR10`, `CR10S5`, `CR6SE`
+- **Creality high-speed**: `CrealityK1`, `CrealityK1Max` (enclosed)
+- **Prusa Research**: `PrusaI3MK3S`, `PrusaMini`, `PrusaXL`, `PrusaMK4`
+- **Bambu Lab**: `BambuLabX1Carbon`, `BambuLabP1P`, `BambuLabA1`, `BambuLabA1Mini`
+- **Anycubic**: `AnycubicI3Mega`, `AnycubicKobra`, `AnycubicVyper`, `AnycubicPhotonMonoX`
+- **Elegoo Neptune**: `ElegooNeptune3`, `ElegooNeptune3Pro`, `ElegooNeptune4`, `ElegooNeptune4Pro`
+- **Artillery**: `ArtillerySidewinderX1`, `ArtillerySidewinderX2`, `ArtilleryGenius`
+- **Sovol**: `SovolSV06`, `SovolSV06Plus`
+- **Others**: `Voron24`, `UltimakerS5`, `FlashForgeCreatorPro`, `FlashforgeAdventurer3`, `Raise3DPro2`, `MakerbotReplicatorPlus`, `QidiXPlus`, `MonopriceSelectMiniV2`, `LulzBotMini2`, `LulzBotTAZ6`, `KingroonKP3S`, `AnkerMakeM5`
+
+**Printer Properties:**
+
+- `size` (object): Build volume dimensions `{ x, y, z }` in millimeters
+- `shape` (string): Build plate shape - 'rectangular' or 'circular'
+- `centred` (boolean): Whether origin is at center or corner
+- `heated` (object): Heating capabilities `{ volume, bed }`
+- `nozzles` (array): Array of nozzle configurations with `filament`, `diameter`, and `gantry` properties
+
+### Filament Configuration
+
+The `Filament` class provides pre-configured settings for popular 3D printing filaments, including temperature, retraction, and material properties.
+
+```javascript
+const { Filament } = require('@jgphilpott/polyslice');
+
+// Create a filament instance.
+const filament = new Filament('GenericPLA');
+
+// Get filament properties.
+console.log(filament.getType());              // 'pla'
+console.log(filament.getNozzleTemperature()); // 200
+console.log(filament.getBedTemperature());    // 60
+console.log(filament.getFan());               // 100
+console.log(filament.getRetractionDistance());// 5
+
+// Modify filament settings.
+filament.setNozzleTemperature(210);
+filament.setFan(80);
+
+// List all available filaments.
+console.log(filament.listAvailableFilaments());
+```
+
+**Available Filaments (35 total):**
+
+- **Generic Materials**: `GenericPLA`, `GenericPETG`, `GenericABS`, `GenericTPU`, `GenericNylon`, `GenericASA`
+- **PLA Brands**: `HatchboxPLA`, `eSunPLAPlus`, `OverturePLA`, `PrusamentPLA`, `PolymakerPolyLitePLA`, `PolymakerPolyTerraPLA`, `PolymakerPolyMaxPLA`, `BambuLabPLABasic`, `BambuLabPLAMatte`, `SunluPLA`, `ColorFabbPLAPHA`
+- **PETG Brands**: `PrusamentPETG`, `PrusaPETG`, `BambuLabPETGHF`, `PolymakerPolyLitePETG`, `eSunPETG`, `OverturePETG`, `HatchboxPETG`, `SunluPETG`, `ColorFabbNGen`
+- **ABS Brands**: `BambuLabABS`, `eSunABSPlus`, `HatchboxABS`
+- **Flexible (TPU)**: `NinjaFlexTPU`, `SainSmartTPU`, `PolymakerPolyFlexTPU95`
+- **Engineering**: `3DXTechCarbonX` (carbon fiber nylon)
+- **2.85mm Diameter**: `UltimakerPLA`, `UltimakerToughPLA`
+
+**Filament Properties:**
+
+- `type` (string): Material type - 'pla', 'petg', 'abs', 'tpu', 'nylon', etc.
+- `name` (string): Full product name
+- `brand` (string): Manufacturer/brand name
+- `diameter` (number): Filament diameter in mm (1.75 or 2.85)
+- `density` (number): Material density in g/cm³
+- `temperature` (object): Temperatures `{ bed, nozzle, standby }` in Celsius
+- `retraction` (object): Retraction settings `{ speed, distance }`
+- `fan` (number): Recommended fan speed percentage (0-100)
+- `color` (string): Hex color code
+- `weight` (number): Spool weight in grams
+- `cost` (number): Cost per spool
 
 ### G-code Generation Methods
 
@@ -159,6 +286,73 @@ gcode += slicer.codeLinearMovement(0, 0, 0.2, 0.5, 1200);   // Left edge.
 gcode += slicer.codeAutohome();
 
 console.log(gcode);
+```
+
+### Using Printer Configurations
+
+```javascript
+const { Polyslice, Printer } = require('@jgphilpott/polyslice');
+
+// Create a printer instance with your printer model.
+const printer = new Printer('Ender3');
+
+// Access printer specifications.
+console.log(`Build volume: ${printer.getSizeX()} x ${printer.getSizeY()} x ${printer.getSizeZ()} mm`);
+console.log(`Nozzle diameter: ${printer.getNozzle(0).diameter} mm`);
+console.log(`Filament diameter: ${printer.getNozzle(0).filament} mm`);
+
+// Customize printer settings if needed.
+printer.setSizeZ(300);  // Modify build height.
+
+// Create a slicer instance with automatic printer configuration.
+const slicer = new Polyslice({
+  printer: printer,
+  nozzleTemperature: 210,
+  bedTemperature: 60
+});
+
+// Or update printer at runtime
+slicer.setPrinter(new Printer('CR10'));  // Automatically updates build plate dimensions
+
+console.log('Slicer configured for:', slicer.getPrinter().getModel());
+```
+
+### Using Printer and Filament Configurations
+
+```javascript
+const { Polyslice, Printer, Filament } = require('@jgphilpott/polyslice');
+
+// Create printer and filament instances.
+const printer = new Printer('Ender3');
+const filament = new Filament('PrusamentPLA');
+
+// Automatic configuration - just pass printer and filament!
+const slicer = new Polyslice({
+  printer: printer,
+  filament: filament
+});
+
+// All settings automatically configured:
+console.log('Build plate:', slicer.getBuildPlateWidth(), 'x', slicer.getBuildPlateLength(), 'mm');
+console.log('Nozzle temp:', slicer.getNozzleTemperature() + '°C');
+console.log('Bed temp:', slicer.getBedTemperature() + '°C');
+console.log('Nozzle diameter:', slicer.getNozzleDiameter(), 'mm');
+console.log('Filament diameter:', slicer.getFilamentDiameter(), 'mm');
+console.log('Retraction:', slicer.getRetractionDistance(), 'mm');
+
+// Override specific settings if needed
+const customSlicer = new Polyslice({
+  printer: new Printer('Ender3'),
+  filament: new Filament('GenericPLA'),
+  bedTemperature: 0,  // Override for broken bed heater
+  nozzleTemperature: 210  // Override for personal preference
+});
+
+// Update printer/filament at runtime
+slicer.setPrinter(new Printer('CR10'));  // Updates build volume
+slicer.setFilament(new Filament('GenericPETG'));  // Updates temperatures
+
+console.log('Slicer ready with optimized settings!');
 ```
 
 ### Three.js Integration
