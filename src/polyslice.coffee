@@ -16,23 +16,27 @@ class Polyslice
         @printer = options.printer ?= null # Printer instance or null.
         @filament = options.filament ?= null # Filament instance or null.
 
-        # Apply printer settings if provided (before applying options).
-        printerSettings = {}
+        printerSettings = {} # Apply printer settings if provided (before applying other options).
+
         if @printer
+
             printerSettings.buildPlateWidth = @printer.getSizeX()
             printerSettings.buildPlateLength = @printer.getSizeY()
             printerSettings.nozzleDiameter = @printer.getNozzle(0).diameter
             printerSettings.filamentDiameter = @printer.getNozzle(0).filament
 
-        # Apply filament settings if provided (before applying options).
-        filamentSettings = {}
+        filamentSettings = {} # Apply filament settings if provided (before applying other options).
+
         if @filament
+
             filamentSettings.nozzleTemperature = @filament.getNozzleTemperature()
             filamentSettings.bedTemperature = @filament.getBedTemperature()
-            filamentSettings.fanSpeed = @filament.getFan()
+
             filamentSettings.retractionDistance = @filament.getRetractionDistance()
             filamentSettings.retractionSpeed = @filament.getRetractionSpeed()
             filamentSettings.filamentDiameter = @filament.getDiameter()
+
+            filamentSettings.fanSpeed = @filament.getFan()
 
         # Basic printer configuration and behavior settings.
         @autohome = options.autohome ?= true # Boolean.
@@ -456,16 +460,15 @@ class Polyslice
 
     setPrinter: (printer) ->
 
-        # Apply printer settings and override existing configuration.
-        if printer
+        if printer # Apply printer settings and override existing configuration.
 
             this.printer = printer
             this.buildPlateWidth = conversions.lengthToInternal(printer.getSizeX(), this.lengthUnit)
             this.buildPlateLength = conversions.lengthToInternal(printer.getSizeY(), this.lengthUnit)
             this.nozzleDiameter = conversions.lengthToInternal(printer.getNozzle(0).diameter, this.lengthUnit)
 
-            # Update filament diameter from printer if no filament is set.
-            if not this.filament
+            if not this.filament # Update filament diameter from printer if no filament is set.
+
                 this.filamentDiameter = conversions.lengthToInternal(printer.getNozzle(0).filament, this.lengthUnit)
 
         else
@@ -476,8 +479,7 @@ class Polyslice
 
     setFilament: (filament) ->
 
-        # Apply filament settings and override existing configuration.
-        if filament
+        if filament # Apply filament settings and override existing configuration.
 
             this.filament = filament
             this.nozzleTemperature = conversions.temperatureToInternal(filament.getNozzleTemperature(), this.temperatureUnit)

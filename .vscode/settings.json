@@ -12,6 +12,7 @@
         "gcode",
         "hotend",
         "interruptible",
+        "jgphilpott",
         "polyslice",
         "srcset",
         "usbserial"
