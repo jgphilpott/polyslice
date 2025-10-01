@@ -163,24 +163,18 @@ printer.setNozzle(0, 1.75, 0.6, 30);
 console.log(printer.listAvailablePrinters());
 ```
 
-**Available Printers:**
+**Available Printers (44 total):**
 
-- `Ender3`, `Ender3V2`, `Ender3Pro`, `Ender3S1`, `Ender5` - Creality Ender series
-- `CR10`, `CR10S5` - Creality large format printers
-- `PrusaI3MK3S`, `PrusaMini`, `PrusaXL` - Prusa Research printers
-- `BambuLabX1Carbon`, `BambuLabP1P` - Bambu Lab high-speed printers
-- `AnycubicI3Mega`, `AnycubicKobra`, `AnycubicVyper` - Anycubic printers
-- `ElegooNeptune3`, `ElegooNeptune3Pro` - Elegoo Neptune series
-- `ArtillerySidewinderX1`, `ArtilleryGenius` - Artillery printers
-- `SovolSV06` - Sovol printer
-- `Voron24` - DIY CoreXY printer with heated chamber
-- `UltimakerS5` - Ultimaker professional printer (2.85mm filament)
-- `FlashForgeCreatorPro`, `FlashforgeAdventurer3` - FlashForge printers
-- `Raise3DPro2` - Raise3D professional printer
-- `MakerbotReplicatorPlus` - Makerbot printer
-- `QidiXPlus` - Qidi enclosed industrial printer
-- `MonopriceSelectMiniV2` - Compact budget printer
-- `LulzBotMini2`, `LulzBotTAZ6` - LulzBot open-source printers
+- **Creality Ender series**: `Ender3`, `Ender3V2`, `Ender3Pro`, `Ender3S1`, `Ender5`, `Ender6`
+- **Creality large format**: `CR10`, `CR10S5`, `CR6SE`
+- **Creality high-speed**: `CrealityK1`, `CrealityK1Max` (enclosed)
+- **Prusa Research**: `PrusaI3MK3S`, `PrusaMini`, `PrusaXL`, `PrusaMK4`
+- **Bambu Lab**: `BambuLabX1Carbon`, `BambuLabP1P`, `BambuLabA1`, `BambuLabA1Mini`
+- **Anycubic**: `AnycubicI3Mega`, `AnycubicKobra`, `AnycubicVyper`, `AnycubicPhotonMonoX`
+- **Elegoo Neptune**: `ElegooNeptune3`, `ElegooNeptune3Pro`, `ElegooNeptune4`, `ElegooNeptune4Pro`
+- **Artillery**: `ArtillerySidewinderX1`, `ArtillerySidewinderX2`, `ArtilleryGenius`
+- **Sovol**: `SovolSV06`, `SovolSV06Plus`
+- **Others**: `Voron24`, `UltimakerS5`, `FlashForgeCreatorPro`, `FlashforgeAdventurer3`, `Raise3DPro2`, `MakerbotReplicatorPlus`, `QidiXPlus`, `MonopriceSelectMiniV2`, `LulzBotMini2`, `LulzBotTAZ6`, `KingroonKP3S`, `AnkerMakeM5`
 
 **Printer Properties:**
 
@@ -215,12 +209,13 @@ filament.setFan(80);
 console.log(filament.listAvailableFilaments());
 ```
 
-**Available Filaments:**
+**Available Filaments (35 total):**
 
-- **Generic Materials**: `GenericPLA`, `GenericPETG`, `GenericABS`, `GenericTPU`, `GenericNylon`
-- **PLA Brands**: `HatchboxPLA`, `eSunPLAPlus`, `OverturePLA`, `PrusamentPLA`, `PolymakerPolyLitePLA`, `PolymakerPolyTerraPLA`, `BambuLabPLABasic`, `SunluPLA`, `ColorFabbPLAPHA`
-- **PETG Brands**: `PrusamentPETG`, `BambuLabPETGHF`
-- **Flexible (TPU)**: `NinjaFlexTPU`, `SainSmartTPU`
+- **Generic Materials**: `GenericPLA`, `GenericPETG`, `GenericABS`, `GenericTPU`, `GenericNylon`, `GenericASA`
+- **PLA Brands**: `HatchboxPLA`, `eSunPLAPlus`, `OverturePLA`, `PrusamentPLA`, `PolymakerPolyLitePLA`, `PolymakerPolyTerraPLA`, `PolymakerPolyMaxPLA`, `BambuLabPLABasic`, `BambuLabPLAMatte`, `SunluPLA`, `ColorFabbPLAPHA`
+- **PETG Brands**: `PrusamentPETG`, `PrusaPETG`, `BambuLabPETGHF`, `PolymakerPolyLitePETG`, `eSunPETG`, `OverturePETG`, `HatchboxPETG`, `SunluPETG`, `ColorFabbNGen`
+- **ABS Brands**: `BambuLabABS`, `eSunABSPlus`, `HatchboxABS`
+- **Flexible (TPU)**: `NinjaFlexTPU`, `SainSmartTPU`, `PolymakerPolyFlexTPU95`
 - **Engineering**: `3DXTechCarbonX` (carbon fiber nylon)
 - **2.85mm Diameter**: `UltimakerPLA`, `UltimakerToughPLA`
 

@@ -578,4 +578,270 @@ printers =
             }
         ]
 
+    # Creality Ender 6 - CoreXY design with enclosed frame.
+    "Ender6":
+        size:
+            x: 250
+            y: 250
+            z: 400
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 28
+            }
+        ]
+
+    # Creality CR-6 SE - Auto-leveling with silicone nozzle.
+    "CR6SE":
+        size:
+            x: 235
+            y: 235
+            z: 250
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 25
+            }
+        ]
+
+    # Anycubic Photon Mono X - Resin printer (for reference).
+    "AnycubicPhotonMonoX":
+        size:
+            x: 192
+            y: 120
+            z: 245
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: false
+        nozzles: [
+            {
+                filament: 0
+                diameter: 0.05
+                gantry: 20
+            }
+        ]
+
+    # Prusa MK4 - Latest Prusa i3 variant with input shaping.
+    "PrusaMK4":
+        size:
+            x: 250
+            y: 210
+            z: 220
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 30
+            }
+        ]
+
+    # Bambu Lab A1 Mini - Compact affordable option.
+    "BambuLabA1Mini":
+        size:
+            x: 180
+            y: 180
+            z: 180
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 25
+            }
+        ]
+
+    # Bambu Lab A1 - Mid-size option.
+    "BambuLabA1":
+        size:
+            x: 256
+            y: 256
+            z: 256
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 28
+            }
+        ]
+
+    # Kingroon KP3S - Compact budget printer.
+    "KingroonKP3S":
+        size:
+            x: 180
+            y: 180
+            z: 180
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 22
+            }
+        ]
+
+    # Creality K1 - High-speed Core XY printer.
+    "CrealityK1":
+        size:
+            x: 220
+            y: 220
+            z: 250
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: true
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 25
+            }
+        ]
+
+    # Creality K1 Max - Larger high-speed printer.
+    "CrealityK1Max":
+        size:
+            x: 300
+            y: 300
+            z: 300
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: true
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 30
+            }
+        ]
+
+    # AnkerMake M5 - Fast consumer printer.
+    "AnkerMakeM5":
+        size:
+            x: 235
+            y: 235
+            z: 250
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 26
+            }
+        ]
+
+    # Elegoo Neptune 4 - Updated Neptune with Klipper.
+    "ElegooNeptune4":
+        size:
+            x: 225
+            y: 225
+            z: 265
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 25
+            }
+        ]
+
+    # Elegoo Neptune 4 Pro - Pro version with improvements.
+    "ElegooNeptune4Pro":
+        size:
+            x: 225
+            y: 225
+            z: 265
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 25
+            }
+        ]
+
+    # Sidewinder X2 - Updated Artillery model.
+    "ArtillerySidewinderX2":
+        size:
+            x: 300
+            y: 300
+            z: 400
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 30
+            }
+        ]
+
+    # Sovol SV06 Plus - Larger SV06.
+    "SovolSV06Plus":
+        size:
+            x: 300
+            y: 300
+            z: 340
+        shape: "rectangular"
+        centred: false
+        heated:
+            volume: false
+            bed: true
+        nozzles: [
+            {
+                filament: 1.75
+                diameter: 0.4
+                gantry: 28
+            }
+        ]
+
 module.exports = printers

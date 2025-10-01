@@ -423,4 +423,284 @@ filaments =
             speed: 45
             distance: 6
 
+    # Bambu Lab PLA Matte - Matte finish PLA.
+    "BambuLabPLAMatte":
+        type: "pla"
+        name: "Bambu Lab PLA Matte"
+        description: "Matte finish PLA with reduced sheen"
+        brand: "Bambu Lab"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.24
+        weight: 1000
+        cost: 22
+        fan: 100
+        temperature:
+            bed: 60
+            nozzle: 210
+            standby: 190
+        retraction:
+            speed: 45
+            distance: 5
+
+    # Bambu Lab ABS - High temperature ABS.
+    "BambuLabABS":
+        type: "abs"
+        name: "Bambu Lab ABS"
+        description: "High quality ABS for enclosed printers"
+        brand: "Bambu Lab"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.04
+        weight: 1000
+        cost: 28
+        fan: 0
+        temperature:
+            bed: 100
+            nozzle: 245
+            standby: 225
+        retraction:
+            speed: 40
+            distance: 5
+
+    # Polymaker PolyLite PETG - Easy printing PETG.
+    "PolymakerPolyLitePETG":
+        type: "petg"
+        name: "Polymaker PolyLite PETG"
+        description: "Easy to print PETG for beginners"
+        brand: "Polymaker"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.27
+        weight: 1000
+        cost: 24
+        fan: 50
+        temperature:
+            bed: 80
+            nozzle: 240
+            standby: 220
+        retraction:
+            speed: 40
+            distance: 6
+
+    # Polymaker PolyMax PLA - Tough PLA variant.
+    "PolymakerPolyMaxPLA":
+        type: "pla"
+        name: "Polymaker PolyMax PLA"
+        description: "Toughest PLA on the market"
+        brand: "Polymaker"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.24
+        weight: 750
+        cost: 30
+        fan: 100
+        temperature:
+            bed: 60
+            nozzle: 215
+            standby: 195
+        retraction:
+            speed: 45
+            distance: 5
+
+    # eSun ABS+ - Enhanced ABS.
+    "eSunABSPlus":
+        type: "abs"
+        name: "eSun ABS+"
+        description: "Enhanced ABS with better properties"
+        brand: "eSun"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.04
+        weight: 1000
+        cost: 24
+        fan: 0
+        temperature:
+            bed: 100
+            nozzle: 240
+            standby: 220
+        retraction:
+            speed: 40
+            distance: 5
+
+    # eSun PETG - Reliable PETG.
+    "eSunPETG":
+        type: "petg"
+        name: "eSun PETG"
+        description: "Reliable and affordable PETG"
+        brand: "eSun"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.27
+        weight: 1000
+        cost: 22
+        fan: 50
+        temperature:
+            bed: 80
+            nozzle: 235
+            standby: 215
+        retraction:
+            speed: 40
+            distance: 6
+
+    # Overture PETG - Budget PETG option.
+    "OverturePETG":
+        type: "petg"
+        name: "Overture PETG"
+        description: "Affordable PETG with good quality"
+        brand: "Overture"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.27
+        weight: 1000
+        cost: 21
+        fan: 50
+        temperature:
+            bed: 80
+            nozzle: 240
+            standby: 220
+        retraction:
+            speed: 40
+            distance: 6
+
+    # Hatchbox PETG - Popular PETG brand.
+    "HatchboxPETG":
+        type: "petg"
+        name: "Hatchbox PETG"
+        description: "Popular PETG with consistent quality"
+        brand: "Hatchbox"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.27
+        weight: 1000
+        cost: 25
+        fan: 50
+        temperature:
+            bed: 85
+            nozzle: 245
+            standby: 225
+        retraction:
+            speed: 40
+            distance: 6
+
+    # Hatchbox ABS - Reliable ABS.
+    "HatchboxABS":
+        type: "abs"
+        name: "Hatchbox ABS"
+        description: "Reliable ABS for strong parts"
+        brand: "Hatchbox"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.04
+        weight: 1000
+        cost: 23
+        fan: 0
+        temperature:
+            bed: 100
+            nozzle: 240
+            standby: 220
+        retraction:
+            speed: 40
+            distance: 5
+
+    # Sunlu PETG - Budget PETG.
+    "SunluPETG":
+        type: "petg"
+        name: "Sunlu PETG"
+        description: "Budget-friendly PETG"
+        brand: "Sunlu"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.27
+        weight: 1000
+        cost: 19
+        fan: 50
+        temperature:
+            bed: 80
+            nozzle: 235
+            standby: 215
+        retraction:
+            speed: 40
+            distance: 6
+
+    # Polymaker PolyFlex TPU95 - Flexible filament.
+    "PolymakerPolyFlexTPU95":
+        type: "tpu"
+        name: "Polymaker PolyFlex TPU95"
+        description: "Shore 95A flexible filament"
+        brand: "Polymaker"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.21
+        weight: 750
+        cost: 35
+        fan: 50
+        temperature:
+            bed: 50
+            nozzle: 225
+            standby: 205
+        retraction:
+            speed: 25
+            distance: 2
+
+    # ColorFabb nGen - Advanced copolyester.
+    "ColorFabbNGen":
+        type: "petg"
+        name: "ColorFabb nGen"
+        description: "Advanced copolyester with excellent properties"
+        brand: "ColorFabb"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.20
+        weight: 750
+        cost: 38
+        fan: 50
+        temperature:
+            bed: 85
+            nozzle: 240
+            standby: 220
+        retraction:
+            speed: 40
+            distance: 6
+
+    # Prusa PETG - Prusa's PETG variant.
+    "PrusaPETG":
+        type: "petg"
+        name: "Prusa PETG"
+        description: "Prusa's own PETG formulation"
+        brand: "Prusa"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.27
+        weight: 1000
+        cost: 27
+        fan: 50
+        temperature:
+            bed: 85
+            nozzle: 245
+            standby: 225
+        retraction:
+            speed: 40
+            distance: 6
+
+    # Generic ASA - Weather resistant alternative to ABS.
+    "GenericASA":
+        type: "asa"
+        name: "Generic ASA"
+        description: "Weather resistant outdoor-suitable filament"
+        brand: "Generic"
+        color: "#000000"
+        diameter: 1.75
+        density: 1.05
+        weight: 1000
+        cost: 28
+        fan: 0
+        temperature:
+            bed: 100
+            nozzle: 250
+            standby: 230
+        retraction:
+            speed: 40
+            distance: 5
+
 module.exports = filaments
