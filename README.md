@@ -105,6 +105,40 @@ const slicer = new Polyslice(options);
 - `nozzleTemperature` (number): Nozzle temperature (default: 0).
 - `bedTemperature` (number): Bed temperature (default: 0).
 - `fanSpeed` (number): Fan speed percentage 0-100 (default: 100).
+- `printer` (Printer): Printer instance for automatic configuration (default: null).
+- `filament` (Filament): Filament instance for automatic configuration (default: null).
+
+**Using Printer and Filament for Automatic Configuration:**
+
+When you provide `printer` and/or `filament` instances, the slicer automatically configures itself with optimal settings:
+
+```javascript
+const { Polyslice, Printer, Filament } = require('@jgphilpott/polyslice');
+
+// Automatic configuration from printer and filament
+const slicer = new Polyslice({
+  printer: new Printer('Ender3'),
+  filament: new Filament('GenericPLA')
+});
+// Automatically sets: build plate size, nozzle diameter, temperatures, retraction, etc.
+```
+
+**Configuration Priority:**
+
+Settings are applied in this order (highest priority first):
+1. Custom options you provide
+2. Filament settings
+3. Printer settings
+4. Default values
+
+```javascript
+// Custom bedTemperature overrides filament setting
+const slicer = new Polyslice({
+  printer: new Printer('Ender3'),
+  filament: new Filament('GenericPLA'),
+  bedTemperature: 0  // Overrides filament's 60°C bed temperature
+});
+```
 
 ### Printer Configuration
 
@@ -275,16 +309,17 @@ console.log(`Filament diameter: ${printer.getNozzle(0).filament} mm`);
 // Customize printer settings if needed.
 printer.setSizeZ(300);  // Modify build height.
 
-// Create a slicer instance.
-// (Future: Printer integration with Polyslice will be added)
+// Create a slicer instance with automatic printer configuration.
 const slicer = new Polyslice({
+  printer: printer,
   nozzleTemperature: 210,
-  bedTemperature: 60,
-  buildPlateWidth: printer.getSizeX(),
-  buildPlateLength: printer.getSizeY()
+  bedTemperature: 60
 });
 
-console.log('Slicer configured for:', printer.getModel());
+// Or update printer at runtime
+slicer.setPrinter(new Printer('CR10'));  // Automatically updates build plate dimensions
+
+console.log('Slicer configured for:', slicer.getPrinter().getModel());
 ```
 
 ### Using Printer and Filament Configurations
@@ -296,24 +331,31 @@ const { Polyslice, Printer, Filament } = require('@jgphilpott/polyslice');
 const printer = new Printer('Ender3');
 const filament = new Filament('PrusamentPLA');
 
-// Access combined specifications.
-console.log('Printer:', printer.getModel());
-console.log('Filament:', filament.getName());
-console.log('Build volume:', printer.getSizeX(), 'x', printer.getSizeY(), 'x', printer.getSizeZ(), 'mm');
-
-// Create slicer with settings from both.
-// (Future: Printer and Filament integration with Polyslice will be added)
+// Automatic configuration - just pass printer and filament!
 const slicer = new Polyslice({
-  nozzleTemperature: filament.getNozzleTemperature(),
-  bedTemperature: filament.getBedTemperature(),
-  fanSpeed: filament.getFan(),
-  buildPlateWidth: printer.getSizeX(),
-  buildPlateLength: printer.getSizeY(),
-  filamentDiameter: filament.getDiameter(),
-  nozzleDiameter: printer.getNozzle(0).diameter,
-  retractionDistance: filament.getRetractionDistance(),
-  retractionSpeed: filament.getRetractionSpeed()
+  printer: printer,
+  filament: filament
 });
+
+// All settings automatically configured:
+console.log('Build plate:', slicer.getBuildPlateWidth(), 'x', slicer.getBuildPlateLength(), 'mm');
+console.log('Nozzle temp:', slicer.getNozzleTemperature() + '°C');
+console.log('Bed temp:', slicer.getBedTemperature() + '°C');
+console.log('Nozzle diameter:', slicer.getNozzleDiameter(), 'mm');
+console.log('Filament diameter:', slicer.getFilamentDiameter(), 'mm');
+console.log('Retraction:', slicer.getRetractionDistance(), 'mm');
+
+// Override specific settings if needed
+const customSlicer = new Polyslice({
+  printer: new Printer('Ender3'),
+  filament: new Filament('GenericPLA'),
+  bedTemperature: 0,  // Override for broken bed heater
+  nozzleTemperature: 210  // Override for personal preference
+});
+
+// Update printer/filament at runtime
+slicer.setPrinter(new Printer('CR10'));  // Updates build volume
+slicer.setFilament(new Filament('GenericPETG'));  // Updates temperatures
 
 console.log('Slicer ready with optimized settings!');
 ```
