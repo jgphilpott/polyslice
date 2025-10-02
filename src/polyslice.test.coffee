@@ -358,4 +358,3 @@ describe 'Polyslice', ->
 
             # Filament diameter should come from filament, not printer
             expect(slicerUltimaker.getFilamentDiameter()).toBe(2.85)
-
