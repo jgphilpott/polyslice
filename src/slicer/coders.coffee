@@ -1,5 +1,4 @@
-# G-code generation methods for Polyslice
-# All methods take a slicer instance as the first parameter
+# G-code generation methods for Polyslice.
 
 polyconvert = require('@jgphilpott/polyconvert')
 

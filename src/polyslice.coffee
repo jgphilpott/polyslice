@@ -1,11 +1,9 @@
+helpers = require('./utils/helpers')
+accessors = require('./utils/accessors')
+conversions = require('./utils/conversions')
+
 coders = require('./slicer/coders')
 slicer = require('./slicer/slice')
-helpers = require('./utils/helpers')
-conversions = require('./utils/conversions')
-accessors = require('./utils/accessors')
-
-polyconvert = require('@jgphilpott/polyconvert')
-polytree = require('@jgphilpott/polytree')
 
 class Polyslice
 
@@ -51,7 +49,6 @@ class Polyslice
         @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin'].
 
         # Temperature control settings for hotend and heated bed (stored internally in Celsius).
-        # Options override printer/filament settings.
         @nozzleTemperature = conversions.temperatureToInternal(options.nozzleTemperature ? filamentSettings.nozzleTemperature ? 0, this.temperatureUnit) # Number (°C internal).
         @bedTemperature = conversions.temperatureToInternal(options.bedTemperature ? filamentSettings.bedTemperature ? 0, this.temperatureUnit) # Number (°C internal).
         @fanSpeed = options.fanSpeed ? filamentSettings.fanSpeed ? 100 # Number 0-100.
@@ -94,7 +91,7 @@ class Polyslice
         @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
         @outline = options.outline ?= true # Boolean - make thin outline of layer 1 exterior.
 
-    # Getter method delegates
+    # Getter method delegates:
 
     getAutohome: ->
         accessors.getAutohome(this)
@@ -195,7 +192,7 @@ class Polyslice
     getFilament: ->
         accessors.getFilament(this)
 
-    # Setter method delegates
+    # Setter method delegates:
 
     setAutohome: (autohome = true) ->
         accessors.setAutohome(this, autohome)
@@ -296,7 +293,7 @@ class Polyslice
     setFilament: (filament) ->
         accessors.setFilament(this, filament)
 
-    # Coder method delegates
+    # Coder method delegates:
 
     codeAutohome: (x, y, z, skip, raise, leveling) ->
         coders.codeAutohome(this, x, y, z, skip, raise, leveling)
@@ -373,7 +370,7 @@ class Polyslice
     codeUnretract: (distance, speed) ->
         coders.codeUnretract(this, distance, speed)
 
-    # Helper method delegates
+    # Helper method delegates:
 
     isWithinBounds: (x, y) ->
         helpers.isWithinBounds(this, x, y)
@@ -381,7 +378,7 @@ class Polyslice
     calculateExtrusion: (distance, lineWidth) ->
         helpers.calculateExtrusion(this, distance, lineWidth)
 
-    # Main slicing method delegate
+    # Main slicing method delegate:
 
     slice: (scene = {}) ->
         slicer.slice(this, scene)

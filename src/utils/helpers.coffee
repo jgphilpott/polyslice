@@ -1,4 +1,4 @@
-# Helper utility methods for Polyslice
+# Helper utility methods for Polyslice.
 
 module.exports =
 

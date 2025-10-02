@@ -1,5 +1,4 @@
-# Main slicing method for Polyslice
-# This module contains the core slicing logic
+# Main slicing method for Polyslice.
 
 coders = require('./coders')
 

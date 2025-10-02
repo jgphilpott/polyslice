@@ -1,5 +1,5 @@
-# Unit conversion utilities for Polyslice
-# All conversions use @jgphilpott/polyconvert library
+# Unit conversion utilities for Polyslice.
+# All conversions use @jgphilpott/polyconvert library.
 
 polyconvert = require('@jgphilpott/polyconvert')
 

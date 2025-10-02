@@ -1,5 +1,4 @@
-# Getter and setter methods for Polyslice
-# All methods take a slicer instance as the first parameter
+# Getter and setter methods for Polyslice.
 
 conversions = require('./conversions')
 
@@ -400,8 +399,10 @@ module.exports =
         if printer # Apply printer settings and override existing configuration.
 
             slicer.printer = printer
+
             slicer.buildPlateWidth = conversions.lengthToInternal(printer.getSizeX(), slicer.lengthUnit)
             slicer.buildPlateLength = conversions.lengthToInternal(printer.getSizeY(), slicer.lengthUnit)
+
             slicer.nozzleDiameter = conversions.lengthToInternal(printer.getNozzle(0).diameter, slicer.lengthUnit)
 
             if not slicer.filament # Update filament diameter from printer if no filament is set.
@@ -419,12 +420,16 @@ module.exports =
         if filament # Apply filament settings and override existing configuration.
 
             slicer.filament = filament
+
             slicer.nozzleTemperature = conversions.temperatureToInternal(filament.getNozzleTemperature(), slicer.temperatureUnit)
             slicer.bedTemperature = conversions.temperatureToInternal(filament.getBedTemperature(), slicer.temperatureUnit)
-            slicer.fanSpeed = filament.getFan()
+
             slicer.retractionDistance = conversions.lengthToInternal(filament.getRetractionDistance(), slicer.lengthUnit)
             slicer.retractionSpeed = conversions.speedToInternal(filament.getRetractionSpeed(), slicer.speedUnit)
+
             slicer.filamentDiameter = conversions.lengthToInternal(filament.getDiameter(), slicer.lengthUnit)
+
+            slicer.fanSpeed = filament.getFan()
 
         else
 
