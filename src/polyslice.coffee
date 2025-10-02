@@ -370,6 +370,15 @@ class Polyslice
     codeUnretract: (distance, speed) ->
         coders.codeUnretract(this, distance, speed)
 
+    codeTestStrip: (length, width, height) ->
+        coders.codeTestStrip(this, length, width, height)
+
+    codePrePrint: (raiseHeight, heatNozzleFirst) ->
+        coders.codePrePrint(this, raiseHeight, heatNozzleFirst)
+
+    codePostPrint: (raiseHeight, soundBuzzer) ->
+        coders.codePostPrint(this, raiseHeight, soundBuzzer)
+
     # Helper method delegates:
 
     isWithinBounds: (x, y) ->

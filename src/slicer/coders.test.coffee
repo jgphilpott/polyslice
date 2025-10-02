@@ -130,3 +130,105 @@ describe 'G-code Generation (Coders)', ->
             # Test custom values.
             result = slicer.codeUnretract(1.5, 30)
             expect(result).toBe('G1 E1.5 F1800\n')
+
+    describe 'Print Sequence Commands', ->
+
+        test 'should generate test strip G-code', ->
+
+            result = slicer.codeTestStrip()
+
+            expect(result).toContain('M117 Printing test strip...')
+            expect(result).toContain('G0 X10 Y10 Z0.3') # Move to start.
+            expect(result).toContain('G1 E1') # Prime nozzle.
+            expect(result).toContain('G1 X70 Y10 Z0.3') # First line.
+            expect(result).toContain('G1 E-1') # Retract.
+            expect(result).toContain('G0 Z2.3') # Lift nozzle.
+
+        test 'should generate test strip with custom dimensions', ->
+
+            result = slicer.codeTestStrip(80, 10, 0.4)
+
+            expect(result).toContain('G0 X10 Y10 Z0.4') # Custom height.
+            expect(result).toContain('G1 X90 Y10 Z0.4') # Custom length (10 + 80).
+            expect(result).toContain('G0 Z2.4') # Lift nozzle (height + 2).
+
+        test 'should generate pre-print sequence', ->
+
+            slicer.setNozzleTemperature(200)
+            slicer.setBedTemperature(60)
+            slicer.setFanSpeed(100)
+
+            result = slicer.codePrePrint()
+
+            expect(result).toContain('M117 Starting pre-print sequence...')
+            expect(result).toContain('G28') # Autohome.
+            expect(result).toContain('G17') # Workspace plane.
+            expect(result).toContain('G21') # Length unit.
+            expect(result).toContain('G0 Z10') # Raise nozzle.
+            expect(result).toContain('M117 Heating nozzle...')
+            expect(result).toContain('M109 R200') # Heat nozzle with wait.
+            expect(result).toContain('M117 Heating bed...')
+            expect(result).toContain('M190 R60') # Heat bed with wait.
+            expect(result).toContain('M106 S255') # Fan speed.
+            expect(result).toContain('M117 Pre-print sequence complete')
+
+        test 'should generate pre-print without test strip', ->
+
+            slicer.setTestStrip(false)
+            result = slicer.codePrePrint()
+
+            expect(result).not.toContain('M117 Printing test strip...')
+
+        test 'should generate pre-print with test strip', ->
+
+            slicer.setTestStrip(true)
+            result = slicer.codePrePrint()
+
+            expect(result).toContain('M117 Printing test strip...')
+
+        test 'should generate pre-print with simultaneous heating', ->
+
+            slicer.setNozzleTemperature(200)
+            slicer.setBedTemperature(60)
+
+            result = slicer.codePrePrint(10, false)
+
+            expect(result).toContain('M117 Starting nozzle heating...')
+            expect(result).toContain('M104 S200') # Start nozzle heating (no wait).
+            expect(result).toContain('M117 Starting bed heating...')
+            expect(result).toContain('M140 S60') # Start bed heating (no wait).
+            expect(result).toContain('M117 Waiting for nozzle temperature...')
+            expect(result).toContain('M109 R200') # Wait for nozzle.
+            expect(result).toContain('M117 Waiting for bed temperature...')
+            expect(result).toContain('M190 R60') # Wait for bed.
+
+        test 'should generate post-print sequence', ->
+
+            result = slicer.codePostPrint()
+
+            expect(result).toContain('M117 Starting post-print sequence...')
+            expect(result).toContain('G1 E-1') # Retract.
+            expect(result).toContain('G0 Z10') # Raise nozzle.
+            expect(result).toContain('G0 X0 Y0') # Move to home.
+            expect(result).toContain('M107') # Turn off fan.
+            expect(result).toContain('M117 Cooling down nozzle...')
+            expect(result).toContain('M104 S0') # Turn off nozzle.
+            expect(result).toContain('M117 Cooling down bed...')
+            expect(result).toContain('M140 S0') # Turn off bed.
+            expect(result).toContain('M117 Print complete!')
+            expect(result).toContain('M300') # Buzzer command present.
+            expect(result).toContain('S1000') # Frequency 1000Hz.
+            expect(result).toContain('M117 Post-print sequence complete')
+
+        test 'should generate post-print without buzzer', ->
+
+            result = slicer.codePostPrint(10, false)
+
+            expect(result).not.toContain('M300') # No buzzer.
+            expect(result).toContain('M117 Post-print sequence complete')
+
+        test 'should generate post-print with custom raise height', ->
+
+            result = slicer.codePostPrint(20)
+
+            expect(result).toContain('G0 Z20') # Custom raise height.

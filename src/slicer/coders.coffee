@@ -339,19 +339,19 @@ module.exports =
 
             slicer.setFanSpeed speed
 
-            speed = slicer.getFanSpeed()
+        speed = slicer.getFanSpeed()
 
-            if speed > 0
+        if speed > 0
 
-                gcode = "M106" + " S" + Math.round(speed * 2.55)
+            gcode = "M106" + " S" + Math.round(speed * 2.55)
 
-            else
+        else
 
-                gcode = "M107"
+            gcode = "M107"
 
-            if typeof index is "number"
+        if typeof index is "number"
 
-                gcode += " P" + index
+            gcode += " P" + index
 
         return gcode + slicer.newline
 
@@ -526,3 +526,149 @@ module.exports =
             gcode += " F" + feedratePerMin
 
         return gcode + slicer.newline
+
+    # Generate test strip G-code to verify extrusion before print.
+    codeTestStrip: (slicer, length = 60, width = 5, height = 0.3) ->
+
+        gcode = ""
+
+        # Add a message
+        gcode += module.exports.codeMessage(slicer, "Printing test strip...")
+
+        # Move to starting position at front left of bed
+        startX = 10
+        startY = 10
+        gcode += module.exports.codeLinearMovement(slicer, startX, startY, height, null, slicer.travelSpeed * 60)
+
+        # Prime the nozzle
+        gcode += module.exports.codeUnretract(slicer)
+
+        # Calculate extrusion amount based on line width and layer height
+        extrusionPerMm = slicer.calculateExtrusion(1, width)
+
+        # Print the test strip (a simple line)
+        gcode += module.exports.codeLinearMovement(slicer, startX + length, startY, height, extrusionPerMm * length, slicer.perimeterSpeed * 60)
+
+        # Print a return line to create a strip
+        gcode += module.exports.codeLinearMovement(slicer, startX + length, startY + width, height, extrusionPerMm * width, slicer.perimeterSpeed * 60)
+        gcode += module.exports.codeLinearMovement(slicer, startX, startY + width, height, extrusionPerMm * length, slicer.perimeterSpeed * 60)
+        gcode += module.exports.codeLinearMovement(slicer, startX, startY, height, extrusionPerMm * width, slicer.perimeterSpeed * 60)
+
+        # Retract after test strip
+        gcode += module.exports.codeRetract(slicer)
+
+        # Lift nozzle
+        gcode += module.exports.codeLinearMovement(slicer, null, null, height + 2, null, slicer.travelSpeed * 60)
+
+        return gcode
+
+    # Generate pre-print sequence G-code.
+    codePrePrint: (slicer, raiseHeight = 10, heatNozzleFirst = true) ->
+
+        gcode = ""
+
+        # Start sequence message
+        gcode += module.exports.codeMessage(slicer, "Starting pre-print sequence...")
+
+        # Autohome the nozzle
+        if slicer.getAutohome()
+
+            gcode += module.exports.codeAutohome(slicer)
+
+        # Set workspace plane and units
+        gcode += module.exports.codeWorkspacePlane(slicer)
+        gcode += module.exports.codeLengthUnit(slicer)
+
+        # Raise nozzle slightly off the bed
+        gcode += module.exports.codeLinearMovement(slicer, null, null, raiseHeight, null, slicer.travelSpeed * 60)
+
+        # Heat up nozzle and bed
+        if heatNozzleFirst
+
+            # Heat nozzle first with wait
+            if slicer.nozzleTemperature > 0
+
+                gcode += module.exports.codeMessage(slicer, "Heating nozzle...")
+                gcode += module.exports.codeNozzleTemperature(slicer, null, true)
+
+            # Then heat bed with wait
+            if slicer.bedTemperature > 0
+
+                gcode += module.exports.codeMessage(slicer, "Heating bed...")
+                gcode += module.exports.codeBedTemperature(slicer, null, true)
+
+        else
+
+            # Start both heating at same time (without wait)
+            if slicer.nozzleTemperature > 0
+
+                gcode += module.exports.codeMessage(slicer, "Starting nozzle heating...")
+                gcode += module.exports.codeNozzleTemperature(slicer, null, false)
+
+            if slicer.bedTemperature > 0
+
+                gcode += module.exports.codeMessage(slicer, "Starting bed heating...")
+                gcode += module.exports.codeBedTemperature(slicer, null, false)
+
+            # Now wait for both to reach temperature
+            if slicer.nozzleTemperature > 0
+
+                gcode += module.exports.codeMessage(slicer, "Waiting for nozzle temperature...")
+                gcode += module.exports.codeNozzleTemperature(slicer, null, true)
+
+            if slicer.bedTemperature > 0
+
+                gcode += module.exports.codeMessage(slicer, "Waiting for bed temperature...")
+                gcode += module.exports.codeBedTemperature(slicer, null, true)
+
+        # Turn on cooling fan if configured
+        if slicer.fanSpeed > 0
+
+            gcode += module.exports.codeFanSpeed(slicer)
+
+        # Lay test strip if enabled
+        if slicer.getTestStrip()
+
+            gcode += module.exports.codeTestStrip(slicer)
+
+        gcode += module.exports.codeMessage(slicer, "Pre-print sequence complete")
+
+        return gcode
+
+    # Generate post-print sequence G-code.
+    codePostPrint: (slicer, raiseHeight = 10, soundBuzzer = true) ->
+
+        gcode = ""
+
+        # Start message
+        gcode += module.exports.codeMessage(slicer, "Starting post-print sequence...")
+
+        # Retract filament
+        gcode += module.exports.codeRetract(slicer)
+
+        # Raise nozzle on Z axis
+        gcode += module.exports.codeLinearMovement(slicer, null, null, raiseHeight, null, slicer.travelSpeed * 60)
+
+        # Move to X0, Y0
+        gcode += module.exports.codeLinearMovement(slicer, 0, 0, null, null, slicer.travelSpeed * 60)
+
+        # Turn off fan
+        gcode += module.exports.codeFanSpeed(slicer, 0)
+
+        # Turn off nozzle temperature
+        gcode += module.exports.codeMessage(slicer, "Cooling down nozzle...")
+        gcode += module.exports.codeNozzleTemperature(slicer, 0, false)
+
+        # Turn off bed temperature
+        gcode += module.exports.codeMessage(slicer, "Cooling down bed...")
+        gcode += module.exports.codeBedTemperature(slicer, 0, false)
+
+        # Sound buzzer if enabled
+        if soundBuzzer
+
+            gcode += module.exports.codeMessage(slicer, "Print complete!")
+            gcode += module.exports.codeTone(slicer, 0.2, 1000) # 200ms beep at 1000Hz
+
+        gcode += module.exports.codeMessage(slicer, "Post-print sequence complete")
+
+        return gcode
