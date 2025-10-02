@@ -10,7 +10,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // Global variables.
 let scene, camera, renderer, controls;
 let gcodeObject = null;
-let gridHelper, axesHelper;
+let axesLines;
 
 // Initialize the visualizer on page load.
 window.addEventListener('DOMContentLoaded', init);
@@ -55,13 +55,8 @@ function init() {
   directionalLight.position.set(10, 10, 5);
   scene.add(directionalLight);
 
-  // Add grid helper.
-  gridHelper = new THREE.GridHelper(200, 20, 0x444444, 0x222222);
-  scene.add(gridHelper);
-
-  // Add axes helper.
-  axesHelper = new THREE.AxesHelper(100);
-  scene.add(axesHelper);
+  // Add custom axes (longer and thicker).
+  createAxes();
 
   // Add legend.
   createLegend();
@@ -77,23 +72,84 @@ function init() {
 }
 
 /**
- * Create the legend for movement types.
+ * Create custom axes with proper colors and thickness.
+ */
+function createAxes() {
+  const axisLength = 150;
+  const axisThickness = 3;
+
+  // Create X axis (red).
+  const xGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(axisLength, 0, 0),
+  ]);
+  const xMaterial = new THREE.LineBasicMaterial({
+    color: 0xff0000,
+    linewidth: axisThickness,
+  });
+  const xAxis = new THREE.Line(xGeometry, xMaterial);
+  scene.add(xAxis);
+
+  // Create Y axis (green).
+  const yGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, axisLength, 0),
+  ]);
+  const yMaterial = new THREE.LineBasicMaterial({
+    color: 0x00ff00,
+    linewidth: axisThickness,
+  });
+  const yAxis = new THREE.Line(yGeometry, yMaterial);
+  scene.add(yAxis);
+
+  // Create Z axis (blue) - positioned on opposite side.
+  const zGeometry = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0),
+    new THREE.Vector3(0, 0, -axisLength),
+  ]);
+  const zMaterial = new THREE.LineBasicMaterial({
+    color: 0x0000ff,
+    linewidth: axisThickness,
+  });
+  const zAxis = new THREE.Line(zGeometry, zMaterial);
+  scene.add(zAxis);
+
+  axesLines = [xAxis, yAxis, zAxis];
+}
+
+/**
+ * Create the legends for movement types and axes.
  */
 function createLegend() {
   const legendHTML = `
         <div id="legend">
             <h3>Movement Types</h3>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #00ff00;"></div>
+                <div class="legend-color" style="background-color: #ff0000;"></div>
                 <span>Travel (G0 - Non-extruding)</span>
             </div>
             <div class="legend-item">
-                <div class="legend-color" style="background-color: #ff0000;"></div>
+                <div class="legend-color" style="background-color: #00ff00;"></div>
                 <span>Extrusion (G1 - Extruding)</span>
             </div>
             <div class="legend-item">
                 <div class="legend-color" style="background-color: #ffff00;"></div>
                 <span>Arc Movement (G2/G3)</span>
+            </div>
+        </div>
+        <div id="axes-legend">
+            <h3>Axes</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #ff0000;"></div>
+                <span>X Axis</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #00ff00;"></div>
+                <span>Y Axis</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #0000ff;"></div>
+                <span>Z Axis</span>
             </div>
         </div>
     `;
@@ -153,9 +209,6 @@ function loadGCode(content, filename) {
   const loader = new GCodeLoader();
   gcodeObject = loader.parse(content);
 
-  // Customize colors for different movement types.
-  customizeGCodeColors(gcodeObject);
-
   // Add to scene.
   scene.add(gcodeObject);
 
@@ -164,43 +217,6 @@ function loadGCode(content, filename) {
 
   // Center camera on G-code.
   centerCamera(gcodeObject);
-}
-
-/**
- * Customize colors for different G-code movement types.
- */
-function customizeGCodeColors(object) {
-  object.traverse(child => {
-    if (child instanceof THREE.LineSegments) {
-      // Determine movement type based on userData or naming.
-      const userData = child.userData;
-
-      if (userData && userData.type) {
-        switch (userData.type) {
-          case 'G0':
-            // Travel moves - green.
-            child.material.color.setHex(0x00ff00);
-            break;
-
-          case 'G1':
-            // Extrusion moves - red.
-            child.material.color.setHex(0xff0000);
-            break;
-
-          case 'G2':
-          case 'G3':
-            // Arc moves - yellow.
-            child.material.color.setHex(0xffff00);
-            break;
-
-          default:
-            // Default color - blue.
-            child.material.color.setHex(0x0000ff);
-            break;
-        }
-      }
-    }
-  });
 }
 
 /**
@@ -215,16 +231,13 @@ function updateInfo(filename, object) {
 
   object.traverse(child => {
     if (child instanceof THREE.LineSegments) {
-      const userData = child.userData;
+      totalLines++;
 
-      if (userData && userData.type) {
-        totalLines++;
-
-        if (userData.type === 'G0') {
-          travelMoves++;
-        } else if (userData.type === 'G1') {
-          extrusionMoves++;
-        }
+      // Check material name to determine move type.
+      if (child.material && child.material.name === 'path') {
+        travelMoves++;
+      } else if (child.material && child.material.name === 'extruded') {
+        extrusionMoves++;
       }
     }
   });
@@ -266,9 +279,6 @@ function centerCamera(object) {
   // Update controls target.
   controls.target.copy(center);
   controls.update();
-
-  // Update grid position.
-  gridHelper.position.y = box.min.y - 1;
 }
 
 /**

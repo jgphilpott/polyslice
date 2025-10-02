@@ -52,14 +52,11 @@ body {
   transform: scale(1.1);
 }
 
-#controls img#help {
-  margin-bottom: 10px;
-}
-
-#upload,
-#reset {
-  display: inline-block;
-  margin-right: 10px;
+.icon-row {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
 }
 
 #uploader {
@@ -100,7 +97,8 @@ body {
 
 /* Legend */
 
-#legend {
+#legend,
+#axes-legend {
   position: fixed;
   bottom: 20px;
   right: 20px;
@@ -110,7 +108,12 @@ body {
   border-radius: 8px;
 }
 
-#legend h3 {
+#axes-legend {
+  bottom: 200px;
+}
+
+#legend h3,
+#axes-legend h3 {
   margin-bottom: 10px;
   font-size: 14px;
 }
