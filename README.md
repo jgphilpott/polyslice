@@ -73,19 +73,19 @@ console.log(gcode);
 ## Features
 
 - 🚀 **Direct three.js integration** - Work directly with three.js meshes and scenes.
+- 📁 **File format support** - Built-in loaders for STL, OBJ, 3MF, AMF, PLY, GLTF/GLB, and Collada formats.
 - 📝 **Comprehensive G-code generation** - Full set of G-code commands for FDM printing.
 - ⚙️ **Configurable parameters** - Temperatures, speeds, units, and more.
 - 🌐 **Universal compatibility** - Works in both Node.js and browser environments.
 - 🧪 **Well tested** - Comprehensive test suite with Jest.
 - 📦 **Multiple formats** - CommonJS, ESM, and browser builds with minification.
 - 🔧 **CoffeeScript source** - Clean, readable CoffeeScript codebase.
-- 🌐 **Node.js ready** - Designed specifically for Node.js environments.
 
 ## About
 
-Currently, if you want to print something you have designed in three.js you need to first export it to an [STL](https://en.wikipedia.org/wiki/STL_(file_format)) or [OBJ](https://en.wikipedia.org/wiki/Wavefront_.obj_file) file, slice that file with another software like [Cura](https://github.com/Ultimaker/Cura) and then transfer the resulting [G-code](https://en.wikipedia.org/wiki/G-code) to your 3D printer. Ideally, you should be able to use a three.js plugin (like Polyslice) to slice the meshes in your scene and send the G-code directly to your 3D printer via [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API).
+Polyslice is designed to streamline the 3D printing workflow by integrating directly with three.js. Whether you're designing models in three.js or loading existing STL, OBJ, or other 3D files, Polyslice can process them and generate G-code without the need for separate slicing software like [Cura](https://github.com/Ultimaker/Cura).
 
-With this approach the design, slicing and printing process becomes much more seamless! No download or installation is required, the entire process can happen without leaving a web browser. Intermediary file formats become obsolete and G-codes become invisible for the average user.
+With built-in support for popular 3D file formats and the ability to send G-code directly to your 3D printer via [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API), the entire design-to-print workflow can happen seamlessly in a web browser or Node.js environment. This makes 3D printing more accessible and eliminates the friction of using multiple tools.
 
 ## API Documentation
 
@@ -232,6 +232,56 @@ console.log(filament.listAvailableFilaments());
 - `color` (string): Hex color code
 - `weight` (number): Spool weight in grams
 - `cost` (number): Cost per spool
+
+### File Loaders
+
+The `Loaders` module provides a unified interface for loading 3D models from various file formats.
+
+```javascript
+const { Loaders } = require('@jgphilpott/polyslice');
+
+// Initialize loaders (automatically called on first use)
+Loaders.initialize();
+```
+
+**Supported Formats:**
+
+| Format | Method | Description |
+|--------|--------|-------------|
+| STL | `Loaders.loadSTL(path, material?)` | Stereolithography format |
+| OBJ | `Loaders.loadOBJ(path, material?)` | Wavefront Object format |
+| 3MF | `Loaders.load3MF(path)` | 3D Manufacturing Format |
+| AMF | `Loaders.loadAMF(path)` | Additive Manufacturing File |
+| PLY | `Loaders.loadPLY(path, material?)` | Polygon File Format |
+| GLTF/GLB | `Loaders.loadGLTF(path)` | GL Transmission Format |
+| Collada | `Loaders.loadCollada(path)` | DAE format |
+| Auto-detect | `Loaders.load(path, options?)` | Detects format from extension |
+
+**Return Values:**
+- All loader methods return `Promise<Mesh>` or `Promise<Mesh[]>`
+- STL and PLY return a single `THREE.Mesh`
+- OBJ, 3MF, AMF, GLTF, and Collada may return multiple meshes if the file contains multiple objects
+- Single mesh is returned as-is, multiple meshes are returned as an array
+
+**Material Parameter:**
+- Optional `THREE.Material` for STL, OBJ, and PLY loaders
+- If not provided, a default `MeshPhongMaterial` is used
+- 3MF, AMF, GLTF, and Collada use materials defined in the file
+
+**Example:**
+
+```javascript
+// Load STL with default material
+const mesh = await Loaders.loadSTL('model.stl');
+
+// Load OBJ with custom material
+const THREE = require('three');
+const material = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+const meshes = await Loaders.loadOBJ('model.obj', material);
+
+// Auto-detect format
+const model = await Loaders.load('model.gltf');
+```
 
 ### G-code Generation Methods
 
@@ -381,6 +431,125 @@ let gcode = slicer.slice();
 
 // Add layer-by-layer printing logic here ...
 ```
+
+### File Loading
+
+Polyslice includes built-in support for loading 3D models from various file formats commonly used in 3D printing and modeling.
+
+#### Supported Formats
+
+- **STL** (Stereolithography) - Most common 3D printing format
+- **OBJ** (Wavefront Object) - Common 3D modeling format
+- **3MF** (3D Manufacturing Format) - Modern 3D printing format with color/material support
+- **AMF** (Additive Manufacturing File) - XML-based additive manufacturing format
+- **PLY** (Polygon File Format) - Often used for 3D scanning
+- **GLTF/GLB** (GL Transmission Format) - Modern 3D asset format with materials
+- **DAE** (Collada) - Common 3D asset exchange format
+
+#### Basic File Loading
+
+```javascript
+const { Loaders } = require('@jgphilpott/polyslice');
+
+// Load an STL file
+const mesh = await Loaders.loadSTL('model.stl');
+
+// Load an OBJ file (may return multiple meshes)
+const meshes = await Loaders.loadOBJ('model.obj');
+
+// Load a 3MF file
+const meshes = await Loaders.load3MF('model.3mf');
+
+// Load a GLTF file
+const meshes = await Loaders.loadGLTF('model.gltf');
+
+// Generic loader (auto-detects format from extension)
+const mesh = await Loaders.load('model.stl');
+```
+
+#### Custom Materials
+
+```javascript
+const THREE = require('three');
+const { Loaders } = require('@jgphilpott/polyslice');
+
+// Create a custom material
+const material = new THREE.MeshPhongMaterial({
+  color: 0xff0000,
+  specular: 0x111111,
+  shininess: 200
+});
+
+// Load with custom material
+const mesh = await Loaders.loadSTL('model.stl', material);
+```
+
+#### Complete Workflow
+
+```javascript
+const Polyslice = require('@jgphilpott/polyslice');
+const { Loaders, Printer, Filament } = require('@jgphilpott/polyslice');
+
+// Load a 3D model from file
+const mesh = await Loaders.loadSTL('model.stl');
+
+// Create a slicer instance with printer and filament
+const slicer = new Polyslice({
+  printer: new Printer('Ender3'),
+  filament: new Filament('PrusamentPLA')
+});
+
+// Generate G-code from the loaded mesh
+// (Note: Full slicing implementation coming soon)
+const gcode = slicer.slice(mesh);
+```
+
+#### Browser Usage
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Polyslice File Loading Example</title>
+    
+    <!-- Include three.js -->
+    <script src="https://unpkg.com/three@0.180.0/build/three.min.js"></script>
+    
+    <!-- Include three.js loaders you need -->
+    <script type="module">
+      import { STLLoader } from 'https://unpkg.com/three@0.180.0/examples/jsm/loaders/STLLoader.js';
+      import { OBJLoader } from 'https://unpkg.com/three@0.180.0/examples/jsm/loaders/OBJLoader.js';
+      
+      // Make loaders available globally
+      window.THREE.STLLoader = STLLoader;
+      window.THREE.OBJLoader = OBJLoader;
+    </script>
+    
+    <!-- Include Polyslice -->
+    <script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
+  </head>
+  <body>
+    <input type="file" id="fileInput" accept=".stl,.obj,.gltf,.glb">
+    
+    <script>
+      document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        const url = URL.createObjectURL(file);
+        
+        // Load the file
+        const mesh = await PolysliceLoaders.load(url);
+        
+        console.log('Loaded mesh:', mesh);
+        
+        // Clean up
+        URL.revokeObjectURL(url);
+      });
+    </script>
+  </body>
+</html>
+```
+
+**Note:** In Node.js, loaders use dynamic `import()` for ES modules. In browsers, three.js loaders must be included separately as shown above.
 
 ### Browser Integration
 
