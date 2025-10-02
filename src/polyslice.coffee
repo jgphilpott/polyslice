@@ -1,6 +1,8 @@
-coders = require('./utils/coders')
+coders = require('./slicer/coders')
+slicer = require('./slicer/slice')
 helpers = require('./utils/helpers')
 conversions = require('./utils/conversions')
+accessors = require('./utils/accessors')
 
 polyconvert = require('@jgphilpott/polyconvert')
 polytree = require('@jgphilpott/polytree')
@@ -88,412 +90,211 @@ class Polyslice
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
         @adhesionType = options.adhesionType ?= "skirt" # String ['skirt', 'brim', 'raft'].
 
-    # Getters
+        # Test strip and outline settings for print preparation.
+        @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
+        @outline = options.outline ?= true # Boolean - make thin outline of layer 1 exterior.
+
+    # Getter method delegates
 
     getAutohome: ->
-
-        return this.autohome
+        accessors.getAutohome(this)
 
     getWorkspacePlane: ->
-
-        return this.workspacePlane
+        accessors.getWorkspacePlane(this)
 
     getTimeUnit: ->
-
-        return this.timeUnit
+        accessors.getTimeUnit(this)
 
     getLengthUnit: ->
-
-        return this.lengthUnit
+        accessors.getLengthUnit(this)
 
     getTemperatureUnit: ->
-
-        return this.temperatureUnit
+        accessors.getTemperatureUnit(this)
 
     getSpeedUnit: ->
-
-        return this.speedUnit
+        accessors.getSpeedUnit(this)
 
     getNozzleTemperature: ->
-
-        return conversions.temperatureFromInternal(this.nozzleTemperature, this.temperatureUnit)
+        accessors.getNozzleTemperature(this)
 
     getBedTemperature: ->
-
-        return conversions.temperatureFromInternal(this.bedTemperature, this.temperatureUnit)
+        accessors.getBedTemperature(this)
 
     getFanSpeed: ->
-
-        return this.fanSpeed
+        accessors.getFanSpeed(this)
 
     getLayerHeight: ->
-
-        return conversions.lengthFromInternal(this.layerHeight, this.lengthUnit)
+        accessors.getLayerHeight(this)
 
     getExtrusionMultiplier: ->
-
-        return this.extrusionMultiplier
+        accessors.getExtrusionMultiplier(this)
 
     getFilamentDiameter: ->
-
-        return conversions.lengthFromInternal(this.filamentDiameter, this.lengthUnit)
+        accessors.getFilamentDiameter(this)
 
     getNozzleDiameter: ->
-
-        return conversions.lengthFromInternal(this.nozzleDiameter, this.lengthUnit)
+        accessors.getNozzleDiameter(this)
 
     getPerimeterSpeed: ->
-
-        return conversions.speedFromInternal(this.perimeterSpeed, this.speedUnit)
+        accessors.getPerimeterSpeed(this)
 
     getInfillSpeed: ->
-
-        return conversions.speedFromInternal(this.infillSpeed, this.speedUnit)
+        accessors.getInfillSpeed(this)
 
     getTravelSpeed: ->
-
-        return conversions.speedFromInternal(this.travelSpeed, this.speedUnit)
+        accessors.getTravelSpeed(this)
 
     getRetractionDistance: ->
-
-        return conversions.lengthFromInternal(this.retractionDistance, this.lengthUnit)
+        accessors.getRetractionDistance(this)
 
     getRetractionSpeed: ->
-
-        return conversions.speedFromInternal(this.retractionSpeed, this.speedUnit)
+        accessors.getRetractionSpeed(this)
 
     getBuildPlateWidth: ->
-
-        return conversions.lengthFromInternal(this.buildPlateWidth, this.lengthUnit)
+        accessors.getBuildPlateWidth(this)
 
     getBuildPlateLength: ->
-
-        return conversions.lengthFromInternal(this.buildPlateLength, this.lengthUnit)
+        accessors.getBuildPlateLength(this)
 
     getInfillDensity: ->
-
-        return this.infillDensity
+        accessors.getInfillDensity(this)
 
     getInfillPattern: ->
-
-        return this.infillPattern
+        accessors.getInfillPattern(this)
 
     getShellHorizontalThickness: ->
-
-        return conversions.lengthFromInternal(this.shellHorizontalThickness, this.lengthUnit)
+        accessors.getShellHorizontalThickness(this)
 
     getShellVerticalThickness: ->
-
-        return conversions.lengthFromInternal(this.shellVerticalThickness, this.lengthUnit)
+        accessors.getShellVerticalThickness(this)
 
     getSupportEnabled: ->
-
-        return this.supportEnabled
+        accessors.getSupportEnabled(this)
 
     getSupportType: ->
-
-        return this.supportType
+        accessors.getSupportType(this)
 
     getSupportPlacement: ->
-
-        return this.supportPlacement
+        accessors.getSupportPlacement(this)
 
     getAdhesionEnabled: ->
-
-        return this.adhesionEnabled
+        accessors.getAdhesionEnabled(this)
 
     getAdhesionType: ->
+        accessors.getAdhesionType(this)
 
-        return this.adhesionType
+    getTestStrip: ->
+        accessors.getTestStrip(this)
+
+    getOutline: ->
+        accessors.getOutline(this)
 
     getPrinter: ->
-
-        return this.printer
+        accessors.getPrinter(this)
 
     getFilament: ->
+        accessors.getFilament(this)
 
-        return this.filament
-
-    # Setters
+    # Setter method delegates
 
     setAutohome: (autohome = true) ->
-
-        this.autohome = Boolean autohome
-
-        return this
+        accessors.setAutohome(this, autohome)
 
     setWorkspacePlane: (plane = "XY") ->
-
-        plane = plane.toUpperCase().trim()
-
-        if ["XY", "XZ", "YZ"].includes plane
-
-            this.workspacePlane = String plane
-
-        return this
+        accessors.setWorkspacePlane(this, plane)
 
     setTimeUnit: (unit = "milliseconds") ->
-
-        unit = unit.toLowerCase().trim()
-
-        if ["milliseconds", "seconds"].includes unit
-
-            this.timeUnit = String unit
-
-        return this
+        accessors.setTimeUnit(this, unit)
 
     setLengthUnit: (unit = "millimeters") ->
-
-        unit = unit.toLowerCase().trim()
-
-        if ["millimeters", "inches"].includes unit
-
-            this.lengthUnit = String unit
-
-        return this
+        accessors.setLengthUnit(this, unit)
 
     setSpeedUnit: (unit = "millimeterSecond") ->
-
-        if ["millimeterSecond", "inchSecond", "meterSecond"].includes unit
-
-            this.speedUnit = String unit
-
-        return this
+        accessors.setSpeedUnit(this, unit)
 
     setTemperatureUnit: (unit = "celsius") ->
-
-        unit = unit.toLowerCase().trim()
-
-        if ["celsius", "fahrenheit", "kelvin"].includes unit
-
-            this.temperatureUnit = String unit
-
-        return this
+        accessors.setTemperatureUnit(this, unit)
 
     setNozzleTemperature: (temp = 0) ->
-
-        if typeof temp is "number" and temp >= 0
-
-            this.nozzleTemperature = conversions.temperatureToInternal(temp, this.temperatureUnit)
-
-        return this
+        accessors.setNozzleTemperature(this, temp)
 
     setBedTemperature: (temp = 0) ->
-
-        if typeof temp is "number" and temp >= 0
-
-            this.bedTemperature = conversions.temperatureToInternal(temp, this.temperatureUnit)
-
-        return this
+        accessors.setBedTemperature(this, temp)
 
     setFanSpeed: (speed = 100) ->
-
-        if typeof speed is "number" and speed >= 0 and speed <= 100
-
-            this.fanSpeed = Number speed
-
-        return this
+        accessors.setFanSpeed(this, speed)
 
     setLayerHeight: (height = 0.2) ->
-
-        if typeof height is "number" and height > 0
-
-            this.layerHeight = conversions.lengthToInternal(height, this.lengthUnit)
-
-        return this
+        accessors.setLayerHeight(this, height)
 
     setExtrusionMultiplier: (multiplier = 1.0) ->
-
-        if typeof multiplier is "number" and multiplier > 0
-
-            this.extrusionMultiplier = Number multiplier
-
-        return this
+        accessors.setExtrusionMultiplier(this, multiplier)
 
     setFilamentDiameter: (diameter = 1.75) ->
-
-        if typeof diameter is "number" and diameter > 0
-
-            this.filamentDiameter = conversions.lengthToInternal(diameter, this.lengthUnit)
-
-        return this
+        accessors.setFilamentDiameter(this, diameter)
 
     setNozzleDiameter: (diameter = 0.4) ->
-
-        if typeof diameter is "number" and diameter > 0
-
-            this.nozzleDiameter = conversions.lengthToInternal(diameter, this.lengthUnit)
-
-        return this
+        accessors.setNozzleDiameter(this, diameter)
 
     setPerimeterSpeed: (speed = 30) ->
-
-        if typeof speed is "number" and speed > 0
-
-            this.perimeterSpeed = conversions.speedToInternal(speed, this.speedUnit)
-
-        return this
+        accessors.setPerimeterSpeed(this, speed)
 
     setInfillSpeed: (speed = 60) ->
-
-        if typeof speed is "number" and speed > 0
-
-            this.infillSpeed = conversions.speedToInternal(speed, this.speedUnit)
-
-        return this
+        accessors.setInfillSpeed(this, speed)
 
     setTravelSpeed: (speed = 120) ->
-
-        if typeof speed is "number" and speed > 0
-
-            this.travelSpeed = conversions.speedToInternal(speed, this.speedUnit)
-
-        return this
+        accessors.setTravelSpeed(this, speed)
 
     setRetractionDistance: (distance = 1.0) ->
-
-        if typeof distance is "number" and distance >= 0
-
-            this.retractionDistance = conversions.lengthToInternal(distance, this.lengthUnit)
-
-        return this
+        accessors.setRetractionDistance(this, distance)
 
     setRetractionSpeed: (speed = 40) ->
-
-        if typeof speed is "number" and speed > 0
-
-            this.retractionSpeed = conversions.speedToInternal(speed, this.speedUnit)
-
-        return this
+        accessors.setRetractionSpeed(this, speed)
 
     setBuildPlateWidth: (width = 220) ->
-
-        if typeof width is "number" and width > 0
-
-            this.buildPlateWidth = conversions.lengthToInternal(width, this.lengthUnit)
-
-        return this
+        accessors.setBuildPlateWidth(this, width)
 
     setBuildPlateLength: (length = 220) ->
-
-        if typeof length is "number" and length > 0
-
-            this.buildPlateLength = conversions.lengthToInternal(length, this.lengthUnit)
-
-        return this
+        accessors.setBuildPlateLength(this, length)
 
     setInfillDensity: (density = 20) ->
-
-        if typeof density is "number" and density >= 0 and density <= 100
-
-            this.infillDensity = Number density
-
-        return this
+        accessors.setInfillDensity(this, density)
 
     setInfillPattern: (pattern = "grid") ->
-
-        pattern = pattern.toLowerCase().trim()
-
-        if ["grid", "lines", "triangles", "cubic", "gyroid", "honeycomb"].includes pattern
-
-            this.infillPattern = String pattern
-
-        return this
+        accessors.setInfillPattern(this, pattern)
 
     setShellHorizontalThickness: (thickness = 0.8) ->
-
-        if typeof thickness is "number" and thickness >= 0
-
-            this.shellHorizontalThickness = conversions.lengthToInternal(thickness, this.lengthUnit)
-
-        return this
+        accessors.setShellHorizontalThickness(this, thickness)
 
     setShellVerticalThickness: (thickness = 0.8) ->
-
-        if typeof thickness is "number" and thickness >= 0
-
-            this.shellVerticalThickness = conversions.lengthToInternal(thickness, this.lengthUnit)
-
-        return this
+        accessors.setShellVerticalThickness(this, thickness)
 
     setSupportEnabled: (enabled = false) ->
-
-        this.supportEnabled = Boolean enabled
-
-        return this
+        accessors.setSupportEnabled(this, enabled)
 
     setSupportType: (type = "normal") ->
-
-        type = type.toLowerCase().trim()
-
-        if ["normal", "tree"].includes type
-
-            this.supportType = String type
-
-        return this
+        accessors.setSupportType(this, type)
 
     setSupportPlacement: (placement = "buildPlate") ->
-
-        placement = placement.toLowerCase().trim()
-
-        if ["everywhere", "buildPlate"].includes placement
-
-            this.supportPlacement = String placement
-
-        return this
+        accessors.setSupportPlacement(this, placement)
 
     setAdhesionEnabled: (enabled = false) ->
-
-        this.adhesionEnabled = Boolean enabled
-
-        return this
+        accessors.setAdhesionEnabled(this, enabled)
 
     setAdhesionType: (type = "skirt") ->
+        accessors.setAdhesionType(this, type)
 
-        type = type.toLowerCase().trim()
+    setTestStrip: (testStrip = false) ->
+        accessors.setTestStrip(this, testStrip)
 
-        if ["skirt", "brim", "raft"].includes type
-
-            this.adhesionType = String type
-
-        return this
+    setOutline: (outline = true) ->
+        accessors.setOutline(this, outline)
 
     setPrinter: (printer) ->
-
-        if printer # Apply printer settings and override existing configuration.
-
-            this.printer = printer
-            this.buildPlateWidth = conversions.lengthToInternal(printer.getSizeX(), this.lengthUnit)
-            this.buildPlateLength = conversions.lengthToInternal(printer.getSizeY(), this.lengthUnit)
-            this.nozzleDiameter = conversions.lengthToInternal(printer.getNozzle(0).diameter, this.lengthUnit)
-
-            if not this.filament # Update filament diameter from printer if no filament is set.
-
-                this.filamentDiameter = conversions.lengthToInternal(printer.getNozzle(0).filament, this.lengthUnit)
-
-        else
-
-            this.printer = null
-
-        return this
+        accessors.setPrinter(this, printer)
 
     setFilament: (filament) ->
-
-        if filament # Apply filament settings and override existing configuration.
-
-            this.filament = filament
-            this.nozzleTemperature = conversions.temperatureToInternal(filament.getNozzleTemperature(), this.temperatureUnit)
-            this.bedTemperature = conversions.temperatureToInternal(filament.getBedTemperature(), this.temperatureUnit)
-            this.fanSpeed = filament.getFan()
-            this.retractionDistance = conversions.lengthToInternal(filament.getRetractionDistance(), this.lengthUnit)
-            this.retractionSpeed = conversions.speedToInternal(filament.getRetractionSpeed(), this.speedUnit)
-            this.filamentDiameter = conversions.lengthToInternal(filament.getDiameter(), this.lengthUnit)
-
-        else
-
-            this.filament = null
-
-        return this
+        accessors.setFilament(this, filament)
 
     # Coder method delegates
 
@@ -580,15 +381,10 @@ class Polyslice
     calculateExtrusion: (distance, lineWidth) ->
         helpers.calculateExtrusion(this, distance, lineWidth)
 
-    # Main slicing method
+    # Main slicing method delegate
 
     slice: (scene = {}) ->
-
-        if this.getAutohome()
-
-            this.gcode += this.codeAutohome()
-
-        return this.gcode
+        slicer.slice(this, scene)
 
 # Export the class for Node.js
 if typeof module isnt 'undefined' and module.exports

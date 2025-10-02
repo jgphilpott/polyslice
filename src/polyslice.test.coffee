@@ -58,6 +58,10 @@ describe 'Polyslice', ->
             expect(slicer.getAdhesionEnabled()).toBe(false)
             expect(slicer.getAdhesionType()).toBe('skirt')
 
+            # Test new test strip and outline settings
+            expect(slicer.getTestStrip()).toBe(false)
+            expect(slicer.getOutline()).toBe(true)
+
         test 'should create instance with custom options', ->
 
             customSlicer = new Polyslice({
@@ -578,6 +582,42 @@ describe 'Polyslice', ->
                 expect(slicer.getInfillPattern()).toBe(pattern)
 
             return # Explicitly return undefined for Jest
+
+        test 'should set and get test strip and outline settings', ->
+
+            # Test defaults
+            expect(slicer.getTestStrip()).toBe(false)
+            expect(slicer.getOutline()).toBe(true)
+
+            # Test setting test strip
+            slicer.setTestStrip(true)
+            expect(slicer.getTestStrip()).toBe(true)
+
+            slicer.setTestStrip(false)
+            expect(slicer.getTestStrip()).toBe(false)
+
+            # Test setting outline
+            slicer.setOutline(false)
+            expect(slicer.getOutline()).toBe(false)
+
+            slicer.setOutline(true)
+            expect(slicer.getOutline()).toBe(true)
+
+            # Test chaining
+            result = slicer.setTestStrip(true).setOutline(false)
+            expect(result).toBe(slicer)
+            expect(slicer.getTestStrip()).toBe(true)
+            expect(slicer.getOutline()).toBe(false)
+
+        test 'should accept test strip and outline in constructor', ->
+
+            customSlicer = new Polyslice({
+                testStrip: true
+                outline: false
+            })
+
+            expect(customSlicer.getTestStrip()).toBe(true)
+            expect(customSlicer.getOutline()).toBe(false)
 
     describe 'Printer and Filament Integration', ->
 
