@@ -91,6 +91,9 @@ class Polyslice
         @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
         @outline = options.outline ?= true # Boolean - make thin outline of layer 1 exterior.
 
+        # Metadata settings for G-code generation.
+        @includeMetadata = options.includeMetadata ?= true # Boolean - include metadata header in G-code.
+
     # Getter method delegates:
 
     getAutohome: ->
@@ -185,6 +188,9 @@ class Polyslice
 
     getOutline: ->
         accessors.getOutline(this)
+
+    getIncludeMetadata: ->
+        accessors.getIncludeMetadata(this)
 
     getPrinter: ->
         accessors.getPrinter(this)
@@ -287,6 +293,9 @@ class Polyslice
     setOutline: (outline = true) ->
         accessors.setOutline(this, outline)
 
+    setIncludeMetadata: (includeMetadata = true) ->
+        accessors.setIncludeMetadata(this, includeMetadata)
+
     setPrinter: (printer) ->
         accessors.setPrinter(this, printer)
 
@@ -369,6 +378,9 @@ class Polyslice
 
     codeUnretract: (distance, speed) ->
         coders.codeUnretract(this, distance, speed)
+
+    codeMetadata: ->
+        coders.codeMetadata(this)
 
     codeTestStrip: (length, width, height) ->
         coders.codeTestStrip(this, length, width, height)
