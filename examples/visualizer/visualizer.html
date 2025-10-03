@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en-US" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+
+    <title>G-code Visualizer</title>
+
+    <link rel="stylesheet" href="./visualizer.css" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link
+      rel="shortcut icon"
+      id="light-scheme-icon"
+      href="../../imgs/favicon/black.png"
+    />
+    <link
+      rel="shortcut icon"
+      id="dark-scheme-icon"
+      href="../../imgs/favicon/white.png"
+    />
+
+    <script src="libs/faviconScheme.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.180.0/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <a href="https://github.com/jgphilpott/polyslice">
+      <img
+        title="Fork Me"
+        id="forkme"
+        src="../../imgs/forkme/right/orange.png"
+      />
+    </a>
+
+    <div id="controls">
+      <div class="icon-row">
+        <a
+          href="https://github.com/jgphilpott/polyslice/blob/main/examples/visualizer/README.md"
+        >
+          <img title="Help" id="help" src="../../imgs/icons/help.png" />
+        </a>
+
+        <img
+          title="Upload G-code"
+          id="upload"
+          src="../../imgs/icons/upload.png"
+        />
+
+        <img title="Reset View" id="reset" src="../../imgs/icons/reset.png" />
+      </div>
+
+      <input id="uploader" type="file" accept=".gcode, .gco, .nc" />
+
+      <div id="info">
+        <span id="filename">No file loaded</span>
+        <span id="stats"></span>
+      </div>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script type="module" src="./visualizer.js"></script>
+  </body>
+</html>
