@@ -1,6 +1,6 @@
 {
   "name": "@jgphilpott/polyslice",
-  "version": "25.9.0",
+  "version": "25.10.0",
   "description": "An FDM slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -26,7 +26,7 @@
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write src/**/*.js",
-    "dev": "node examples/basic.js",
+    "dev": "node examples/scripts/basic.js",
     "prepublishOnly": "npm run build && npm run build:minify"
   },
   "keywords": [

@@ -7,7 +7,7 @@
 
 # About
 
-The [Web G-code Sender](https://jgphilpott.github.io/polyslice/serial/browser/sender.html) is a mini app that was built as a development aid for [Polyslice](https://github.com/jgphilpott/polyslice), an FDM slicer designed specifically for [three.js](https://github.com/mrdoob/three.js). The app can connect to a 3D printer via a serial port (USB or Bluetooth) to send G-codes and read the printers response data.
+The [Web G-code Sender](https://jgphilpott.github.io/polyslice/examples/serial/browser/sender.html) is a mini app that was built as a development aid for [Polyslice](https://github.com/jgphilpott/polyslice), an FDM slicer designed specifically for [three.js](https://github.com/mrdoob/three.js). The app can connect to a 3D printer via a serial port (USB or Bluetooth) to send G-codes and read the printers response data.
 
 Various [other apps](https://github.com/kliment/Printrun) exist that do the same thing but [I](https://github.com/jgphilpott) wanted something browser based for a more seamless user experience, no download or installation should be necessary. Furthermore, I wanted more *raw* access to the API so that I could integrate this functionality into my own applications and not be limited by another developers GUI.
 
@@ -15,26 +15,26 @@ I failed to find what I was looking for online so I built this app as a result. 
 
 # Contents
 
-- [About](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#about)
-- [Contents](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#contents)
-- [Features](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#features)
-  - [Help](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#help)
-  - [Connect/Disconnect](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#connectdisconnect)
-  - [Upload](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#upload)
-  - [Reset](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#reset)
-- [Settings](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#settings)
-  - [Connection Settings](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#connection-settings)
-    - [Baud Rate](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#baud-rate)
-    - [Buffer Size](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#buffer-size)
-    - [Data Bits](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#data-bits)
-    - [Stop Bits](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#stop-bits)
-    - [Flow Control](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#flow-control)
-    - [Parity](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#parity)
-  - [Style Settings](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#style-settings)
-    - [Timestamps](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#timestamps)
-    - [Colors](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#colors)
-    - [Emojis](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#emojis)
-- [Resources](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#resources)
+- [About](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#about)
+- [Contents](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#contents)
+- [Features](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#features)
+  - [Help](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#help)
+  - [Connect/Disconnect](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#connectdisconnect)
+  - [Upload](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#upload)
+  - [Reset](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#reset)
+- [Settings](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#settings)
+  - [Connection Settings](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#connection-settings)
+    - [Baud Rate](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#baud-rate)
+    - [Buffer Size](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#buffer-size)
+    - [Data Bits](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#data-bits)
+    - [Stop Bits](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#stop-bits)
+    - [Flow Control](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#flow-control)
+    - [Parity](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#parity)
+  - [Style Settings](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#style-settings)
+    - [Timestamps](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#timestamps)
+    - [Colors](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#colors)
+    - [Emojis](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#emojis)
+- [Resources](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#resources)
 
 # Features
 
@@ -42,7 +42,7 @@ In the very top left corner you should see four buttons. These buttons provide a
 
 ### Help
 
-This button simply links users to [this README file](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md) for more information about the app.
+This button simply links users to [this README file](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md) for more information about the app.
 
 ### Connect/Disconnect
 
