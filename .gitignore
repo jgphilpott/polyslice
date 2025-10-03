@@ -40,3 +40,6 @@ logs
 # Other Files
 marlin
 *.txt
+
+# Generated G-code Files
+*.gcode
