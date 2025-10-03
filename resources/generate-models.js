@@ -1,18 +1,15 @@
 /**
  * Generate example 3D models in various formats for testing
- * 
+ *
  * This script creates basic geometric shapes (Cube, Cylinder, Sphere, Cone, Torus)
  * in multiple sizes (1cm, 3cm, 5cm) and exports them to different file formats
  * that are commonly used in 3D printing.
- * 
+ *
  * Available exporters from three.js:
+ *
  * - STLExporter (Binary and ASCII)
  * - OBJExporter
  * - PLYExporter (Binary and ASCII)
- * - GLTFExporter (GLTF and GLB)
- * 
- * Note: 3MF, AMF, and Collada exporters are not available in three.js,
- * so these formats are skipped.
  */
 
 const fs = require('fs');
@@ -52,17 +49,12 @@ let STLExporter, OBJExporter, PLYExporter, GLTFExporter;
 async function loadExporters() {
     const stlModule = await import('three/examples/jsm/exporters/STLExporter.js');
     STLExporter = stlModule.STLExporter;
-    
+
     const objModule = await import('three/examples/jsm/exporters/OBJExporter.js');
     OBJExporter = objModule.OBJExporter;
-    
+
     const plyModule = await import('three/examples/jsm/exporters/PLYExporter.js');
     PLYExporter = plyModule.PLYExporter;
-    
-    // GLTF exporter requires too many browser APIs (FileReader, Blob, etc.)
-    // Skipping GLTF export for Node.js environment
-    // const gltfModule = await import('three/examples/jsm/exporters/GLTFExporter.js');
-    // GLTFExporter = gltfModule.GLTFExporter;
 }
 
 // Define shapes and sizes
@@ -84,7 +76,7 @@ const sizes = [
 function ensureDirectories() {
     const formats = ['stl', 'obj', 'ply'];
     const shapeNames = ['cube', 'cylinder', 'sphere', 'cone', 'torus'];
-    
+
     formats.forEach(format => {
         shapeNames.forEach(shapeName => {
             const dirPath = path.join(__dirname, format, shapeName);
@@ -132,79 +124,60 @@ function exportPLY(mesh, shapeName, filename) {
     });
 }
 
-// Export to GLTF
-function exportGLTF(mesh, filename) {
-    return new Promise((resolve, reject) => {
-        const exporter = new GLTFExporter();
-        exporter.parse(mesh, (result) => {
-            try {
-                const outputPath = path.join(__dirname, 'gltf', filename);
-                const output = JSON.stringify(result, null, 2);
-                fs.writeFileSync(outputPath, output);
-                console.log(`✓ Generated ${outputPath}`);
-                resolve();
-            } catch (error) {
-                reject(error);
-            }
-        }, { binary: false });
-    });
-}
-
 // Generate all models
 async function generateModels() {
     console.log('Generating 3D model files...\n');
-    
+
     // Load exporters
     await loadExporters();
-    
+
     // Ensure output directories exist
     ensureDirectories();
-    
+
     let totalFiles = 0;
-    
+
     // Generate each combination of shape and size
     for (const shape of shapes) {
         for (const size of sizes) {
             // Create geometry
             const geometry = shape.generator(size.value);
-            
+
             // Create material (simple for export)
-            const material = new THREE.MeshPhongMaterial({ 
+            const material = new THREE.MeshPhongMaterial({
                 color: 0x808080,
                 flatShading: false
             });
-            
+
             // Create mesh
             const mesh = new THREE.Mesh(geometry, material);
-            
+
             // Generate filename
             const baseName = `${shape.name}-${size.name}`;
-            
+
             try {
+
                 // Export to STL
                 exportSTL(mesh, shape.name, `${baseName}.stl`);
                 totalFiles++;
-                
+
                 // Export to OBJ
                 exportOBJ(mesh, shape.name, `${baseName}.obj`);
                 totalFiles++;
-                
+
                 // Export to PLY (async)
                 await exportPLY(mesh, shape.name, `${baseName}.ply`);
                 totalFiles++;
-                
-                // GLTF export skipped - requires browser APIs not available in Node.js
-                
+
             } catch (error) {
                 console.error(`✗ Error generating ${baseName}:`, error.message);
             }
-            
+
             // Clean up
             geometry.dispose();
             material.dispose();
         }
     }
-    
+
     console.log(`\n✓ Successfully generated ${totalFiles} files!`);
     console.log('\nFile structure:');
     console.log('  resources/');
@@ -238,4 +211,3 @@ generateModels().catch(error => {
     console.error('Error generating models:', error);
     process.exit(1);
 });
-

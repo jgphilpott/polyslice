@@ -6,19 +6,19 @@ This directory contains example 3D model files in various formats for testing th
 
 ```
 resources/
-├── stl/                  # STL format (binary)
-│   ├── cube/            # Cube models
-│   ├── cylinder/        # Cylinder models
-│   ├── sphere/          # Sphere models
-│   ├── cone/            # Cone models
-│   └── torus/           # Torus models
-├── obj/                  # Wavefront OBJ format
+├── stl/                            # STL format (binary)
+│   ├── cube/     # Cube models
+│   ├── cylinder/ # Cylinder models
+│   ├── sphere/   # Sphere models
+│   ├── cone/     # Cone models
+│   └── torus/    # Torus models
+├── obj/                            # Wavefront OBJ format
 │   ├── cube/
 │   ├── cylinder/
 │   ├── sphere/
 │   ├── cone/
 │   └── torus/
-├── ply/                  # PLY format (binary)
+├── ply/                            # PLY format (binary)
 │   ├── cube/
 │   ├── cylinder/
 │   ├── sphere/
@@ -123,4 +123,3 @@ These models are ideal for:
 - Validating mesh geometry after import
 - Performance testing with different mesh complexities
 - Integration testing with the Polyslice slicer
-
