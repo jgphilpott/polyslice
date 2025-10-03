@@ -233,12 +233,12 @@ console.log(filament.listAvailableFilaments());
 - `weight` (number): Spool weight in grams
 - `cost` (number): Cost per spool
 
-### File Loaders
+### File Loader
 
-The `Loaders` module provides a unified interface for loading 3D models from various file formats.
+The `Loader` module provides a unified interface for loading 3D models from various file formats.
 
 ```javascript
-const { Loaders } = require('@jgphilpott/polyslice');
+const { Loader } = require('@jgphilpott/polyslice');
 
 // Initialize loaders (automatically called on first use)
 Loaders.initialize();
@@ -248,14 +248,14 @@ Loaders.initialize();
 
 | Format | Method | Description |
 |--------|--------|-------------|
-| STL | `Loaders.loadSTL(path, material?)` | Stereolithography format |
-| OBJ | `Loaders.loadOBJ(path, material?)` | Wavefront Object format |
-| 3MF | `Loaders.load3MF(path)` | 3D Manufacturing Format |
-| AMF | `Loaders.loadAMF(path)` | Additive Manufacturing File |
-| PLY | `Loaders.loadPLY(path, material?)` | Polygon File Format |
-| GLTF/GLB | `Loaders.loadGLTF(path)` | GL Transmission Format |
-| Collada | `Loaders.loadCollada(path)` | DAE format |
-| Auto-detect | `Loaders.load(path, options?)` | Detects format from extension |
+| STL | `Loader.loadSTL(path, material?)` | Stereolithography format |
+| OBJ | `Loader.loadOBJ(path, material?)` | Wavefront Object format |
+| 3MF | `Loader.load3MF(path)` | 3D Manufacturing Format |
+| AMF | `Loader.loadAMF(path)` | Additive Manufacturing File |
+| PLY | `Loader.loadPLY(path, material?)` | Polygon File Format |
+| GLTF/GLB | `Loader.loadGLTF(path)` | GL Transmission Format |
+| Collada | `Loader.loadCollada(path)` | DAE format |
+| Auto-detect | `Loader.load(path, options?)` | Detects format from extension |
 
 **Return Values:**
 - All loader methods return `Promise<Mesh>` or `Promise<Mesh[]>`
@@ -272,15 +272,15 @@ Loaders.initialize();
 
 ```javascript
 // Load STL with default material
-const mesh = await Loaders.loadSTL('model.stl');
+const mesh = await Loader.loadSTL('model.stl');
 
 // Load OBJ with custom material
 const THREE = require('three');
 const material = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-const meshes = await Loaders.loadOBJ('model.obj', material);
+const meshes = await Loader.loadOBJ('model.obj', material);
 
 // Auto-detect format
-const model = await Loaders.load('model.gltf');
+const model = await Loader.load('model.gltf');
 ```
 
 ### G-code Generation Methods
@@ -449,29 +449,29 @@ Polyslice includes built-in support for loading 3D models from various file form
 #### Basic File Loading
 
 ```javascript
-const { Loaders } = require('@jgphilpott/polyslice');
+const { Loader } = require('@jgphilpott/polyslice');
 
 // Load an STL file
-const mesh = await Loaders.loadSTL('model.stl');
+const mesh = await Loader.loadSTL('model.stl');
 
 // Load an OBJ file (may return multiple meshes)
-const meshes = await Loaders.loadOBJ('model.obj');
+const meshes = await Loader.loadOBJ('model.obj');
 
 // Load a 3MF file
-const meshes = await Loaders.load3MF('model.3mf');
+const meshes = await Loader.load3MF('model.3mf');
 
 // Load a GLTF file
-const meshes = await Loaders.loadGLTF('model.gltf');
+const meshes = await Loader.loadGLTF('model.gltf');
 
 // Generic loader (auto-detects format from extension)
-const mesh = await Loaders.load('model.stl');
+const mesh = await Loader.load('model.stl');
 ```
 
 #### Custom Materials
 
 ```javascript
 const THREE = require('three');
-const { Loaders } = require('@jgphilpott/polyslice');
+const { Loader } = require('@jgphilpott/polyslice');
 
 // Create a custom material
 const material = new THREE.MeshPhongMaterial({
@@ -481,7 +481,7 @@ const material = new THREE.MeshPhongMaterial({
 });
 
 // Load with custom material
-const mesh = await Loaders.loadSTL('model.stl', material);
+const mesh = await Loader.loadSTL('model.stl', material);
 ```
 
 #### Complete Workflow
@@ -491,7 +491,7 @@ const Polyslice = require('@jgphilpott/polyslice');
 const { Loaders, Printer, Filament } = require('@jgphilpott/polyslice');
 
 // Load a 3D model from file
-const mesh = await Loaders.loadSTL('model.stl');
+const mesh = await Loader.loadSTL('model.stl');
 
 // Create a slicer instance with printer and filament
 const slicer = new Polyslice({
@@ -537,7 +537,7 @@ const gcode = slicer.slice(mesh);
         const url = URL.createObjectURL(file);
         
         // Load the file
-        const mesh = await PolysliceLoaders.load(url);
+        const mesh = await PolysliceLoader.load(url);
         
         console.log('Loaded mesh:', mesh);
         

@@ -76,24 +76,24 @@ The following formats are not generated because they lack exporters in three.js:
 - **Collada (DAE)** - No exporter available
 - **GLTF/GLB** - Exporter requires browser APIs (FileReader, Blob) not available in Node.js
 
-## Usage with Polyslice Loaders
+## Usage with Polyslice Loader
 
 These files can be used to test the Polyslice loader functionality:
 
 ```javascript
-const { Loaders } = require('@jgphilpott/polyslice');
+const { Loader } = require('@jgphilpott/polyslice');
 
 // Load an STL file
-const mesh = await Loaders.loadSTL('resources/stl/cube/cube-1cm.stl');
+const mesh = await Loader.loadSTL('resources/stl/cube/cube-1cm.stl');
 
 // Load an OBJ file
-const objMesh = await Loaders.loadOBJ('resources/obj/sphere/sphere-3cm.obj');
+const objMesh = await Loader.loadOBJ('resources/obj/sphere/sphere-3cm.obj');
 
 // Load a PLY file
-const plyMesh = await Loaders.loadPLY('resources/ply/torus/torus-5cm.ply');
+const plyMesh = await Loader.loadPLY('resources/ply/torus/torus-5cm.ply');
 
 // Use with generic loader (auto-detects format)
-const anyMesh = await Loaders.load('resources/stl/cylinder/cylinder-1cm.stl');
+const anyMesh = await Loader.load('resources/stl/cylinder/cylinder-1cm.stl');
 ```
 
 ## File Characteristics

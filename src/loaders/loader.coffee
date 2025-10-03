@@ -1,8 +1,8 @@
-# Unified file loaders for Polyslice
+# Unified file loader for Polyslice
 # Supports STL, OBJ, 3MF, AMF, PLY, GLTF/GLB, and Collada formats
 # Works in both Node.js and browser environments
 
-class Loaders
+class Loader
 
     constructor: ->
 
@@ -302,15 +302,15 @@ class Loaders
                 return Promise.reject(new Error("Unsupported file format: #{extension}"))
 
 # Create singleton instance.
-loaders = new Loaders()
+loader = new Loader()
 
 # Export for Node.js
 if typeof module isnt 'undefined' and module.exports
 
-    module.exports = loaders
+    module.exports = loader
 
 # Export for browser environments.
 if typeof window isnt 'undefined'
 
-    window.PolysliceLoaders = loaders
+    window.PolysliceLoader = loader
 

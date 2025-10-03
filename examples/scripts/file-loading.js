@@ -3,9 +3,9 @@
  * Demonstrates loading 3D models from various file formats
  */
 
-const { Loaders } = require('../src/index');
+const { Loader } = require('../src/index');
 
-console.log('Polyslice File Loaders Example');
+console.log('Polyslice File Loader Example');
 console.log('==============================\n');
 
 // Display supported formats
@@ -23,7 +23,7 @@ console.log('');
 console.log('Example 1: Loading an STL file');
 console.log('------------------------------');
 console.log('```javascript');
-console.log('const mesh = await Loaders.loadSTL("model.stl");');
+console.log('const mesh = await Loader.loadSTL("model.stl");');
 console.log('// mesh is a THREE.Mesh ready to use with Polyslice');
 console.log('```\n');
 
@@ -37,14 +37,14 @@ console.log('  color: 0xff0000,');
 console.log('  specular: 0x111111,');
 console.log('  shininess: 200');
 console.log('});');
-console.log('const mesh = await Loaders.loadSTL("model.stl", customMaterial);');
+console.log('const mesh = await Loader.loadSTL("model.stl", customMaterial);');
 console.log('```\n');
 
 // Example 3: Load OBJ file (may return multiple meshes)
 console.log('Example 3: Loading an OBJ file');
 console.log('-----------------------------');
 console.log('```javascript');
-console.log('const meshes = await Loaders.loadOBJ("model.obj");');
+console.log('const meshes = await Loader.loadOBJ("model.obj");');
 console.log('// meshes can be a single Mesh or array of Meshes');
 console.log('if (Array.isArray(meshes)) {');
 console.log('  console.log(`Loaded ${meshes.length} meshes`);');
@@ -58,7 +58,7 @@ console.log('```\n');
 console.log('Example 4: Loading a 3MF file');
 console.log('----------------------------');
 console.log('```javascript');
-console.log('const meshes = await Loaders.load3MF("model.3mf");');
+console.log('const meshes = await Loader.load3MF("model.3mf");');
 console.log('// 3MF supports colors and materials natively');
 console.log('```\n');
 
@@ -66,7 +66,7 @@ console.log('```\n');
 console.log('Example 5: Loading a PLY file');
 console.log('----------------------------');
 console.log('```javascript');
-console.log('const mesh = await Loaders.loadPLY("scan.ply");');
+console.log('const mesh = await Loader.loadPLY("scan.ply");');
 console.log('// PLY files often come from 3D scans');
 console.log('// and may include vertex colors');
 console.log('```\n');
@@ -75,9 +75,9 @@ console.log('```\n');
 console.log('Example 6: Loading a GLTF or GLB file');
 console.log('------------------------------------');
 console.log('```javascript');
-console.log('const meshes = await Loaders.loadGLTF("model.gltf");');
+console.log('const meshes = await Loader.loadGLTF("model.gltf");');
 console.log('// or');
-console.log('const meshes = await Loaders.loadGLTF("model.glb");');
+console.log('const meshes = await Loader.loadGLTF("model.glb");');
 console.log('// GLTF includes materials, animations, and more');
 console.log('```\n');
 
@@ -86,9 +86,9 @@ console.log('Example 7: Generic loading (auto-detect format)');
 console.log('----------------------------------------------');
 console.log('```javascript');
 console.log('// Automatically detects format from file extension');
-console.log('const mesh = await Loaders.load("model.stl");');
-console.log('const obj = await Loaders.load("model.obj");');
-console.log('const gltf = await Loaders.load("model.gltf");');
+console.log('const mesh = await Loader.load("model.stl");');
+console.log('const obj = await Loader.load("model.obj");');
+console.log('const gltf = await Loader.load("model.gltf");');
 console.log('```\n');
 
 // Example 8: Complete workflow with Polyslice
@@ -96,10 +96,10 @@ console.log('Example 8: Complete workflow with Polyslice');
 console.log('------------------------------------------');
 console.log('```javascript');
 console.log('const Polyslice = require("@jgphilpott/polyslice");');
-console.log('const { Loaders } = require("@jgphilpott/polyslice");');
+console.log('const { Loader } = require("@jgphilpott/polyslice");');
 console.log('');
 console.log('// Load a 3D model from file');
-console.log('const mesh = await Loaders.loadSTL("model.stl");');
+console.log('const mesh = await Loader.loadSTL("model.stl");');
 console.log('');
 console.log('// Create a slicer instance');
 console.log('const slicer = new Polyslice({');
@@ -128,8 +128,8 @@ console.log('<!-- Include Polyslice -->');
 console.log('<script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>');
 console.log('');
 console.log('<script>');
-console.log('  // Loaders are available as PolysliceLoaders in browser');
-console.log('  const mesh = await PolysliceLoaders.loadSTL("model.stl");');
+console.log('  // Loaders are available as PolysliceLoader in browser');
+console.log('  const mesh = await PolysliceLoader.loadSTL("model.stl");');
 console.log('</script>');
 console.log('```\n');
 
