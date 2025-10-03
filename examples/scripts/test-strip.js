@@ -14,7 +14,7 @@
  * This G-code can be tested on a real printer to verify the sequences work correctly.
  */
 
-const { Polyslice, Printer, Filament } = require('../src/index');
+const { Polyslice, Printer, Filament } = require('../../src/index');
 
 console.log('Polyslice Test Strip Example');
 console.log('============================');

@@ -9,7 +9,7 @@
  * 5. Custom raise heights
  */
 
-const Polyslice = require('../src/index');
+const Polyslice = require('../../src/index');
 
 console.log('Polyslice Print Sequences Example');
 console.log('==================================');
