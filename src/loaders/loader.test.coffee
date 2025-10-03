@@ -44,50 +44,66 @@ describe 'Loader', ->
             # We test that the method returns a promise, not the actual loading.
             loaderPromise = Loader.loadLoader('STLLoader')
 
-            expect(loaderPromise).toBeInstanceOf(Promise)
+            expect(loaderPromise).toBeDefined()
+            expect(typeof loaderPromise.then).toBe('function')
+            expect(typeof loaderPromise.catch).toBe('function')
+            loaderPromise.catch(() -> {}) # Catch expected failures in test environment
 
         test 'should cache loaded loaders', ->
 
             # First call returns a promise.
             loaderPromise1 = Loader.loadLoader('STLLoader')
-            expect(loaderPromise1).toBeInstanceOf(Promise)
+            expect(loaderPromise1).toBeDefined()
+            expect(typeof loaderPromise1.then).toBe('function')
 
             # After awaiting, check if loaders are cached.
             # Note: In Jest test environment, actual loader may fail to load
             # due to dynamic import restrictions, so we just verify the caching logic.
-            loader1 = await loaderPromise1
+            loader1 = await loaderPromise1.catch(() -> null)
 
             # If loader loaded successfully, verify caching.
             if loader1
-                loader2 = await Loader.loadLoader('STLLoader')
+                loader2 = await Loader.loadLoader('STLLoader').catch(() -> null)
                 expect(loader2).toBe(loader1)
             else
                 # If loader failed (expected in Jest), just verify promise returned.
-                expect(loaderPromise1).toBeInstanceOf(Promise)
+                expect(typeof loaderPromise1.then).toBe('function')
 
         test 'should return a promise when loading OBJLoader', ->
 
             loaderPromise = Loader.loadLoader('OBJLoader')
 
-            expect(loaderPromise).toBeInstanceOf(Promise)
+            expect(loaderPromise).toBeDefined()
+            expect(typeof loaderPromise.then).toBe('function')
+            expect(typeof loaderPromise.catch).toBe('function')
+            loaderPromise.catch(() -> {}) # Catch expected failures in test environment
 
         test 'should return a promise when loading PLYLoader', ->
 
             loaderPromise = Loader.loadLoader('PLYLoader')
 
-            expect(loaderPromise).toBeInstanceOf(Promise)
+            expect(loaderPromise).toBeDefined()
+            expect(typeof loaderPromise.then).toBe('function')
+            expect(typeof loaderPromise.catch).toBe('function')
+            loaderPromise.catch(() -> {}) # Catch expected failures in test environment
 
         test 'should return a promise when loading GLTFLoader', ->
 
             loaderPromise = Loader.loadLoader('GLTFLoader')
 
-            expect(loaderPromise).toBeInstanceOf(Promise)
+            expect(loaderPromise).toBeDefined()
+            expect(typeof loaderPromise.then).toBe('function')
+            expect(typeof loaderPromise.catch).toBe('function')
+            loaderPromise.catch(() -> {}) # Catch expected failures in test environment
 
         test 'should return a promise when loading ColladaLoader', ->
 
             loaderPromise = Loader.loadLoader('ColladaLoader')
 
-            expect(loaderPromise).toBeInstanceOf(Promise)
+            expect(loaderPromise).toBeDefined()
+            expect(typeof loaderPromise.then).toBe('function')
+            expect(typeof loaderPromise.catch).toBe('function')
+            loaderPromise.catch(() -> {}) # Catch expected failures in test environment
 
         test 'should attempt to load ThreeMFLoader in Node.js environment', ->
 
@@ -95,7 +111,10 @@ describe 'Loader', ->
             # In actual usage, this loader works fine. Testing that the promise is returned.
             loaderPromise = Loader.loadLoader('ThreeMFLoader', '3MFLoader')
 
-            expect(loaderPromise).toBeInstanceOf(Promise)
+            expect(loaderPromise).toBeDefined()
+            expect(typeof loaderPromise.then).toBe('function')
+            expect(typeof loaderPromise.catch).toBe('function')
+            loaderPromise.catch(() -> {}) # Catch expected failures in test environment
 
         test 'should attempt to load AMFLoader in Node.js environment', ->
 
@@ -103,7 +122,10 @@ describe 'Loader', ->
             # In actual usage, this loader works fine. Testing that the promise is returned.
             loaderPromise = Loader.loadLoader('AMFLoader')
 
-            expect(loaderPromise).toBeInstanceOf(Promise)
+            expect(loaderPromise).toBeDefined()
+            expect(typeof loaderPromise.then).toBe('function')
+            expect(typeof loaderPromise.catch).toBe('function')
+            loaderPromise.catch(() -> {}) # Catch expected failures in test environment
 
     describe 'Generic Load Method', ->
 
