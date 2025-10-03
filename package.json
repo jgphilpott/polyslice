@@ -55,9 +55,10 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "three": "^0.180.0",
     "@jgphilpott/polyconvert": "^1.0.2",
-    "@jgphilpott/polytree": "^0.1.1"
+    "@jgphilpott/polytree": "^0.1.1",
+    "serialport": "^13.0.0",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "coffeescript": "^2.7.0",
