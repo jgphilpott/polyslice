@@ -20,9 +20,9 @@
     "build:cjs": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/index.js",
     "build:esm": "esbuild src/index.js --bundle --platform=node --format=esm --outfile=dist/index.esm.js",
     "build:minify": "uglifyjs dist/index.js -o dist/index.min.js --compress --mangle && uglifyjs dist/index.browser.js -o dist/index.browser.min.js --compress --mangle",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write src/**/*.js",
@@ -57,8 +57,10 @@
   "dependencies": {
     "@jgphilpott/polyconvert": "^1.0.2",
     "@jgphilpott/polytree": "^0.1.1",
-    "serialport": "^13.0.0",
     "three": "^0.180.0"
+  },
+  "optionalDependencies": {
+    "serialport": "^13.0.0"
   },
   "devDependencies": {
     "coffeescript": "^2.7.0",
@@ -85,6 +87,7 @@
       "text",
       "lcov",
       "html"
-    ]
+    ],
+    "transform": {}
   }
 }
