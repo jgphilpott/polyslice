@@ -283,6 +283,60 @@ const meshes = await Loader.loadOBJ('model.obj', material);
 const model = await Loader.load('model.gltf');
 ```
 
+### G-code Exporter
+
+The `Exporter` module provides functionality to save G-code to files and stream it to 3D printers via serial port.
+
+```javascript
+const { Exporter } = require('@jgphilpott/polyslice');
+```
+
+**File Saving:**
+
+```javascript
+// Save G-code to file (Node.js: saves to filesystem, Browser: triggers download)
+await Exporter.saveToFile(gcode, 'output.gcode');
+```
+
+**Serial Port Communication:**
+
+```javascript
+// Connect to 3D printer
+await Exporter.connectSerial({
+    path: '/dev/ttyUSB0',  // Node.js only (or COM3 on Windows)
+    baudRate: 115200       // Both environments
+});
+
+// Send single command
+await Exporter.sendLine('G28');
+
+// Stream G-code with progress tracking
+await Exporter.streamGCode(gcode, {
+    delay: 100,  // milliseconds between lines
+    onProgress: (current, total, line) => {
+        console.log(`${current}/${total}: ${line}`);
+    }
+});
+
+// Disconnect
+await Exporter.disconnectSerial();
+```
+
+**Available Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `saveToFile(gcode, filename)` | Save G-code to file |
+| `connectSerial(options)` | Connect to serial port |
+| `disconnectSerial()` | Disconnect from serial port |
+| `sendLine(line)` | Send single G-code line |
+| `streamGCode(gcode, options)` | Stream G-code line-by-line |
+| `readResponse(timeout)` | Read response from printer |
+
+**Environment Support:**
+- **Node.js**: Requires `serialport` package (`npm install serialport`)
+- **Browser**: Uses Web Serial API (Chrome 89+, Edge 89+)
+
 ### G-code Generation Methods
 
 ```javascript

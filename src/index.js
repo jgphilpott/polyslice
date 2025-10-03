@@ -11,6 +11,7 @@ const Polyslice = require('./polyslice');
 const Printer = require('./config/printer');
 const Filament = require('./config/filament');
 const Loader = require('./loaders/loader');
+const Exporter = require('./exporters/exporter');
 
 // Re-export the main class.
 module.exports = Polyslice;
@@ -20,6 +21,7 @@ module.exports.Polyslice = Polyslice;
 module.exports.Printer = Printer;
 module.exports.Filament = Filament;
 module.exports.Loader = Loader;
+module.exports.Exporter = Exporter;
 
 // Export default for ES module compatibility.
 module.exports.default = Polyslice;
