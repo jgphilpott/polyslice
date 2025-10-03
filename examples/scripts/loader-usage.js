@@ -1,11 +1,11 @@
 /**
- * Example showing how to use Polyslice file loaders
+ * Polyslice Loader Usage Example
  * Demonstrates loading 3D models from various file formats
  */
 
-const { Loader } = require('../src/index');
+const { Loader } = require('../../src/index');
 
-console.log('Polyslice File Loader Example');
+console.log('Polyslice Loader Usage Example');
 console.log('==============================\n');
 
 // Display supported formats
