@@ -15,26 +15,26 @@ I failed to find what I was looking for online so I built this app as a result. 
 
 # Contents
 
-- [About](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#about)
-- [Contents](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#contents)
-- [Features](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#features)
-  - [Help](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#help)
-  - [Connect/Disconnect](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#connectdisconnect)
-  - [Upload](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#upload)
-  - [Reset](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#reset)
-- [Settings](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#settings)
-  - [Connection Settings](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#connection-settings)
-    - [Baud Rate](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#baud-rate)
-    - [Buffer Size](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#buffer-size)
-    - [Data Bits](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#data-bits)
-    - [Stop Bits](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#stop-bits)
-    - [Flow Control](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#flow-control)
-    - [Parity](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#parity)
-  - [Style Settings](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#style-settings)
-    - [Timestamps](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#timestamps)
-    - [Colors](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#colors)
-    - [Emojis](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#emojis)
-- [Resources](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md#resources)
+- [About](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#about)
+- [Contents](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#contents)
+- [Features](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#features)
+  - [Help](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#help)
+  - [Connect/Disconnect](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#connectdisconnect)
+  - [Upload](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#upload)
+  - [Reset](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#reset)
+- [Settings](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#settings)
+  - [Connection Settings](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#connection-settings)
+    - [Baud Rate](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#baud-rate)
+    - [Buffer Size](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#buffer-size)
+    - [Data Bits](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#data-bits)
+    - [Stop Bits](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#stop-bits)
+    - [Flow Control](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#flow-control)
+    - [Parity](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#parity)
+  - [Style Settings](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#style-settings)
+    - [Timestamps](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#timestamps)
+    - [Colors](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#colors)
+    - [Emojis](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#emojis)
+- [Resources](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md#resources)
 
 # Features
 
@@ -42,7 +42,7 @@ In the very top left corner you should see four buttons. These buttons provide a
 
 ### Help
 
-This button simply links users to [this README file](https://github.com/jgphilpott/polyslice/blob/main/serial/browser/README.md) for more information about the app.
+This button simply links users to [this README file](https://github.com/jgphilpott/polyslice/blob/main/examples/serial/browser/README.md) for more information about the app.
 
 ### Connect/Disconnect
 
