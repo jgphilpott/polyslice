@@ -82,20 +82,24 @@ const sizes = [
 
 // Ensure directories exist
 function ensureDirectories() {
-    const dirs = ['stl', 'obj', 'ply'];
-    dirs.forEach(dir => {
-        const dirPath = path.join(__dirname, dir);
-        if (!fs.existsSync(dirPath)) {
-            fs.mkdirSync(dirPath, { recursive: true });
-        }
+    const formats = ['stl', 'obj', 'ply'];
+    const shapeNames = ['cube', 'cylinder', 'sphere', 'cone', 'torus'];
+    
+    formats.forEach(format => {
+        shapeNames.forEach(shapeName => {
+            const dirPath = path.join(__dirname, format, shapeName);
+            if (!fs.existsSync(dirPath)) {
+                fs.mkdirSync(dirPath, { recursive: true });
+            }
+        });
     });
 }
 
 // Export to STL (binary)
-function exportSTL(mesh, filename) {
+function exportSTL(mesh, shapeName, filename) {
     const exporter = new STLExporter();
     const result = exporter.parse(mesh, { binary: true });
-    const outputPath = path.join(__dirname, 'stl', filename);
+    const outputPath = path.join(__dirname, 'stl', shapeName, filename);
     // Result is a DataView, get the underlying ArrayBuffer
     const buffer = result.buffer;
     fs.writeFileSync(outputPath, Buffer.from(buffer));
@@ -103,21 +107,21 @@ function exportSTL(mesh, filename) {
 }
 
 // Export to OBJ
-function exportOBJ(mesh, filename) {
+function exportOBJ(mesh, shapeName, filename) {
     const exporter = new OBJExporter();
     const result = exporter.parse(mesh);
-    const outputPath = path.join(__dirname, 'obj', filename);
+    const outputPath = path.join(__dirname, 'obj', shapeName, filename);
     fs.writeFileSync(outputPath, result);
     console.log(`✓ Generated ${outputPath}`);
 }
 
 // Export to PLY (binary)
-function exportPLY(mesh, filename) {
+function exportPLY(mesh, shapeName, filename) {
     return new Promise((resolve, reject) => {
         const exporter = new PLYExporter();
         exporter.parse(mesh, (result) => {
             try {
-                const outputPath = path.join(__dirname, 'ply', filename);
+                const outputPath = path.join(__dirname, 'ply', shapeName, filename);
                 fs.writeFileSync(outputPath, Buffer.from(result));
                 console.log(`✓ Generated ${outputPath}`);
                 resolve();
@@ -178,15 +182,15 @@ async function generateModels() {
             
             try {
                 // Export to STL
-                exportSTL(mesh, `${baseName}.stl`);
+                exportSTL(mesh, shape.name, `${baseName}.stl`);
                 totalFiles++;
                 
                 // Export to OBJ
-                exportOBJ(mesh, `${baseName}.obj`);
+                exportOBJ(mesh, shape.name, `${baseName}.obj`);
                 totalFiles++;
                 
                 // Export to PLY (async)
-                await exportPLY(mesh, `${baseName}.ply`);
+                await exportPLY(mesh, shape.name, `${baseName}.ply`);
                 totalFiles++;
                 
                 // GLTF export skipped - requires browser APIs not available in Node.js
@@ -204,9 +208,24 @@ async function generateModels() {
     console.log(`\n✓ Successfully generated ${totalFiles} files!`);
     console.log('\nFile structure:');
     console.log('  resources/');
-    console.log('    ├── stl/     (15 files)');
-    console.log('    ├── obj/     (15 files)');
-    console.log('    └── ply/     (15 files)');
+    console.log('    ├── stl/');
+    console.log('    │   ├── cube/     (3 files)');
+    console.log('    │   ├── cylinder/ (3 files)');
+    console.log('    │   ├── sphere/   (3 files)');
+    console.log('    │   ├── cone/     (3 files)');
+    console.log('    │   └── torus/    (3 files)');
+    console.log('    ├── obj/');
+    console.log('    │   ├── cube/     (3 files)');
+    console.log('    │   ├── cylinder/ (3 files)');
+    console.log('    │   ├── sphere/   (3 files)');
+    console.log('    │   ├── cone/     (3 files)');
+    console.log('    │   └── torus/    (3 files)');
+    console.log('    └── ply/');
+    console.log('        ├── cube/     (3 files)');
+    console.log('        ├── cylinder/ (3 files)');
+    console.log('        ├── sphere/   (3 files)');
+    console.log('        ├── cone/     (3 files)');
+    console.log('        └── torus/    (3 files)');
     console.log('\nShapes: cube, cylinder, sphere, cone, torus');
     console.log('Sizes:  1cm, 3cm, 5cm');
     console.log('\nFormats not generated:');

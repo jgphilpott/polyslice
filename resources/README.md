@@ -6,9 +6,24 @@ This directory contains example 3D model files in various formats for testing th
 
 ```
 resources/
-├── stl/          # STL format (binary)
-├── obj/          # Wavefront OBJ format
-├── ply/          # PLY format (binary)
+├── stl/                  # STL format (binary)
+│   ├── cube/            # Cube models
+│   ├── cylinder/        # Cylinder models
+│   ├── sphere/          # Sphere models
+│   ├── cone/            # Cone models
+│   └── torus/           # Torus models
+├── obj/                  # Wavefront OBJ format
+│   ├── cube/
+│   ├── cylinder/
+│   ├── sphere/
+│   ├── cone/
+│   └── torus/
+├── ply/                  # PLY format (binary)
+│   ├── cube/
+│   ├── cylinder/
+│   ├── sphere/
+│   ├── cone/
+│   └── torus/
 └── generate-models.js
 ```
 
@@ -69,16 +84,16 @@ These files can be used to test the Polyslice loader functionality:
 const { Loaders } = require('@jgphilpott/polyslice');
 
 // Load an STL file
-const mesh = await Loaders.loadSTL('resources/stl/cube-1cm.stl');
+const mesh = await Loaders.loadSTL('resources/stl/cube/cube-1cm.stl');
 
 // Load an OBJ file
-const objMesh = await Loaders.loadOBJ('resources/obj/sphere-3cm.obj');
+const objMesh = await Loaders.loadOBJ('resources/obj/sphere/sphere-3cm.obj');
 
 // Load a PLY file
-const plyMesh = await Loaders.loadPLY('resources/ply/torus-5cm.ply');
+const plyMesh = await Loaders.loadPLY('resources/ply/torus/torus-5cm.ply');
 
 // Use with generic loader (auto-detects format)
-const anyMesh = await Loaders.load('resources/stl/cylinder-1cm.stl');
+const anyMesh = await Loaders.load('resources/stl/cylinder/cylinder-1cm.stl');
 ```
 
 ## File Characteristics
