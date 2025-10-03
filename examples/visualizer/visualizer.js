@@ -11,6 +11,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let scene, camera, renderer, controls;
 let gcodeObject = null;
 let axesLines;
+let allLayers = [];
+let layerSlider = null;
 
 // Initialize the visualizer on page load.
 window.addEventListener('DOMContentLoaded', init);
@@ -61,6 +63,9 @@ function init() {
   // Add legend.
   createLegend();
 
+  // Add layer slider.
+  createLayerSlider();
+
   // Set up event listeners.
   setupEventListeners();
 
@@ -78,7 +83,10 @@ function createAxes() {
   const axisLength = 150;
   const axisThickness = 3;
 
-  // Create X axis (red).
+  // G-code coordinate system: X (red), Y (green), Z (blue, vertical up)
+  // GCodeLoader rotates by -90° on X, so: G-code X→X, Y→Z, Z→Y in Three.js
+
+  // Create X axis (red) - G-code X axis.
   const xGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
     new THREE.Vector3(axisLength, 0, 0),
@@ -90,10 +98,10 @@ function createAxes() {
   const xAxis = new THREE.Line(xGeometry, xMaterial);
   scene.add(xAxis);
 
-  // Create Y axis (green).
+  // Create Y axis (green) - G-code Y axis (maps to Three.js Z).
   const yGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, axisLength, 0),
+    new THREE.Vector3(0, 0, axisLength),
   ]);
   const yMaterial = new THREE.LineBasicMaterial({
     color: 0x00ff00,
@@ -102,10 +110,10 @@ function createAxes() {
   const yAxis = new THREE.Line(yGeometry, yMaterial);
   scene.add(yAxis);
 
-  // Create Z axis (blue) - positioned on opposite side.
+  // Create Z axis (blue) - G-code Z axis (maps to Three.js Y, vertical up).
   const zGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, 0, -axisLength),
+    new THREE.Vector3(0, axisLength, 0),
   ]);
   const zMaterial = new THREE.LineBasicMaterial({
     color: 0x0000ff,
@@ -122,39 +130,100 @@ function createAxes() {
  */
 function createLegend() {
   const legendHTML = `
-        <div id="legend">
-            <h3>Movement Types</h3>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #ff0000;"></div>
-                <span>Travel (G0 - Non-extruding)</span>
+        <div class="legend-container">
+            <div id="legend">
+                <h3>Movement Types</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff0000;"></div>
+                    <span>Travel (G0 - Non-extruding)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #00ff00;"></div>
+                    <span>Extrusion (G1 - Extruding)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffff00;"></div>
+                    <span>Arc Movement (G2/G3)</span>
+                </div>
             </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #00ff00;"></div>
-                <span>Extrusion (G1 - Extruding)</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #ffff00;"></div>
-                <span>Arc Movement (G2/G3)</span>
-            </div>
-        </div>
-        <div id="axes-legend">
-            <h3>Axes</h3>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #ff0000;"></div>
-                <span>X Axis</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #00ff00;"></div>
-                <span>Y Axis</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #0000ff;"></div>
-                <span>Z Axis</span>
+            <div id="axes-legend">
+                <h3>Axes</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff0000;"></div>
+                    <span>X Axis</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #00ff00;"></div>
+                    <span>Y Axis</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #0000ff;"></div>
+                    <span>Z Axis</span>
+                </div>
             </div>
         </div>
     `;
 
   document.body.insertAdjacentHTML('beforeend', legendHTML);
+}
+
+/**
+ * Create the layer slider HTML element.
+ */
+function createLayerSlider() {
+  const sliderHTML = `
+        <div id="layer-slider-container">
+            <input type="range" id="layer-slider" min="0" max="100" value="100" orient="vertical">
+            <div id="layer-info">All Layers</div>
+        </div>
+    `;
+
+  document.body.insertAdjacentHTML('beforeend', sliderHTML);
+  layerSlider = document.getElementById('layer-slider');
+}
+
+/**
+ * Setup layer slider after G-code is loaded.
+ */
+function setupLayerSlider() {
+  if (allLayers.length === 0) {
+    document
+      .getElementById('layer-slider-container')
+      .classList.remove('visible');
+    return;
+  }
+
+  // Show the slider.
+  document.getElementById('layer-slider-container').classList.add('visible');
+
+  // Setup slider range.
+  layerSlider.max = allLayers.length;
+  layerSlider.value = allLayers.length;
+
+  // Remove existing listener and add new one.
+  layerSlider.removeEventListener('input', updateLayerVisibility);
+  layerSlider.addEventListener('input', updateLayerVisibility);
+
+  // Update initial display.
+  updateLayerVisibility();
+}
+
+/**
+ * Update layer visibility based on slider value.
+ */
+function updateLayerVisibility() {
+  const visibleCount = parseInt(layerSlider.value);
+
+  for (let i = 0; i < allLayers.length; i++) {
+    allLayers[i].visible = i < visibleCount;
+  }
+
+  // Update info text.
+  const infoText =
+    visibleCount === allLayers.length
+      ? 'All Layers'
+      : `${visibleCount} / ${allLayers.length}`;
+  document.getElementById('layer-info').textContent = infoText;
 }
 
 /**
@@ -212,6 +281,18 @@ function loadGCode(content, filename) {
   // Add to scene.
   scene.add(gcodeObject);
 
+  // Collect all layers for slider control.
+  allLayers = [];
+  gcodeObject.traverse(child => {
+    if (child instanceof THREE.LineSegments) {
+      allLayers.push(child);
+      child.visible = true; // Show all layers by default.
+    }
+  });
+
+  // Setup layer slider.
+  setupLayerSlider();
+
   // Update info panel.
   updateInfo(filename, gcodeObject);
 
@@ -267,10 +348,10 @@ function centerCamera(object) {
   let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
   cameraZ *= 1.5; // Add some padding.
 
-  // Position camera.
+  // Position camera in positive octant (X+, Y+, Z+) relative to center.
   camera.position.set(
-    center.x + cameraZ / 2,
-    center.y + cameraZ / 2,
+    center.x + cameraZ,
+    center.y + cameraZ,
     center.z + cameraZ
   );
 
