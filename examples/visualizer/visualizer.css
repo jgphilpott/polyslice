@@ -99,26 +99,32 @@ body {
 
 #layer-slider-container {
   position: fixed;
-  left: 300px;
-  top: 50%;
-  transform: translateY(-50%);
+  left: 20px;
+  top: auto;
+  bottom: 20px;
   z-index: 100;
   background: rgba(0, 0, 0, 0.8);
   padding: 20px 15px;
   border-radius: 8px;
   display: none;
+  height: calc(100vh - 300px);
+  min-height: 200px;
+  max-height: calc(100vh - 300px);
 }
 
 #layer-slider-container.visible {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 #layer-slider {
   -webkit-appearance: slider-vertical;
   writing-mode: bt-lr;
-  height: 300px;
+  flex: 1;
   width: 30px;
   cursor: pointer;
+  min-height: 150px;
 }
 
 #layer-slider::-webkit-slider-thumb {

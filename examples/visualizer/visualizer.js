@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three';
-import { GCodeLoader } from 'three/addons/loaders/GCodeLoader.js';
+import { GCodeLoaderExtended } from './libs/GCodeLoaderExtended.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // Global variables.
@@ -274,9 +274,14 @@ function loadGCode(content, filename) {
     gcodeObject = null;
   }
 
-  // Parse G-code.
-  const loader = new GCodeLoader();
+  // Parse G-code with extended loader that preserves comments.
+  const loader = new GCodeLoaderExtended();
   gcodeObject = loader.parse(content);
+
+  // Log metadata if available for debugging.
+  if (gcodeObject.userData.metadata) {
+    console.log('G-code metadata:', gcodeObject.userData.metadata);
+  }
 
   // Add to scene.
   scene.add(gcodeObject);

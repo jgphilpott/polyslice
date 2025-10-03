@@ -130,5 +130,5 @@ Planned features:
 
 ## Related Tools
 
-- [Web G-code Sender](../../serial/browser/sender.html): Send G-code directly to your 3D printer via serial connection
+- [Web G-code Sender](../serial/browser/sender.html): Send G-code directly to your 3D printer via serial connection
 - [Polyslice](https://github.com/jgphilpott/polyslice): Generate G-code from Three.js meshes

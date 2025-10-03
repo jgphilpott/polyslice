@@ -490,7 +490,7 @@ See the [visualizer documentation](examples/visualizer/README.md) for more detai
 
 A simple mini app for experimenting with G-code and writing/reading printer data via [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API).
 
-**[Open Web G-code Sender](https://jgphilpott.github.io/polyslice/serial/browser/sender.html)**
+**[Open Web G-code Sender](https://jgphilpott.github.io/polyslice/examples/serial/browser/sender.html)**
 
 This tool allows you to send G-code directly to your 3D printer via USB or Bluetooth serial connection, making it perfect for testing and learning G-code commands.
 
