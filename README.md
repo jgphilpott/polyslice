@@ -73,19 +73,19 @@ console.log(gcode);
 ## Features
 
 - 🚀 **Direct three.js integration** - Work directly with three.js meshes and scenes.
+- 📁 **File format support** - Built-in loaders for STL, OBJ, 3MF, AMF, PLY, GLTF/GLB, and Collada formats.
 - 📝 **Comprehensive G-code generation** - Full set of G-code commands for FDM printing.
 - ⚙️ **Configurable parameters** - Temperatures, speeds, units, and more.
 - 🌐 **Universal compatibility** - Works in both Node.js and browser environments.
 - 🧪 **Well tested** - Comprehensive test suite with Jest.
 - 📦 **Multiple formats** - CommonJS, ESM, and browser builds with minification.
 - 🔧 **CoffeeScript source** - Clean, readable CoffeeScript codebase.
-- 🌐 **Node.js ready** - Designed specifically for Node.js environments.
 
 ## About
 
-Currently, if you want to print something you have designed in three.js you need to first export it to an [STL](https://en.wikipedia.org/wiki/STL_(file_format)) or [OBJ](https://en.wikipedia.org/wiki/Wavefront_.obj_file) file, slice that file with another software like [Cura](https://github.com/Ultimaker/Cura) and then transfer the resulting [G-code](https://en.wikipedia.org/wiki/G-code) to your 3D printer. Ideally, you should be able to use a three.js plugin (like Polyslice) to slice the meshes in your scene and send the G-code directly to your 3D printer via [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API).
+Polyslice is designed to streamline the 3D printing workflow by integrating directly with three.js. Whether you're designing models in three.js or loading existing STL, OBJ, or other 3D files, Polyslice can process them and generate G-code without the need for separate slicing software like [Cura](https://github.com/Ultimaker/Cura).
 
-With this approach the design, slicing and printing process becomes much more seamless! No download or installation is required, the entire process can happen without leaving a web browser. Intermediary file formats become obsolete and G-codes become invisible for the average user.
+With built-in support for popular 3D file formats and the ability to send G-code directly to your 3D printer via [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API), the entire design-to-print workflow can happen seamlessly in a web browser or Node.js environment. This makes 3D printing more accessible and eliminates the friction of using multiple tools.
 
 ## API Documentation
 
@@ -232,6 +232,110 @@ console.log(filament.listAvailableFilaments());
 - `color` (string): Hex color code
 - `weight` (number): Spool weight in grams
 - `cost` (number): Cost per spool
+
+### File Loader
+
+The `Loader` module provides a unified interface for loading 3D models from various file formats.
+
+```javascript
+const { Loader } = require('@jgphilpott/polyslice');
+
+// Initialize loaders (automatically called on first use)
+Loaders.initialize();
+```
+
+**Supported Formats:**
+
+| Format | Method | Description |
+|--------|--------|-------------|
+| STL | `Loader.loadSTL(path, material?)` | Stereolithography format |
+| OBJ | `Loader.loadOBJ(path, material?)` | Wavefront Object format |
+| 3MF | `Loader.load3MF(path)` | 3D Manufacturing Format |
+| AMF | `Loader.loadAMF(path)` | Additive Manufacturing File |
+| PLY | `Loader.loadPLY(path, material?)` | Polygon File Format |
+| GLTF/GLB | `Loader.loadGLTF(path)` | GL Transmission Format |
+| Collada | `Loader.loadCollada(path)` | DAE format |
+| Auto-detect | `Loader.load(path, options?)` | Detects format from extension |
+
+**Return Values:**
+- All loader methods return `Promise<Mesh>` or `Promise<Mesh[]>`
+- STL and PLY return a single `THREE.Mesh`
+- OBJ, 3MF, AMF, GLTF, and Collada may return multiple meshes if the file contains multiple objects
+- Single mesh is returned as-is, multiple meshes are returned as an array
+
+**Material Parameter:**
+- Optional `THREE.Material` for STL, OBJ, and PLY loaders
+- If not provided, a default `MeshPhongMaterial` is used
+- 3MF, AMF, GLTF, and Collada use materials defined in the file
+
+**Example:**
+
+```javascript
+// Load STL with default material
+const mesh = await Loader.loadSTL('model.stl');
+
+// Load OBJ with custom material
+const THREE = require('three');
+const material = new THREE.MeshPhongMaterial({ color: 0xff0000 });
+const meshes = await Loader.loadOBJ('model.obj', material);
+
+// Auto-detect format
+const model = await Loader.load('model.gltf');
+```
+
+### G-code Exporter
+
+The `Exporter` module provides functionality to save G-code to files and stream it to 3D printers via serial port.
+
+```javascript
+const { Exporter } = require('@jgphilpott/polyslice');
+```
+
+**File Saving:**
+
+```javascript
+// Save G-code to file (Node.js: saves to filesystem, Browser: triggers download)
+await Exporter.saveToFile(gcode, 'output.gcode');
+```
+
+**Serial Port Communication:**
+
+```javascript
+// Connect to 3D printer
+await Exporter.connectSerial({
+    path: '/dev/ttyUSB0',  // Node.js only (or COM3 on Windows)
+    baudRate: 115200       // Both environments
+});
+
+// Send single command
+await Exporter.sendLine('G28');
+
+// Stream G-code with progress tracking
+await Exporter.streamGCode(gcode, {
+    delay: 100,  // milliseconds between lines
+    onProgress: (current, total, line) => {
+        console.log(`${current}/${total}: ${line}`);
+    }
+});
+
+// Disconnect
+await Exporter.disconnectSerial();
+```
+
+**Available Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `saveToFile(gcode, filename)` | Save G-code to file |
+| `connectSerial(options)` | Connect to serial port |
+| `disconnectSerial()` | Disconnect from serial port |
+| `sendLine(line)` | Send single G-code line |
+| `streamGCode(gcode, options)` | Stream G-code line-by-line |
+| `readResponse(timeout)` | Read response from printer |
+
+**Environment Support:**
+- **Node.js**: Requires `serialport` package (`npm install serialport`)
+- **Browser**: Uses Web Serial API (Chrome 89+, Edge 89+)
 
 ### G-code Generation Methods
 
@@ -382,6 +486,125 @@ let gcode = slicer.slice();
 // Add layer-by-layer printing logic here ...
 ```
 
+### File Loading
+
+Polyslice includes built-in support for loading 3D models from various file formats commonly used in 3D printing and modeling.
+
+#### Supported Formats
+
+- **STL** (Stereolithography) - Most common 3D printing format
+- **OBJ** (Wavefront Object) - Common 3D modeling format
+- **3MF** (3D Manufacturing Format) - Modern 3D printing format with color/material support
+- **AMF** (Additive Manufacturing File) - XML-based additive manufacturing format
+- **PLY** (Polygon File Format) - Often used for 3D scanning
+- **GLTF/GLB** (GL Transmission Format) - Modern 3D asset format with materials
+- **DAE** (Collada) - Common 3D asset exchange format
+
+#### Basic File Loading
+
+```javascript
+const { Loader } = require('@jgphilpott/polyslice');
+
+// Load an STL file
+const mesh = await Loader.loadSTL('model.stl');
+
+// Load an OBJ file (may return multiple meshes)
+const meshes = await Loader.loadOBJ('model.obj');
+
+// Load a 3MF file
+const meshes = await Loader.load3MF('model.3mf');
+
+// Load a GLTF file
+const meshes = await Loader.loadGLTF('model.gltf');
+
+// Generic loader (auto-detects format from extension)
+const mesh = await Loader.load('model.stl');
+```
+
+#### Custom Materials
+
+```javascript
+const THREE = require('three');
+const { Loader } = require('@jgphilpott/polyslice');
+
+// Create a custom material
+const material = new THREE.MeshPhongMaterial({
+  color: 0xff0000,
+  specular: 0x111111,
+  shininess: 200
+});
+
+// Load with custom material
+const mesh = await Loader.loadSTL('model.stl', material);
+```
+
+#### Complete Workflow
+
+```javascript
+const Polyslice = require('@jgphilpott/polyslice');
+const { Loaders, Printer, Filament } = require('@jgphilpott/polyslice');
+
+// Load a 3D model from file
+const mesh = await Loader.loadSTL('model.stl');
+
+// Create a slicer instance with printer and filament
+const slicer = new Polyslice({
+  printer: new Printer('Ender3'),
+  filament: new Filament('PrusamentPLA')
+});
+
+// Generate G-code from the loaded mesh
+// (Note: Full slicing implementation coming soon)
+const gcode = slicer.slice(mesh);
+```
+
+#### Browser Usage
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Polyslice File Loading Example</title>
+    
+    <!-- Include three.js -->
+    <script src="https://unpkg.com/three@0.180.0/build/three.min.js"></script>
+    
+    <!-- Include three.js loaders you need -->
+    <script type="module">
+      import { STLLoader } from 'https://unpkg.com/three@0.180.0/examples/jsm/loaders/STLLoader.js';
+      import { OBJLoader } from 'https://unpkg.com/three@0.180.0/examples/jsm/loaders/OBJLoader.js';
+      
+      // Make loaders available globally
+      window.THREE.STLLoader = STLLoader;
+      window.THREE.OBJLoader = OBJLoader;
+    </script>
+    
+    <!-- Include Polyslice -->
+    <script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
+  </head>
+  <body>
+    <input type="file" id="fileInput" accept=".stl,.obj,.gltf,.glb">
+    
+    <script>
+      document.getElementById('fileInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        const url = URL.createObjectURL(file);
+        
+        // Load the file
+        const mesh = await PolysliceLoader.load(url);
+        
+        console.log('Loaded mesh:', mesh);
+        
+        // Clean up
+        URL.revokeObjectURL(url);
+      });
+    </script>
+  </body>
+</html>
+```
+
+**Note:** In Node.js, loaders use dynamic `import()` for ES modules. In browsers, three.js loaders must be included separately as shown above.
+
 ### Browser Integration
 
 ```html
@@ -471,7 +694,28 @@ npm run build         # All builds.
 
 ## Tools
 
-To assist in designing and testing this slicer I developed a simple mini app called '[Web G-code Sender](https://jgphilpott.github.io/polyslice/serial/browser/sender.html)' for experimenting with G-code and writing/reading printer data via [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API). I recommend taking a look at it if you want to learn G-code or how to remotely control a 3D printer from a web browser.
+### G-code Visualizer
+
+A browser-based tool to visualize G-code files in 3D using Three.js. This tool helps with debugging and testing G-code generated by Polyslice (or any other slicer).
+
+**[Open G-code Visualizer](https://jgphilpott.github.io/polyslice/examples/visualizer/visualizer.html)**
+
+Features:
+- 📊 **3D Visualization** - View G-code tool paths in interactive 3D
+- 🎨 **Color-coded movements** - Different colors for travel (G0), extrusion (G1), and arc (G2/G3) moves
+- 🎮 **Orbit controls** - Rotate, zoom, and pan to inspect from any angle
+- 📈 **Statistics** - View line counts and movement type breakdowns
+- 📁 **File upload** - Drag and drop any G-code file to visualize
+
+See the [visualizer documentation](examples/visualizer/README.md) for more details.
+
+### Web G-code Sender
+
+A simple mini app for experimenting with G-code and writing/reading printer data via [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API).
+
+**[Open Web G-code Sender](https://jgphilpott.github.io/polyslice/examples/serial/browser/sender.html)**
+
+This tool allows you to send G-code directly to your 3D printer via USB or Bluetooth serial connection, making it perfect for testing and learning G-code commands.
 
 ## Contributing
 
