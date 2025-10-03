@@ -107,9 +107,9 @@ body {
   padding: 20px 15px;
   border-radius: 8px;
   display: none;
-  height: calc(100vh - 300px);
+  height: calc(100vh - 208px);
   min-height: 200px;
-  max-height: calc(100vh - 300px);
+  max-height: calc(100vh - 208px);
 }
 
 #layer-slider-container.visible {
