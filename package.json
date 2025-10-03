@@ -88,6 +88,9 @@
       "lcov",
       "html"
     ],
-    "transform": {}
+    "transform": {},
+    "transformIgnorePatterns": [
+      "node_modules/(?!(three)/)"
+    ]
   }
 }

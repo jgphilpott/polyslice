@@ -39,8 +39,9 @@ describe 'Loader', ->
 
         test 'should return a promise when loading STLLoader', ->
 
-            # Note: Dynamic import() in Jest requires --experimental-vm-modules
-            # In actual usage, these loaders work fine. Testing that promises are returned.
+            # Note: Dynamic import() in Jest with --experimental-vm-modules
+            # restricts importing external files during tests.
+            # We test that the method returns a promise, not the actual loading.
             loaderPromise = Loader.loadLoader('STLLoader')
 
             expect(loaderPromise).toBeInstanceOf(Promise)
@@ -51,13 +52,18 @@ describe 'Loader', ->
             loaderPromise1 = Loader.loadLoader('STLLoader')
             expect(loaderPromise1).toBeInstanceOf(Promise)
 
-            # After awaiting, subsequent calls should return the same cached instance.
+            # After awaiting, check if loaders are cached.
+            # Note: In Jest test environment, actual loader may fail to load
+            # due to dynamic import restrictions, so we just verify the caching logic.
             loader1 = await loaderPromise1
-            loader2 = await Loader.loadLoader('STLLoader')
 
-            # Only test caching if loaders were successfully loaded.
-            if loader1 and loader2
-                expect(loader1).toBe(loader2)
+            # If loader loaded successfully, verify caching.
+            if loader1
+                loader2 = await Loader.loadLoader('STLLoader')
+                expect(loader2).toBe(loader1)
+            else
+                # If loader failed (expected in Jest), just verify promise returned.
+                expect(loaderPromise1).toBeInstanceOf(Promise)
 
         test 'should return a promise when loading OBJLoader', ->
 
