@@ -130,6 +130,10 @@ module.exports =
 
         return slicer.outline
 
+    getIncludeMetadata: (slicer) ->
+
+        return slicer.includeMetadata
+
     getPrinter: (slicer) ->
 
         return slicer.printer
@@ -391,6 +395,12 @@ module.exports =
     setOutline: (slicer, outline = true) ->
 
         slicer.outline = Boolean outline
+
+        return slicer
+
+    setIncludeMetadata: (slicer, includeMetadata = true) ->
+
+        slicer.includeMetadata = Boolean includeMetadata
 
         return slicer
 
