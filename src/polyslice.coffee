@@ -319,6 +319,18 @@ class Polyslice
     codeMovement: (x, y, z, extrude, feedrate, power) ->
         coders.codeMovement(this, x, y, z, extrude, feedrate, power)
 
+    codePositioningMode: (absolute) ->
+        coders.codePositioningMode(this, absolute)
+
+    codeExtruderMode: (absolute) ->
+        coders.codeExtruderMode(this, absolute)
+
+    codeSetPosition: (x, y, z, extrude) ->
+        coders.codeSetPosition(this, x, y, z, extrude)
+
+    codeDisableSteppers: (x, y, z, e) ->
+        coders.codeDisableSteppers(this, x, y, z, e)
+
     codeLinearMovement: (x, y, z, extrude, feedrate, power) ->
         coders.codeLinearMovement(this, x, y, z, extrude, feedrate, power)
 
