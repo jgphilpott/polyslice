@@ -134,16 +134,36 @@ function createLegend() {
             <div id="legend">
                 <h3>Movement Types</h3>
                 <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff6600;"></div>
+                    <span>Outer Wall</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff9933;"></div>
+                    <span>Inner Wall</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffcc00;"></div>
+                    <span>Skin (Top/Bottom)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #00ccff;"></div>
+                    <span>Infill</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff00ff;"></div>
+                    <span>Support</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #888888;"></div>
+                    <span>Skirt/Brim</span>
+                </div>
+                <div class="legend-item">
                     <div class="legend-color" style="background-color: #ff0000;"></div>
-                    <span>Travel (G0 - Non-extruding)</span>
+                    <span>Travel (Non-extruding)</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background-color: #00ff00;"></div>
-                    <span>Extrusion (G1 - Extruding)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background-color: #ffff00;"></div>
-                    <span>Arc Movement (G2/G3)</span>
+                    <span>Other Extrusion</span>
                 </div>
             </div>
             <div id="axes-legend">
@@ -276,6 +296,7 @@ function loadGCode(content, filename) {
 
   // Parse G-code with extended loader that preserves comments.
   const loader = new GCodeLoaderExtended();
+  loader.splitLayer = true; // Enable layer splitting for proper layer slider functionality
   gcodeObject = loader.parse(content);
 
   // Log metadata if available for debugging.
