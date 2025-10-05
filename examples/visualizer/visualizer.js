@@ -333,30 +333,52 @@ function updateInfo(filename, object) {
   document.getElementById('filename').textContent = filename;
 
   let totalLines = 0;
-  let travelMoves = 0;
-  let extrusionMoves = 0;
+  const typeCount = {};
 
   object.traverse(child => {
     if (child instanceof THREE.LineSegments) {
       totalLines++;
 
-      // Check material name to determine move type.
-      if (child.material && child.material.name === 'path') {
-        travelMoves++;
-      } else if (child.material && child.material.name === 'extruded') {
-        extrusionMoves++;
+      // Count by material/type name.
+      if (child.material && child.material.name) {
+        const typeName = child.material.name;
+        typeCount[typeName] = (typeCount[typeName] || 0) + 1;
       }
     }
   });
 
-  const statsText = `
-        Total line segments: ${totalLines}
-        Travel moves: ${travelMoves}
-        Extrusion moves: ${extrusionMoves}
-    `
-    .trim()
-    .replace(/\n\s+/g, '\n');
+  // Build stats text with type breakdown
+  let statsLines = [`Total segments: ${totalLines}`];
 
+  // Add metadata info if available
+  if (object.userData.metadata) {
+    const metadata = object.userData.metadata;
+    if (metadata.layerCount > 0) {
+      statsLines.push(`Layers: ${metadata.layerCount}`);
+    }
+    if (Object.keys(metadata.moveTypes).length > 0) {
+      statsLines.push('Movement types detected:');
+      Object.entries(metadata.moveTypes).forEach(([type, count]) => {
+        statsLines.push(`  ${type}: ${count} sections`);
+      });
+    }
+  }
+
+  // Add segment counts by type
+  if (Object.keys(typeCount).length > 0) {
+    statsLines.push('Segments by type:');
+    Object.entries(typeCount).forEach(([type, count]) => {
+      const displayName =
+        type === 'path'
+          ? 'Travel'
+          : type === 'extruded'
+            ? 'Generic extrusion'
+            : type;
+      statsLines.push(`  ${displayName}: ${count}`);
+    });
+  }
+
+  const statsText = statsLines.join('\n');
   document.getElementById('stats').textContent = statsText;
 }
 
