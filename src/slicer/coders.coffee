@@ -788,11 +788,11 @@ module.exports =
 
         if soundBuzzer # Sound buzzer if enabled - LAST.
 
-            # Triple beep: 3 short beeps.
-            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
-            gcode += module.exports.codeDwell(slicer, 0.1, false) # 100ms pause.
-            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
-            gcode += module.exports.codeDwell(slicer, 0.1, false) # 100ms pause.
-            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
+            # Triple beep: 3 short beeps:
+            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
+            gcode += module.exports.codeDwell(slicer, 1, false) # 1000ms pause.
+            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
+            gcode += module.exports.codeDwell(slicer, 1, false) # 1000ms pause.
+            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
 
         return gcode

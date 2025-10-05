@@ -1,6 +1,6 @@
 /**
  * Print Sequences Example - Demonstrating Pre-print and Post-print Options
- * 
+ *
  * This example shows different ways to use pre-print and post-print sequences:
  * 1. Basic sequence with test strip
  * 2. Sequence without test strip

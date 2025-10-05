@@ -1,16 +1,16 @@
 /**
  * Test Strip Example - Pre-print and Post-print sequence testing
- * 
+ *
  * This example demonstrates the pre-print and post-print sequences using
  * Printer and Filament configuration objects for easy customization.
- * 
+ *
  * The sequence will:
  * 1. Heat up nozzle and bed
  * 2. Autohome the nozzle
  * 3. Raise nozzle slightly
  * 4. Lay down a test strip along Y axis (if enabled)
  * 5. Complete post-print sequence (turn off, move home, triple beep)
- * 
+ *
  * This G-code can be tested on a real printer to verify the sequences work correctly.
  */
 
@@ -22,7 +22,7 @@ console.log('\n');
 
 // Create printer and filament configuration objects.
 // These can be easily customized for different setups.
-const printer = new Printer('Ender3'); // Or 'PrusaI3MK3S', 'Ender5', etc.
+const printer = new Printer('Ender5'); // Or 'PrusaI3MK3S', 'Ender5', etc.
 const filament = new Filament('GenericPLA'); // Or 'GenericPETG', 'GenericABS', etc.
 
 console.log('Printer & Filament Configuration:');
@@ -41,7 +41,8 @@ const slicer = new Polyslice({
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
   testStrip: true,
-  includeMetadata: true
+  includeMetadata: true,
+  bedTemperature: 0
 });
 
 console.log('Slicer Configuration:');
