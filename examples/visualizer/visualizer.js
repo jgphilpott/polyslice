@@ -32,7 +32,7 @@ function init() {
     0.1,
     1000
   );
-  camera.position.set(100, 100, 100);
+  camera.position.set(100, 100, -100); // Moved Y axis to opposite side
   camera.lookAt(0, 0, 0);
 
   // Create renderer.
@@ -101,7 +101,7 @@ function createAxes() {
   // Create Y axis (green) - G-code Y axis (maps to Three.js Z).
   const yGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, 0, axisLength),
+    new THREE.Vector3(0, 0, -axisLength), // Moved to opposite side
   ]);
   const yMaterial = new THREE.LineBasicMaterial({
     color: 0x00ff00,
@@ -302,6 +302,16 @@ function loadGCode(content, filename) {
   // Log metadata if available for debugging.
   if (gcodeObject.userData.metadata) {
     console.log('G-code metadata:', gcodeObject.userData.metadata);
+    
+    // Check if TYPE comments were found
+    const moveTypes = gcodeObject.userData.metadata.moveTypes || {};
+    if (Object.keys(moveTypes).length === 0) {
+      console.warn('No TYPE comments detected in G-code. Using legacy red/green colors.');
+      console.warn('For color-coded visualization, ensure your G-code includes Cura-style TYPE comments.');
+    } else {
+      console.log('TYPE comments detected! Color-coded visualization active.');
+      console.log('Movement types found:', Object.keys(moveTypes));
+    }
   }
 
   // Add to scene.
@@ -396,11 +406,11 @@ function centerCamera(object) {
   let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
   cameraZ *= 1.5; // Add some padding.
 
-  // Position camera in positive octant (X+, Y+, Z+) relative to center.
+  // Position camera with Y axis on opposite side (X+, Y+, Z-) relative to center.
   camera.position.set(
     center.x + cameraZ,
     center.y + cameraZ,
-    center.z + cameraZ
+    center.z - cameraZ
   );
 
   camera.lookAt(center);
@@ -417,7 +427,7 @@ function resetView() {
   if (gcodeObject) {
     centerCamera(gcodeObject);
   } else {
-    camera.position.set(100, 100, 100);
+    camera.position.set(100, 100, -100); // Moved Y axis to opposite side
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();
