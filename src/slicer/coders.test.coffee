@@ -139,7 +139,7 @@ describe 'G-code Generation (Coders)', ->
 
             expect(result).toContain('G92 E0') # Reset extruder.
             expect(result).toContain('G0 Z2') # Move Z up.
-            expect(result).toContain('G0 X10 Y10 Z0.28') # Move to start (X-axis now).
+            expect(result).toContain('G0 X10 Y10 Z0.25') # Move to start (X-axis now).
             expect(result).toContain('E15') # First line extrusion.
             expect(result).toContain('E30') # Second line cumulative extrusion.
             expect(result).toContain('G0 Z2') # Lift nozzle.
@@ -212,16 +212,15 @@ describe 'G-code Generation (Coders)', ->
 
             expect(result).toContain('M107') # Turn off fan.
             expect(result).toContain('G91') # Relative positioning.
-            expect(result).toContain('G1 E-2') # Retract.
-            expect(result).toContain('G0 Z10') # Raise nozzle.
+            expect(result).toContain('E-2') # Retract.
+            expect(result).toContain('G1 Z10') # Raise nozzle.
             expect(result).toContain('G90') # Absolute positioning.
             expect(result).toContain('G28 X Y') # Home X and Y.
             expect(result).toContain('M104 S0') # Turn off nozzle.
             expect(result).toContain('M140 S0') # Turn off bed.
             expect(result).toContain('M84 X Y E') # Disable steppers.
             expect(result).toContain('M300') # Buzzer command present (triple beep).
-            expect(result).toContain('G4') # Dwell between beeps.
-            expect(result).toContain('S1000') # Frequency 1000Hz.
+            expect(result).toContain('S420') # Frequency 420Hz.
 
         test 'should generate post-print without buzzer', ->
 

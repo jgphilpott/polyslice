@@ -629,16 +629,18 @@ module.exports =
         return gcode
 
     # Generate test strip G-code to verify extrusion before print.
-    codeTestStrip: (slicer, length = null, width = 0.4, height = 0.28) ->
+    codeTestStrip: (slicer, length = null, width = 0.4, height = 0.25) ->
 
         gcode = ""
+
+        margin = 10
 
         verbose = slicer.getVerbose()
 
         # Calculate test strip length: use full bed width minus margins.
         if length is null
 
-            length = slicer.getBuildPlateWidth() - 20 # 10mm margin on each end.
+            length = slicer.getBuildPlateWidth() - (margin * 2) # margin on each end.
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Printing test strip...")
 
@@ -651,8 +653,8 @@ module.exports =
         if verbose then gcode += "; Move Z Up" + slicer.newline
 
         # Move to starting position at front left of bed (along X-axis).
-        startX = 10
-        startY = 10
+        startX = margin
+        startY = margin
 
         gcode += module.exports.codeLinearMovement(slicer, startX, startY, height, null, 5000)
         if verbose then gcode += "; Move to Start Position" + slicer.newline
@@ -773,23 +775,14 @@ module.exports =
         gcode += module.exports.codePositioningMode(slicer, false)
         if verbose then gcode += "; Relative Positioning" + slicer.newline
 
-        # Retract a bit.
-        gcode += module.exports.codeLinearMovement(slicer, null, null, null, -2, 2700)
-        if verbose then gcode += "; Retract Filament" + slicer.newline
-
         # Retract and raise Z.
-        gcode += module.exports.codeLinearMovement(slicer, null, null, 0.2, -2, 2400)
+        gcode += module.exports.codeLinearMovement(slicer, null, null, 10, -2, 2400)
         if verbose then gcode += "; Retract and Raise Z" + slicer.newline
 
-        # Wipe out (optional based on setting).
-        if wipeNozzle
+        if wipeNozzle # Wipe out (optional based on setting).
 
             gcode += module.exports.codeLinearMovement(slicer, 5, 5, null, null, 3000)
             if verbose then gcode += "; Wipe Nozzle" + slicer.newline
-
-        # Raise Z more (10mm).
-        gcode += module.exports.codeLinearMovement(slicer, null, null, 10, null, null)
-        if verbose then gcode += "; Raise Z" + slicer.newline
 
         # Switch back to absolute positioning.
         gcode += module.exports.codePositioningMode(slicer, true)
@@ -817,7 +810,7 @@ module.exports =
         # Set extrusion mode based on slicer settings.
         isAbsoluteExtrusion = slicer.getExtruderMode() is "absolute"
         gcode += module.exports.codeExtruderMode(slicer, isAbsoluteExtrusion)
-        if verbose then gcode += "; Set " + slicer.getExtruderMode() + " Extrusion Mode" + slicer.newline
+        if verbose then gcode += "; Set '" + slicer.getExtruderMode() + "' Extrusion Mode" + slicer.newline
 
         # Turn off nozzle again (ensure it's off).
         gcode += module.exports.codeNozzleTemperature(slicer, 0, false)
@@ -826,13 +819,8 @@ module.exports =
 
         if buzzer # Sound buzzer if enabled.
 
-            if verbose then gcode += module.exports.codeMessage(slicer, "Print complete!")
+            gcode += "M300 P1000 S420"
 
-            # Triple beep: 3 longer beeps.
-            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
-            gcode += module.exports.codeDwell(slicer, 0.3, false) # 300ms pause.
-            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
-            gcode += module.exports.codeDwell(slicer, 0.3, false) # 300ms pause.
-            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
+        if verbose then gcode += module.exports.codeMessage(slicer, "Print complete!")
 
         return gcode

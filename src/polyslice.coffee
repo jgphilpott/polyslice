@@ -95,7 +95,7 @@ class Polyslice
         @metadata = options.metadata ?= true # Boolean - include metadata header in G-code.
         @verbose = options.verbose ?= true # Boolean - include comments/annotations in G-code.
 
-        # Post-print options.
+        # Post-print settings.
         @buzzer = options.buzzer ?= true # Boolean - sound buzzer at end of post-print.
         @wipeNozzle = options.wipeNozzle ?= false # Boolean - perform wipe move during post-print.
 
