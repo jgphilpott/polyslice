@@ -32,7 +32,7 @@ function init() {
     0.1,
     1000
   );
-  camera.position.set(100, 100, 100);
+  camera.position.set(100, 100, -100); // Moved Y axis to opposite side
   camera.lookAt(0, 0, 0);
 
   // Create renderer.
@@ -101,7 +101,7 @@ function createAxes() {
   // Create Y axis (green) - G-code Y axis (maps to Three.js Z).
   const yGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, 0, axisLength),
+    new THREE.Vector3(0, 0, -axisLength), // Moved to opposite side
   ]);
   const yMaterial = new THREE.LineBasicMaterial({
     color: 0x00ff00,
@@ -134,16 +134,36 @@ function createLegend() {
             <div id="legend">
                 <h3>Movement Types</h3>
                 <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff6600;"></div>
+                    <span>Outer Wall</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff9933;"></div>
+                    <span>Inner Wall</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffcc00;"></div>
+                    <span>Skin (Top/Bottom)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #00ccff;"></div>
+                    <span>Infill</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff00ff;"></div>
+                    <span>Support</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #888888;"></div>
+                    <span>Skirt/Brim</span>
+                </div>
+                <div class="legend-item">
                     <div class="legend-color" style="background-color: #ff0000;"></div>
-                    <span>Travel (G0 - Non-extruding)</span>
+                    <span>Travel (Non-extruding)</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background-color: #00ff00;"></div>
-                    <span>Extrusion (G1 - Extruding)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background-color: #ffff00;"></div>
-                    <span>Arc Movement (G2/G3)</span>
+                    <span>Other Extrusion</span>
                 </div>
             </div>
             <div id="axes-legend">
@@ -276,11 +296,22 @@ function loadGCode(content, filename) {
 
   // Parse G-code with extended loader that preserves comments.
   const loader = new GCodeLoaderExtended();
+  loader.splitLayer = true; // Enable layer splitting for proper layer slider functionality
   gcodeObject = loader.parse(content);
 
   // Log metadata if available for debugging.
   if (gcodeObject.userData.metadata) {
     console.log('G-code metadata:', gcodeObject.userData.metadata);
+    
+    // Check if TYPE comments were found
+    const moveTypes = gcodeObject.userData.metadata.moveTypes || {};
+    if (Object.keys(moveTypes).length === 0) {
+      console.warn('No TYPE comments detected in G-code. Using legacy red/green colors.');
+      console.warn('For color-coded visualization, ensure your G-code includes Cura-style TYPE comments.');
+    } else {
+      console.log('TYPE comments detected! Color-coded visualization active.');
+      console.log('Movement types found:', Object.keys(moveTypes));
+    }
   }
 
   // Add to scene.
@@ -312,30 +343,52 @@ function updateInfo(filename, object) {
   document.getElementById('filename').textContent = filename;
 
   let totalLines = 0;
-  let travelMoves = 0;
-  let extrusionMoves = 0;
+  const typeCount = {};
 
   object.traverse(child => {
     if (child instanceof THREE.LineSegments) {
       totalLines++;
 
-      // Check material name to determine move type.
-      if (child.material && child.material.name === 'path') {
-        travelMoves++;
-      } else if (child.material && child.material.name === 'extruded') {
-        extrusionMoves++;
+      // Count by material/type name.
+      if (child.material && child.material.name) {
+        const typeName = child.material.name;
+        typeCount[typeName] = (typeCount[typeName] || 0) + 1;
       }
     }
   });
 
-  const statsText = `
-        Total line segments: ${totalLines}
-        Travel moves: ${travelMoves}
-        Extrusion moves: ${extrusionMoves}
-    `
-    .trim()
-    .replace(/\n\s+/g, '\n');
+  // Build stats text with type breakdown
+  let statsLines = [`Total segments: ${totalLines}`];
 
+  // Add metadata info if available
+  if (object.userData.metadata) {
+    const metadata = object.userData.metadata;
+    if (metadata.layerCount > 0) {
+      statsLines.push(`Layers: ${metadata.layerCount}`);
+    }
+    if (Object.keys(metadata.moveTypes).length > 0) {
+      statsLines.push('Movement types detected:');
+      Object.entries(metadata.moveTypes).forEach(([type, count]) => {
+        statsLines.push(`  ${type}: ${count} sections`);
+      });
+    }
+  }
+
+  // Add segment counts by type
+  if (Object.keys(typeCount).length > 0) {
+    statsLines.push('Segments by type:');
+    Object.entries(typeCount).forEach(([type, count]) => {
+      const displayName =
+        type === 'path'
+          ? 'Travel'
+          : type === 'extruded'
+            ? 'Generic extrusion'
+            : type;
+      statsLines.push(`  ${displayName}: ${count}`);
+    });
+  }
+
+  const statsText = statsLines.join('\n');
   document.getElementById('stats').textContent = statsText;
 }
 
@@ -353,11 +406,11 @@ function centerCamera(object) {
   let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
   cameraZ *= 1.5; // Add some padding.
 
-  // Position camera in positive octant (X+, Y+, Z+) relative to center.
+  // Position camera with Y axis on opposite side (X+, Y+, Z-) relative to center.
   camera.position.set(
     center.x + cameraZ,
     center.y + cameraZ,
-    center.z + cameraZ
+    center.z - cameraZ
   );
 
   camera.lookAt(center);
@@ -374,7 +427,7 @@ function resetView() {
   if (gcodeObject) {
     centerCamera(gcodeObject);
   } else {
-    camera.position.set(100, 100, 100);
+    camera.position.set(100, 100, -100); // Moved Y axis to opposite side
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();

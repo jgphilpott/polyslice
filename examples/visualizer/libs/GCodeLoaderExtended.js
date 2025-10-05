@@ -91,28 +91,58 @@ class GCodeLoaderExtended extends Loader {
       f: 0,
       extruding: false,
       relative: false,
+      currentType: null, // Track current movement type from comments
     };
     const layers = [];
 
     let currentLayer = undefined;
 
-    const pathMaterial = new LineBasicMaterial({ color: 0xff0000 });
-    pathMaterial.name = 'path';
+    // Define materials for different movement types
+    const materials = {
+      path: new LineBasicMaterial({ color: 0xff0000, name: 'path' }),
+      extruded: new LineBasicMaterial({ color: 0x00ff00, name: 'extruded' }),
+      'WALL-OUTER': new LineBasicMaterial({ color: 0xff6600, name: 'WALL-OUTER' }),
+      'WALL-INNER': new LineBasicMaterial({ color: 0xff9933, name: 'WALL-INNER' }),
+      SKIN: new LineBasicMaterial({ color: 0xffcc00, name: 'SKIN' }),
+      FILL: new LineBasicMaterial({ color: 0x00ccff, name: 'FILL' }),
+      SUPPORT: new LineBasicMaterial({ color: 0xff00ff, name: 'SUPPORT' }),
+      'SUPPORT-INTERFACE': new LineBasicMaterial({ color: 0xcc00cc, name: 'SUPPORT-INTERFACE' }),
+      SKIRT: new LineBasicMaterial({ color: 0x888888, name: 'SKIRT' }),
+      PRIME: new LineBasicMaterial({ color: 0x00ff00, name: 'PRIME' }),
+    };
 
-    const extrudingMaterial = new LineBasicMaterial({ color: 0x00ff00 });
-    extrudingMaterial.name = 'extruded';
+    // Legacy references for compatibility
+    const pathMaterial = materials.path;
+    const extrudingMaterial = materials.extruded;
 
     function newLayer(line) {
-      currentLayer = { vertex: [], pathVertex: [], z: line.z };
+      currentLayer = { 
+        vertex: [], 
+        pathVertex: [], 
+        z: line.z,
+        segments: [] // Store segments with their type information
+      };
       layers.push(currentLayer);
     }
 
-    //Create lie segment between p1 and p2
+    //Create line segment between p1 and p2
     function addSegment(p1, p2) {
       if (currentLayer === undefined) {
         newLayer(p1);
       }
 
+      // Determine the type for this segment
+      const segmentType = state.currentType || (state.extruding ? 'extruded' : 'path');
+
+      // Store segment with type information
+      currentLayer.segments.push({
+        p1: { x: p1.x, y: p1.y, z: p1.z },
+        p2: { x: p2.x, y: p2.y, z: p2.z },
+        type: segmentType,
+        extruding: state.extruding
+      });
+
+      // Also maintain legacy vertex arrays for backward compatibility
       if (state.extruding) {
         currentLayer.vertex.push(p1.x, p1.y, p1.z);
         currentLayer.vertex.push(p2.x, p2.y, p2.z);
@@ -135,6 +165,7 @@ class GCodeLoaderExtended extends Loader {
       comments: [],
       layerComments: {},
       moveTypes: {},
+      layerCount: 0,
     };
 
     const lines = data.split('\n');
@@ -150,6 +181,19 @@ class GCodeLoaderExtended extends Loader {
         comment = rawLine.substring(commentIndex + 1).trim();
         codePart = rawLine.substring(0, commentIndex).trim();
         metadata.comments.push({ line: i, comment });
+
+        // Parse special Cura-style comments
+        if (comment.startsWith('TYPE:')) {
+          const type = comment.substring(5).trim();
+          state.currentType = type;
+          metadata.moveTypes[type] = (metadata.moveTypes[type] || 0) + 1;
+        } else if (comment.startsWith('LAYER:')) {
+          const layerNum = parseInt(comment.substring(6).trim());
+          if (!isNaN(layerNum)) {
+            metadata.layerCount = Math.max(metadata.layerCount, layerNum + 1);
+            metadata.layerComments[layerNum] = i;
+          }
+        }
       }
 
       const tokens = codePart.split(' ');
@@ -186,7 +230,13 @@ class GCodeLoaderExtended extends Loader {
         }
 
         addSegment(state, line);
+        
+        // Preserve currentType when updating state
+        const preservedType = state.currentType;
+        const preservedRelative = state.relative;
         state = line;
+        state.currentType = preservedType;
+        state.relative = preservedRelative;
       } else if (cmd === 'G2' || cmd === 'G3') {
         //G2/G3 - Arc Movement ( G2 clock wise and G3 counter clock wise )
         //console.warn( 'THREE.GCodeLoader: Arc command not supported' );
@@ -219,16 +269,90 @@ class GCodeLoaderExtended extends Loader {
       object.add(segments);
     }
 
+    // Add segments grouped by type
+    function addSegmentsByType(layer, layerIndex) {
+      // Group segments by type
+      const segmentsByType = {};
+
+      layer.segments.forEach(seg => {
+        const type = seg.type;
+        if (!segmentsByType[type]) {
+          segmentsByType[type] = [];
+        }
+        segmentsByType[type].push(seg.p1.x, seg.p1.y, seg.p1.z);
+        segmentsByType[type].push(seg.p2.x, seg.p2.y, seg.p2.z);
+      });
+
+      // Create line segments for each type
+      Object.keys(segmentsByType).forEach(type => {
+        const vertices = segmentsByType[type];
+        if (vertices.length > 0) {
+          const geometry = new BufferGeometry();
+          geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
+          
+          // Use specific material for the type, or fall back to extruded/path
+          const material = materials[type] || materials.extruded;
+          
+          const segments = new LineSegments(geometry, material);
+          segments.name = 'layer' + layerIndex;
+          segments.userData.type = type;
+          object.add(segments);
+        }
+      });
+    }
+
     const object = new Group();
     object.name = 'gcode';
 
-    if (this.splitLayer) {
+    // Use type-based rendering when TYPE comments are detected
+    const hasTypeComments = Object.keys(metadata.moveTypes).length > 0;
+
+    if (hasTypeComments && this.splitLayer) {
+      // Split by layer and color by type
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        addSegmentsByType(layer, i);
+      }
+    } else if (hasTypeComments && !this.splitLayer) {
+      // All layers combined but colored by type
+      const allSegmentsByType = {};
+      
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        layer.segments.forEach(seg => {
+          const type = seg.type;
+          if (!allSegmentsByType[type]) {
+            allSegmentsByType[type] = [];
+          }
+          allSegmentsByType[type].push(seg.p1.x, seg.p1.y, seg.p1.z);
+          allSegmentsByType[type].push(seg.p2.x, seg.p2.y, seg.p2.z);
+        });
+      }
+
+      // Create line segments for each type
+      Object.keys(allSegmentsByType).forEach(type => {
+        const vertices = allSegmentsByType[type];
+        if (vertices.length > 0) {
+          const geometry = new BufferGeometry();
+          geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
+          
+          const material = materials[type] || materials.extruded;
+          
+          const segments = new LineSegments(geometry, material);
+          segments.name = 'type_' + type;
+          segments.userData.type = type;
+          object.add(segments);
+        }
+      });
+    } else if (this.splitLayer) {
+      // Legacy: split by layer without type colors
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
         addObject(layer.vertex, true, i);
         addObject(layer.pathVertex, false, i);
       }
     } else {
+      // Legacy: all combined without type colors
       const vertex = [],
         pathVertex = [];
 
