@@ -130,13 +130,21 @@ module.exports =
 
         return slicer.outline
 
-    getIncludeMetadata: (slicer) ->
+    getMetadata: (slicer) ->
 
-        return slicer.includeMetadata
+        return slicer.metadata
 
     getVerbose: (slicer) ->
 
         return slicer.verbose
+
+    getSoundBuzzer: (slicer) ->
+
+        return slicer.soundBuzzer
+
+    getWipeNozzle: (slicer) ->
+
+        return slicer.wipeNozzle
 
     getPositioningMode: (slicer) ->
 
@@ -410,15 +418,27 @@ module.exports =
 
         return slicer
 
-    setIncludeMetadata: (slicer, includeMetadata = true) ->
+    setMetadata: (slicer, metadata = true) ->
 
-        slicer.includeMetadata = Boolean includeMetadata
+        slicer.metadata = Boolean metadata
 
         return slicer
 
     setVerbose: (slicer, verbose = true) ->
 
         slicer.verbose = Boolean verbose
+
+        return slicer
+
+    setSoundBuzzer: (slicer, soundBuzzer = true) ->
+
+        slicer.soundBuzzer = Boolean soundBuzzer
+
+        return slicer
+
+    setWipeNozzle: (slicer, wipeNozzle = false) ->
+
+        slicer.wipeNozzle = Boolean wipeNozzle
 
         return slicer
 

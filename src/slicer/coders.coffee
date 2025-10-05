@@ -687,7 +687,7 @@ module.exports =
         verbose = slicer.getVerbose()
 
         # Add metadata header if enabled.
-        if slicer.getIncludeMetadata()
+        if slicer.getMetadata()
 
             gcode += module.exports.codeMetadata(slicer)
 
@@ -755,11 +755,13 @@ module.exports =
         return gcode
 
     # Generate post-print sequence G-code.
-    codePostPrint: (slicer, raiseHeight = 10, soundBuzzer = true) ->
+    codePostPrint: (slicer) ->
 
         gcode = ""
 
         verbose = slicer.getVerbose()
+        wipeNozzle = slicer.getWipeNozzle()
+        soundBuzzer = slicer.getSoundBuzzer()
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Starting post-print sequence...")
 
@@ -779,12 +781,14 @@ module.exports =
         gcode += module.exports.codeLinearMovement(slicer, null, null, 0.2, -2, 2400)
         if verbose then gcode += "; Retract and Raise Z" + slicer.newline
 
-        # Wipe out.
-        gcode += module.exports.codeLinearMovement(slicer, 5, 5, null, null, 3000)
-        if verbose then gcode += "; Wipe Nozzle" + slicer.newline
+        # Wipe out (optional based on setting).
+        if wipeNozzle
 
-        # Raise Z more.
-        gcode += module.exports.codeLinearMovement(slicer, null, null, raiseHeight, null, null)
+            gcode += module.exports.codeLinearMovement(slicer, 5, 5, null, null, 3000)
+            if verbose then gcode += "; Wipe Nozzle" + slicer.newline
+
+        # Raise Z more (10mm).
+        gcode += module.exports.codeLinearMovement(slicer, null, null, 10, null, null)
         if verbose then gcode += "; Raise Z" + slicer.newline
 
         # Switch back to absolute positioning.
@@ -813,7 +817,7 @@ module.exports =
         # Set extrusion mode based on slicer settings.
         isAbsoluteExtrusion = slicer.getExtruderMode() is "absolute"
         gcode += module.exports.codeExtruderMode(slicer, isAbsoluteExtrusion)
-        if verbose then gcode += "; Set '" + slicer.getExtruderMode() + "' Extrusion Mode" + slicer.newline
+        if verbose then gcode += "; Set " + slicer.getExtruderMode() + " Extrusion Mode" + slicer.newline
 
         # Turn off nozzle again (ensure it's off).
         gcode += module.exports.codeNozzleTemperature(slicer, 0, false)
@@ -822,8 +826,13 @@ module.exports =
 
         if soundBuzzer # Sound buzzer if enabled.
 
-            gcode += module.exports.codeTone(slicer, 1, 1000) # 1000ms beep.
-
             if verbose then gcode += module.exports.codeMessage(slicer, "Print complete!")
+
+            # Triple beep: 3 short beeps.
+            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
+            gcode += module.exports.codeDwell(slicer, 0.1, false) # 100ms pause.
+            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
+            gcode += module.exports.codeDwell(slicer, 0.1, false) # 100ms pause.
+            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
 
         return gcode

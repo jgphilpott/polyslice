@@ -91,9 +91,11 @@ class Polyslice
         @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
         @outline = options.outline ?= true # Boolean - make thin outline of layer 1 exterior.
 
-        # Metadata settings for G-code generation.
-        @includeMetadata = options.includeMetadata ?= true # Boolean - include metadata header in G-code.
+        # G-code generation settings.
+        @metadata = options.metadata ?= true # Boolean - include metadata header in G-code.
         @verbose = options.verbose ?= true # Boolean - include comments/annotations in G-code.
+        @soundBuzzer = options.soundBuzzer ?= true # Boolean - sound buzzer at end of post-print.
+        @wipeNozzle = options.wipeNozzle ?= false # Boolean - perform wipe move during post-print.
 
         # Positioning and extrusion mode settings.
         @positioningMode = options.positioningMode ?= "absolute" # String ['absolute', 'relative'].
@@ -194,11 +196,17 @@ class Polyslice
     getOutline: ->
         accessors.getOutline(this)
 
-    getIncludeMetadata: ->
-        accessors.getIncludeMetadata(this)
+    getMetadata: ->
+        accessors.getMetadata(this)
 
     getVerbose: ->
         accessors.getVerbose(this)
+
+    getSoundBuzzer: ->
+        accessors.getSoundBuzzer(this)
+
+    getWipeNozzle: ->
+        accessors.getWipeNozzle(this)
 
     getPositioningMode: ->
         accessors.getPositioningMode(this)
@@ -307,11 +315,17 @@ class Polyslice
     setOutline: (outline = true) ->
         accessors.setOutline(this, outline)
 
-    setIncludeMetadata: (includeMetadata = true) ->
-        accessors.setIncludeMetadata(this, includeMetadata)
+    setMetadata: (metadata = true) ->
+        accessors.setMetadata(this, metadata)
 
     setVerbose: (verbose = true) ->
         accessors.setVerbose(this, verbose)
+
+    setSoundBuzzer: (soundBuzzer = true) ->
+        accessors.setSoundBuzzer(this, soundBuzzer)
+
+    setWipeNozzle: (wipeNozzle = false) ->
+        accessors.setWipeNozzle(this, wipeNozzle)
 
     setPositioningMode: (mode = "absolute") ->
         accessors.setPositioningMode(this, mode)
@@ -423,8 +437,8 @@ class Polyslice
     codePrePrint: ->
         coders.codePrePrint(this)
 
-    codePostPrint: (raiseHeight, soundBuzzer) ->
-        coders.codePostPrint(this, raiseHeight, soundBuzzer)
+    codePostPrint: ->
+        coders.codePostPrint(this)
 
     # Helper method delegates:
 

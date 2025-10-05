@@ -53,7 +53,10 @@ console.log(`- Nozzle Temperature: ${slicer.getNozzleTemperature()}°C`);
 console.log(`- Bed Temperature: ${slicer.getBedTemperature()}°C`);
 console.log(`- Fan Speed: ${slicer.getFanSpeed()}%`);
 console.log(`- Test Strip Enabled: ${slicer.getTestStrip()}`);
-console.log(`- Include Metadata: ${slicer.getIncludeMetadata()}`);
+console.log(`- Metadata: ${slicer.getMetadata()}`);
+console.log(`- Verbose: ${slicer.getVerbose()}`);
+console.log(`- Sound Buzzer: ${slicer.getSoundBuzzer()}`);
+console.log(`- Wipe Nozzle: ${slicer.getWipeNozzle()}`);
 console.log('\n');
 
 console.log('Generated G-code:');
