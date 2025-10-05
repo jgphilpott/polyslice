@@ -93,6 +93,11 @@ class Polyslice
 
         # Metadata settings for G-code generation.
         @includeMetadata = options.includeMetadata ?= true # Boolean - include metadata header in G-code.
+        @verbose = options.verbose ?= true # Boolean - include comments/annotations in G-code.
+
+        # Positioning and extrusion mode settings.
+        @positioningMode = options.positioningMode ?= "absolute" # String ['absolute', 'relative'].
+        @extruderMode = options.extruderMode ?= "absolute" # String ['absolute', 'relative'].
 
     # Getter method delegates:
 
@@ -191,6 +196,15 @@ class Polyslice
 
     getIncludeMetadata: ->
         accessors.getIncludeMetadata(this)
+
+    getVerbose: ->
+        accessors.getVerbose(this)
+
+    getPositioningMode: ->
+        accessors.getPositioningMode(this)
+
+    getExtruderMode: ->
+        accessors.getExtruderMode(this)
 
     getPrinter: ->
         accessors.getPrinter(this)
@@ -296,6 +310,15 @@ class Polyslice
     setIncludeMetadata: (includeMetadata = true) ->
         accessors.setIncludeMetadata(this, includeMetadata)
 
+    setVerbose: (verbose = true) ->
+        accessors.setVerbose(this, verbose)
+
+    setPositioningMode: (mode = "absolute") ->
+        accessors.setPositioningMode(this, mode)
+
+    setExtruderMode: (mode = "absolute") ->
+        accessors.setExtruderMode(this, mode)
+
     setPrinter: (printer) ->
         accessors.setPrinter(this, printer)
 
@@ -397,8 +420,8 @@ class Polyslice
     codeTestStrip: (length, width, height) ->
         coders.codeTestStrip(this, length, width, height)
 
-    codePrePrint: (raiseHeight, heatNozzleFirst) ->
-        coders.codePrePrint(this, raiseHeight, heatNozzleFirst)
+    codePrePrint: ->
+        coders.codePrePrint(this)
 
     codePostPrint: (raiseHeight, soundBuzzer) ->
         coders.codePostPrint(this, raiseHeight, soundBuzzer)

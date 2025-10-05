@@ -633,98 +633,109 @@ module.exports =
 
         gcode = ""
 
-        # Calculate test strip length: use full bed length minus margins.
+        verbose = slicer.getVerbose()
+
+        # Calculate test strip length: use full bed width minus margins.
         if length is null
 
-            length = slicer.getBuildPlateLength() - 20 # 10mm margin on each end.
+            length = slicer.getBuildPlateWidth() - 20 # 10mm margin on each end.
+
+        if verbose then gcode += module.exports.codeMessage(slicer, "Printing test strip...")
 
         # Reset extruder position before test strip.
         gcode += module.exports.codeSetPosition(slicer, null, null, null, 0)
+        if verbose then gcode += "; Reset extruder" + slicer.newline
 
         # Move Z axis up first.
         gcode += module.exports.codeLinearMovement(slicer, null, null, 2.0, null, 3000)
+        if verbose then gcode += "; Move Z up" + slicer.newline
 
-        # Move to starting position at front left of bed.
-        startX = 10.1
-        startY = 20
+        # Move to starting position at front left of bed (along X-axis).
+        startX = 10
+        startY = 10
 
         gcode += module.exports.codeLinearMovement(slicer, startX, startY, height, null, 5000)
+        if verbose then gcode += "; Move to start position" + slicer.newline
 
-        # Calculate extrusion amount for line - Cura uses E15 for 180mm line, so ~0.0833 per mm.
-        extrusionPerMm = 15.0 / (length - startY)
-
-        # Draw the first line.
-        gcode += module.exports.codeLinearMovement(slicer, startX, startY + length, height, 15, 1500)
+        # Draw the first line along X-axis.
+        gcode += module.exports.codeLinearMovement(slicer, startX + length, startY, height, 15, 1500)
+        if verbose then gcode += "; Draw first line" + slicer.newline
 
         # Move to side a little (travel move).
-        gcode += module.exports.codeLinearMovement(slicer, startX + width, startY + length, height, null, 5000)
+        gcode += module.exports.codeLinearMovement(slicer, startX + length, startY + width, height, null, 5000)
+        if verbose then gcode += "; Move to side" + slicer.newline
 
         # Draw the second line (cumulative extrusion to E30).
-        gcode += module.exports.codeLinearMovement(slicer, startX + width, startY, height, 30, 1500)
+        gcode += module.exports.codeLinearMovement(slicer, startX, startY + width, height, 30, 1500)
+        if verbose then gcode += "; Draw second line" + slicer.newline
 
         # Reset extruder after test strip.
         gcode += module.exports.codeSetPosition(slicer, null, null, null, 0)
+        if verbose then gcode += "; Reset extruder" + slicer.newline
 
         # Lift nozzle.
         gcode += module.exports.codeLinearMovement(slicer, null, null, 2.0, null, 3000)
+        if verbose then gcode += "; Lift nozzle" + slicer.newline
 
         return gcode
 
     # Generate pre-print sequence G-code.
-    codePrePrint: (slicer, raiseHeight = 10, heatNozzleFirst = true) ->
+    codePrePrint: (slicer) ->
 
         gcode = ""
+
+        verbose = slicer.getVerbose()
 
         # Add metadata header if enabled.
         if slicer.getIncludeMetadata()
 
             gcode += module.exports.codeMetadata(slicer)
 
-        # Start heating nozzle (without wait initially).
+        if verbose then gcode += module.exports.codeMessage(slicer, "Starting pre-print sequence...")
+
+        # Optimized heating: Start heating nozzle and bed simultaneously (without wait).
         if slicer.nozzleTemperature > 0
 
             gcode += module.exports.codeNozzleTemperature(slicer, null, false)
+            if verbose then gcode += "; Start heating nozzle" + slicer.newline
 
-        # Heat up nozzle and bed - wait for temperature.
-        if heatNozzleFirst
+        if slicer.bedTemperature > 0
 
-            # Wait for nozzle temperature.
-            if slicer.nozzleTemperature > 0
+            gcode += module.exports.codeBedTemperature(slicer, null, false)
+            if verbose then gcode += "; Start heating bed" + slicer.newline
 
-                gcode += module.exports.codeNozzleTemperature(slicer, null, true)
-
-            # Then heat bed with wait.
-            if slicer.bedTemperature > 0
-
-                gcode += module.exports.codeBedTemperature(slicer, null, true)
-
-        else
-
-            # Start bed heating (without wait).
-            if slicer.bedTemperature > 0
-
-                gcode += module.exports.codeBedTemperature(slicer, null, false)
-
-            # Now wait for both to reach temperature.
-            if slicer.nozzleTemperature > 0
-
-                gcode += module.exports.codeNozzleTemperature(slicer, null, true)
-
-            if slicer.bedTemperature > 0
-
-                gcode += module.exports.codeBedTemperature(slicer, null, true)
-
-        # Set absolute extrusion mode.
-        gcode += module.exports.codeExtruderMode(slicer, true)
-
-        # Autohome the nozzle AFTER heating.
+        # Perform autohome while heating (parallel operation for speed optimization).
         if slicer.getAutohome()
 
             gcode += module.exports.codeAutohome(slicer)
+            if verbose then gcode += "; Home all axes" + slicer.newline
+
+        # Back off bed 1cm after autohome (so hot nozzle isn't resting on bed while waiting for temp).
+        gcode += module.exports.codeLinearMovement(slicer, null, null, 10, null, 3000)
+        if verbose then gcode += "; Raise Z to 10mm (protect bed while heating)" + slicer.newline
+
+        # Now wait for both nozzle and bed to reach temperature.
+        if slicer.nozzleTemperature > 0
+
+            gcode += module.exports.codeNozzleTemperature(slicer, null, true)
+            if verbose then gcode += "; Wait for nozzle temperature" + slicer.newline
+
+        if slicer.bedTemperature > 0
+
+            gcode += module.exports.codeBedTemperature(slicer, null, true)
+            if verbose then gcode += "; Wait for bed temperature" + slicer.newline
+
+        # Set extrusion mode based on slicer settings.
+        isAbsoluteExtrusion = slicer.getExtruderMode() is "absolute"
+        gcode += module.exports.codeExtruderMode(slicer, isAbsoluteExtrusion)
+        if verbose then gcode += "; Set " + slicer.getExtruderMode() + " extrusion mode" + slicer.newline
 
         # Set workspace plane and units.
         gcode += module.exports.codeWorkspacePlane(slicer)
+        if verbose then gcode += "; Set workspace plane" + slicer.newline
+
         gcode += module.exports.codeLengthUnit(slicer)
+        if verbose then gcode += "; Set units" + slicer.newline
 
         # Lay test strip if enabled.
         if slicer.getTestStrip()
@@ -733,9 +744,13 @@ module.exports =
 
         # Reset extruder position before print starts.
         gcode += module.exports.codeSetPosition(slicer, null, null, null, 0)
+        if verbose then gcode += "; Reset extruder position" + slicer.newline
 
         # Retract slightly before print.
         gcode += module.exports.codeLinearMovement(slicer, null, null, null, -5, 2700)
+        if verbose then gcode += "; Retract filament" + slicer.newline
+
+        if verbose then gcode += module.exports.codeMessage(slicer, "Pre-print sequence complete")
 
         return gcode
 
@@ -744,55 +759,76 @@ module.exports =
 
         gcode = ""
 
+        verbose = slicer.getVerbose()
+
+        if verbose then gcode += module.exports.codeMessage(slicer, "Starting post-print sequence...")
+
         # Turn off fan.
         gcode += module.exports.codeFanSpeed(slicer, 0)
+        if verbose then gcode += "; Turn off fan" + slicer.newline
 
         # Switch to relative positioning for safe moves.
         gcode += module.exports.codePositioningMode(slicer, false)
+        if verbose then gcode += "; Relative positioning" + slicer.newline
 
         # Retract a bit.
         gcode += module.exports.codeLinearMovement(slicer, null, null, null, -2, 2700)
+        if verbose then gcode += "; Retract filament" + slicer.newline
 
         # Retract and raise Z.
         gcode += module.exports.codeLinearMovement(slicer, null, null, 0.2, -2, 2400)
+        if verbose then gcode += "; Retract and raise Z" + slicer.newline
 
         # Wipe out.
         gcode += module.exports.codeLinearMovement(slicer, 5, 5, null, null, 3000)
+        if verbose then gcode += "; Wipe nozzle" + slicer.newline
 
         # Raise Z more.
         gcode += module.exports.codeLinearMovement(slicer, null, null, raiseHeight, null, null)
+        if verbose then gcode += "; Raise Z" + slicer.newline
 
         # Switch back to absolute positioning.
         gcode += module.exports.codePositioningMode(slicer, true)
+        if verbose then gcode += "; Absolute positioning" + slicer.newline
 
         # Present print (home X and Y only, not Z).
         gcode += module.exports.codeAutohome(slicer, true, true, false)
+        if verbose then gcode += "; Present print (home X/Y)" + slicer.newline
 
-        # Turn off fan (redundant but matches Cura).
+        # Turn off fan (redundant but ensures it's off).
         gcode += module.exports.codeFanSpeed(slicer, 0)
 
         # Turn off nozzle temperature.
         gcode += module.exports.codeNozzleTemperature(slicer, 0, false)
+        if verbose then gcode += "; Turn off nozzle" + slicer.newline
 
         # Turn off bed temperature.
         gcode += module.exports.codeBedTemperature(slicer, 0, false)
+        if verbose then gcode += "; Turn off bed" + slicer.newline
 
         # Disable steppers (X, Y, E but not Z).
         gcode += module.exports.codeDisableSteppers(slicer, true, true, false, true)
+        if verbose then gcode += "; Disable X/Y/E steppers" + slicer.newline
 
-        # Set absolute extrusion mode.
-        gcode += module.exports.codeExtruderMode(slicer, true)
+        # Set extrusion mode based on slicer settings.
+        isAbsoluteExtrusion = slicer.getExtruderMode() is "absolute"
+        gcode += module.exports.codeExtruderMode(slicer, isAbsoluteExtrusion)
+        if verbose then gcode += "; Set " + slicer.getExtruderMode() + " extrusion mode" + slicer.newline
 
-        # Turn off nozzle again (matches Cura end sequence).
+        # Turn off nozzle again (ensure it's off).
         gcode += module.exports.codeNozzleTemperature(slicer, 0, false)
+
+        if verbose then gcode += module.exports.codeMessage(slicer, "Post-print sequence complete")
 
         if soundBuzzer # Sound buzzer if enabled - LAST.
 
-            # Triple beep: 3 short beeps:
-            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
-            gcode += module.exports.codeDwell(slicer, 1, false) # 1000ms pause.
-            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
-            gcode += module.exports.codeDwell(slicer, 1, false) # 1000ms pause.
-            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
+            if verbose then gcode += module.exports.codeMessage(slicer, "Print complete!")
+
+            # Triple beep: 3 short beeps.
+            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
+            gcode += module.exports.codeDwell(slicer, 0.1, false) # 100ms pause.
+            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
+            gcode += module.exports.codeDwell(slicer, 0.1, false) # 100ms pause.
+            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
 
         return gcode

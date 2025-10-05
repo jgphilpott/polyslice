@@ -139,7 +139,7 @@ describe 'G-code Generation (Coders)', ->
 
             expect(result).toContain('G92 E0') # Reset extruder.
             expect(result).toContain('G0 Z2') # Move Z up.
-            expect(result).toContain('G0 X10.1 Y20 Z0.28') # Move to start.
+            expect(result).toContain('G0 X10 Y10 Z0.28') # Move to start (X-axis now).
             expect(result).toContain('E15') # First line extrusion.
             expect(result).toContain('E30') # Second line cumulative extrusion.
             expect(result).toContain('G0 Z2') # Lift nozzle.
@@ -148,8 +148,8 @@ describe 'G-code Generation (Coders)', ->
 
             result = slicer.codeTestStrip(80, 0.4, 0.4)
 
-            expect(result).toContain('G0 X10.1 Y20 Z0.4') # Custom height.
-            expect(result).toContain('Y100') # Custom length (20 + 80) along Y.
+            expect(result).toContain('G0 X10 Y10 Z0.4') # Custom height.
+            expect(result).toContain('X90') # Custom length (10 + 80) along X-axis.
             expect(result).toContain('G0 Z2') # Lift nozzle.
 
         test 'should generate pre-print sequence', ->
@@ -158,14 +158,17 @@ describe 'G-code Generation (Coders)', ->
             slicer.setBedTemperature(60)
             slicer.setFanSpeed(100)
             slicer.setIncludeMetadata(false) # Disable metadata for simpler test.
+            slicer.setVerbose(false) # Disable verbose for simpler test.
 
             result = slicer.codePrePrint()
 
             expect(result).toContain('M104 S200') # Start heating nozzle.
+            expect(result).toContain('M140 S60') # Start heating bed.
+            expect(result).toContain('G28') # Autohome (while heating).
+            expect(result).toContain('G0 Z10') # Back off bed.
             expect(result).toContain('M109 R200') # Wait for nozzle temperature.
             expect(result).toContain('M190 R60') # Wait for bed temperature.
             expect(result).toContain('M82') # Absolute extrusion mode.
-            expect(result).toContain('G28') # Autohome after heating.
             expect(result).toContain('G17') # Workspace plane.
             expect(result).toContain('G21') # Length unit.
             expect(result).toContain('G92 E0') # Reset extruder.
@@ -174,27 +177,31 @@ describe 'G-code Generation (Coders)', ->
         test 'should generate pre-print without test strip', ->
 
             slicer.setTestStrip(false)
+            slicer.setVerbose(false)
             result = slicer.codePrePrint()
 
-            expect(result).not.toContain('X10.1 Y20') # Test strip starting position.
+            expect(result).not.toContain('X10 Y10') # Test strip starting position.
 
         test 'should generate pre-print with test strip', ->
 
             slicer.setTestStrip(true)
+            slicer.setVerbose(false)
             result = slicer.codePrePrint()
 
-            expect(result).toContain('X10.1 Y20') # Test strip starting position.
+            expect(result).toContain('X10 Y10') # Test strip starting position (X-axis).
 
-        test 'should generate pre-print with simultaneous heating', ->
+        test 'should generate pre-print with simultaneous heating and autohome', ->
 
             slicer.setNozzleTemperature(200)
             slicer.setBedTemperature(60)
             slicer.setIncludeMetadata(false)
+            slicer.setVerbose(false)
 
-            result = slicer.codePrePrint(10, false)
+            result = slicer.codePrePrint()
 
             expect(result).toContain('M104 S200') # Start nozzle heating (no wait).
             expect(result).toContain('M140 S60') # Start bed heating (no wait).
+            expect(result).toContain('G28') # Autohome (simultaneous with heating).
             expect(result).toContain('M109 R200') # Wait for nozzle.
             expect(result).toContain('M190 R60') # Wait for bed.
 

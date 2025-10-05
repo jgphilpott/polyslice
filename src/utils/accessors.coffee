@@ -134,6 +134,18 @@ module.exports =
 
         return slicer.includeMetadata
 
+    getVerbose: (slicer) ->
+
+        return slicer.verbose
+
+    getPositioningMode: (slicer) ->
+
+        return slicer.positioningMode
+
+    getExtruderMode: (slicer) ->
+
+        return slicer.extruderMode
+
     getPrinter: (slicer) ->
 
         return slicer.printer
@@ -401,6 +413,28 @@ module.exports =
     setIncludeMetadata: (slicer, includeMetadata = true) ->
 
         slicer.includeMetadata = Boolean includeMetadata
+
+        return slicer
+
+    setVerbose: (slicer, verbose = true) ->
+
+        slicer.verbose = Boolean verbose
+
+        return slicer
+
+    setPositioningMode: (slicer, mode = "absolute") ->
+
+        if ["absolute", "relative"].includes mode
+
+            slicer.positioningMode = String mode
+
+        return slicer
+
+    setExtruderMode: (slicer, mode = "absolute") ->
+
+        if ["absolute", "relative"].includes mode
+
+            slicer.extruderMode = String mode
 
         return slicer
 
