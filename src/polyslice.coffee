@@ -94,7 +94,9 @@ class Polyslice
         # G-code generation settings.
         @metadata = options.metadata ?= true # Boolean - include metadata header in G-code.
         @verbose = options.verbose ?= true # Boolean - include comments/annotations in G-code.
-        @soundBuzzer = options.soundBuzzer ?= true # Boolean - sound buzzer at end of post-print.
+
+        # Post-print options.
+        @buzzer = options.buzzer ?= true # Boolean - sound buzzer at end of post-print.
         @wipeNozzle = options.wipeNozzle ?= false # Boolean - perform wipe move during post-print.
 
         # Positioning and extrusion mode settings.
@@ -202,8 +204,8 @@ class Polyslice
     getVerbose: ->
         accessors.getVerbose(this)
 
-    getSoundBuzzer: ->
-        accessors.getSoundBuzzer(this)
+    getBuzzer: ->
+        accessors.getBuzzer(this)
 
     getWipeNozzle: ->
         accessors.getWipeNozzle(this)
@@ -321,8 +323,8 @@ class Polyslice
     setVerbose: (verbose = true) ->
         accessors.setVerbose(this, verbose)
 
-    setSoundBuzzer: (soundBuzzer = true) ->
-        accessors.setSoundBuzzer(this, soundBuzzer)
+    setBuzzer: (buzzer = true) ->
+        accessors.setBuzzer(this, buzzer)
 
     setWipeNozzle: (wipeNozzle = false) ->
         accessors.setWipeNozzle(this, wipeNozzle)

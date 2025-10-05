@@ -138,9 +138,9 @@ module.exports =
 
         return slicer.verbose
 
-    getSoundBuzzer: (slicer) ->
+    getBuzzer: (slicer) ->
 
-        return slicer.soundBuzzer
+        return slicer.buzzer
 
     getWipeNozzle: (slicer) ->
 
@@ -430,9 +430,9 @@ module.exports =
 
         return slicer
 
-    setSoundBuzzer: (slicer, soundBuzzer = true) ->
+    setBuzzer: (slicer, buzzer = true) ->
 
-        slicer.soundBuzzer = Boolean soundBuzzer
+        slicer.buzzer = Boolean buzzer
 
         return slicer
 

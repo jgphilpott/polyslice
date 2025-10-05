@@ -225,7 +225,7 @@ describe 'G-code Generation (Coders)', ->
 
         test 'should generate post-print without buzzer', ->
 
-            slicer.setSoundBuzzer(false)
+            slicer.setBuzzer(false)
             slicer.setVerbose(false)
             result = slicer.codePostPrint()
 

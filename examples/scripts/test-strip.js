@@ -55,7 +55,7 @@ console.log(`- Fan Speed: ${slicer.getFanSpeed()}%`);
 console.log(`- Test Strip Enabled: ${slicer.getTestStrip()}`);
 console.log(`- Metadata: ${slicer.getMetadata()}`);
 console.log(`- Verbose: ${slicer.getVerbose()}`);
-console.log(`- Sound Buzzer: ${slicer.getSoundBuzzer()}`);
+console.log(`- Buzzer: ${slicer.getBuzzer()}`);
 console.log(`- Wipe Nozzle: ${slicer.getWipeNozzle()}`);
 console.log('\n');
 

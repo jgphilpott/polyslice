@@ -761,7 +761,7 @@ module.exports =
 
         verbose = slicer.getVerbose()
         wipeNozzle = slicer.getWipeNozzle()
-        soundBuzzer = slicer.getSoundBuzzer()
+        buzzer = slicer.getBuzzer()
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Starting post-print sequence...")
 
@@ -824,15 +824,15 @@ module.exports =
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Post-print sequence complete.")
 
-        if soundBuzzer # Sound buzzer if enabled.
+        if buzzer # Sound buzzer if enabled.
 
             if verbose then gcode += module.exports.codeMessage(slicer, "Print complete!")
 
-            # Triple beep: 3 short beeps.
-            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
-            gcode += module.exports.codeDwell(slicer, 0.1, false) # 100ms pause.
-            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
-            gcode += module.exports.codeDwell(slicer, 0.1, false) # 100ms pause.
-            gcode += module.exports.codeTone(slicer, 0.15, 1000) # 150ms beep.
+            # Triple beep: 3 longer beeps.
+            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
+            gcode += module.exports.codeDwell(slicer, 0.3, false) # 300ms pause.
+            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
+            gcode += module.exports.codeDwell(slicer, 0.3, false) # 300ms pause.
+            gcode += module.exports.codeTone(slicer, 0.5, 1000) # 500ms beep.
 
         return gcode
