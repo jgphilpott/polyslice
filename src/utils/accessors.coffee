@@ -130,6 +130,30 @@ module.exports =
 
         return slicer.outline
 
+    getMetadata: (slicer) ->
+
+        return slicer.metadata
+
+    getVerbose: (slicer) ->
+
+        return slicer.verbose
+
+    getBuzzer: (slicer) ->
+
+        return slicer.buzzer
+
+    getWipeNozzle: (slicer) ->
+
+        return slicer.wipeNozzle
+
+    getPositioningMode: (slicer) ->
+
+        return slicer.positioningMode
+
+    getExtruderMode: (slicer) ->
+
+        return slicer.extruderMode
+
     getPrinter: (slicer) ->
 
         return slicer.printer
@@ -391,6 +415,46 @@ module.exports =
     setOutline: (slicer, outline = true) ->
 
         slicer.outline = Boolean outline
+
+        return slicer
+
+    setMetadata: (slicer, metadata = true) ->
+
+        slicer.metadata = Boolean metadata
+
+        return slicer
+
+    setVerbose: (slicer, verbose = true) ->
+
+        slicer.verbose = Boolean verbose
+
+        return slicer
+
+    setBuzzer: (slicer, buzzer = true) ->
+
+        slicer.buzzer = Boolean buzzer
+
+        return slicer
+
+    setWipeNozzle: (slicer, wipeNozzle = false) ->
+
+        slicer.wipeNozzle = Boolean wipeNozzle
+
+        return slicer
+
+    setPositioningMode: (slicer, mode = "absolute") ->
+
+        if ["absolute", "relative"].includes mode
+
+            slicer.positioningMode = String mode
+
+        return slicer
+
+    setExtruderMode: (slicer, mode = "absolute") ->
+
+        if ["absolute", "relative"].includes mode
+
+            slicer.extruderMode = String mode
 
         return slicer
 

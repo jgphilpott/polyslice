@@ -91,6 +91,18 @@ class Polyslice
         @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
         @outline = options.outline ?= true # Boolean - make thin outline of layer 1 exterior.
 
+        # G-code generation settings.
+        @metadata = options.metadata ?= true # Boolean - include metadata header in G-code.
+        @verbose = options.verbose ?= true # Boolean - include comments/annotations in G-code.
+
+        # Post-print settings.
+        @buzzer = options.buzzer ?= true # Boolean - sound buzzer at end of post-print.
+        @wipeNozzle = options.wipeNozzle ?= false # Boolean - perform wipe move during post-print.
+
+        # Positioning and extrusion mode settings.
+        @positioningMode = options.positioningMode ?= "absolute" # String ['absolute', 'relative'].
+        @extruderMode = options.extruderMode ?= "absolute" # String ['absolute', 'relative'].
+
     # Getter method delegates:
 
     getAutohome: ->
@@ -185,6 +197,24 @@ class Polyslice
 
     getOutline: ->
         accessors.getOutline(this)
+
+    getMetadata: ->
+        accessors.getMetadata(this)
+
+    getVerbose: ->
+        accessors.getVerbose(this)
+
+    getBuzzer: ->
+        accessors.getBuzzer(this)
+
+    getWipeNozzle: ->
+        accessors.getWipeNozzle(this)
+
+    getPositioningMode: ->
+        accessors.getPositioningMode(this)
+
+    getExtruderMode: ->
+        accessors.getExtruderMode(this)
 
     getPrinter: ->
         accessors.getPrinter(this)
@@ -287,6 +317,24 @@ class Polyslice
     setOutline: (outline = true) ->
         accessors.setOutline(this, outline)
 
+    setMetadata: (metadata = true) ->
+        accessors.setMetadata(this, metadata)
+
+    setVerbose: (verbose = true) ->
+        accessors.setVerbose(this, verbose)
+
+    setBuzzer: (buzzer = true) ->
+        accessors.setBuzzer(this, buzzer)
+
+    setWipeNozzle: (wipeNozzle = false) ->
+        accessors.setWipeNozzle(this, wipeNozzle)
+
+    setPositioningMode: (mode = "absolute") ->
+        accessors.setPositioningMode(this, mode)
+
+    setExtruderMode: (mode = "absolute") ->
+        accessors.setExtruderMode(this, mode)
+
     setPrinter: (printer) ->
         accessors.setPrinter(this, printer)
 
@@ -309,6 +357,18 @@ class Polyslice
 
     codeMovement: (x, y, z, extrude, feedrate, power) ->
         coders.codeMovement(this, x, y, z, extrude, feedrate, power)
+
+    codePositioningMode: (absolute) ->
+        coders.codePositioningMode(this, absolute)
+
+    codeExtruderMode: (absolute) ->
+        coders.codeExtruderMode(this, absolute)
+
+    codeSetPosition: (x, y, z, extrude) ->
+        coders.codeSetPosition(this, x, y, z, extrude)
+
+    codeDisableSteppers: (x, y, z, e) ->
+        coders.codeDisableSteppers(this, x, y, z, e)
 
     codeLinearMovement: (x, y, z, extrude, feedrate, power) ->
         coders.codeLinearMovement(this, x, y, z, extrude, feedrate, power)
@@ -369,6 +429,18 @@ class Polyslice
 
     codeUnretract: (distance, speed) ->
         coders.codeUnretract(this, distance, speed)
+
+    codeMetadata: ->
+        coders.codeMetadata(this)
+
+    codeTestStrip: (length, width, height) ->
+        coders.codeTestStrip(this, length, width, height)
+
+    codePrePrint: ->
+        coders.codePrePrint(this)
+
+    codePostPrint: ->
+        coders.codePostPrint(this)
 
     # Helper method delegates:
 

@@ -130,3 +130,159 @@ describe 'G-code Generation (Coders)', ->
             # Test custom values.
             result = slicer.codeUnretract(1.5, 30)
             expect(result).toBe('G1 E1.5 F1800\n')
+
+    describe 'Print Sequence Commands', ->
+
+        test 'should generate test strip G-code', ->
+
+            result = slicer.codeTestStrip()
+
+            expect(result).toContain('G92 E0') # Reset extruder.
+            expect(result).toContain('G0 Z2') # Move Z up.
+            expect(result).toContain('G0 X10 Y10 Z0.25') # Move to start (X-axis now).
+            expect(result).toContain('E15') # First line extrusion.
+            expect(result).toContain('E30') # Second line cumulative extrusion.
+            expect(result).toContain('G0 Z2') # Lift nozzle.
+
+        test 'should generate test strip with custom dimensions', ->
+
+            result = slicer.codeTestStrip(80, 0.4, 0.4)
+
+            expect(result).toContain('G0 X10 Y10 Z0.4') # Custom height.
+            expect(result).toContain('X90') # Custom length (10 + 80) along X-axis.
+            expect(result).toContain('G0 Z2') # Lift nozzle.
+
+        test 'should generate pre-print sequence', ->
+
+            slicer.setNozzleTemperature(200)
+            slicer.setBedTemperature(60)
+            slicer.setFanSpeed(100)
+            slicer.setMetadata(false) # Disable metadata for simpler test.
+            slicer.setVerbose(false) # Disable verbose for simpler test.
+
+            result = slicer.codePrePrint()
+
+            expect(result).toContain('M104 S200') # Start heating nozzle.
+            expect(result).toContain('M140 S60') # Start heating bed.
+            expect(result).toContain('G28') # Autohome (while heating).
+            expect(result).toContain('G0 Z10') # Back off bed.
+            expect(result).toContain('M109 R200') # Wait for nozzle temperature.
+            expect(result).toContain('M190 R60') # Wait for bed temperature.
+            expect(result).toContain('M82') # Absolute extrusion mode.
+            expect(result).toContain('G17') # Workspace plane.
+            expect(result).toContain('G21') # Length unit.
+            expect(result).toContain('G92 E0') # Reset extruder.
+            expect(result).toContain('E-5') # Final retract before print.
+
+        test 'should generate pre-print without test strip', ->
+
+            slicer.setTestStrip(false)
+            slicer.setVerbose(false)
+            result = slicer.codePrePrint()
+
+            expect(result).not.toContain('X10 Y10') # Test strip starting position.
+
+        test 'should generate pre-print with test strip', ->
+
+            slicer.setTestStrip(true)
+            slicer.setVerbose(false)
+            result = slicer.codePrePrint()
+
+            expect(result).toContain('X10 Y10') # Test strip starting position (X-axis).
+
+        test 'should generate pre-print with simultaneous heating and autohome', ->
+
+            slicer.setNozzleTemperature(200)
+            slicer.setBedTemperature(60)
+            slicer.setMetadata(false)
+            slicer.setVerbose(false)
+
+            result = slicer.codePrePrint()
+
+            expect(result).toContain('M104 S200') # Start nozzle heating (no wait).
+            expect(result).toContain('M140 S60') # Start bed heating (no wait).
+            expect(result).toContain('G28') # Autohome (simultaneous with heating).
+            expect(result).toContain('M109 R200') # Wait for nozzle.
+            expect(result).toContain('M190 R60') # Wait for bed.
+
+        test 'should generate post-print sequence', ->
+
+            slicer.setVerbose(false)
+            result = slicer.codePostPrint()
+
+            expect(result).toContain('M107') # Turn off fan.
+            expect(result).toContain('G91') # Relative positioning.
+            expect(result).toContain('E-2') # Retract.
+            expect(result).toContain('G1 Z10') # Raise nozzle.
+            expect(result).toContain('G90') # Absolute positioning.
+            expect(result).toContain('G28 X Y') # Home X and Y.
+            expect(result).toContain('M104 S0') # Turn off nozzle.
+            expect(result).toContain('M140 S0') # Turn off bed.
+            expect(result).toContain('M84 X Y E') # Disable steppers.
+            expect(result).toContain('M300') # Buzzer command present (triple beep).
+            expect(result).toContain('S420') # Frequency 420Hz.
+
+        test 'should generate post-print without buzzer', ->
+
+            slicer.setBuzzer(false)
+            slicer.setVerbose(false)
+            result = slicer.codePostPrint()
+
+            expect(result).not.toContain('M300') # No buzzer.
+            expect(result).toContain('M84 X Y E') # Disable steppers.
+
+        test 'should generate post-print with wipe nozzle', ->
+
+            slicer.setWipeNozzle(true)
+            slicer.setVerbose(false)
+            result = slicer.codePostPrint()
+
+            expect(result).toContain('G0 X5 Y5') # Wipe move.
+
+        test 'should generate post-print without wipe nozzle', ->
+
+            slicer.setWipeNozzle(false)
+            slicer.setVerbose(false)
+            result = slicer.codePostPrint()
+
+            expect(result).not.toContain('G0 X5 Y5') # No wipe move.
+
+        test 'should generate metadata header', ->
+
+            Printer = require('../config/printer')
+            Filament = require('../config/filament')
+
+            printer = new Printer('Ender3')
+            filament = new Filament('GenericPLA')
+
+            metadataSlicer = new Polyslice({
+                printer: printer
+                filament: filament
+                metadata: true
+            })
+
+            result = metadataSlicer.codeMetadata()
+
+            expect(result).toContain('; Generated by Polyslice')
+            expect(result).toContain('; Version:')
+            expect(result).toContain('; Timestamp:')
+            expect(result).toContain('; Repository: https://github.com/jgphilpott/polyslice')
+            expect(result).toContain('; Printer: Ender3')
+            expect(result).toContain('; Filament: Generic PLA (pla)')
+            expect(result).toContain('; Nozzle Temp:')
+            expect(result).toContain('; Bed Temp:')
+            expect(result).toContain('; Layer Height:')
+
+        test 'should include metadata in pre-print when enabled', ->
+
+            slicer.setMetadata(true)
+            result = slicer.codePrePrint()
+
+            expect(result).toContain('; Generated by Polyslice')
+
+        test 'should not include metadata in pre-print when disabled', ->
+
+            slicer.setMetadata(false)
+            result = slicer.codePrePrint()
+
+            expect(result).not.toContain('; Generated by Polyslice')
