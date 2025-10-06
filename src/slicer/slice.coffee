@@ -64,24 +64,30 @@ module.exports =
         maxZ = boundingBox.max.z
         layerHeight = slicer.getLayerHeight()
 
-        # Calculate number of layers.
-        numLayers = Math.ceil((maxZ - minZ) / layerHeight)
+        # Use Polytree to slice the mesh into layers.
+        allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, minZ, maxZ)
 
-        slicer.gcode += coders.codeMessage(slicer, "Printing #{numLayers} layers...")
+        # Calculate center offset to position on build plate.
+        buildPlateWidth = slicer.getBuildPlateWidth()
+        buildPlateLength = slicer.getBuildPlateLength()
+        centerOffsetX = buildPlateWidth / 2
+        centerOffsetY = buildPlateLength / 2
 
-        # Slice and generate G-code for each layer.
-        for layerIndex in [0...numLayers]
+        slicer.gcode += coders.codeMessage(slicer, "Printing #{allLayers.length} layers...")
 
+        # Process each layer.
+        for layerIndex in [0...allLayers.length]
+
+            layerSegments = allLayers[layerIndex]
             currentZ = minZ + (layerIndex + 1) * layerHeight
-            currentZ = Math.min(currentZ, maxZ) # Clamp to max Z.
 
-            slicer.gcode += coders.codeMessage(slicer, "Layer #{layerIndex + 1}/#{numLayers}")
+            slicer.gcode += coders.codeMessage(slicer, "Layer #{layerIndex + 1}/#{allLayers.length}")
 
-            # Slice the mesh at this Z height.
-            layerPaths = @sliceAtHeight(mesh, currentZ, layerHeight)
+            # Convert Polytree line segments to closed paths.
+            layerPaths = @connectSegmentsToPaths(layerSegments)
 
-            # Generate G-code for this layer.
-            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex)
+            # Generate G-code for this layer with center offset.
+            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY)
 
         # End sequence.
         slicer.gcode += coders.codeMessage(slicer, "Print completed!")
@@ -123,121 +129,33 @@ module.exports =
 
         return null
 
-    # Slice mesh at a specific Z height to get 2D paths.
-    sliceAtHeight: (mesh, z, layerHeight) ->
+    # Convert Polytree line segments (Line3 objects) to closed paths.
+    connectSegmentsToPaths: (segments) ->
 
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
-
-        # Get geometry from mesh.
-        geometry = mesh.geometry
-
-        # Ensure we have position attribute.
-        if not geometry.attributes or not geometry.attributes.position
-
-            return []
-
-        positions = geometry.attributes.position
-        indices = geometry.index
+        return [] if not segments or segments.length is 0
 
         paths = []
+        usedSegments = new Set()
+        epsilon = 0.001 # Tolerance for point matching.
+
+        # Convert segments to simple edge format for easier processing.
         edges = []
 
-        # Iterate through triangles and find intersections with Z plane.
-        triangleCount = if indices then indices.count / 3 else positions.count / 3
+        for segment in segments
 
-        for triangleIndex in [0...triangleCount]
-
-            # Get triangle vertices.
-            if indices
-
-                i0 = indices.getX(triangleIndex * 3)
-                i1 = indices.getX(triangleIndex * 3 + 1)
-                i2 = indices.getX(triangleIndex * 3 + 2)
-
-            else
-
-                i0 = triangleIndex * 3
-                i1 = triangleIndex * 3 + 1
-                i2 = triangleIndex * 3 + 2
-
-            # Get vertex positions.
-            v0 = new THREE.Vector3(positions.getX(i0), positions.getY(i0), positions.getZ(i0))
-            v1 = new THREE.Vector3(positions.getX(i1), positions.getY(i1), positions.getZ(i1))
-            v2 = new THREE.Vector3(positions.getX(i2), positions.getY(i2), positions.getZ(i2))
-
-            # Apply mesh transformations.
-            v0.applyMatrix4(mesh.matrixWorld)
-            v1.applyMatrix4(mesh.matrixWorld)
-            v2.applyMatrix4(mesh.matrixWorld)
-
-            # Check if triangle intersects with Z plane.
-            intersection = @intersectTriangleWithPlane(v0, v1, v2, z)
-
-            if intersection
-
-                edges.push(intersection)
-
-        # Connect edges to form closed paths.
-        paths = @connectEdgesToPaths(edges)
-
-        return paths
-
-    # Find intersection of triangle with horizontal plane at Z.
-    intersectTriangleWithPlane: (v0, v1, v2, z) ->
-
-        vertices = [v0, v1, v2]
-        intersections = []
-
-        # Check each edge of the triangle.
-        for edgeIndex in [0...3]
-
-            vStart = vertices[edgeIndex]
-            vEnd = vertices[(edgeIndex + 1) % 3]
-
-            # Check if edge crosses the plane.
-            if (vStart.z <= z and vEnd.z >= z) or (vStart.z >= z and vEnd.z <= z)
-
-                # Skip if both vertices are exactly on the plane.
-                if vStart.z is z and vEnd.z is z
-
-                    continue
-
-                # Calculate intersection point.
-                if Math.abs(vEnd.z - vStart.z) < 0.0001
-
-                    # Edge is parallel to plane.
-                    continue
-
-                t = (z - vStart.z) / (vEnd.z - vStart.z)
-                intersectionX = vStart.x + t * (vEnd.x - vStart.x)
-                intersectionY = vStart.y + t * (vEnd.y - vStart.y)
-
-                intersections.push({x: intersectionX, y: intersectionY})
-
-        # Return edge if we have exactly 2 intersections.
-        if intersections.length is 2
-
-            return {start: intersections[0], end: intersections[1]}
-
-        return null
-
-    # Connect edges to form closed paths.
-    connectEdgesToPaths: (edges) ->
-
-        return [] if edges.length is 0
-
-        paths = []
-        usedEdges = new Set()
-        epsilon = 0.001 # Tolerance for point matching.
+            edges.push({
+                start: {x: segment.start.x, y: segment.start.y}
+                end: {x: segment.end.x, y: segment.end.y}
+            })
 
         # Simple greedy path connection.
         for startEdgeIndex in [0...edges.length]
 
-            continue if usedEdges.has(startEdgeIndex)
+            continue if usedSegments.has(startEdgeIndex)
 
             currentPath = []
             currentEdge = edges[startEdgeIndex]
-            usedEdges.add(startEdgeIndex)
+            usedSegments.add(startEdgeIndex)
 
             currentPath.push(currentEdge.start)
             currentPath.push(currentEdge.end)
@@ -253,7 +171,7 @@ module.exports =
                 # Find next connecting edge.
                 for nextEdgeIndex in [0...edges.length]
 
-                    continue if usedEdges.has(nextEdgeIndex)
+                    continue if usedSegments.has(nextEdgeIndex)
 
                     nextEdge = edges[nextEdgeIndex]
 
@@ -261,14 +179,14 @@ module.exports =
                     if @pointsMatch(lastPoint, nextEdge.start, epsilon)
 
                         currentPath.push(nextEdge.end)
-                        usedEdges.add(nextEdgeIndex)
+                        usedSegments.add(nextEdgeIndex)
                         searching = true
                         break
 
                     else if @pointsMatch(lastPoint, nextEdge.end, epsilon)
 
                         currentPath.push(nextEdge.start)
-                        usedEdges.add(nextEdgeIndex)
+                        usedSegments.add(nextEdgeIndex)
                         searching = true
                         break
 
@@ -289,17 +207,19 @@ module.exports =
         return distSq < epsilon * epsilon
 
     # Generate G-code for a single layer.
-    generateLayerGCode: (slicer, paths, z, layerIndex) ->
+    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0) ->
 
         return if paths.length is 0
 
         # Process each closed path (perimeter).
         for path in paths
 
-            # Move to start of path (travel move).
+            # Move to start of path (travel move) with center offset.
             firstPoint = path[0]
+            offsetX = firstPoint.x + centerOffsetX
+            offsetY = firstPoint.y + centerOffsetY
 
-            slicer.gcode += coders.codeLinearMovement(slicer, firstPoint.x, firstPoint.y, z, null, slicer.getTravelSpeed())
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, slicer.getTravelSpeed())
 
             # Print perimeter.
             for pointIndex in [1...path.length]
@@ -315,7 +235,11 @@ module.exports =
                 # Calculate extrusion amount.
                 extrusion = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
 
-                slicer.gcode += coders.codeLinearMovement(slicer, point.x, point.y, z, extrusion, slicer.getPerimeterSpeed())
+                # Apply center offset to coordinates.
+                offsetX = point.x + centerOffsetX
+                offsetY = point.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, extrusion, slicer.getPerimeterSpeed())
 
             # Close the path by returning to start.
             if path.length > 2
@@ -330,4 +254,6 @@ module.exports =
                 if distance > 0.001
 
                     extrusion = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
-                    slicer.gcode += coders.codeLinearMovement(slicer, firstPoint.x, firstPoint.y, z, extrusion, slicer.getPerimeterSpeed())
+                    offsetX = firstPoint.x + centerOffsetX
+                    offsetY = firstPoint.y + centerOffsetY
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, extrusion, slicer.getPerimeterSpeed())

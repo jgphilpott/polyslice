@@ -68,24 +68,33 @@ const gcode = slicer.slice(scene);
 
 1. **Mesh Extraction**: Extract the first mesh from the scene or use the mesh directly
 2. **Bounding Box Calculation**: Calculate the mesh bounding box to determine Z-range
-3. **Layer Generation**: For each layer height:
-   - Intersect all triangles with the horizontal plane at current Z
-   - Connect intersection segments into closed paths
-   - Generate G-code for perimeter printing
+3. **Layer Generation**: Uses Polytree's `sliceIntoLayers()` for all layers:
+   - Performs optimized triangle-plane intersection
+   - Returns Line3 segments for each layer
+   - Connect segments into closed paths
+   - Generate G-code for perimeter printing with build plate centering
 
-### Triangle-Plane Intersection
+### Polytree Integration
 
-For each triangle in the mesh:
-1. Check if any edge crosses the Z-plane
-2. Calculate intersection points using linear interpolation
-3. Return edge segments (pairs of intersection points)
+Uses Polytree's optimized spatial queries:
+1. `sliceIntoLayers(mesh, layerHeight, minZ, maxZ)` - Slices all layers efficiently
+2. Returns arrays of Line3 objects (line segments) for each layer
+3. Significantly faster than custom triangle iteration
 
 ### Path Connection
 
-1. Start with an unused edge segment
-2. Find connecting edges by matching endpoints (within epsilon tolerance)
-3. Continue until path is closed or no more connecting edges exist
-4. Only keep paths with at least 3 points
+1. Convert Polytree's Line3 segments to simple edge format
+2. Start with an unused edge segment
+3. Find connecting edges by matching endpoints (within epsilon tolerance)
+4. Continue until path is closed or no more connecting edges exist
+5. Only keep paths with at least 3 points
+
+### Build Plate Centering
+
+All coordinates are automatically centered on the build plate:
+- Calculates center offset based on build plate dimensions
+- Default: 220mm x 220mm build plate (center at X110, Y110)
+- Applied during G-code generation, not during slicing
 
 ### G-code Generation
 

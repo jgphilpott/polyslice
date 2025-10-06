@@ -107,21 +107,29 @@ M117 Ready for next print
 
 ## Implementation Details
 
-### Triangle-Plane Intersection Algorithm
+### Polytree Spatial Query Integration
 
-For each triangle in the mesh:
-1. Check each edge to see if it crosses the Z-plane
-2. Calculate intersection points using linear interpolation: `t = (z - vStart.z) / (vEnd.z - vStart.z)`
-3. Compute intersection coordinates: `x = vStart.x + t * (vEnd.x - vStart.x)`
-4. Return edge segments (pairs of intersection points)
+Uses Polytree's optimized slicing functions:
+1. Call `Polytree.sliceIntoLayers(mesh, layerHeight, minZ, maxZ)` for all layers
+2. Receives arrays of Line3 objects (line segments) for each layer
+3. Octree-based spatial partitioning provides significant performance improvement
+4. No custom triangle iteration needed
 
 ### Path Connection Algorithm
 
-1. Start with an unused edge segment
-2. Find connecting edges by matching endpoints (within 0.001mm tolerance)
-3. Build path by following connections
-4. Continue until path closes or no more connecting edges
-5. Only keep paths with 3+ points
+1. Convert Polytree's Line3 segments to simple edge format
+2. Start with an unused edge segment
+3. Find connecting edges by matching endpoints (within 0.001mm tolerance)
+4. Build path by following connections
+5. Continue until path closes or no more connecting edges
+6. Only keep paths with 3+ points
+
+### Build Plate Centering
+
+1. Calculate center offset: `centerX = buildPlateWidth / 2`, `centerY = buildPlateLength / 2`
+2. Apply offset during G-code generation: `offsetX = point.x + centerX`
+3. Default build plate: 220mm x 220mm (center at X110, Y110)
+4. Coordinates now properly centered on build plate instead of origin
 
 ### Extrusion Calculation
 
@@ -143,13 +151,19 @@ extrusionLength = (lineArea * distance * extrusionMultiplier) / filamentArea
 
 ## Polytree Integration Status
 
-**Current Status**: The current implementation uses custom triangle-plane intersection algorithms. This works well but could be optimized.
+**Current Status**: ✅ **Complete** - Polytree v0.1.2 integration implemented
 
-**Future Enhancement**: Polytree (@jgphilpott/polytree) should be used for spatial queries once the following functions are exported:
-- `sliceIntoLayers()` - For layer slicing
-- `intersectPlane()` - For plane intersections
+The implementation now uses Polytree's optimized spatial query functions:
+- ✅ `sliceIntoLayers()` - Used for efficient layer slicing
+- ✅ `intersectPlane()` - Available for future use
 
-See `docs/POLYTREE_INTEGRATION.md` for details on required PR to Polytree repository.
+**Benefits:**
+- Significantly faster than custom triangle iteration
+- Octree-based spatial partitioning
+- Better handling of complex geometries
+- Cleaner, more maintainable code
+
+See `docs/POLYTREE_INTEGRATION.md` for full integration details.
 
 ## Known Limitations
 
@@ -163,20 +177,21 @@ These are documented as future enhancements and do not prevent basic slicing fun
 
 ## Next Steps
 
-### Immediate
+### Completed
 - ✅ Basic slicing works for 1cm cube
 - ✅ Proper G-code generation with initialization
 - ✅ Comprehensive test coverage
 - ✅ Documentation complete
+- ✅ Polytree v0.1.2 integration
+- ✅ Build plate centering
 
 ### Future Enhancements
-1. Create PR to Polytree for `sliceIntoLayers` and `intersectPlane` exports
-2. Integrate Polytree spatial queries when available
-3. Add infill pattern generation (grid, lines, honeycomb, gyroid)
-4. Implement support structure generation
-5. Add retraction/unretraction logic
-6. Optimize path planning for print time
-7. Add adaptive layer heights
+1. Add infill pattern generation (grid, lines, honeycomb, gyroid)
+2. Implement support structure generation
+3. Add retraction/unretraction logic
+4. Optimize path planning for print time
+5. Add adaptive layer heights
+6. Performance benchmarks comparing before/after Polytree
 
 ## Conclusion
 
