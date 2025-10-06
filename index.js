@@ -21,6 +21,10 @@ class WarpSpeed {
     this.centerX = this.canvas.width / 2;
     this.centerY = this.canvas.height / 2;
 
+    // Clear canvas completely on init
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
     // Create stars
     this.stars = [];
     for (let i = 0; i < this.numStars; i++) {
@@ -94,9 +98,9 @@ class WarpSpeed {
   }
 
   animate() {
-    // Clear canvas with fade effect
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    // Don't clear canvas - let streaks persist
+    // this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    // this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     // Update and draw stars
     this.stars.forEach(star => {

@@ -42,7 +42,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
 }
 
 .content {
@@ -51,10 +50,9 @@ body {
   max-height: 100%;
   overflow-y: auto;
   text-align: center;
-  background: rgba(0, 0, 0, 0.7);
+  background: transparent;
   padding: 40px 30px;
   border-radius: 20px;
-  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
