@@ -11,13 +11,13 @@ class WarpSpeed {
     this.init();
     this.animate();
 
-    // Handle window resize
-    window.addEventListener('resize', () => this.init());
+    setInterval(() => this.init(), 1000);
   }
 
   init() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
+
     this.centerX = this.canvas.width / 2;
     this.centerY = this.canvas.height / 2;
 
@@ -98,9 +98,9 @@ class WarpSpeed {
   }
 
   animate() {
-    // Don't clear canvas - let streaks persist
-    // this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-    // this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     // Update and draw stars
     this.stars.forEach(star => {
