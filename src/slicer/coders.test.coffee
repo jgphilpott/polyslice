@@ -35,8 +35,8 @@ describe 'G-code Generation (Coders)', ->
             moveCode = slicer.codeLinearMovement(10, 20, 5)
             expect(moveCode).toBe('G0 X10 Y20 Z5\n') # G0 for non-extruding move.
 
-            extrudeCode = slicer.codeLinearMovement(10, 20, 5, 0.1, 1500)
-            expect(extrudeCode).toBe('G1 X10 Y20 Z5 E0.1 F1500\n') # G1 for extruding move.
+            extrudeCode = slicer.codeLinearMovement(10, 20, 5, 0.1, 25) # Feedrate in mm/s.
+            expect(extrudeCode).toBe('G1 X10 Y20 Z5 E0.1 F1500\n') # G1 for extruding move (F1500 = 25*60).
 
         test 'should generate arc movement G-code', ->
 

@@ -179,7 +179,10 @@ module.exports =
 
         if not extrude then gcode = "G0" else gcode = "G1"
 
-        gcode += module.exports.codeMovement slicer, x, y, z, extrude, feedrate, power
+        # Convert feedrate from mm/s to mm/min for G-code (feedrate is stored internally in mm/s).
+        feedrateInMinutes = if feedrate then feedrate * 60 else null
+
+        gcode += module.exports.codeMovement slicer, x, y, z, extrude, feedrateInMinutes, power
 
         return gcode + slicer.newline
 

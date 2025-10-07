@@ -66,10 +66,12 @@ module.exports =
             layerSegments = allLayers[layerIndex]
             currentZ = minZ + layerIndex * layerHeight
 
-            if verbose then slicer.gcode += "; LAYER:#{layerIndex}" + slicer.newline
-
             # Convert Polytree line segments to closed paths.
             layerPaths = @connectSegmentsToPaths(layerSegments)
+
+            # Only output layer marker if layer has content.
+            if verbose and layerPaths.length > 0
+                slicer.gcode += coders.codeMessage(slicer, "LAYER:#{layerIndex}")
 
             # Generate G-code for this layer with center offset.
             @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY)
