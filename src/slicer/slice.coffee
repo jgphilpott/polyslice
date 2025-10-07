@@ -63,10 +63,10 @@ module.exports =
         for layerIndex in [0...allLayers.length]
 
             layerSegments = allLayers[layerIndex]
-            currentZ = minZ + (layerIndex + 1) * layerHeight
+            currentZ = minZ + layerIndex * layerHeight
 
             if verbose
-                slicer.gcode += coders.codeMessage(slicer, "Layer #{layerIndex + 1}/#{allLayers.length}")
+                slicer.gcode += "; LAYER:#{layerIndex}" + slicer.newline
 
             # Convert Polytree line segments to closed paths.
             layerPaths = @connectSegmentsToPaths(layerSegments)
@@ -138,9 +138,12 @@ module.exports =
 
             # Try to extend the path.
             searching = true
+            maxIterations = edges.length * 2 # Prevent infinite loops.
+            iterations = 0
 
-            while searching
+            while searching and iterations < maxIterations
 
+                iterations++
                 searching = false
                 lastPoint = currentPath[currentPath.length - 1]
 
@@ -166,10 +169,19 @@ module.exports =
                         searching = true
                         break
 
-            # Only add paths with at least 3 points.
+            # Only add paths with at least 3 points and remove duplicate last point if it matches first.
             if currentPath.length >= 3
 
-                paths.push(currentPath)
+                firstPoint = currentPath[0]
+                lastPoint = currentPath[currentPath.length - 1]
+
+                # Remove last point if it's the same as first (closed loop).
+                if @pointsMatch(firstPoint, lastPoint, epsilon)
+                    currentPath.pop()
+
+                # Only add if still have at least 3 points.
+                if currentPath.length >= 3
+                    paths.push(currentPath)
 
         return paths
 
@@ -192,6 +204,9 @@ module.exports =
         # Process each closed path (perimeter).
         for path in paths
 
+            # Skip degenerate paths.
+            continue if path.length < 3
+
             # Move to start of path (travel move) with center offset.
             firstPoint = path[0]
             offsetX = firstPoint.x + centerOffsetX
@@ -212,6 +227,9 @@ module.exports =
                 dy = point.y - prevPoint.y
                 distance = Math.sqrt(dx * dx + dy * dy)
 
+                # Skip negligible movements.
+                continue if distance < 0.001
+
                 # Calculate extrusion amount.
                 extrusion = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
 
@@ -221,19 +239,17 @@ module.exports =
 
                 slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, extrusion, slicer.getPerimeterSpeed())
 
-            # Close the path by returning to start.
-            if path.length > 2
+            # Close the path by returning to start if needed.
+            firstPoint = path[0]
+            lastPoint = path[path.length - 1]
 
-                firstPoint = path[0]
-                lastPoint = path[path.length - 1]
+            dx = firstPoint.x - lastPoint.x
+            dy = firstPoint.y - lastPoint.y
+            distance = Math.sqrt(dx * dx + dy * dy)
 
-                dx = firstPoint.x - lastPoint.x
-                dy = firstPoint.y - lastPoint.y
-                distance = Math.sqrt(dx * dx + dy * dy)
+            if distance > 0.001
 
-                if distance > 0.001
-
-                    extrusion = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
-                    offsetX = firstPoint.x + centerOffsetX
-                    offsetY = firstPoint.y + centerOffsetY
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, extrusion, slicer.getPerimeterSpeed())
+                extrusion = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
+                offsetX = firstPoint.x + centerOffsetX
+                offsetY = firstPoint.y + centerOffsetY
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, extrusion, slicer.getPerimeterSpeed())

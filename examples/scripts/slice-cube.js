@@ -64,7 +64,7 @@ console.log(`Slicing completed in ${endTime - startTime}ms`);
 
 // Analyze the G-code.
 const lines = gcode.split('\n').filter(line => line.trim() !== '');
-const layerLines = lines.filter(line => line.includes('Layer'));
+const layerLines = lines.filter(line => line.includes('; LAYER:'));
 const moveLines = lines.filter(line => line.startsWith('G0') || line.startsWith('G1'));
 
 console.log('\nG-code Statistics:');

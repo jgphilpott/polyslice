@@ -56,7 +56,7 @@ describe 'Slicing', ->
             expect(result).toContain('M109') # Nozzle heating.
             expect(result).toContain('M106') # Fan on.
             expect(result).toContain('Printing') # Layer message.
-            expect(result).toContain('Layer 1/') # Layer progress.
+            expect(result).toContain('; LAYER:1') # Layer comment.
             expect(result).toContain('Print complete') # End message.
             expect(result).toContain('M107') # Fan off.
 
