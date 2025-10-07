@@ -39,10 +39,9 @@ console.log(`- Vertices: ${geometry.attributes.position.count}`);
 const slicer = new Polyslice({
   printer: printer,
   filament: filament,
-  autohome: true,
-  workspacePlane: 'XY',
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
+  bedTemperature: 0,
   layerHeight: 0.2,
   testStrip: true,
   verbose: true
