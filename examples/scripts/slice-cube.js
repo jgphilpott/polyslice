@@ -3,13 +3,23 @@
  * This demonstrates the main slicing functionality of Polyslice
  */
 
-const Polyslice = require('../../src/index');
+const { Polyslice, Printer, Filament } = require('../../src/index');
 const THREE = require('three');
 const fs = require('fs');
 const path = require('path');
 
 console.log('Polyslice Cube Slicing Example');
 console.log('===============================\n');
+
+// Create printer and filament configuration objects.
+const printer = new Printer('Ender5');
+const filament = new Filament('GenericPLA');
+
+console.log('Printer & Filament Configuration:');
+console.log(`- Printer: ${printer.model}`);
+console.log(`- Build Volume: ${printer.getSizeX()}x${printer.getSizeY()}x${printer.getSizeZ()}mm`);
+console.log(`- Filament: ${filament.name} (${filament.type.toUpperCase()})`);
+console.log(`- Brand: ${filament.brand}\n`);
 
 // Create a 1cm cube (10mm x 10mm x 10mm).
 const geometry = new THREE.BoxGeometry(10, 10, 10);
@@ -25,20 +35,15 @@ console.log(`- Dimensions: 10mm x 10mm x 10mm`);
 console.log(`- Position: (${cube.position.x}, ${cube.position.y}, ${cube.position.z})`);
 console.log(`- Vertices: ${geometry.attributes.position.count}`);
 
-// Create slicer instance with optimized settings.
+// Create slicer instance with printer and filament configs.
 const slicer = new Polyslice({
+  printer: printer,
+  filament: filament,
   autohome: true,
   workspacePlane: 'XY',
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
-  nozzleTemperature: 200,
-  bedTemperature: 60,
-  fanSpeed: 100,
-  layerHeight: 0.2,
-  nozzleDiameter: 0.4,
-  filamentDiameter: 1.75,
-  perimeterSpeed: 1200,
-  travelSpeed: 3000
+  layerHeight: 0.2
 });
 
 console.log('\nSlicer Configuration:');

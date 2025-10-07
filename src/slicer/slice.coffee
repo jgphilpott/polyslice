@@ -27,36 +27,8 @@ module.exports =
         # Initialize THREE.js if not already available.
         THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
 
-        # Generate initialization sequence.
-        slicer.gcode += coders.codeMessage(slicer, "Starting print...")
-
-        if slicer.getAutohome()
-
-            slicer.gcode += coders.codeAutohome(slicer)
-
-        slicer.gcode += coders.codeWorkspacePlane(slicer)
-        slicer.gcode += coders.codeLengthUnit(slicer)
-
-        # Heat up bed and nozzle.
-        bedTemp = slicer.getBedTemperature()
-        nozzleTemp = slicer.getNozzleTemperature()
-
-        if bedTemp > 0
-
-            slicer.gcode += coders.codeMessage(slicer, "Heating bed...")
-            slicer.gcode += coders.codeBedTemperature(slicer, bedTemp, true)
-
-        if nozzleTemp > 0
-
-            slicer.gcode += coders.codeMessage(slicer, "Heating nozzle...")
-            slicer.gcode += coders.codeNozzleTemperature(slicer, nozzleTemp, true)
-
-        # Enable fan if configured.
-        fanSpeed = slicer.getFanSpeed()
-
-        if fanSpeed > 0
-
-            slicer.gcode += coders.codeFanSpeed(slicer, fanSpeed)
+        # Generate pre-print sequence (metadata, heating, autohome, test strip if enabled).
+        slicer.gcode += coders.codePrePrint(slicer)
 
         # Get mesh bounding box for slicing.
         boundingBox = new THREE.Box3().setFromObject(mesh)
@@ -73,7 +45,19 @@ module.exports =
         centerOffsetX = buildPlateWidth / 2
         centerOffsetY = buildPlateLength / 2
 
-        slicer.gcode += coders.codeMessage(slicer, "Printing #{allLayers.length} layers...")
+        verbose = slicer.getVerbose()
+
+        # Turn on fan if configured (after pre-print, before actual printing).
+        fanSpeed = slicer.getFanSpeed()
+
+        if fanSpeed > 0
+
+            slicer.gcode += coders.codeFanSpeed(slicer, fanSpeed)
+            if verbose
+                slicer.gcode += "; Start Cooling Fan" + slicer.newline
+
+        if verbose
+            slicer.gcode += coders.codeMessage(slicer, "Printing #{allLayers.length} layers...")
 
         # Process each layer.
         for layerIndex in [0...allLayers.length]
@@ -81,7 +65,8 @@ module.exports =
             layerSegments = allLayers[layerIndex]
             currentZ = minZ + (layerIndex + 1) * layerHeight
 
-            slicer.gcode += coders.codeMessage(slicer, "Layer #{layerIndex + 1}/#{allLayers.length}")
+            if verbose
+                slicer.gcode += coders.codeMessage(slicer, "Layer #{layerIndex + 1}/#{allLayers.length}")
 
             # Convert Polytree line segments to closed paths.
             layerPaths = @connectSegmentsToPaths(layerSegments)
@@ -89,17 +74,8 @@ module.exports =
             # Generate G-code for this layer with center offset.
             @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY)
 
-        # End sequence.
-        slicer.gcode += coders.codeMessage(slicer, "Print completed!")
-        slicer.gcode += coders.codeFanSpeed(slicer, 0)
-        slicer.gcode += coders.codeNozzleTemperature(slicer, 0, false)
-        slicer.gcode += coders.codeBedTemperature(slicer, 0, false)
-
-        if slicer.getAutohome()
-
-            slicer.gcode += coders.codeAutohome(slicer)
-
-        slicer.gcode += coders.codeMessage(slicer, "Ready for next print")
+        # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
+        slicer.gcode += coders.codePostPrint(slicer)
 
         return slicer.gcode
 
@@ -211,6 +187,8 @@ module.exports =
 
         return if paths.length is 0
 
+        verbose = slicer.getVerbose()
+
         # Process each closed path (perimeter).
         for path in paths
 
@@ -220,6 +198,8 @@ module.exports =
             offsetY = firstPoint.y + centerOffsetY
 
             slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, slicer.getTravelSpeed())
+            if verbose
+                slicer.gcode += ";TYPE:WALL-OUTER" + slicer.newline
 
             # Print perimeter.
             for pointIndex in [1...path.length]
