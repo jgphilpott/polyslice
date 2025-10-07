@@ -43,7 +43,9 @@ const slicer = new Polyslice({
   workspacePlane: 'XY',
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
-  layerHeight: 0.2
+  layerHeight: 0.2,
+  testStrip: true,
+  verbose: true
 });
 
 console.log('\nSlicer Configuration:');
@@ -53,6 +55,8 @@ console.log(`- Bed Temperature: ${slicer.getBedTemperature()}°C`);
 console.log(`- Fan Speed: ${slicer.getFanSpeed()}%`);
 console.log(`- Nozzle Diameter: ${slicer.getNozzleDiameter()}mm`);
 console.log(`- Filament Diameter: ${slicer.getFilamentDiameter()}mm`);
+console.log(`- Test Strip: ${slicer.getTestStrip() ? 'Enabled' : 'Disabled'}`);
+console.log(`- Verbose Comments: ${slicer.getVerbose() ? 'Enabled' : 'Disabled'}`);
 
 // Slice the cube.
 console.log('\nSlicing cube...');
