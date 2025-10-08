@@ -201,6 +201,52 @@ module.exports =
 
         return distSq < epsilon * epsilon
 
+    # Create an inset path (shrink inward by specified distance).
+    # Uses simple centroid-based scaling for reliable results.
+    createInsetPath: (path, insetDistance) ->
+
+        return [] if path.length < 3
+
+        # Calculate the centroid.
+        centroidX = 0
+        centroidY = 0
+        
+        for point in path
+            centroidX += point.x
+            centroidY += point.y
+        
+        n = path.length
+        centroidX /= n
+        centroidY /= n
+
+        # For each vertex, move it toward the centroid by insetDistance.
+        insetPath = []
+        
+        for point in path
+            
+            # Vector from point to centroid.
+            toCentroidX = centroidX - point.x
+            toCentroidY = centroidY - point.y
+            
+            distance = Math.sqrt(toCentroidX * toCentroidX + toCentroidY * toCentroidY)
+            
+            # Skip if point is already at centroid.
+            if distance < 0.001
+                insetPath.push({ x: point.x, y: point.y, z: point.z })
+                continue
+            
+            # Normalize direction vector.
+            dirX = toCentroidX / distance
+            dirY = toCentroidY / distance
+            
+            # Move point toward centroid by insetDistance.
+            insetX = point.x + dirX * insetDistance
+            insetY = point.y + dirY * insetDistance
+            
+            insetPath.push({ x: insetX, y: insetY, z: point.z })
+
+        return insetPath
+
     # Generate G-code for a single layer.
     generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0) ->
 
@@ -212,75 +258,93 @@ module.exports =
         if not slicer.cumulativeE?
             slicer.cumulativeE = 0
 
+        nozzleDiameter = slicer.getNozzleDiameter()
+
         # Process each closed path (perimeter).
         for path in paths
 
             # Skip degenerate paths.
             continue if path.length < 3
 
-            # Move to start of path (travel move) with center offset.
-            firstPoint = path[0]
+            # Generate outer wall.
+            @generateWallGCode(slicer, path, z, centerOffsetX, centerOffsetY, "WALL-OUTER")
+
+            # Generate inner wall (inset by nozzle diameter).
+            insetPath = @createInsetPath(path, nozzleDiameter)
+
+            if insetPath.length >= 3
+                @generateWallGCode(slicer, insetPath, z, centerOffsetX, centerOffsetY, "WALL-INNER")
+
+    # Generate G-code for a single wall (outer or inner).
+    generateWallGCode: (slicer, path, z, centerOffsetX, centerOffsetY, wallType) ->
+
+        return if path.length < 3
+
+        verbose = slicer.getVerbose()
+
+        # Move to start of path (travel move) with center offset.
+        firstPoint = path[0]
+
+        offsetX = firstPoint.x + centerOffsetX
+        offsetY = firstPoint.y + centerOffsetY
+
+        # Convert speed from mm/s to mm/min for G-code.
+        travelSpeedMmMin = slicer.getTravelSpeed() * 60
+
+        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+        if verbose then slicer.gcode += ";TYPE:#{wallType}" + slicer.newline
+
+        # Print perimeter.
+        for pointIndex in [1...path.length]
+
+            point = path[pointIndex]
+            prevPoint = path[pointIndex - 1]
+
+            # Calculate distance for extrusion.
+            dx = point.x - prevPoint.x
+            dy = point.y - prevPoint.y
+
+            distance = Math.sqrt(dx * dx + dy * dy)
+
+            # Skip negligible movements.
+            continue if distance < 0.001
+
+            # Calculate extrusion amount for this segment.
+            extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
+            
+            # Add to cumulative extrusion (absolute mode).
+            slicer.cumulativeE += extrusionDelta
+
+            # Apply center offset to coordinates.
+            offsetX = point.x + centerOffsetX
+            offsetY = point.y + centerOffsetY
+
+            # Convert speed from mm/s to mm/min for G-code.
+            perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
+
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+
+        # Close the path by returning to start if needed.
+        firstPoint = path[0]
+        lastPoint = path[path.length - 1]
+
+        dx = firstPoint.x - lastPoint.x
+        dy = firstPoint.y - lastPoint.y
+
+        distance = Math.sqrt(dx * dx + dy * dy)
+
+        if distance > 0.001
+
+            # Calculate extrusion amount for closing segment.
+            extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
+            
+            # Add to cumulative extrusion (absolute mode).
+            slicer.cumulativeE += extrusionDelta
 
             offsetX = firstPoint.x + centerOffsetX
             offsetY = firstPoint.y + centerOffsetY
 
             # Convert speed from mm/s to mm/min for G-code.
-            travelSpeedMmMin = slicer.getTravelSpeed() * 60
+            perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
 
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
-            if verbose then slicer.gcode += ";TYPE:WALL-OUTER" + slicer.newline
-
-            # Print perimeter.
-            for pointIndex in [1...path.length]
-
-                point = path[pointIndex]
-                prevPoint = path[pointIndex - 1]
-
-                # Calculate distance for extrusion.
-                dx = point.x - prevPoint.x
-                dy = point.y - prevPoint.y
-
-                distance = Math.sqrt(dx * dx + dy * dy)
-
-                # Skip negligible movements.
-                continue if distance < 0.001
-
-                # Calculate extrusion amount for this segment.
-                extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
-                
-                # Add to cumulative extrusion (absolute mode).
-                slicer.cumulativeE += extrusionDelta
-
-                # Apply center offset to coordinates.
-                offsetX = point.x + centerOffsetX
-                offsetY = point.y + centerOffsetY
-
-                # Convert speed from mm/s to mm/min for G-code.
-                perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
-
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
-
-            # Close the path by returning to start if needed.
-            firstPoint = path[0]
-            lastPoint = path[path.length - 1]
-
-            dx = firstPoint.x - lastPoint.x
-            dy = firstPoint.y - lastPoint.y
-
-            distance = Math.sqrt(dx * dx + dy * dy)
-
-            if distance > 0.001
-
-                # Calculate extrusion amount for closing segment.
-                extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
-                
-                # Add to cumulative extrusion (absolute mode).
-                slicer.cumulativeE += extrusionDelta
-
-                offsetX = firstPoint.x + centerOffsetX
-                offsetY = firstPoint.y + centerOffsetY
-
-                # Convert speed from mm/s to mm/min for G-code.
-                perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
-
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
