@@ -72,6 +72,9 @@ function init() {
   // Handle window resize.
   window.addEventListener('resize', onWindowResize, false);
 
+  // Add custom keyboard controls for WASD camera tilt and arrow key position movement.
+  setupKeyboardControls();
+
   // Start animation loop.
   animate();
 }
@@ -262,6 +265,99 @@ function setupEventListeners() {
 
   // Reset button.
   document.getElementById('reset').addEventListener('click', resetView);
+}
+
+/**
+ * Setup custom keyboard controls for WASD (camera tilt) and arrow keys (camera position).
+ */
+function setupKeyboardControls() {
+  // Movement speed for keyboard controls
+  const rotateSpeed = 0.05; // Rotation speed for WASD
+  const panSpeed = 5; // Pan speed for arrow keys
+
+  window.addEventListener('keydown', (event) => {
+    let needsUpdate = false;
+
+    // Get camera's current orientation vectors
+    const forward = new THREE.Vector3();
+    const right = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+
+    camera.getWorldDirection(forward);
+    right.crossVectors(forward, up).normalize();
+
+    switch (event.key.toLowerCase()) {
+      // WASD for camera rotation (tilt)
+      case 'w':
+        // Rotate camera up (around the right axis)
+        camera.position.sub(controls.target);
+        camera.position.applyAxisAngle(right, -rotateSpeed);
+        camera.position.add(controls.target);
+        needsUpdate = true;
+        break;
+
+      case 's':
+        // Rotate camera down (around the right axis)
+        camera.position.sub(controls.target);
+        camera.position.applyAxisAngle(right, rotateSpeed);
+        camera.position.add(controls.target);
+        needsUpdate = true;
+        break;
+
+      case 'a':
+        // Rotate camera left (around the up axis)
+        camera.position.sub(controls.target);
+        camera.position.applyAxisAngle(up, rotateSpeed);
+        camera.position.add(controls.target);
+        needsUpdate = true;
+        break;
+
+      case 'd':
+        // Rotate camera right (around the up axis)
+        camera.position.sub(controls.target);
+        camera.position.applyAxisAngle(up, -rotateSpeed);
+        camera.position.add(controls.target);
+        needsUpdate = true;
+        break;
+
+      // Arrow keys for camera position movement (pan)
+      case 'arrowup':
+        // Move camera and target forward
+        camera.position.addScaledVector(forward, panSpeed);
+        controls.target.addScaledVector(forward, panSpeed);
+        needsUpdate = true;
+        event.preventDefault();
+        break;
+
+      case 'arrowdown':
+        // Move camera and target backward
+        camera.position.addScaledVector(forward, -panSpeed);
+        controls.target.addScaledVector(forward, -panSpeed);
+        needsUpdate = true;
+        event.preventDefault();
+        break;
+
+      case 'arrowleft':
+        // Move camera and target left
+        camera.position.addScaledVector(right, -panSpeed);
+        controls.target.addScaledVector(right, -panSpeed);
+        needsUpdate = true;
+        event.preventDefault();
+        break;
+
+      case 'arrowright':
+        // Move camera and target right
+        camera.position.addScaledVector(right, panSpeed);
+        controls.target.addScaledVector(right, panSpeed);
+        needsUpdate = true;
+        event.preventDefault();
+        break;
+    }
+
+    if (needsUpdate) {
+      controls.update();
+    }
+  });
 }
 
 /**
