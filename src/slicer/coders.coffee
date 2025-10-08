@@ -175,14 +175,12 @@ module.exports =
 
     # https://marlinfw.org/docs/gcode/G000-G001.html
     # Generate linear movement G-code command.
+    # NOTE: feedrate parameter should be in mm/min (G-code format), not mm/s.
     codeLinearMovement: (slicer, x = null, y = null, z = null, extrude = null, feedrate = null, power = null) ->
 
         if not extrude then gcode = "G0" else gcode = "G1"
 
-        # Convert feedrate from mm/s to mm/min for G-code (feedrate is stored internally in mm/s).
-        feedrateInMinutes = if feedrate then feedrate * 60 else null
-
-        gcode += module.exports.codeMovement slicer, x, y, z, extrude, feedrateInMinutes, power
+        gcode += module.exports.codeMovement slicer, x, y, z, extrude, feedrate, power
 
         return gcode + slicer.newline
 

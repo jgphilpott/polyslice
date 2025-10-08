@@ -30,6 +30,9 @@ module.exports =
         # Generate pre-print sequence (metadata, heating, autohome, test strip if enabled).
         slicer.gcode += coders.codePrePrint(slicer)
 
+        # Reset cumulative extrusion counter (absolute mode starts at 0).
+        slicer.cumulativeE = 0
+
         # Get mesh bounding box for slicing.
         boundingBox = new THREE.Box3().setFromObject(mesh)
 
@@ -205,6 +208,10 @@ module.exports =
 
         verbose = slicer.getVerbose()
 
+        # Initialize cumulative extrusion tracker if not exists.
+        if not slicer.cumulativeE?
+            slicer.cumulativeE = 0
+
         # Process each closed path (perimeter).
         for path in paths
 
@@ -217,7 +224,10 @@ module.exports =
             offsetX = firstPoint.x + centerOffsetX
             offsetY = firstPoint.y + centerOffsetY
 
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, slicer.getTravelSpeed())
+            # Convert speed from mm/s to mm/min for G-code.
+            travelSpeedMmMin = slicer.getTravelSpeed() * 60
+
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
             if verbose then slicer.gcode += ";TYPE:WALL-OUTER" + slicer.newline
 
             # Print perimeter.
@@ -235,14 +245,20 @@ module.exports =
                 # Skip negligible movements.
                 continue if distance < 0.001
 
-                # Calculate extrusion amount.
-                extrusion = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
+                # Calculate extrusion amount for this segment.
+                extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
+                
+                # Add to cumulative extrusion (absolute mode).
+                slicer.cumulativeE += extrusionDelta
 
                 # Apply center offset to coordinates.
                 offsetX = point.x + centerOffsetX
                 offsetY = point.y + centerOffsetY
 
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, extrusion, slicer.getPerimeterSpeed())
+                # Convert speed from mm/s to mm/min for G-code.
+                perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
 
             # Close the path by returning to start if needed.
             firstPoint = path[0]
@@ -255,9 +271,16 @@ module.exports =
 
             if distance > 0.001
 
-                extrusion = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
+                # Calculate extrusion amount for closing segment.
+                extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
+                
+                # Add to cumulative extrusion (absolute mode).
+                slicer.cumulativeE += extrusionDelta
 
                 offsetX = firstPoint.x + centerOffsetX
                 offsetY = firstPoint.y + centerOffsetY
 
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, extrusion, slicer.getPerimeterSpeed())
+                # Convert speed from mm/s to mm/min for G-code.
+                perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
