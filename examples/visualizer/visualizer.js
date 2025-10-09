@@ -72,6 +72,12 @@ function init() {
   // Handle window resize.
   window.addEventListener('resize', onWindowResize, false);
 
+  // Add custom keyboard controls for WASD camera tilt and arrow key position movement.
+  setupKeyboardControls();
+
+  // Add double-click handler for line focus.
+  setupDoubleClickHandler();
+
   // Start animation loop.
   animate();
 }
@@ -262,6 +268,188 @@ function setupEventListeners() {
 
   // Reset button.
   document.getElementById('reset').addEventListener('click', resetView);
+}
+
+/**
+ * Setup custom keyboard controls for WASD (camera tilt) and arrow keys (camera position).
+ */
+function setupKeyboardControls() {
+  // Movement speed for keyboard controls
+  const rotateSpeed = 0.05; // Rotation speed for WASD
+  const panSpeed = 5; // Pan speed for arrow keys
+
+  window.addEventListener('keydown', (event) => {
+    let needsUpdate = false;
+
+    // Get camera's current orientation vectors
+    const forward = new THREE.Vector3();
+    const right = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+
+    camera.getWorldDirection(forward);
+    right.crossVectors(forward, up).normalize();
+
+    switch (event.key.toLowerCase()) {
+      // WASD for camera rotation (tilt)
+      case 'w':
+        // Rotate camera up (around the right axis)
+        camera.position.sub(controls.target);
+        camera.position.applyAxisAngle(right, -rotateSpeed);
+        camera.position.add(controls.target);
+        needsUpdate = true;
+        break;
+
+      case 's':
+        // Rotate camera down (around the right axis)
+        camera.position.sub(controls.target);
+        camera.position.applyAxisAngle(right, rotateSpeed);
+        camera.position.add(controls.target);
+        needsUpdate = true;
+        break;
+
+      case 'a':
+        // Rotate camera left (around the up axis)
+        camera.position.sub(controls.target);
+        camera.position.applyAxisAngle(up, rotateSpeed);
+        camera.position.add(controls.target);
+        needsUpdate = true;
+        break;
+
+      case 'd':
+        // Rotate camera right (around the up axis)
+        camera.position.sub(controls.target);
+        camera.position.applyAxisAngle(up, -rotateSpeed);
+        camera.position.add(controls.target);
+        needsUpdate = true;
+        break;
+
+      // Arrow keys for camera position movement (pan)
+      case 'arrowup':
+        // Move camera and target forward
+        camera.position.addScaledVector(forward, panSpeed);
+        controls.target.addScaledVector(forward, panSpeed);
+        needsUpdate = true;
+        event.preventDefault();
+        break;
+
+      case 'arrowdown':
+        // Move camera and target backward
+        camera.position.addScaledVector(forward, -panSpeed);
+        controls.target.addScaledVector(forward, -panSpeed);
+        needsUpdate = true;
+        event.preventDefault();
+        break;
+
+      case 'arrowleft':
+        // Move camera and target left
+        camera.position.addScaledVector(right, -panSpeed);
+        controls.target.addScaledVector(right, -panSpeed);
+        needsUpdate = true;
+        event.preventDefault();
+        break;
+
+      case 'arrowright':
+        // Move camera and target right
+        camera.position.addScaledVector(right, panSpeed);
+        controls.target.addScaledVector(right, panSpeed);
+        needsUpdate = true;
+        event.preventDefault();
+        break;
+    }
+
+    if (needsUpdate) {
+      controls.update();
+    }
+  });
+}
+
+/**
+ * Setup double-click handler to focus camera on clicked line.
+ */
+function setupDoubleClickHandler() {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  // Set raycaster threshold for better line detection
+  raycaster.params.Line.threshold = 2;
+
+  renderer.domElement.addEventListener('dblclick', (event) => {
+    // Calculate mouse position in normalized device coordinates (-1 to +1)
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Update the raycaster with the camera and mouse position
+    raycaster.setFromCamera(mouse, camera);
+
+    // Calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    // Find the first intersected line segment
+    for (let i = 0; i < intersects.length; i++) {
+      const intersect = intersects[i];
+      
+      // Check if the intersected object is a line segment (part of G-code)
+      if (intersect.object instanceof THREE.LineSegments || 
+          intersect.object instanceof THREE.Line) {
+        
+        // Get the center point of the line segment
+        const point = intersect.point.clone();
+        
+        // Calculate the bounding box of the intersected object
+        const box = new THREE.Box3().setFromObject(intersect.object);
+        const center = box.getCenter(new THREE.Vector3());
+        
+        // Focus camera on the line center
+        focusCameraOnPoint(center);
+        break;
+      }
+    }
+  });
+}
+
+/**
+ * Focus camera on a specific point with smooth animation.
+ */
+function focusCameraOnPoint(point) {
+  // Calculate distance from camera to point
+  const distance = camera.position.distanceTo(controls.target);
+  
+  // Calculate new camera position maintaining the same distance
+  const direction = new THREE.Vector3()
+    .subVectors(camera.position, controls.target)
+    .normalize();
+  
+  const newCameraPosition = new THREE.Vector3()
+    .addVectors(point, direction.multiplyScalar(distance * 0.3));
+  
+  // Smoothly transition to new position
+  const startPosition = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const duration = 500; // milliseconds
+  const startTime = Date.now();
+  
+  function animateCamera() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    // Use easing function for smooth animation
+    const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    
+    // Interpolate camera position
+    camera.position.lerpVectors(startPosition, newCameraPosition, easeProgress);
+    
+    // Interpolate controls target
+    controls.target.lerpVectors(startTarget, point, easeProgress);
+    
+    controls.update();
+    
+    if (progress < 1) {
+      requestAnimationFrame(animateCamera);
+    }
+  }
+  
+  animateCamera();
 }
 
 /**

@@ -28,9 +28,23 @@ The visualizer automatically detects and color-codes different types of movement
 
 ### Interactive Controls
 
+#### Mouse Controls
 - **Orbit**: Click and drag with left mouse button to rotate the view
 - **Zoom**: Scroll wheel to zoom in and out
 - **Pan**: Click and drag with right mouse button (or Ctrl + left mouse button) to pan the view
+- **Focus on Line**: Double-click on any line to refocus the camera on the center of that line
+
+#### Keyboard Controls
+- **WASD**: Tilt the camera angle
+  - **W**: Tilt camera up
+  - **S**: Tilt camera down
+  - **A**: Rotate camera left
+  - **D**: Rotate camera right
+- **Arrow Keys**: Move the camera position
+  - **↑ (Up Arrow)**: Move camera forward
+  - **↓ (Down Arrow)**: Move camera backward
+  - **← (Left Arrow)**: Move camera left
+  - **→ (Right Arrow)**: Move camera right
 
 ### View Information
 
@@ -51,10 +65,14 @@ Click the reset button to center the camera on the G-code visualization.
 1. Open the [G-code Visualizer](https://jgphilpott.github.io/polyslice/examples/visualizer/visualizer.html) in your browser
 2. Click the **Upload** button to select a G-code file from your computer
 3. The G-code will be parsed and visualized in 3D
-4. Use your mouse to:
-   - **Rotate**: Left-click and drag
-   - **Zoom**: Scroll wheel
-   - **Pan**: Right-click and drag (or Ctrl + left-click and drag)
+4. Navigate the 3D view:
+   - **Mouse**: 
+     - Rotate: Left-click and drag
+     - Zoom: Scroll wheel
+     - Pan: Right-click and drag (or Ctrl + left-click and drag)
+   - **Keyboard**:
+     - Tilt camera: W/A/S/D keys
+     - Move camera: Arrow keys
 
 ## Compatibility
 
