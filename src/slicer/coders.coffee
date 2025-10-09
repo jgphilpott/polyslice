@@ -793,8 +793,6 @@ module.exports =
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Pre-print sequence complete.")
 
-        gcode += slicer.newline  # Add blank line after pre-print for readability.
-
         return gcode
 
     # Generate post-print sequence G-code.

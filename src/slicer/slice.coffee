@@ -29,7 +29,7 @@ module.exports =
 
         # Generate pre-print sequence (metadata, heating, autohome, test strip if enabled).
         slicer.gcode += coders.codePrePrint(slicer)
-        slicer.gcode += slicer.newline # Blank line after pre-print sequence.
+        slicer.gcode += slicer.newline
 
         # Reset cumulative extrusion counter (absolute mode starts at 0).
         slicer.cumulativeE = 0
@@ -77,14 +77,13 @@ module.exports =
 
             # Only output layer marker if layer has content.
             if verbose and layerPaths.length > 0
+
                 slicer.gcode += coders.codeMessage(slicer, "LAYER: #{layerIndex}")
 
             # Generate G-code for this layer with center offset.
             @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY)
 
-        # Add blank line before post-print for readability.
-        slicer.gcode += slicer.newline
-
+        slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
         slicer.gcode += coders.codePostPrint(slicer)
 
@@ -239,9 +238,7 @@ module.exports =
             len2 = Math.sqrt(v2x * v2x + v2y * v2y)
 
             # Skip if either edge is degenerate.
-            if len1 < 0.0001 or len2 < 0.0001
-
-                continue
+            if len1 < 0.0001 or len2 < 0.0001 then continue
 
             # Normalize vectors.
             v1x /= len1
@@ -286,18 +283,16 @@ module.exports =
             # Edge vector.
             edgeX = p2.x - p1.x
             edgeY = p2.y - p1.y
+
             edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY)
 
-            if edgeLength < 0.0001
-
-                continue
+            if edgeLength < 0.0001 then continue
 
             # Normalize.
             edgeX /= edgeLength
             edgeY /= edgeLength
 
-            # Perpendicular inward normal.
-            if isCCW
+            if isCCW # Perpendicular inward normal.
 
                 normalX = -edgeY
                 normalY = edgeX
@@ -364,9 +359,7 @@ module.exports =
         denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
 
         # Lines are parallel or coincident.
-        if Math.abs(denom) < 0.0001
-
-            return null
+        if Math.abs(denom) < 0.0001 then return null
 
         t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
 
@@ -445,13 +438,21 @@ module.exports =
 
         # Add descriptive comment for travel move if verbose.
         if verbose
+
             if wallType is "WALL-OUTER"
+
                 comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
+
             else
+
                 comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
+
             slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, comment + slicer.newline)
+
         else
+
             slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+
         if verbose then slicer.gcode += "; TYPE: #{wallType}" + slicer.newline
 
         # Print perimeter.
