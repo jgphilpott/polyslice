@@ -21,8 +21,8 @@ console.log(`- Build Volume: ${printer.getSizeX()}x${printer.getSizeY()}x${print
 console.log(`- Filament: ${filament.name} (${filament.type.toUpperCase()})`);
 console.log(`- Brand: ${filament.brand}\n`);
 
-// Create a 1cm cube (10mm x 10mm x 10mm).
-const geometry = new THREE.BoxGeometry(10, 10, 10);
+const geometry = new THREE.BoxGeometry(10, 10, 10); // Create a 1cm cube (10mm x 10mm x 10mm).
+// const geometry = new THREE.CylinderGeometry(5, 5, 20, 32); geometry.rotateX(Math.PI / 2); // Alternative Cylinder Shape.
 const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
 const cube = new THREE.Mesh(geometry, material);
 
@@ -39,6 +39,8 @@ console.log(`- Vertices: ${geometry.attributes.position.count}`);
 const slicer = new Polyslice({
   printer: printer,
   filament: filament,
+  shellSkinThickness: 0.8,
+  shellWallThickness: 0.8,
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
   bedTemperature: 0,

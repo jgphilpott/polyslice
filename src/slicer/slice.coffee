@@ -234,6 +234,7 @@ module.exports =
 
             # Skip if either edge is degenerate.
             if len1 < 0.0001 or len2 < 0.0001
+
                 continue
 
             # Normalize vectors.
@@ -246,13 +247,11 @@ module.exports =
             cross = v1x * v2y - v1y * v2x
 
             # If direction changes significantly, this is a real corner.
-            if Math.abs(cross) > angleThreshold
-                simplifiedPath.push(p2)
+            if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
 
         # If simplification resulted in < 4 points for rectangular shapes, use original path.
         # We want at least 4 corners for proper rectangular insets.
-        if simplifiedPath.length < 4
-            simplifiedPath = path
+        if simplifiedPath.length < 4 then simplifiedPath = path
 
         # Step 2: Create inset using the simplified path.
         insetPath = []
@@ -284,6 +283,7 @@ module.exports =
             edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY)
 
             if edgeLength < 0.0001
+
                 continue
 
             # Normalize.
@@ -292,9 +292,12 @@ module.exports =
 
             # Perpendicular inward normal.
             if isCCW
+
                 normalX = -edgeY
                 normalY = edgeX
+
             else
+
                 normalX = edgeY
                 normalY = -edgeX
 
@@ -323,8 +326,11 @@ module.exports =
             origVertex = simplifiedPath[line2.originalIdx]
 
             if intersection
+
                 insetPath.push({ x: intersection.x, y: intersection.y, z: origVertex.z })
+
             else
+
                 # Parallel lines - use midpoint of offset segment.
                 insetPath.push({
                     x: line2.p1.x
@@ -339,10 +345,13 @@ module.exports =
 
         x1 = p1.x
         y1 = p1.y
+
         x2 = p2.x
         y2 = p2.y
+
         x3 = p3.x
         y3 = p3.y
+
         x4 = p4.x
         y4 = p4.y
 
@@ -350,6 +359,7 @@ module.exports =
 
         # Lines are parallel or coincident.
         if Math.abs(denom) < 0.0001
+
             return null
 
         t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
@@ -368,8 +378,7 @@ module.exports =
         verbose = slicer.getVerbose()
 
         # Initialize cumulative extrusion tracker if not exists.
-        if not slicer.cumulativeE?
-            slicer.cumulativeE = 0
+        if not slicer.cumulativeE? then slicer.cumulativeE = 0
 
         nozzleDiameter = slicer.getNozzleDiameter()
         shellWallThickness = slicer.getShellWallThickness()
