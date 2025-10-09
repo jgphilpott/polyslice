@@ -56,7 +56,7 @@ describe 'Slicing', ->
             expect(result).toContain('M109') # Nozzle heating.
             expect(result).toContain('M106') # Fan on.
             expect(result).toContain('Printing') # Layer message.
-            expect(result).toContain('LAYER:1') # Layer marker.
+            expect(result).toContain('LAYER: 1') # Layer marker.
             expect(result).toContain('Print complete') # End message.
             expect(result).toContain('M107') # Fan off.
 
@@ -321,11 +321,11 @@ describe 'Slicing', ->
             innerCoords = []
 
             for line in lines
-                if line.includes(';TYPE:WALL-OUTER')
+                if line.includes('; TYPE: WALL-OUTER')
                     inWallOuter = true
                     inWallInner = false
                     continue
-                if line.includes(';TYPE:WALL-INNER')
+                if line.includes('; TYPE: WALL-INNER')
                     inWallOuter = false
                     inWallInner = true
                     continue
@@ -385,7 +385,7 @@ describe 'Slicing', ->
 
             for line in lines
                 # Detect wall type changes.
-                if line.includes(';TYPE:WALL-')
+                if line.includes('; TYPE: WALL-')
                     currentWallType = if line.includes('OUTER') then 'OUTER' else 'INNER'
                     
                     # If wall type changed, we should see a G0 (travel) command before the next G1.
@@ -408,9 +408,9 @@ describe 'Slicing', ->
             # Count transitions and ensure they match expected pattern.
             wallTypes = []
             for line in lines
-                if line.includes(';TYPE:WALL-OUTER')
+                if line.includes('; TYPE: WALL-OUTER')
                     wallTypes.push('OUTER')
-                else if line.includes(';TYPE:WALL-INNER')
+                else if line.includes('; TYPE: WALL-INNER')
                     wallTypes.push('INNER')
 
             # For 3 walls: pattern should be OUTER, INNER, INNER per layer.
@@ -450,9 +450,9 @@ describe 'Slicing', ->
                         layerWallCounts.push({ outer: currentLayerOuter, inner: currentLayerInner })
                     currentLayerOuter = 0
                     currentLayerInner = 0
-                else if line.includes(';TYPE:WALL-OUTER')
+                else if line.includes('; TYPE: WALL-OUTER')
                     currentLayerOuter++
-                else if line.includes(';TYPE:WALL-INNER')
+                else if line.includes('; TYPE: WALL-INNER')
                     currentLayerInner++
 
             # Save last layer.
@@ -498,10 +498,10 @@ describe 'Slicing', ->
             outerWallG1Count = 0
             inOuterWall = false
             for line in lastLayerLines
-                if line.includes(';TYPE:WALL-OUTER')
+                if line.includes('; TYPE: WALL-OUTER')
                     inOuterWall = true
                     outerWallG1Count = 0
-                else if line.includes(';TYPE:WALL-INNER')
+                else if line.includes('; TYPE: WALL-INNER')
                     inOuterWall = false
                 else if inOuterWall and line.includes('G1') and line.includes('E')
                     outerWallG1Count++

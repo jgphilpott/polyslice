@@ -793,6 +793,8 @@ module.exports =
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Pre-print sequence complete.")
 
+        gcode += slicer.newline  # Add blank line after pre-print for readability.
+
         return gcode
 
     # Generate post-print sequence G-code.
@@ -844,7 +846,10 @@ module.exports =
             gcode += module.exports.codeAutohome(slicer, true, true, false)
 
         # Turn off fan (redundant but ensures it's off).
-        gcode += module.exports.codeFanSpeed(slicer, 0)
+        if verbose
+            gcode += module.exports.codeFanSpeed(slicer, 0).replace(slicer.newline, "; Turn Fan Off" + slicer.newline)
+        else
+            gcode += module.exports.codeFanSpeed(slicer, 0)
 
         # Turn off nozzle temperature.
         if verbose
@@ -872,7 +877,10 @@ module.exports =
             gcode += module.exports.codeExtruderMode(slicer, isAbsoluteExtrusion)
 
         # Turn off nozzle again (ensure it's off).
-        gcode += module.exports.codeNozzleTemperature(slicer, 0, false)
+        if verbose
+            gcode += module.exports.codeNozzleTemperature(slicer, 0, false).replace(slicer.newline, "; Turn Nozzle Off (ensure)" + slicer.newline)
+        else
+            gcode += module.exports.codeNozzleTemperature(slicer, 0, false)
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Post-print sequence complete.")
 

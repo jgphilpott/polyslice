@@ -29,6 +29,7 @@ module.exports =
 
         # Generate pre-print sequence (metadata, heating, autohome, test strip if enabled).
         slicer.gcode += coders.codePrePrint(slicer)
+        slicer.gcode += slicer.newline # Blank line after pre-print sequence.
 
         # Reset cumulative extrusion counter (absolute mode starts at 0).
         slicer.cumulativeE = 0
@@ -58,8 +59,10 @@ module.exports =
 
         if fanSpeed > 0
 
-            slicer.gcode += coders.codeFanSpeed(slicer, fanSpeed)
-            if verbose then slicer.gcode += "; Start Cooling Fan" + slicer.newline
+            if verbose
+                slicer.gcode += coders.codeFanSpeed(slicer, fanSpeed).replace(slicer.newline, "; Start Cooling Fan" + slicer.newline)
+            else
+                slicer.gcode += coders.codeFanSpeed(slicer, fanSpeed)
 
         if verbose then slicer.gcode += coders.codeMessage(slicer, "Printing #{allLayers.length} layers...")
 
@@ -74,10 +77,13 @@ module.exports =
 
             # Only output layer marker if layer has content.
             if verbose and layerPaths.length > 0
-                slicer.gcode += coders.codeMessage(slicer, "LAYER:#{layerIndex}")
+                slicer.gcode += coders.codeMessage(slicer, "LAYER: #{layerIndex}")
 
             # Generate G-code for this layer with center offset.
             @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY)
+
+        # Add blank line before post-print for readability.
+        slicer.gcode += slicer.newline
 
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
         slicer.gcode += coders.codePostPrint(slicer)
@@ -437,8 +443,16 @@ module.exports =
         # Convert speed from mm/s to mm/min for G-code.
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
 
-        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
-        if verbose then slicer.gcode += ";TYPE:#{wallType}" + slicer.newline
+        # Add descriptive comment for travel move if verbose.
+        if verbose
+            if wallType is "WALL-OUTER"
+                comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
+            else
+                comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, comment + slicer.newline)
+        else
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+        if verbose then slicer.gcode += "; TYPE: #{wallType}" + slicer.newline
 
         # Print perimeter.
         for pointIndex in [1...path.length]
