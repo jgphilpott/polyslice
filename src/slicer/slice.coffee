@@ -202,7 +202,7 @@ module.exports =
         return distSq < epsilon * epsilon
 
     # Create an inset path (shrink inward by specified distance).
-    # Uses edge-normal based offsetting for accurate, uniform inset.
+    # Uses simple perpendicular offset for each edge, producing reliable rectangular insets.
     createInsetPath: (path, insetDistance) ->
 
         return [] if path.length < 3
@@ -210,8 +210,7 @@ module.exports =
         insetPath = []
         n = path.length
 
-        # Calculate signed area to determine winding order.
-        # Using shoelace formula: sum of (x[i] * y[i+1] - x[i+1] * y[i]) / 2.
+        # Calculate signed area to determine winding order (CCW vs CW).
         signedArea = 0
 
         for i in [0...n]
@@ -219,102 +218,106 @@ module.exports =
             nextIdx = if i is n - 1 then 0 else i + 1
             signedArea += path[i].x * path[nextIdx].y - path[nextIdx].x * path[i].y
 
-        # For inset (shrinking), we need to move perpendicular inward.
-        # If signedArea > 0, path is CCW in standard math coordinates (Y up).
-        # If signedArea < 0, path is CW in standard math coordinates.
-        # We'll test and use the direction that gives us inward offset.
+        # If signedArea > 0, polygon is CCW (counter-clockwise).
+        # If signedArea < 0, polygon is CW (clockwise).
+        # For inward offset, we need to know which direction to move perpendicular to edges.
         isCCW = signedArea > 0
 
-        # For each vertex, calculate the inset position based on adjacent edge normals.
+        # For each edge, calculate the perpendicular inward offset line.
+        # Then find intersections of adjacent offset lines to get inset vertices.
+        offsetLines = []
+
         for i in [0...n]
 
-            prevIdx = if i is 0 then n - 1 else i - 1
             nextIdx = if i is n - 1 then 0 else i + 1
 
-            currentPoint = path[i]
-            prevPoint = path[prevIdx]
-            nextPoint = path[nextIdx]
+            p1 = path[i]
+            p2 = path[nextIdx]
 
-            # Edge vector from previous to current point.
-            edge1X = currentPoint.x - prevPoint.x
-            edge1Y = currentPoint.y - prevPoint.y
-            edge1Length = Math.sqrt(edge1X * edge1X + edge1Y * edge1Y)
+            # Edge vector.
+            edgeX = p2.x - p1.x
+            edgeY = p2.y - p1.y
+            edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY)
 
-            # Edge vector from current to next point.
-            edge2X = nextPoint.x - currentPoint.x
-            edge2Y = nextPoint.y - currentPoint.y
-            edge2Length = Math.sqrt(edge2X * edge2X + edge2Y * edge2Y)
+            if edgeLength < 0.0001
+                continue # Skip degenerate edges.
 
-            # Skip degenerate edges.
-            if edge1Length < 0.0001 or edge2Length < 0.0001
+            # Normalize edge vector.
+            edgeX /= edgeLength
+            edgeY /= edgeLength
 
-                insetPath.push({ x: currentPoint.x, y: currentPoint.y, z: currentPoint.z })
-
-                continue
-
-            # Normalize edges.
-            edge1X /= edge1Length
-            edge1Y /= edge1Length
-            edge2X /= edge2Length
-            edge2Y /= edge2Length
-
-            # Calculate inward normals (perpendicular to edges).
-            # For CCW winding, inward is left normal (rotate 90° counter-clockwise).
-            # For CW winding, inward is right normal (rotate 90° clockwise).
+            # Calculate perpendicular (normal) vector for inward offset.
+            # For CCW polygon, inward is to the LEFT of the edge (rotate +90°).
+            # For CW polygon, inward is to the RIGHT of the edge (rotate -90°).
             if isCCW
-                # CCW - use left normals (rotate edge 90° counter-clockwise).
-                normal1X = -edge1Y
-                normal1Y = edge1X
-                normal2X = -edge2Y
-                normal2Y = edge2X
+                normalX = -edgeY # Rotate +90°: (x,y) -> (-y,x).
+                normalY = edgeX
             else
-                # CW - use right normals (rotate edge 90° clockwise).
-                normal1X = edge1Y
-                normal1Y = -edge1X
-                normal2X = edge2Y
-                normal2Y = -edge2X
+                normalX = edgeY # Rotate -90°: (x,y) -> (y,-x).
+                normalY = -edgeX
 
-            # Average the two normals to get the bisector direction.
-            avgNormalX = (normal1X + normal2X) / 2
-            avgNormalY = (normal1Y + normal2Y) / 2
+            # Offset the edge inward by insetDistance.
+            offset1X = p1.x + normalX * insetDistance
+            offset1Y = p1.y + normalY * insetDistance
+            offset2X = p2.x + normalX * insetDistance
+            offset2Y = p2.y + normalY * insetDistance
 
-            avgLength = Math.sqrt(avgNormalX * avgNormalX + avgNormalY * avgNormalY)
+            offsetLines.push({
+                p1: { x: offset1X, y: offset1Y }
+                p2: { x: offset2X, y: offset2Y }
+                normal: { x: normalX, y: normalY }
+            })
 
-            # Skip if normals cancel out (180° angle).
-            if avgLength < 0.0001
+        # Find intersection points of adjacent offset lines.
+        for i in [0...offsetLines.length]
 
-                insetPath.push({ x: currentPoint.x, y: currentPoint.y, z: currentPoint.z })
+            prevIdx = if i is 0 then offsetLines.length - 1 else i - 1
 
-                continue
+            line1 = offsetLines[prevIdx]
+            line2 = offsetLines[i]
 
-            # Normalize the average normal.
-            avgNormalX /= avgLength
-            avgNormalY /= avgLength
+            # Find intersection of line1 and line2.
+            # Line 1: from line1.p1 to line1.p2.
+            # Line 2: from line2.p1 to line2.p2.
+            intersection = @lineIntersection(line1.p1, line1.p2, line2.p1, line2.p2)
 
-            # Calculate the angle between the two edges to adjust inset distance.
-            # The inset distance needs to be scaled by 1/sin(angle/2) to maintain uniform offset.
-            dotProduct = edge1X * edge2X + edge1Y * edge2Y
-            angleBetween = Math.acos(Math.max(-1, Math.min(1, dotProduct)))
-            halfAngle = angleBetween / 2
-
-            # Avoid division by zero for straight edges.
-            sinHalfAngle = Math.sin(halfAngle)
-
-            if sinHalfAngle < 0.01
-                scaledInset = insetDistance
+            if intersection
+                insetPath.push({ x: intersection.x, y: intersection.y, z: path[i].z })
             else
-                scaledInset = insetDistance / sinHalfAngle
-
-            # Clamp scaled inset to avoid excessive offsets at sharp angles.
-            scaledInset = Math.min(scaledInset, insetDistance * 10)
-
-            # Move point along the bisector normal by the scaled inset distance.
-            insetX = currentPoint.x + avgNormalX * scaledInset
-            insetY = currentPoint.y + avgNormalY * scaledInset
-
-            insetPath.push({ x: insetX, y: insetY, z: currentPoint.z })
+                # Lines are parallel or don't intersect - use corner point with offset.
+                insetPath.push({
+                    x: path[i].x + line2.normal.x * insetDistance
+                    y: path[i].y + line2.normal.y * insetDistance
+                    z: path[i].z
+                })
 
         return insetPath
+
+    # Calculate intersection point of two line segments.
+    lineIntersection: (p1, p2, p3, p4) ->
+
+        x1 = p1.x
+        y1 = p1.y
+        x2 = p2.x
+        y2 = p2.y
+        x3 = p3.x
+        y3 = p3.y
+        x4 = p4.x
+        y4 = p4.y
+
+        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+
+        # Lines are parallel or coincident.
+        if Math.abs(denom) < 0.0001
+            return null
+
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+
+        # Calculate intersection point.
+        x = x1 + t * (x2 - x1)
+        y = y1 + t * (y2 - y1)
+
+        return { x: x, y: y }
 
     # Generate G-code for a single layer.
     generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0) ->
