@@ -196,16 +196,16 @@ describe 'Accessors (Getters and Setters)', ->
 
         test 'should set and get shell thickness settings', ->
 
-            slicer.setShellHorizontalThickness(1.2)
-            expect(slicer.getShellHorizontalThickness()).toBe(1.2)
+            slicer.setShellSkinThickness(1.2)
+            expect(slicer.getShellSkinThickness()).toBe(1.2)
 
-            slicer.setShellVerticalThickness(1.0)
-            expect(slicer.getShellVerticalThickness()).toBe(1.0)
+            slicer.setShellWallThickness(1.0)
+            expect(slicer.getShellWallThickness()).toBe(1.0)
 
             # Test with inches.
             inchSlicer = new Polyslice({lengthUnit: 'inches'})
-            inchSlicer.setShellHorizontalThickness(0.047) # ~1.2mm.
-            expect(inchSlicer.getShellHorizontalThickness()).toBeCloseTo(0.047, 3)
+            inchSlicer.setShellSkinThickness(0.047) # ~1.2mm.
+            expect(inchSlicer.getShellSkinThickness()).toBeCloseTo(0.047, 3)
 
         test 'should set and get support settings', ->
 

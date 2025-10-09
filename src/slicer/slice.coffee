@@ -202,52 +202,117 @@ module.exports =
         return distSq < epsilon * epsilon
 
     # Create an inset path (shrink inward by specified distance).
-    # Uses simple centroid-based scaling for reliable results.
+    # Uses edge-normal based offsetting for accurate, uniform inset.
     createInsetPath: (path, insetDistance) ->
 
         return [] if path.length < 3
 
-        # Calculate the centroid.
-        centroidX = 0
-        centroidY = 0
-
-        for point in path
-
-            centroidX += point.x
-            centroidY += point.y
-
+        insetPath = []
         n = path.length
 
-        centroidX /= n
-        centroidY /= n
+        # Calculate signed area to determine winding order.
+        # Using shoelace formula: sum of (x[i] * y[i+1] - x[i+1] * y[i]) / 2.
+        signedArea = 0
 
-        # For each vertex, move it toward the centroid by insetDistance.
-        insetPath = []
+        for i in [0...n]
 
-        for point in path
+            nextIdx = if i is n - 1 then 0 else i + 1
+            signedArea += path[i].x * path[nextIdx].y - path[nextIdx].x * path[i].y
 
-            # Vector from point to centroid.
-            toCentroidX = centroidX - point.x
-            toCentroidY = centroidY - point.y
+        # For inset (shrinking), we need to move perpendicular inward.
+        # If signedArea > 0, path is CCW in standard math coordinates (Y up).
+        # If signedArea < 0, path is CW in standard math coordinates.
+        # We'll test and use the direction that gives us inward offset.
+        isCCW = signedArea > 0
 
-            distance = Math.sqrt(toCentroidX * toCentroidX + toCentroidY * toCentroidY)
+        # For each vertex, calculate the inset position based on adjacent edge normals.
+        for i in [0...n]
 
-            # Skip if point is already at centroid.
-            if distance < 0.001
+            prevIdx = if i is 0 then n - 1 else i - 1
+            nextIdx = if i is n - 1 then 0 else i + 1
 
-                insetPath.push({ x: point.x, y: point.y, z: point.z })
+            currentPoint = path[i]
+            prevPoint = path[prevIdx]
+            nextPoint = path[nextIdx]
+
+            # Edge vector from previous to current point.
+            edge1X = currentPoint.x - prevPoint.x
+            edge1Y = currentPoint.y - prevPoint.y
+            edge1Length = Math.sqrt(edge1X * edge1X + edge1Y * edge1Y)
+
+            # Edge vector from current to next point.
+            edge2X = nextPoint.x - currentPoint.x
+            edge2Y = nextPoint.y - currentPoint.y
+            edge2Length = Math.sqrt(edge2X * edge2X + edge2Y * edge2Y)
+
+            # Skip degenerate edges.
+            if edge1Length < 0.0001 or edge2Length < 0.0001
+
+                insetPath.push({ x: currentPoint.x, y: currentPoint.y, z: currentPoint.z })
 
                 continue
 
-            # Normalize direction vector.
-            dirX = toCentroidX / distance
-            dirY = toCentroidY / distance
+            # Normalize edges.
+            edge1X /= edge1Length
+            edge1Y /= edge1Length
+            edge2X /= edge2Length
+            edge2Y /= edge2Length
 
-            # Move point toward centroid by insetDistance.
-            insetX = point.x + dirX * insetDistance
-            insetY = point.y + dirY * insetDistance
+            # Calculate inward normals (perpendicular to edges).
+            # For CCW winding, inward is left normal (rotate 90° counter-clockwise).
+            # For CW winding, inward is right normal (rotate 90° clockwise).
+            if isCCW
+                # CCW - use left normals (rotate edge 90° counter-clockwise).
+                normal1X = -edge1Y
+                normal1Y = edge1X
+                normal2X = -edge2Y
+                normal2Y = edge2X
+            else
+                # CW - use right normals (rotate edge 90° clockwise).
+                normal1X = edge1Y
+                normal1Y = -edge1X
+                normal2X = edge2Y
+                normal2Y = -edge2X
 
-            insetPath.push({ x: insetX, y: insetY, z: point.z })
+            # Average the two normals to get the bisector direction.
+            avgNormalX = (normal1X + normal2X) / 2
+            avgNormalY = (normal1Y + normal2Y) / 2
+
+            avgLength = Math.sqrt(avgNormalX * avgNormalX + avgNormalY * avgNormalY)
+
+            # Skip if normals cancel out (180° angle).
+            if avgLength < 0.0001
+
+                insetPath.push({ x: currentPoint.x, y: currentPoint.y, z: currentPoint.z })
+
+                continue
+
+            # Normalize the average normal.
+            avgNormalX /= avgLength
+            avgNormalY /= avgLength
+
+            # Calculate the angle between the two edges to adjust inset distance.
+            # The inset distance needs to be scaled by 1/sin(angle/2) to maintain uniform offset.
+            dotProduct = edge1X * edge2X + edge1Y * edge2Y
+            angleBetween = Math.acos(Math.max(-1, Math.min(1, dotProduct)))
+            halfAngle = angleBetween / 2
+
+            # Avoid division by zero for straight edges.
+            sinHalfAngle = Math.sin(halfAngle)
+
+            if sinHalfAngle < 0.01
+                scaledInset = insetDistance
+            else
+                scaledInset = insetDistance / sinHalfAngle
+
+            # Clamp scaled inset to avoid excessive offsets at sharp angles.
+            scaledInset = Math.min(scaledInset, insetDistance * 10)
+
+            # Move point along the bisector normal by the scaled inset distance.
+            insetX = currentPoint.x + avgNormalX * scaledInset
+            insetY = currentPoint.y + avgNormalY * scaledInset
+
+            insetPath.push({ x: insetX, y: insetY, z: currentPoint.z })
 
         return insetPath
 

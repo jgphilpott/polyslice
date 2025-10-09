@@ -46,8 +46,8 @@ describe 'Polyslice', ->
             # Test new infill settings
             expect(slicer.getInfillDensity()).toBe(20)
             expect(slicer.getInfillPattern()).toBe('grid')
-            expect(slicer.getShellHorizontalThickness()).toBe(0.8)
-            expect(slicer.getShellVerticalThickness()).toBe(0.8)
+            expect(slicer.getShellSkinThickness()).toBe(0.8)
+            expect(slicer.getShellWallThickness()).toBe(0.8)
 
             # Test new support settings
             expect(slicer.getSupportEnabled()).toBe(false)
