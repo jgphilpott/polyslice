@@ -202,37 +202,81 @@ module.exports =
         return distSq < epsilon * epsilon
 
     # Create an inset path (shrink inward by specified distance).
-    # Uses simple perpendicular offset for each edge, producing reliable rectangular insets.
+    # First simplifies path by merging near-collinear edges, then applies perpendicular offset.
     createInsetPath: (path, insetDistance) ->
 
         return [] if path.length < 3
 
-        insetPath = []
+        # Step 1: Simplify the path by detecting significant corners only.
+        # A significant corner is one where the direction changes by more than a threshold.
+        simplifiedPath = []
+        angleThreshold = 0.05 # ~2.9 degrees in radians
+
         n = path.length
 
-        # Calculate signed area to determine winding order (CCW vs CW).
+        for i in [0...n]
+
+            prevIdx = if i is 0 then n - 1 else i - 1
+            nextIdx = if i is n - 1 then 0 else i + 1
+
+            p1 = path[prevIdx]
+            p2 = path[i]
+            p3 = path[nextIdx]
+
+            # Calculate vectors for the two edges.
+            v1x = p2.x - p1.x
+            v1y = p2.y - p1.y
+            v2x = p3.x - p2.x
+            v2y = p3.y - p2.y
+
+            len1 = Math.sqrt(v1x * v1x + v1y * v1y)
+            len2 = Math.sqrt(v2x * v2x + v2y * v2y)
+
+            # Skip if either edge is degenerate.
+            if len1 < 0.0001 or len2 < 0.0001
+                continue
+
+            # Normalize vectors.
+            v1x /= len1
+            v1y /= len1
+            v2x /= len2
+            v2y /= len2
+
+            # Calculate cross product to detect direction change.
+            cross = v1x * v2y - v1y * v2x
+
+            # If direction changes significantly, this is a real corner.
+            if Math.abs(cross) > angleThreshold
+                simplifiedPath.push(p2)
+
+        # If simplification resulted in < 4 points for rectangular shapes, use original path.
+        # We want at least 4 corners for proper rectangular insets.
+        if simplifiedPath.length < 4
+            simplifiedPath = path
+
+        # Step 2: Create inset using the simplified path.
+        insetPath = []
+        n = simplifiedPath.length
+
+        # Calculate signed area to determine winding order.
         signedArea = 0
 
         for i in [0...n]
 
             nextIdx = if i is n - 1 then 0 else i + 1
-            signedArea += path[i].x * path[nextIdx].y - path[nextIdx].x * path[i].y
+            signedArea += simplifiedPath[i].x * simplifiedPath[nextIdx].y - simplifiedPath[nextIdx].x * simplifiedPath[i].y
 
-        # If signedArea > 0, polygon is CCW (counter-clockwise).
-        # If signedArea < 0, polygon is CW (clockwise).
-        # For inward offset, we need to know which direction to move perpendicular to edges.
         isCCW = signedArea > 0
 
-        # For each edge, calculate the perpendicular inward offset line.
-        # Then find intersections of adjacent offset lines to get inset vertices.
+        # Create offset lines for each edge.
         offsetLines = []
 
         for i in [0...n]
 
             nextIdx = if i is n - 1 then 0 else i + 1
 
-            p1 = path[i]
-            p2 = path[nextIdx]
+            p1 = simplifiedPath[i]
+            p2 = simplifiedPath[nextIdx]
 
             # Edge vector.
             edgeX = p2.x - p1.x
@@ -240,23 +284,21 @@ module.exports =
             edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY)
 
             if edgeLength < 0.0001
-                continue # Skip degenerate edges.
+                continue
 
-            # Normalize edge vector.
+            # Normalize.
             edgeX /= edgeLength
             edgeY /= edgeLength
 
-            # Calculate perpendicular (normal) vector for inward offset.
-            # For CCW polygon, inward is to the LEFT of the edge (rotate +90°).
-            # For CW polygon, inward is to the RIGHT of the edge (rotate -90°).
+            # Perpendicular inward normal.
             if isCCW
-                normalX = -edgeY # Rotate +90°: (x,y) -> (-y,x).
+                normalX = -edgeY
                 normalY = edgeX
             else
-                normalX = edgeY # Rotate -90°: (x,y) -> (y,-x).
+                normalX = edgeY
                 normalY = -edgeX
 
-            # Offset the edge inward by insetDistance.
+            # Offset the edge.
             offset1X = p1.x + normalX * insetDistance
             offset1Y = p1.y + normalY * insetDistance
             offset2X = p2.x + normalX * insetDistance
@@ -265,10 +307,10 @@ module.exports =
             offsetLines.push({
                 p1: { x: offset1X, y: offset1Y }
                 p2: { x: offset2X, y: offset2Y }
-                normal: { x: normalX, y: normalY }
+                originalIdx: i
             })
 
-        # Find intersection points of adjacent offset lines.
+        # Find intersections of adjacent offset lines.
         for i in [0...offsetLines.length]
 
             prevIdx = if i is 0 then offsetLines.length - 1 else i - 1
@@ -276,19 +318,18 @@ module.exports =
             line1 = offsetLines[prevIdx]
             line2 = offsetLines[i]
 
-            # Find intersection of line1 and line2.
-            # Line 1: from line1.p1 to line1.p2.
-            # Line 2: from line2.p1 to line2.p2.
             intersection = @lineIntersection(line1.p1, line1.p2, line2.p1, line2.p2)
 
+            origVertex = simplifiedPath[line2.originalIdx]
+
             if intersection
-                insetPath.push({ x: intersection.x, y: intersection.y, z: path[i].z })
+                insetPath.push({ x: intersection.x, y: intersection.y, z: origVertex.z })
             else
-                # Lines are parallel or don't intersect - use corner point with offset.
+                # Parallel lines - use midpoint of offset segment.
                 insetPath.push({
-                    x: path[i].x + line2.normal.x * insetDistance
-                    y: path[i].y + line2.normal.y * insetDistance
-                    z: path[i].z
+                    x: line2.p1.x
+                    y: line2.p1.y
+                    z: origVertex.z
                 })
 
         return insetPath
