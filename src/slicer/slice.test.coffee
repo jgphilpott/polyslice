@@ -248,6 +248,10 @@ describe 'Slicing', ->
 
             result = slicer.slice(mesh)
 
+            # Should have both outer and inner walls.
+            expect(result).toContain('WALL-OUTER')
+            expect(result).toContain('WALL-INNER')
+
     describe 'Wall Quality and Regression Tests', ->
 
         test 'should maintain consistent extrusion across all layers', ->
