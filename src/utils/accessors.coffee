@@ -94,13 +94,13 @@ module.exports =
 
         return slicer.infillPattern
 
-    getShellHorizontalThickness: (slicer) ->
+    getShellSkinThickness: (slicer) ->
 
-        return conversions.lengthFromInternal(slicer.shellHorizontalThickness, slicer.lengthUnit)
+        return conversions.lengthFromInternal(slicer.shellSkinThickness, slicer.lengthUnit)
 
-    getShellVerticalThickness: (slicer) ->
+    getShellWallThickness: (slicer) ->
 
-        return conversions.lengthFromInternal(slicer.shellVerticalThickness, slicer.lengthUnit)
+        return conversions.lengthFromInternal(slicer.shellWallThickness, slicer.lengthUnit)
 
     getSupportEnabled: (slicer) ->
 
@@ -348,19 +348,19 @@ module.exports =
 
         return slicer
 
-    setShellHorizontalThickness: (slicer, thickness = 0.8) ->
+    setShellSkinThickness: (slicer, thickness = 0.8) ->
 
         if typeof thickness is "number" and thickness >= 0
 
-            slicer.shellHorizontalThickness = conversions.lengthToInternal(thickness, slicer.lengthUnit)
+            slicer.shellSkinThickness = conversions.lengthToInternal(thickness, slicer.lengthUnit)
 
         return slicer
 
-    setShellVerticalThickness: (slicer, thickness = 0.8) ->
+    setShellWallThickness: (slicer, thickness = 0.8) ->
 
         if typeof thickness is "number" and thickness >= 0
 
-            slicer.shellVerticalThickness = conversions.lengthToInternal(thickness, slicer.lengthUnit)
+            slicer.shellWallThickness = conversions.lengthToInternal(thickness, slicer.lengthUnit)
 
         return slicer
 

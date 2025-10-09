@@ -75,8 +75,8 @@ class Polyslice
         # Infill settings for interior structure and strength.
         @infillDensity = options.infillDensity ?= 20 # Number 0-100 (percentage).
         @infillPattern = options.infillPattern ?= "grid" # String ['grid', 'lines', 'triangles', 'cubic', 'gyroid', 'honeycomb'].
-        @shellHorizontalThickness = conversions.lengthToInternal(options.shellHorizontalThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
-        @shellVerticalThickness = conversions.lengthToInternal(options.shellVerticalThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
+        @shellSkinThickness = conversions.lengthToInternal(options.shellSkinThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
+        @shellWallThickness = conversions.lengthToInternal(options.shellWallThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
 
         # Support structure settings for overhangs and bridges.
         @supportEnabled = options.supportEnabled ?= false # Boolean.
@@ -171,11 +171,11 @@ class Polyslice
     getInfillPattern: ->
         accessors.getInfillPattern(this)
 
-    getShellHorizontalThickness: ->
-        accessors.getShellHorizontalThickness(this)
+    getShellSkinThickness: ->
+        accessors.getShellSkinThickness(this)
 
-    getShellVerticalThickness: ->
-        accessors.getShellVerticalThickness(this)
+    getShellWallThickness: ->
+        accessors.getShellWallThickness(this)
 
     getSupportEnabled: ->
         accessors.getSupportEnabled(this)
@@ -290,11 +290,11 @@ class Polyslice
     setInfillPattern: (pattern = "grid") ->
         accessors.setInfillPattern(this, pattern)
 
-    setShellHorizontalThickness: (thickness = 0.8) ->
-        accessors.setShellHorizontalThickness(this, thickness)
+    setShellSkinThickness: (thickness = 0.8) ->
+        accessors.setShellSkinThickness(this, thickness)
 
-    setShellVerticalThickness: (thickness = 0.8) ->
-        accessors.setShellVerticalThickness(this, thickness)
+    setShellWallThickness: (thickness = 0.8) ->
+        accessors.setShellWallThickness(this, thickness)
 
     setSupportEnabled: (enabled = false) ->
         accessors.setSupportEnabled(this, enabled)

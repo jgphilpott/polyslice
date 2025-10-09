@@ -263,6 +263,13 @@ module.exports =
             slicer.cumulativeE = 0
 
         nozzleDiameter = slicer.getNozzleDiameter()
+        shellWallThickness = slicer.getShellWallThickness()
+
+        # Calculate number of walls based on shell wall thickness and nozzle diameter.
+        # Each wall is approximately as wide as the nozzle diameter (it squishes to ~1x nozzle diameter).
+        # Round down to get integer wall count.
+        # Add small epsilon to handle floating point precision issues (e.g., 1.2/0.4 = 2.9999... should be 3).
+        wallCount = Math.max(1, Math.floor((shellWallThickness / nozzleDiameter) + 0.0001))
 
         # Process each closed path (perimeter).
         for path in paths
@@ -270,14 +277,31 @@ module.exports =
             # Skip degenerate paths.
             continue if path.length < 3
 
-            # Generate outer wall.
-            @generateWallGCode(slicer, path, z, centerOffsetX, centerOffsetY, "WALL-OUTER")
+            currentPath = path
 
-            # Generate inner wall (inset by nozzle diameter).
-            insetPath = @createInsetPath(path, nozzleDiameter)
+            # Generate walls from outer to inner.
+            for wallIndex in [0...wallCount]
 
-            if insetPath.length >= 3
-                @generateWallGCode(slicer, insetPath, z, centerOffsetX, centerOffsetY, "WALL-INNER")
+                # Determine wall type for TYPE annotation.
+                if wallIndex is 0
+                    wallType = "WALL-OUTER"
+                else if wallIndex is wallCount - 1
+                    wallType = "WALL-INNER"
+                else
+                    wallType = "WALL-INNER"
+
+                # Generate this wall.
+                @generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType)
+
+                # Create inset path for next wall (if not last wall).
+                if wallIndex < wallCount - 1
+
+                    insetPath = @createInsetPath(currentPath, nozzleDiameter)
+
+                    # Stop if inset path becomes degenerate.
+                    break if insetPath.length < 3
+
+                    currentPath = insetPath
 
     # Generate G-code for a single wall (outer or inner).
     generateWallGCode: (slicer, path, z, centerOffsetX, centerOffsetY, wallType) ->

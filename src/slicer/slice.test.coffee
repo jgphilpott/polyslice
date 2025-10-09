@@ -157,3 +157,97 @@ describe 'Slicing', ->
             scene = new THREE.Scene()
             result = slicer.slice(scene)
             expect(result).toContain('G28')
+
+    describe 'Multiple Wall Generation', ->
+
+        test 'should generate single wall with 0.4mm shell thickness and 0.4mm nozzle', ->
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.4)
+            slicer.setLayerHeight(0.2)
+
+            result = slicer.slice(mesh)
+
+            # Should have WALL-OUTER but no WALL-INNER (single wall).
+            expect(result).toContain('WALL-OUTER')
+
+        test 'should generate two walls with 0.8mm shell thickness and 0.4mm nozzle', ->
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+
+            result = slicer.slice(mesh)
+
+            # Should have both outer and inner walls.
+            expect(result).toContain('WALL-OUTER')
+            expect(result).toContain('WALL-INNER')
+
+        test 'should generate three walls with 1.2mm shell thickness and 0.4mm nozzle', ->
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(1.2)
+            slicer.setLayerHeight(0.2)
+
+            result = slicer.slice(mesh)
+
+            # Should have both outer and inner walls (3 total).
+            expect(result).toContain('WALL-OUTER')
+            expect(result).toContain('WALL-INNER')
+
+            # Count wall type annotations to verify wall count.
+            outerCount = (result.match(/WALL-OUTER/g) || []).length
+            innerCount = (result.match(/WALL-INNER/g) || []).length
+
+            # Should have more wall-inner than with 2 walls.
+            expect(outerCount).toBeGreaterThan(0)
+            expect(innerCount).toBeGreaterThan(0)
+
+        test 'should round down wall count with non-multiple thickness', ->
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(1.0) # Should give 2 walls (floor(1.0/0.4) = 2).
+            slicer.setLayerHeight(0.2)
+
+            result = slicer.slice(mesh)
+
+            # Should have both outer and inner walls.
+            expect(result).toContain('WALL-OUTER')
+            expect(result).toContain('WALL-INNER')
+
+        test 'should handle different nozzle diameter (0.6mm)', ->
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.6)
+            slicer.setShellWallThickness(1.2) # Should give 2 walls (floor(1.2/0.6) = 2).
+            slicer.setLayerHeight(0.2)
+
+            result = slicer.slice(mesh)
+
+            # Should have both outer and inner walls.
+            expect(result).toContain('WALL-OUTER')
+            expect(result).toContain('WALL-INNER')
