@@ -1,7 +1,58 @@
-<html>
-    <head>
-        <meta http-equiv="refresh" content="0; url=https://jgphilpott.github.io/polyslice/examples/serial/browser/sender.html">
-    </head>
-    <body>
-    </body>
+<!doctype html>
+<html lang="en-US" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Polyslice</title>
+    <link rel="stylesheet" href="./index.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" id="light-scheme-icon" href="./imgs/favicon/black.png" />
+  </head>
+  <body>
+    <a href="https://github.com/jgphilpott/polyslice">
+      <img title="Fork Me" id="forkme" src="./imgs/forkme/right/white.png" />
+    </a>
+
+    <canvas id="warp-canvas"></canvas>
+
+    <div class="content">
+
+      <h1>Polyslice</h1>
+
+      <p class="tagline">An FDM slicer designed specifically for three.js</p>
+
+      <div class="description">
+        <p>
+          Transform three.js meshes directly into machine-ready G-code,
+          eliminating the need for intermediary file formats and 3rd party
+          slicing software.
+        </p>
+      </div>
+
+      <div class="tools">
+        <h2>Tools</h2>
+        <div class="tool-grid">
+          <a href="./examples/serial/browser/sender.html" class="tool-card">
+            <h3>🚀 G-code Sender</h3>
+            <p>
+              Send G-code commands directly to your 3D printer via Web Serial API.
+            </p>
+          </a>
+          <a href="./examples/visualizer/visualizer.html" class="tool-card">
+            <h3>👁️ G-code Visualizer</h3>
+            <p>
+              Visualize and preview G-code tool paths in 3D before printing.
+            </p>
+          </a>
+        </div>
+      </div>
+
+      <div class="links">
+        <a href="https://github.com/jgphilpott/polyslice" class="link-button">GitHub Repository</a>
+        <a href="https://www.npmjs.com/package/@jgphilpott/polyslice" class="link-button" >NPM Package</a>
+        <a href="https://github.com/jgphilpott/polyslice/blob/main/README.md" class="link-button">Documentation</a>
+      </div>
+    </div>
+
+    <script src="./index.js"></script>
+  </body>
 </html>
