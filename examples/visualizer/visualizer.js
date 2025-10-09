@@ -75,6 +75,9 @@ function init() {
   // Add custom keyboard controls for WASD camera tilt and arrow key position movement.
   setupKeyboardControls();
 
+  // Add double-click handler for line focus.
+  setupDoubleClickHandler();
+
   // Start animation loop.
   animate();
 }
@@ -358,6 +361,95 @@ function setupKeyboardControls() {
       controls.update();
     }
   });
+}
+
+/**
+ * Setup double-click handler to focus camera on clicked line.
+ */
+function setupDoubleClickHandler() {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+
+  // Set raycaster threshold for better line detection
+  raycaster.params.Line.threshold = 2;
+
+  renderer.domElement.addEventListener('dblclick', (event) => {
+    // Calculate mouse position in normalized device coordinates (-1 to +1)
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Update the raycaster with the camera and mouse position
+    raycaster.setFromCamera(mouse, camera);
+
+    // Calculate objects intersecting the picking ray
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    // Find the first intersected line segment
+    for (let i = 0; i < intersects.length; i++) {
+      const intersect = intersects[i];
+      
+      // Check if the intersected object is a line segment (part of G-code)
+      if (intersect.object instanceof THREE.LineSegments || 
+          intersect.object instanceof THREE.Line) {
+        
+        // Get the center point of the line segment
+        const point = intersect.point.clone();
+        
+        // Calculate the bounding box of the intersected object
+        const box = new THREE.Box3().setFromObject(intersect.object);
+        const center = box.getCenter(new THREE.Vector3());
+        
+        // Focus camera on the line center
+        focusCameraOnPoint(center);
+        break;
+      }
+    }
+  });
+}
+
+/**
+ * Focus camera on a specific point with smooth animation.
+ */
+function focusCameraOnPoint(point) {
+  // Calculate distance from camera to point
+  const distance = camera.position.distanceTo(controls.target);
+  
+  // Calculate new camera position maintaining the same distance
+  const direction = new THREE.Vector3()
+    .subVectors(camera.position, controls.target)
+    .normalize();
+  
+  const newCameraPosition = new THREE.Vector3()
+    .addVectors(point, direction.multiplyScalar(distance * 0.3));
+  
+  // Smoothly transition to new position
+  const startPosition = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const duration = 500; // milliseconds
+  const startTime = Date.now();
+  
+  function animateCamera() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    
+    // Use easing function for smooth animation
+    const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    
+    // Interpolate camera position
+    camera.position.lerpVectors(startPosition, newCameraPosition, easeProgress);
+    
+    // Interpolate controls target
+    controls.target.lerpVectors(startTarget, point, easeProgress);
+    
+    controls.update();
+    
+    if (progress < 1) {
+      requestAnimationFrame(animateCamera);
+    }
+  }
+  
+  animateCamera();
 }
 
 /**

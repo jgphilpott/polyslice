@@ -32,6 +32,7 @@ The visualizer automatically detects and color-codes different types of movement
 - **Orbit**: Click and drag with left mouse button to rotate the view
 - **Zoom**: Scroll wheel to zoom in and out
 - **Pan**: Click and drag with right mouse button (or Ctrl + left mouse button) to pan the view
+- **Focus on Line**: Double-click on any line to refocus the camera on the center of that line
 
 #### Keyboard Controls
 - **WASD**: Tilt the camera angle
