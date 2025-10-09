@@ -210,39 +210,43 @@ module.exports =
         # Calculate the centroid.
         centroidX = 0
         centroidY = 0
-        
+
         for point in path
+
             centroidX += point.x
             centroidY += point.y
-        
+
         n = path.length
+
         centroidX /= n
         centroidY /= n
 
         # For each vertex, move it toward the centroid by insetDistance.
         insetPath = []
-        
+
         for point in path
-            
+
             # Vector from point to centroid.
             toCentroidX = centroidX - point.x
             toCentroidY = centroidY - point.y
-            
+
             distance = Math.sqrt(toCentroidX * toCentroidX + toCentroidY * toCentroidY)
-            
+
             # Skip if point is already at centroid.
             if distance < 0.001
+
                 insetPath.push({ x: point.x, y: point.y, z: point.z })
+
                 continue
-            
+
             # Normalize direction vector.
             dirX = toCentroidX / distance
             dirY = toCentroidY / distance
-            
+
             # Move point toward centroid by insetDistance.
             insetX = point.x + dirX * insetDistance
             insetY = point.y + dirY * insetDistance
-            
+
             insetPath.push({ x: insetX, y: insetY, z: point.z })
 
         return insetPath
@@ -311,7 +315,7 @@ module.exports =
 
             # Calculate extrusion amount for this segment.
             extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
-            
+
             # Add to cumulative extrusion (absolute mode).
             slicer.cumulativeE += extrusionDelta
 
@@ -337,7 +341,7 @@ module.exports =
 
             # Calculate extrusion amount for closing segment.
             extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
-            
+
             # Add to cumulative extrusion (absolute mode).
             slicer.cumulativeE += extrusionDelta
 
