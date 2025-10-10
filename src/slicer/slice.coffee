@@ -433,7 +433,7 @@ module.exports =
 
                 # Generate skin for this layer.
                 # currentPath now holds the innermost wall boundary.
-                @generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY)
+                @generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex)
 
     # Generate G-code for a single wall (outer or inner).
     generateWallGCode: (slicer, path, z, centerOffsetX, centerOffsetY, wallType) ->
@@ -526,7 +526,7 @@ module.exports =
             slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
 
     # Generate G-code for skin (top/bottom solid infill).
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY) ->
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex) ->
 
         return if boundaryPath.length < 3
 
@@ -536,8 +536,8 @@ module.exports =
         if verbose then slicer.gcode += "; TYPE: SKIN" + slicer.newline
 
         # Step 1: Generate skin wall (perimeter pass around skin boundary).
-        # Create an inset of half nozzle diameter from the boundary path.
-        skinWallInset = nozzleDiameter / 2
+        # Create an inset of full nozzle diameter from the boundary path.
+        skinWallInset = nozzleDiameter
         skinWallPath = @createInsetPath(boundaryPath, skinWallInset)
 
         if skinWallPath.length >= 3
@@ -596,7 +596,7 @@ module.exports =
         # Step 2: Generate diagonal skin infill at 45-degree angle.
         # Calculate bounding box with additional inset for gap from skin wall.
         infillGap = nozzleDiameter / 2  # Gap between skin wall and infill.
-        infillInset = skinWallInset + infillGap
+        infillInset = skinWallInset + infillGap  # Total: 1.5 * nozzleDiameter from boundary.
 
         # Create inset boundary for infill area.
         infillBoundary = @createInsetPath(boundaryPath, infillInset)
@@ -617,6 +617,7 @@ module.exports =
             if point.y > maxY then maxY = point.y
 
         # Generate diagonal infill lines at 45-degree angle.
+        # Alternate direction per layer: odd layers at -45°, even layers at +45°.
         # Line spacing equal to nozzle diameter for solid infill.
         lineSpacing = nozzleDiameter
 
@@ -629,40 +630,72 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Start from bottom-left, sweep diagonally to top-right.
-        # For 45-degree lines: y = x + offset.
-        # We'll generate lines with varying offset values.
-        offset = minX + minY - diagonalSpan
-        direction = 1  # Alternate direction for zig-zag.
+        # Determine infill angle based on layer index.
+        # Odd layers: -45° (y = -x + offset), Even layers: +45° (y = x + offset).
+        useNegativeSlope = (layerIndex % 2) is 1
 
-        while offset < maxX + maxY
+        # Start from appropriate diagonal position.
+        if useNegativeSlope
+            # For -45° (y = -x + offset): offset ranges from minY + minX to maxY + maxX.
+            offset = minY + minX - diagonalSpan
+            maxOffset = maxY + maxX
+        else
+            # For +45° (y = x + offset): offset ranges from minY - maxX to maxY - minX.
+            offset = minY - maxX - diagonalSpan
+            maxOffset = maxY - minX
+
+        direction = 1  # Alternate direction for zig-zag within the layer.
+
+        while offset < maxOffset
 
             # Calculate intersection points with bounding box.
-            # Line equation: y = x - offset (rearranged from y = x + offset)
-            # For 45-degree angle, we have slope = 1.
-
-            # Find start and end points of the line within bounds.
             intersections = []
 
-            # Check intersection with left edge (x = minX).
-            y = offset - minX
-            if y >= minY and y <= maxY
-                intersections.push({ x: minX, y: y })
+            if useNegativeSlope
+                # Line equation: y = -x + offset (slope = -1).
 
-            # Check intersection with right edge (x = maxX).
-            y = offset - maxX
-            if y >= minY and y <= maxY
-                intersections.push({ x: maxX, y: y })
+                # Check intersection with left edge (x = minX).
+                y = offset - minX
+                if y >= minY and y <= maxY
+                    intersections.push({ x: minX, y: y })
 
-            # Check intersection with bottom edge (y = minY).
-            x = offset - minY
-            if x >= minX and x <= maxX
-                intersections.push({ x: x, y: minY })
+                # Check intersection with right edge (x = maxX).
+                y = offset - maxX
+                if y >= minY and y <= maxY
+                    intersections.push({ x: maxX, y: y })
 
-            # Check intersection with top edge (y = maxY).
-            x = offset - maxY
-            if x >= minX and x <= maxX
-                intersections.push({ x: x, y: maxY })
+                # Check intersection with bottom edge (y = minY).
+                x = offset - minY
+                if x >= minX and x <= maxX
+                    intersections.push({ x: x, y: minY })
+
+                # Check intersection with top edge (y = maxY).
+                x = offset - maxY
+                if x >= minX and x <= maxX
+                    intersections.push({ x: x, y: maxY })
+
+            else
+                # Line equation: y = x + offset (slope = +1).
+
+                # Check intersection with left edge (x = minX).
+                y = minX + offset
+                if y >= minY and y <= maxY
+                    intersections.push({ x: minX, y: y })
+
+                # Check intersection with right edge (x = maxX).
+                y = maxX + offset
+                if y >= minY and y <= maxY
+                    intersections.push({ x: maxX, y: y })
+
+                # Check intersection with bottom edge (y = minY).
+                x = minY - offset
+                if x >= minX and x <= maxX
+                    intersections.push({ x: x, y: minY })
+
+                # Check intersection with top edge (y = maxY).
+                x = maxY - offset
+                if x >= minX and x <= maxX
+                    intersections.push({ x: x, y: maxY })
 
             # We should have exactly 2 intersection points.
             if intersections.length >= 2
