@@ -1033,8 +1033,9 @@ describe 'Slicing', ->
                 if line.includes('; TYPE: FILL')
                     infillCount++
 
-            # With 50 total layers, 2 bottom + 2 top skin = 4 skin layers.
-            # So we should have ~46 layers with infill.
+            # 1cm cube with 0.2mm layer height = 50 total layers.
+            # 2 bottom + 2 top skin layers = 4 skin layers.
+            # Remaining 46 layers should have infill.
             expect(infillCount).toBeGreaterThan(40)
 
         test 'should not generate infill when density is 0', ->
@@ -1198,11 +1199,9 @@ describe 'Slicing', ->
                 pattern2 = analyzePattern(middleLayers[i + 1].coords)
 
                 # Adjacent layers should have different patterns (alternating).
+                # Even layer indices use horizontal lines, odd layer indices use vertical lines.
                 expect(pattern1).not.toBe('unknown')
                 expect(pattern2).not.toBe('unknown')
-
-                # Layer 3 should be vertical (odd), layer 4 should be horizontal (even).
-                # Since we're using layer index and even layers use horizontal.
 
             return # Explicitly return undefined for Jest.
 

@@ -778,9 +778,14 @@ module.exports =
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
         infillDensity = slicer.getInfillDensity()
+        infillPattern = slicer.getInfillPattern()
 
         # Skip if no infill density configured.
         return if infillDensity <= 0
+
+        # Only process grid pattern for now.
+        # Other patterns (lines, triangles, cubic, gyroid, honeycomb) not yet implemented.
+        return if infillPattern isnt 'grid'
 
         if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
 
@@ -835,10 +840,11 @@ module.exports =
                 # For zig-zag, alternate direction based on previous end point.
                 if lastEndPoint?
 
-                    dist0 = Math.sqrt((startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2)
-                    dist1 = Math.sqrt((endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2)
+                    # Use squared distances for comparison (more efficient, no sqrt needed).
+                    distSq0 = (startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2
+                    distSq1 = (endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2
 
-                    if dist1 < dist0
+                    if distSq1 < distSq0
 
                         # Swap to start from the closer end.
                         temp = startPoint
@@ -886,10 +892,11 @@ module.exports =
                 # For zig-zag, alternate direction based on previous end point.
                 if lastEndPoint?
 
-                    dist0 = Math.sqrt((startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2)
-                    dist1 = Math.sqrt((endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2)
+                    # Use squared distances for comparison (more efficient, no sqrt needed).
+                    distSq0 = (startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2
+                    distSq1 = (endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2
 
-                    if dist1 < dist0
+                    if distSq1 < distSq0
 
                         # Swap to start from the closer end.
                         temp = startPoint
