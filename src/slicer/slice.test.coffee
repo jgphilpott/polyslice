@@ -549,8 +549,8 @@ describe 'Slicing', ->
                 if line.includes('; TYPE: SKIN')
                     skinLayerCount++
 
-            # Should have 4 bottom layers with skin (0.8mm / 0.2mm = 4).
-            expect(skinLayerCount).toBe(4)
+            # Should have 8 layers with skin: 4 bottom + 4 top (0.8mm / 0.2mm = 4 each).
+            expect(skinLayerCount).toBe(8)
 
         test 'should generate zig-zag pattern for skin', ->
 
@@ -610,12 +610,13 @@ describe 'Slicing', ->
             slicer.setVerbose(true)
 
             # Test different skin thickness values.
+            # Each value generates both top and bottom layers.
             testCases = [
-                { thickness: 0.2, expectedLayers: 1 }  # 0.2 / 0.2 = 1.
-                { thickness: 0.4, expectedLayers: 2 }  # 0.4 / 0.2 = 2.
-                { thickness: 0.6, expectedLayers: 3 }  # 0.6 / 0.2 = 3.
-                { thickness: 0.8, expectedLayers: 4 }  # 0.8 / 0.2 = 4.
-                { thickness: 1.0, expectedLayers: 5 }  # 1.0 / 0.2 = 5.
+                { thickness: 0.2, expectedLayers: 2 }  # 0.2 / 0.2 = 1 bottom + 1 top = 2.
+                { thickness: 0.4, expectedLayers: 4 }  # 0.4 / 0.2 = 2 bottom + 2 top = 4.
+                { thickness: 0.6, expectedLayers: 6 }  # 0.6 / 0.2 = 3 bottom + 3 top = 6.
+                { thickness: 0.8, expectedLayers: 8 }  # 0.8 / 0.2 = 4 bottom + 4 top = 8.
+                { thickness: 1.0, expectedLayers: 10 }  # 1.0 / 0.2 = 5 bottom + 5 top = 10.
             ]
 
             for testCase in testCases

@@ -67,7 +67,9 @@ module.exports =
         if verbose then slicer.gcode += coders.codeMessage(slicer, "Printing #{allLayers.length} layers...")
 
         # Process each layer.
-        for layerIndex in [0...allLayers.length]
+        totalLayers = allLayers.length
+
+        for layerIndex in [0...totalLayers]
 
             layerSegments = allLayers[layerIndex]
             currentZ = minZ + layerIndex * layerHeight
@@ -81,7 +83,7 @@ module.exports =
                 slicer.gcode += coders.codeMessage(slicer, "LAYER: #{layerIndex}")
 
             # Generate G-code for this layer with center offset.
-            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY)
+            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers)
 
         slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
@@ -370,7 +372,7 @@ module.exports =
         return { x: x, y: y }
 
     # Generate G-code for a single layer.
-    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0) ->
+    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0) ->
 
         return if paths.length is 0
 
@@ -426,10 +428,13 @@ module.exports =
                     currentPath = insetPath
 
             # After walls, generate skin if this is a bottom or top layer.
-            # For now, we'll just check if it's the bottom layer (layerIndex <= skinLayerCount).
-            # Use <= because layer 0 is typically empty (on bed), so first 4 non-empty layers are 1-4.
-            # TODO: Add top layer detection once we know total layer count.
-            if layerIndex <= skinLayerCount
+            # Bottom layers: layerIndex <= skinLayerCount
+            # Top layers: layerIndex >= (totalLayers - skinLayerCount)
+            # Use <= for bottom because layer 0 is typically empty (on bed).
+            isBottomLayer = layerIndex <= skinLayerCount
+            isTopLayer = totalLayers > 0 and layerIndex >= (totalLayers - skinLayerCount)
+
+            if isBottomLayer or isTopLayer
 
                 # Generate skin for this layer.
                 # currentPath now holds the innermost wall boundary.
