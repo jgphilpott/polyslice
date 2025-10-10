@@ -457,21 +457,8 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
 
         # Add descriptive comment for travel move if verbose.
-        if verbose
-
-            if wallType is "WALL-OUTER"
-
-                comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
-
-            else
-
-                comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
-
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, comment + slicer.newline)
-
-        else
-
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+        comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
+        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then comment + slicer.newline else slicer.newline))
 
         if verbose then slicer.gcode += "; TYPE: #{wallType}" + slicer.newline
 
@@ -555,10 +542,7 @@ module.exports =
             travelSpeedMmMin = slicer.getTravelSpeed() * 60
             perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
 
-            if verbose
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, "; Moving to skin wall" + slicer.newline)
-            else
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin wall" + slicer.newline else slicer.newline))
 
             # Draw skin wall perimeter.
             for pointIndex in [1...skinWallPath.length]
@@ -751,10 +735,7 @@ module.exports =
                 offsetStartX = startPoint.x + centerOffsetX
                 offsetStartY = startPoint.y + centerOffsetY
 
-                if verbose
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, "; Moving to skin infill line" + slicer.newline)
-                else
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin)
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
 
                 # Draw the diagonal line.
                 dx = endPoint.x - startPoint.x
