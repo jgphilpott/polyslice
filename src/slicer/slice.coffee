@@ -381,12 +381,17 @@ module.exports =
 
         nozzleDiameter = slicer.getNozzleDiameter()
         shellWallThickness = slicer.getShellWallThickness()
+        shellSkinThickness = slicer.getShellSkinThickness()
+        layerHeight = slicer.getLayerHeight()
 
         # Calculate number of walls based on shell wall thickness and nozzle diameter.
         # Each wall is approximately as wide as the nozzle diameter (it squishes to ~1x nozzle diameter).
         # Round down to get integer wall count.
         # Add small epsilon to handle floating point precision issues (e.g., 1.2/0.4 = 2.9999... should be 3).
         wallCount = Math.max(1, Math.floor((shellWallThickness / nozzleDiameter) + 0.0001))
+
+        # Calculate number of skin layers (top and bottom solid layers).
+        skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
 
         # Process each closed path (perimeter).
         for path in paths
@@ -419,6 +424,16 @@ module.exports =
                     break if insetPath.length < 3
 
                     currentPath = insetPath
+
+            # After walls, generate skin if this is a bottom or top layer.
+            # For now, we'll just check if it's the bottom layer (layerIndex <= skinLayerCount).
+            # Use <= because layer 0 is typically empty (on bed), so first 4 non-empty layers are 1-4.
+            # TODO: Add top layer detection once we know total layer count.
+            if layerIndex <= skinLayerCount
+
+                # Generate skin for this layer.
+                # currentPath now holds the innermost wall boundary.
+                @generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY)
 
     # Generate G-code for a single wall (outer or inner).
     generateWallGCode: (slicer, path, z, centerOffsetX, centerOffsetY, wallType) ->
@@ -509,3 +524,85 @@ module.exports =
             perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
 
             slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+
+    # Generate G-code for skin (top/bottom solid infill).
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY) ->
+
+        return if boundaryPath.length < 3
+
+        verbose = slicer.getVerbose()
+        nozzleDiameter = slicer.getNozzleDiameter()
+
+        if verbose then slicer.gcode += "; TYPE: SKIN" + slicer.newline
+
+        # Calculate bounding box of the boundary path.
+        minX = Infinity
+        maxX = -Infinity
+        minY = Infinity
+        maxY = -Infinity
+
+        for point in boundaryPath
+
+            if point.x < minX then minX = point.x
+            if point.x > maxX then maxX = point.x
+            if point.y < minY then minY = point.y
+            if point.y > maxY then maxY = point.y
+
+        # Generate zig-zag pattern for skin.
+        # Use line spacing equal to nozzle diameter for solid infill.
+        lineSpacing = nozzleDiameter
+        
+        # Start from minY and work up to maxY.
+        currentY = minY + lineSpacing
+        direction = 1 # 1 for left-to-right, -1 for right-to-left.
+
+        travelSpeedMmMin = slicer.getTravelSpeed() * 60
+        infillSpeedMmMin = slicer.getInfillSpeed() * 60
+
+        while currentY < maxY
+
+            if direction is 1
+
+                # Left to right.
+                startX = minX
+                endX = maxX
+
+            else
+
+                # Right to left.
+                startX = maxX
+                endX = minX
+
+            # Move to start of line (travel move).
+            offsetStartX = startX + centerOffsetX
+            offsetStartY = currentY + centerOffsetY
+
+            if verbose
+
+                comment = "; Moving to skin line"
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, comment + slicer.newline)
+
+            else
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin)
+
+            # Draw the line.
+            dx = endX - startX
+            dy = 0 # Horizontal line.
+
+            distance = Math.abs(dx)
+
+            # Calculate extrusion amount for this segment.
+            extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+
+            # Add to cumulative extrusion (absolute mode).
+            slicer.cumulativeE += extrusionDelta
+
+            offsetEndX = endX + centerOffsetX
+            offsetEndY = currentY + centerOffsetY
+
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+
+            # Move to next line.
+            currentY += lineSpacing
+            direction *= -1 # Alternate direction for zig-zag.
