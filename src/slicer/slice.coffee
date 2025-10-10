@@ -644,7 +644,8 @@ module.exports =
             offset = minY - maxX - diagonalSpan
             maxOffset = maxY - minX
 
-        direction = 1  # Alternate direction for zig-zag within the layer.
+        # Track last position for efficient zig-zag (minimize travel distance).
+        lastEndPoint = null
 
         while offset < maxOffset
 
@@ -700,13 +701,24 @@ module.exports =
             # We should have exactly 2 intersection points.
             if intersections.length >= 2
 
-                # Sort intersections to get consistent start/end.
-                if direction is 1
+                # For zig-zag pattern, choose start/end to minimize travel distance.
+                # If this is not the first line, pick the point closest to the last end point.
+                if lastEndPoint?
+                    # Calculate distances from last end point to both intersections.
+                    dist0 = Math.sqrt((intersections[0].x - lastEndPoint.x) ** 2 + (intersections[0].y - lastEndPoint.y) ** 2)
+                    dist1 = Math.sqrt((intersections[1].x - lastEndPoint.x) ** 2 + (intersections[1].y - lastEndPoint.y) ** 2)
+
+                    # Start from the closer point.
+                    if dist0 < dist1
+                        startPoint = intersections[0]
+                        endPoint = intersections[1]
+                    else
+                        startPoint = intersections[1]
+                        endPoint = intersections[0]
+                else
+                    # First line: use consistent ordering.
                     startPoint = intersections[0]
                     endPoint = intersections[1]
-                else
-                    startPoint = intersections[1]
-                    endPoint = intersections[0]
 
                 # Move to start of line (travel move).
                 offsetStartX = startPoint.x + centerOffsetX
@@ -732,6 +744,8 @@ module.exports =
 
                     slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
 
+                    # Track where this line ended for next iteration.
+                    lastEndPoint = endPoint
+
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
-            direction *= -1  # Alternate direction for zig-zag.
