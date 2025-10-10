@@ -440,6 +440,17 @@ module.exports =
                 # currentPath now holds the innermost wall boundary.
                 @generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex)
 
+            else
+
+                # Generate infill for middle layers (not top/bottom).
+                # Only generate if density > 0.
+                infillDensity = slicer.getInfillDensity()
+
+                if infillDensity > 0
+
+                    # currentPath now holds the innermost wall boundary.
+                    @generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex)
+
     # Generate G-code for a single wall (outer or inner).
     generateWallGCode: (slicer, path, z, centerOffsetX, centerOffsetY, wallType) ->
 
@@ -758,3 +769,156 @@ module.exports =
 
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
+
+    # Generate G-code for infill (interior fill with variable density).
+    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex) ->
+
+        return if boundaryPath.length < 3
+
+        verbose = slicer.getVerbose()
+        nozzleDiameter = slicer.getNozzleDiameter()
+        infillDensity = slicer.getInfillDensity()
+
+        # Skip if no infill density configured.
+        return if infillDensity <= 0
+
+        if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
+
+        # Create inset boundary for infill area (half nozzle diameter gap from innermost wall).
+        infillGap = nozzleDiameter / 2
+        infillBoundary = @createInsetPath(boundaryPath, infillGap)
+
+        return if infillBoundary.length < 3
+
+        # Calculate bounding box of infill area.
+        minX = Infinity
+        maxX = -Infinity
+        minY = Infinity
+        maxY = -Infinity
+
+        for point in infillBoundary
+
+            if point.x < minX then minX = point.x
+            if point.x > maxX then maxX = point.x
+            if point.y < minY then minY = point.y
+            if point.y > maxY then maxY = point.y
+
+        # Calculate line spacing based on infill density.
+        # At 100% density, lines are nozzle diameter apart (solid).
+        # At lower densities, lines are farther apart.
+        # Formula: spacing = nozzleDiameter / (density / 100)
+        # For example: 20% density → spacing = 0.4 / 0.2 = 2.0mm
+        lineSpacing = nozzleDiameter / (infillDensity / 100.0)
+
+        travelSpeedMmMin = slicer.getTravelSpeed() * 60
+        infillSpeedMmMin = slicer.getInfillSpeed() * 60
+
+        # Grid pattern: alternate between horizontal (0°) and vertical (90°) lines per layer.
+        # Even layers: horizontal lines (constant Y, varying X).
+        # Odd layers: vertical lines (constant X, varying Y).
+        useHorizontal = (layerIndex % 2) is 0
+
+        # Track last position for efficient zig-zag pattern.
+        lastEndPoint = null
+
+        if useHorizontal
+
+            # Generate horizontal lines (Y = constant, X varies).
+            currentY = minY
+
+            while currentY <= maxY
+
+                # Line runs from (minX, currentY) to (maxX, currentY).
+                startPoint = { x: minX, y: currentY }
+                endPoint = { x: maxX, y: currentY }
+
+                # For zig-zag, alternate direction based on previous end point.
+                if lastEndPoint?
+
+                    dist0 = Math.sqrt((startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2)
+                    dist1 = Math.sqrt((endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2)
+
+                    if dist1 < dist0
+
+                        # Swap to start from the closer end.
+                        temp = startPoint
+                        startPoint = endPoint
+                        endPoint = temp
+
+                # Move to start of line (travel move).
+                offsetStartX = startPoint.x + centerOffsetX
+                offsetStartY = startPoint.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+
+                # Draw the infill line.
+                dx = endPoint.x - startPoint.x
+                dy = endPoint.y - startPoint.y
+
+                distance = Math.sqrt(dx * dx + dy * dy)
+
+                if distance > 0.001
+
+                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    slicer.cumulativeE += extrusionDelta
+
+                    offsetEndX = endPoint.x + centerOffsetX
+                    offsetEndY = endPoint.y + centerOffsetY
+
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+
+                    lastEndPoint = endPoint
+
+                # Move to next line.
+                currentY += lineSpacing
+
+        else
+
+            # Generate vertical lines (X = constant, Y varies).
+            currentX = minX
+
+            while currentX <= maxX
+
+                # Line runs from (currentX, minY) to (currentX, maxY).
+                startPoint = { x: currentX, y: minY }
+                endPoint = { x: currentX, y: maxY }
+
+                # For zig-zag, alternate direction based on previous end point.
+                if lastEndPoint?
+
+                    dist0 = Math.sqrt((startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2)
+                    dist1 = Math.sqrt((endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2)
+
+                    if dist1 < dist0
+
+                        # Swap to start from the closer end.
+                        temp = startPoint
+                        startPoint = endPoint
+                        endPoint = temp
+
+                # Move to start of line (travel move).
+                offsetStartX = startPoint.x + centerOffsetX
+                offsetStartY = startPoint.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+
+                # Draw the infill line.
+                dx = endPoint.x - startPoint.x
+                dy = endPoint.y - startPoint.y
+
+                distance = Math.sqrt(dx * dx + dy * dy)
+
+                if distance > 0.001
+
+                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    slicer.cumulativeE += extrusionDelta
+
+                    offsetEndX = endPoint.x + centerOffsetX
+                    offsetEndY = endPoint.y + centerOffsetY
+
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+
+                    lastEndPoint = endPoint
+
+                # Move to next line.
+                currentX += lineSpacing
