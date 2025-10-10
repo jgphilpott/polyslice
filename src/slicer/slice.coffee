@@ -67,7 +67,9 @@ module.exports =
         if verbose then slicer.gcode += coders.codeMessage(slicer, "Printing #{allLayers.length} layers...")
 
         # Process each layer.
-        for layerIndex in [0...allLayers.length]
+        totalLayers = allLayers.length
+
+        for layerIndex in [0...totalLayers]
 
             layerSegments = allLayers[layerIndex]
             currentZ = minZ + layerIndex * layerHeight
@@ -81,7 +83,7 @@ module.exports =
                 slicer.gcode += coders.codeMessage(slicer, "LAYER: #{layerIndex}")
 
             # Generate G-code for this layer with center offset.
-            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY)
+            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers)
 
         slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
@@ -370,7 +372,7 @@ module.exports =
         return { x: x, y: y }
 
     # Generate G-code for a single layer.
-    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0) ->
+    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0) ->
 
         return if paths.length is 0
 
@@ -379,14 +381,19 @@ module.exports =
         # Initialize cumulative extrusion tracker if not exists.
         if not slicer.cumulativeE? then slicer.cumulativeE = 0
 
+        layerHeight = slicer.getLayerHeight()
         nozzleDiameter = slicer.getNozzleDiameter()
         shellWallThickness = slicer.getShellWallThickness()
+        shellSkinThickness = slicer.getShellSkinThickness()
 
         # Calculate number of walls based on shell wall thickness and nozzle diameter.
         # Each wall is approximately as wide as the nozzle diameter (it squishes to ~1x nozzle diameter).
         # Round down to get integer wall count.
         # Add small epsilon to handle floating point precision issues (e.g., 1.2/0.4 = 2.9999... should be 3).
         wallCount = Math.max(1, Math.floor((shellWallThickness / nozzleDiameter) + 0.0001))
+
+        # Calculate number of skin layers (top and bottom solid layers).
+        skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
 
         # Process each closed path (perimeter).
         for path in paths
@@ -420,6 +427,19 @@ module.exports =
 
                     currentPath = insetPath
 
+            # After walls, generate skin if this is a bottom or top layer.
+            # Bottom layers: layerIndex <= skinLayerCount
+            # Top layers: layerIndex >= (totalLayers - skinLayerCount)
+            # Use <= for bottom because layer 0 is typically empty (on bed).
+            isBottomLayer = layerIndex <= skinLayerCount
+            isTopLayer = totalLayers > 0 and layerIndex >= (totalLayers - skinLayerCount)
+
+            if isBottomLayer or isTopLayer
+
+                # Generate skin for this layer.
+                # currentPath now holds the innermost wall boundary.
+                @generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex)
+
     # Generate G-code for a single wall (outer or inner).
     generateWallGCode: (slicer, path, z, centerOffsetX, centerOffsetY, wallType) ->
 
@@ -437,21 +457,8 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
 
         # Add descriptive comment for travel move if verbose.
-        if verbose
-
-            if wallType is "WALL-OUTER"
-
-                comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
-
-            else
-
-                comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
-
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, comment + slicer.newline)
-
-        else
-
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+        comment = "; Moving to #{wallType.toLowerCase().replace('-', ' ')}"
+        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then comment + slicer.newline else slicer.newline))
 
         if verbose then slicer.gcode += "; TYPE: #{wallType}" + slicer.newline
 
@@ -509,3 +516,245 @@ module.exports =
             perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
 
             slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+
+    # Generate G-code for skin (top/bottom solid infill).
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex) ->
+
+        return if boundaryPath.length < 3
+
+        verbose = slicer.getVerbose()
+        nozzleDiameter = slicer.getNozzleDiameter()
+
+        if verbose then slicer.gcode += "; TYPE: SKIN" + slicer.newline
+
+        # Step 1: Generate skin wall (perimeter pass around skin boundary).
+        # Create an inset of full nozzle diameter from the boundary path.
+        skinWallInset = nozzleDiameter
+        skinWallPath = @createInsetPath(boundaryPath, skinWallInset)
+
+        if skinWallPath.length >= 3
+
+            # Move to start of skin wall.
+            firstPoint = skinWallPath[0]
+            offsetX = firstPoint.x + centerOffsetX
+            offsetY = firstPoint.y + centerOffsetY
+
+            travelSpeedMmMin = slicer.getTravelSpeed() * 60
+            perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
+
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin wall" + slicer.newline else slicer.newline))
+
+            # Draw skin wall perimeter.
+            for pointIndex in [1...skinWallPath.length]
+
+                point = skinWallPath[pointIndex]
+                prevPoint = skinWallPath[pointIndex - 1]
+
+                dx = point.x - prevPoint.x
+                dy = point.y - prevPoint.y
+
+                distance = Math.sqrt(dx * dx + dy * dy)
+
+                continue if distance < 0.001
+
+                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                slicer.cumulativeE += extrusionDelta
+
+                offsetX = point.x + centerOffsetX
+                offsetY = point.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+
+            # Close the skin wall loop.
+            firstPoint = skinWallPath[0]
+            lastPoint = skinWallPath[skinWallPath.length - 1]
+
+            dx = firstPoint.x - lastPoint.x
+            dy = firstPoint.y - lastPoint.y
+
+            distance = Math.sqrt(dx * dx + dy * dy)
+
+            if distance > 0.001
+
+                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                slicer.cumulativeE += extrusionDelta
+
+                offsetX = firstPoint.x + centerOffsetX
+                offsetY = firstPoint.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+
+        # Step 2: Generate diagonal skin infill at 45-degree angle.
+        # Calculate bounding box with additional inset for gap from skin wall.
+        infillGap = nozzleDiameter / 2  # Gap between skin wall and infill.
+        infillInset = skinWallInset + infillGap  # Total: 1.5 * nozzleDiameter from boundary.
+
+        # Create inset boundary for infill area.
+        infillBoundary = @createInsetPath(boundaryPath, infillInset)
+
+        return if infillBoundary.length < 3
+
+        # Calculate bounding box of infill area.
+        minX = Infinity
+        maxX = -Infinity
+        minY = Infinity
+        maxY = -Infinity
+
+        for point in infillBoundary
+
+            if point.x < minX then minX = point.x
+            if point.x > maxX then maxX = point.x
+            if point.y < minY then minY = point.y
+            if point.y > maxY then maxY = point.y
+
+        # Generate diagonal infill lines at 45-degree angle.
+        # Alternate direction per layer: odd layers at -45°, even layers at +45°.
+        # Line spacing equal to nozzle diameter for solid infill.
+        lineSpacing = nozzleDiameter
+
+        # For 45-degree lines, we'll iterate along a diagonal axis.
+        # Calculate the diagonal span.
+        width = maxX - minX
+        height = maxY - minY
+
+        diagonalSpan = Math.sqrt(width * width + height * height)
+
+        travelSpeedMmMin = slicer.getTravelSpeed() * 60
+        infillSpeedMmMin = slicer.getInfillSpeed() * 60
+
+        # Determine infill angle based on layer index.
+        # Odd layers: -45° (y = -x + offset), Even layers: +45° (y = x + offset).
+        useNegativeSlope = (layerIndex % 2) is 1
+
+        # Start from appropriate diagonal position.
+        if useNegativeSlope
+
+            # For -45° (y = -x + offset): offset ranges from minY + minX to maxY + maxX.
+            offset = minY + minX - diagonalSpan
+            maxOffset = maxY + maxX
+
+        else
+
+            # For +45° (y = x + offset): offset ranges from minY - maxX to maxY - minX.
+            offset = minY - maxX - diagonalSpan
+            maxOffset = maxY - minX
+
+        # Track last position for efficient zig-zag (minimize travel distance).
+        lastEndPoint = null
+
+        while offset < maxOffset
+
+            # Calculate intersection points with bounding box.
+            intersections = []
+
+            if useNegativeSlope
+
+                # Line equation: y = -x + offset (slope = -1).
+
+                # Check intersection with left edge (x = minX).
+                y = offset - minX
+                if y >= minY and y <= maxY
+
+                    intersections.push({ x: minX, y: y })
+
+                # Check intersection with right edge (x = maxX).
+                y = offset - maxX
+                if y >= minY and y <= maxY
+
+                    intersections.push({ x: maxX, y: y })
+
+                # Check intersection with bottom edge (y = minY).
+                x = offset - minY
+                if x >= minX and x <= maxX
+
+                    intersections.push({ x: x, y: minY })
+
+                # Check intersection with top edge (y = maxY).
+                x = offset - maxY
+                if x >= minX and x <= maxX
+
+                    intersections.push({ x: x, y: maxY })
+
+            else
+
+                # Line equation: y = x + offset (slope = +1).
+
+                # Check intersection with left edge (x = minX).
+                y = minX + offset
+                if y >= minY and y <= maxY
+
+                    intersections.push({ x: minX, y: y })
+
+                # Check intersection with right edge (x = maxX).
+                y = maxX + offset
+                if y >= minY and y <= maxY
+
+                    intersections.push({ x: maxX, y: y })
+
+                # Check intersection with bottom edge (y = minY).
+                x = minY - offset
+                if x >= minX and x <= maxX
+
+                    intersections.push({ x: x, y: minY })
+
+                # Check intersection with top edge (y = maxY).
+                x = maxY - offset
+                if x >= minX and x <= maxX
+
+                    intersections.push({ x: x, y: maxY })
+
+            # We should have exactly 2 intersection points.
+            if intersections.length >= 2
+
+                # For zig-zag pattern, choose start/end to minimize travel distance.
+                # If this is not the first line, pick the point closest to the last end point.
+                if lastEndPoint?
+
+                    # Calculate distances from last end point to both intersections.
+                    dist0 = Math.sqrt((intersections[0].x - lastEndPoint.x) ** 2 + (intersections[0].y - lastEndPoint.y) ** 2)
+                    dist1 = Math.sqrt((intersections[1].x - lastEndPoint.x) ** 2 + (intersections[1].y - lastEndPoint.y) ** 2)
+
+                    # Start from the closer point.
+                    if dist0 < dist1
+
+                        startPoint = intersections[0]
+                        endPoint = intersections[1]
+
+                    else
+
+                        startPoint = intersections[1]
+                        endPoint = intersections[0]
+
+                else
+
+                    # First line: use consistent ordering.
+                    startPoint = intersections[0]
+                    endPoint = intersections[1]
+
+                # Move to start of line (travel move).
+                offsetStartX = startPoint.x + centerOffsetX
+                offsetStartY = startPoint.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
+
+                # Draw the diagonal line.
+                dx = endPoint.x - startPoint.x
+                dy = endPoint.y - startPoint.y
+
+                distance = Math.sqrt(dx * dx + dy * dy)
+
+                if distance > 0.001
+
+                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    slicer.cumulativeE += extrusionDelta
+
+                    offsetEndX = endPoint.x + centerOffsetX
+                    offsetEndY = endPoint.y + centerOffsetY
+
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+
+                    # Track where this line ended for next iteration.
+                    lastEndPoint = endPoint
+
+            # Move to next diagonal line.
+            offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
