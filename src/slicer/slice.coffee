@@ -381,10 +381,10 @@ module.exports =
         # Initialize cumulative extrusion tracker if not exists.
         if not slicer.cumulativeE? then slicer.cumulativeE = 0
 
+        layerHeight = slicer.getLayerHeight()
         nozzleDiameter = slicer.getNozzleDiameter()
         shellWallThickness = slicer.getShellWallThickness()
         shellSkinThickness = slicer.getShellSkinThickness()
-        layerHeight = slicer.getLayerHeight()
 
         # Calculate number of walls based on shell wall thickness and nozzle diameter.
         # Each wall is approximately as wide as the nozzle diameter (it squishes to ~1x nozzle diameter).
@@ -568,6 +568,7 @@ module.exports =
 
                 dx = point.x - prevPoint.x
                 dy = point.y - prevPoint.y
+
                 distance = Math.sqrt(dx * dx + dy * dy)
 
                 continue if distance < 0.001
@@ -586,6 +587,7 @@ module.exports =
 
             dx = firstPoint.x - lastPoint.x
             dy = firstPoint.y - lastPoint.y
+
             distance = Math.sqrt(dx * dx + dy * dy)
 
             if distance > 0.001
@@ -630,6 +632,7 @@ module.exports =
         # Calculate the diagonal span.
         width = maxX - minX
         height = maxY - minY
+
         diagonalSpan = Math.sqrt(width * width + height * height)
 
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
@@ -641,10 +644,13 @@ module.exports =
 
         # Start from appropriate diagonal position.
         if useNegativeSlope
+
             # For -45° (y = -x + offset): offset ranges from minY + minX to maxY + maxX.
             offset = minY + minX - diagonalSpan
             maxOffset = maxY + maxX
+
         else
+
             # For +45° (y = x + offset): offset ranges from minY - maxX to maxY - minX.
             offset = minY - maxX - diagonalSpan
             maxOffset = maxY - minX
@@ -658,49 +664,59 @@ module.exports =
             intersections = []
 
             if useNegativeSlope
+
                 # Line equation: y = -x + offset (slope = -1).
 
                 # Check intersection with left edge (x = minX).
                 y = offset - minX
                 if y >= minY and y <= maxY
+
                     intersections.push({ x: minX, y: y })
 
                 # Check intersection with right edge (x = maxX).
                 y = offset - maxX
                 if y >= minY and y <= maxY
+
                     intersections.push({ x: maxX, y: y })
 
                 # Check intersection with bottom edge (y = minY).
                 x = offset - minY
                 if x >= minX and x <= maxX
+
                     intersections.push({ x: x, y: minY })
 
                 # Check intersection with top edge (y = maxY).
                 x = offset - maxY
                 if x >= minX and x <= maxX
+
                     intersections.push({ x: x, y: maxY })
 
             else
+
                 # Line equation: y = x + offset (slope = +1).
 
                 # Check intersection with left edge (x = minX).
                 y = minX + offset
                 if y >= minY and y <= maxY
+
                     intersections.push({ x: minX, y: y })
 
                 # Check intersection with right edge (x = maxX).
                 y = maxX + offset
                 if y >= minY and y <= maxY
+
                     intersections.push({ x: maxX, y: y })
 
                 # Check intersection with bottom edge (y = minY).
                 x = minY - offset
                 if x >= minX and x <= maxX
+
                     intersections.push({ x: x, y: minY })
 
                 # Check intersection with top edge (y = maxY).
                 x = maxY - offset
                 if x >= minX and x <= maxX
+
                     intersections.push({ x: x, y: maxY })
 
             # We should have exactly 2 intersection points.
@@ -709,18 +725,24 @@ module.exports =
                 # For zig-zag pattern, choose start/end to minimize travel distance.
                 # If this is not the first line, pick the point closest to the last end point.
                 if lastEndPoint?
+
                     # Calculate distances from last end point to both intersections.
                     dist0 = Math.sqrt((intersections[0].x - lastEndPoint.x) ** 2 + (intersections[0].y - lastEndPoint.y) ** 2)
                     dist1 = Math.sqrt((intersections[1].x - lastEndPoint.x) ** 2 + (intersections[1].y - lastEndPoint.y) ** 2)
 
                     # Start from the closer point.
                     if dist0 < dist1
+
                         startPoint = intersections[0]
                         endPoint = intersections[1]
+
                     else
+
                         startPoint = intersections[1]
                         endPoint = intersections[0]
+
                 else
+
                     # First line: use consistent ordering.
                     startPoint = intersections[0]
                     endPoint = intersections[1]
@@ -737,6 +759,7 @@ module.exports =
                 # Draw the diagonal line.
                 dx = endPoint.x - startPoint.x
                 dy = endPoint.y - startPoint.y
+
                 distance = Math.sqrt(dx * dx + dy * dy)
 
                 if distance > 0.001
