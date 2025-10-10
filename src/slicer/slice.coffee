@@ -535,74 +535,170 @@ module.exports =
 
         if verbose then slicer.gcode += "; TYPE: SKIN" + slicer.newline
 
-        # Calculate bounding box of the boundary path.
+        # Step 1: Generate skin wall (perimeter pass around skin boundary).
+        # Create an inset of half nozzle diameter from the boundary path.
+        skinWallInset = nozzleDiameter / 2
+        skinWallPath = @createInsetPath(boundaryPath, skinWallInset)
+
+        if skinWallPath.length >= 3
+
+            # Move to start of skin wall.
+            firstPoint = skinWallPath[0]
+            offsetX = firstPoint.x + centerOffsetX
+            offsetY = firstPoint.y + centerOffsetY
+
+            travelSpeedMmMin = slicer.getTravelSpeed() * 60
+            perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
+
+            if verbose
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, "; Moving to skin wall" + slicer.newline)
+            else
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+
+            # Draw skin wall perimeter.
+            for pointIndex in [1...skinWallPath.length]
+
+                point = skinWallPath[pointIndex]
+                prevPoint = skinWallPath[pointIndex - 1]
+
+                dx = point.x - prevPoint.x
+                dy = point.y - prevPoint.y
+                distance = Math.sqrt(dx * dx + dy * dy)
+
+                continue if distance < 0.001
+
+                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                slicer.cumulativeE += extrusionDelta
+
+                offsetX = point.x + centerOffsetX
+                offsetY = point.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+
+            # Close the skin wall loop.
+            firstPoint = skinWallPath[0]
+            lastPoint = skinWallPath[skinWallPath.length - 1]
+
+            dx = firstPoint.x - lastPoint.x
+            dy = firstPoint.y - lastPoint.y
+            distance = Math.sqrt(dx * dx + dy * dy)
+
+            if distance > 0.001
+
+                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                slicer.cumulativeE += extrusionDelta
+
+                offsetX = firstPoint.x + centerOffsetX
+                offsetY = firstPoint.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+
+        # Step 2: Generate diagonal skin infill at 45-degree angle.
+        # Calculate bounding box with additional inset for gap from skin wall.
+        infillGap = nozzleDiameter / 2  # Gap between skin wall and infill.
+        infillInset = skinWallInset + infillGap
+
+        # Create inset boundary for infill area.
+        infillBoundary = @createInsetPath(boundaryPath, infillInset)
+
+        return if infillBoundary.length < 3
+
+        # Calculate bounding box of infill area.
         minX = Infinity
         maxX = -Infinity
         minY = Infinity
         maxY = -Infinity
 
-        for point in boundaryPath
+        for point in infillBoundary
 
             if point.x < minX then minX = point.x
             if point.x > maxX then maxX = point.x
             if point.y < minY then minY = point.y
             if point.y > maxY then maxY = point.y
 
-        # Generate zig-zag pattern for skin.
-        # Use line spacing equal to nozzle diameter for solid infill.
+        # Generate diagonal infill lines at 45-degree angle.
+        # Line spacing equal to nozzle diameter for solid infill.
         lineSpacing = nozzleDiameter
-        
-        # Start from minY and work up to maxY.
-        currentY = minY + lineSpacing
-        direction = 1 # 1 for left-to-right, -1 for right-to-left.
+
+        # For 45-degree lines, we'll iterate along a diagonal axis.
+        # Calculate the diagonal span.
+        width = maxX - minX
+        height = maxY - minY
+        diagonalSpan = Math.sqrt(width * width + height * height)
 
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        while currentY < maxY
+        # Start from bottom-left, sweep diagonally to top-right.
+        # For 45-degree lines: y = x + offset.
+        # We'll generate lines with varying offset values.
+        offset = minX + minY - diagonalSpan
+        direction = 1  # Alternate direction for zig-zag.
 
-            if direction is 1
+        while offset < maxX + maxY
 
-                # Left to right.
-                startX = minX
-                endX = maxX
+            # Calculate intersection points with bounding box.
+            # Line equation: y = x - offset (rearranged from y = x + offset)
+            # For 45-degree angle, we have slope = 1.
 
-            else
+            # Find start and end points of the line within bounds.
+            intersections = []
 
-                # Right to left.
-                startX = maxX
-                endX = minX
+            # Check intersection with left edge (x = minX).
+            y = offset - minX
+            if y >= minY and y <= maxY
+                intersections.push({ x: minX, y: y })
 
-            # Move to start of line (travel move).
-            offsetStartX = startX + centerOffsetX
-            offsetStartY = currentY + centerOffsetY
+            # Check intersection with right edge (x = maxX).
+            y = offset - maxX
+            if y >= minY and y <= maxY
+                intersections.push({ x: maxX, y: y })
 
-            if verbose
+            # Check intersection with bottom edge (y = minY).
+            x = offset - minY
+            if x >= minX and x <= maxX
+                intersections.push({ x: x, y: minY })
 
-                comment = "; Moving to skin line"
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, comment + slicer.newline)
+            # Check intersection with top edge (y = maxY).
+            x = offset - maxY
+            if x >= minX and x <= maxX
+                intersections.push({ x: x, y: maxY })
 
-            else
+            # We should have exactly 2 intersection points.
+            if intersections.length >= 2
 
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin)
+                # Sort intersections to get consistent start/end.
+                if direction is 1
+                    startPoint = intersections[0]
+                    endPoint = intersections[1]
+                else
+                    startPoint = intersections[1]
+                    endPoint = intersections[0]
 
-            # Draw the line.
-            dx = endX - startX
-            dy = 0 # Horizontal line.
+                # Move to start of line (travel move).
+                offsetStartX = startPoint.x + centerOffsetX
+                offsetStartY = startPoint.y + centerOffsetY
 
-            distance = Math.abs(dx)
+                if verbose
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, "; Moving to skin infill line" + slicer.newline)
+                else
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin)
 
-            # Calculate extrusion amount for this segment.
-            extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                # Draw the diagonal line.
+                dx = endPoint.x - startPoint.x
+                dy = endPoint.y - startPoint.y
+                distance = Math.sqrt(dx * dx + dy * dy)
 
-            # Add to cumulative extrusion (absolute mode).
-            slicer.cumulativeE += extrusionDelta
+                if distance > 0.001
 
-            offsetEndX = endX + centerOffsetX
-            offsetEndY = currentY + centerOffsetY
+                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    slicer.cumulativeE += extrusionDelta
 
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+                    offsetEndX = endPoint.x + centerOffsetX
+                    offsetEndY = endPoint.y + centerOffsetY
 
-            # Move to next line.
-            currentY += lineSpacing
-            direction *= -1 # Alternate direction for zig-zag.
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+
+            # Move to next diagonal line.
+            offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
+            direction *= -1  # Alternate direction for zig-zag.
