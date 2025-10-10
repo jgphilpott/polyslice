@@ -36,13 +36,10 @@ console.log('\n');
 const slicer = new Polyslice({
   printer: printer,
   filament: filament,
-  autohome: true,
-  workspacePlane: 'XY',
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
-  testStrip: true,
-  includeMetadata: true,
-  bedTemperature: 0
+  bedTemperature: 0,
+  testStrip: true
 });
 
 console.log('Slicer Configuration:');

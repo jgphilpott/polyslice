@@ -55,8 +55,8 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "@jgphilpott/polyconvert": "^1.0.2",
-    "@jgphilpott/polytree": "^0.1.1",
+    "@jgphilpott/polyconvert": "^1.0.4",
+    "@jgphilpott/polytree": "^0.1.2",
     "three": "^0.180.0"
   },
   "optionalDependencies": {
@@ -65,7 +65,7 @@
   "devDependencies": {
     "coffeescript": "^2.7.0",
     "esbuild": "^0.25.10",
-    "eslint": "^9.36.0",
+    "eslint": "^9.37.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jest": "^29.0.1",
     "jest": "^30.2.0",

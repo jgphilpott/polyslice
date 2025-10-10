@@ -565,36 +565,36 @@ const gcode = slicer.slice(mesh);
 <html>
   <head>
     <title>Polyslice File Loading Example</title>
-    
+
     <!-- Include three.js -->
     <script src="https://unpkg.com/three@0.180.0/build/three.min.js"></script>
-    
+
     <!-- Include three.js loaders you need -->
     <script type="module">
       import { STLLoader } from 'https://unpkg.com/three@0.180.0/examples/jsm/loaders/STLLoader.js';
       import { OBJLoader } from 'https://unpkg.com/three@0.180.0/examples/jsm/loaders/OBJLoader.js';
-      
+
       // Make loaders available globally
       window.THREE.STLLoader = STLLoader;
       window.THREE.OBJLoader = OBJLoader;
     </script>
-    
+
     <!-- Include Polyslice -->
     <script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
   </head>
   <body>
     <input type="file" id="fileInput" accept=".stl,.obj,.gltf,.glb">
-    
+
     <script>
       document.getElementById('fileInput').addEventListener('change', async (e) => {
         const file = e.target.files[0];
         const url = URL.createObjectURL(file);
-        
+
         // Load the file
         const mesh = await PolysliceLoader.load(url);
-        
+
         console.log('Loaded mesh:', mesh);
-        
+
         // Clean up
         URL.revokeObjectURL(url);
       });

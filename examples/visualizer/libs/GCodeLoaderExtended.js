@@ -116,9 +116,9 @@ class GCodeLoaderExtended extends Loader {
     const extrudingMaterial = materials.extruded;
 
     function newLayer(line) {
-      currentLayer = { 
-        vertex: [], 
-        pathVertex: [], 
+      currentLayer = {
+        vertex: [],
+        pathVertex: [],
         z: line.z,
         segments: [] // Store segments with their type information
       };
@@ -132,7 +132,10 @@ class GCodeLoaderExtended extends Loader {
       }
 
       // Determine the type for this segment
-      const segmentType = state.currentType || (state.extruding ? 'extruded' : 'path');
+      // Non-extruding moves (G0 or G1 without extrusion) are always 'path' (red)
+      const segmentType = state.extruding
+        ? (state.currentType || 'extruded')
+        : 'path';
 
       // Store segment with type information
       currentLayer.segments.push({
@@ -193,6 +196,9 @@ class GCodeLoaderExtended extends Loader {
             metadata.layerCount = Math.max(metadata.layerCount, layerNum + 1);
             metadata.layerComments[layerNum] = i;
           }
+        } else if (comment.includes('post-print sequence') || comment.includes('Post-print sequence')) {
+          // Clear currentType for post-print sequence - all moves should be travel (red)
+          state.currentType = null;
         }
       }
 
@@ -210,8 +216,17 @@ class GCodeLoaderExtended extends Loader {
       });
 
       //Process commands
+      //M117 – Display Message (check for post-print sequence)
+      if (cmd === 'M117') {
+        // Check if the M117 message contains post-print sequence text
+        const message = rawLine.substring(4).trim(); // Get everything after "M117"
+        if (message.includes('post-print sequence') || message.includes('Post-print sequence')) {
+          // Clear currentType for post-print sequence - all moves should be travel (red)
+          state.currentType = null;
+        }
+      }
       //G0/G1 – Linear Movement
-      if (cmd === 'G0' || cmd === 'G1') {
+      else if (cmd === 'G0' || cmd === 'G1') {
         const line = {
           x: args.x !== undefined ? absolute(state.x, args.x) : state.x,
           y: args.y !== undefined ? absolute(state.y, args.y) : state.y,
@@ -220,17 +235,29 @@ class GCodeLoaderExtended extends Loader {
           f: args.f !== undefined ? absolute(state.f, args.f) : state.f,
         };
 
-        //Layer change detection is or made by watching Z, it's made by watching when we extrude at a new Z position
-        if (delta(state.e, line.e) > 0) {
-          state.extruding = delta(state.e, line.e) > 0;
+        // Determine if this move is extruding based on command type and context
+        if (cmd === 'G0') {
+          state.extruding = false; // G0 is always travel (red)
+        } else { // G1
+          // G1 with a currentType (like WALL-OUTER) is always extruding
+          // G1 without a currentType follows the E parameter logic
+          if (state.currentType) {
+            state.extruding = true; // Any G1 with active TYPE is extruding
+          } else if (args.e !== undefined) {
+            state.extruding = delta(state.e, line.e) > 0;
+          }
+          // If no currentType and no E parameter, keep previous extruding state
+        }
 
+        // Layer change detection is made by watching when we extrude at a new Z position
+        if (state.extruding) {
           if (currentLayer == undefined || line.z != currentLayer.z) {
             newLayer(line);
           }
         }
 
         addSegment(state, line);
-        
+
         // Preserve currentType when updating state
         const preservedType = state.currentType;
         const preservedRelative = state.relative;
@@ -289,10 +316,10 @@ class GCodeLoaderExtended extends Loader {
         if (vertices.length > 0) {
           const geometry = new BufferGeometry();
           geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
-          
+
           // Use specific material for the type, or fall back to extruded/path
           const material = materials[type] || materials.extruded;
-          
+
           const segments = new LineSegments(geometry, material);
           segments.name = 'layer' + layerIndex;
           segments.userData.type = type;
@@ -316,7 +343,7 @@ class GCodeLoaderExtended extends Loader {
     } else if (hasTypeComments && !this.splitLayer) {
       // All layers combined but colored by type
       const allSegmentsByType = {};
-      
+
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
         layer.segments.forEach(seg => {
@@ -335,9 +362,9 @@ class GCodeLoaderExtended extends Loader {
         if (vertices.length > 0) {
           const geometry = new BufferGeometry();
           geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
-          
+
           const material = materials[type] || materials.extruded;
-          
+
           const segments = new LineSegments(geometry, material);
           segments.name = 'type_' + type;
           segments.userData.type = type;
