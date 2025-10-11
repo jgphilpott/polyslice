@@ -34,11 +34,11 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Cubic pattern: rotate diagonal lines every layer to form 3D cubic structure.
+        # Cubic pattern: vary diagonal lines across layers to form 3D cubic structure.
         # Use layer index modulo 3 to determine which orientation to use.
-        # Layer 0: +45° and -45° (like grid).
-        # Layer 1: +45° rotated 60° (creates different diagonal).
-        # Layer 2: +45° rotated 120° (creates third diagonal).
+        # Layer 0 (mod 3 = 0): Both +45° and -45° (crosshatch like grid).
+        # Layer 1 (mod 3 = 1): Only +45° diagonal lines.
+        # Layer 2 (mod 3 = 2): Only -45° diagonal lines.
         # This creates a repeating 3-layer pattern that forms cubic cells in 3D.
 
         orientation = layerIndex % 3
@@ -146,9 +146,8 @@ module.exports =
 
         else if orientation is 1
 
-            # Layer 1: Lines at different angles to form cubic structure.
-            # Use only one set of parallel lines rotated from the base orientation.
-            # This creates the second diagonal direction of the cube.
+            # Layer 1 (mod 3 = 1): Use only +45° diagonal lines.
+            # This creates one diagonal direction of the cubic structure.
             offset = centerOffset - numLines * lineSpacing * Math.sqrt(2)
             maxOffset = centerOffset + numLines * lineSpacing * Math.sqrt(2)
 
@@ -156,7 +155,7 @@ module.exports =
 
                 intersections = []
 
-                # For cubic infill, use +45° lines only on odd layers in the cycle.
+                # For cubic infill, use only +45° lines on layer 1 of the 3-layer cycle.
                 # Line equation: y = x + offset (slope = +1).
                 y = minX + offset
                 if y >= minY and y <= maxY
@@ -189,8 +188,8 @@ module.exports =
 
         else if orientation is 2
 
-            # Layer 2: Lines at third angle to complete cubic structure.
-            # Use -45° lines only on this layer in the cycle.
+            # Layer 2 (mod 3 = 2): Use only -45° diagonal lines.
+            # This creates the opposite diagonal direction to complete the cubic structure.
             offset = centerOffset - numLines * lineSpacing * Math.sqrt(2)
             maxOffset = centerOffset + numLines * lineSpacing * Math.sqrt(2)
 
