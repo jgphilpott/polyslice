@@ -1,6 +1,6 @@
 # Main slicing method for Polyslice.
 
-coders = require('./coders/coders')
+coders = require('./gcode/coders')
 
 geometryHelpers = require('./geometry/helpers')
 

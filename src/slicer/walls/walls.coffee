@@ -1,6 +1,6 @@
 # Wall generation module for Polyslice.
 
-coders = require('../coders/coders')
+coders = require('../gcode/coders')
 
 module.exports =
 
