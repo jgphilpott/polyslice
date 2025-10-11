@@ -809,11 +809,13 @@ module.exports =
             if point.y > maxY then maxY = point.y
 
         # Calculate line spacing based on infill density.
-        # At 100% density, lines are nozzle diameter apart (solid).
-        # At lower densities, lines are farther apart.
-        # Formula: spacing = nozzleDiameter / (density / 100)
-        # For example: 20% density → spacing = 0.4 / 0.2 = 2.0mm
-        lineSpacing = nozzleDiameter / (infillDensity / 100.0)
+        # Since we generate BOTH +45° and -45° lines (crosshatch), we need to double
+        # the spacing to achieve the target density. Each direction contributes half.
+        # Formula: spacing = (nozzleDiameter / (density / 100)) * 2
+        # For example: 20% density → spacing = (0.4 / 0.2) * 2 = 4.0mm per direction
+        # This gives 10% in each direction, totaling 20% combined.
+        baseSpacing = nozzleDiameter / (infillDensity / 100.0)
+        lineSpacing = baseSpacing * 2.0  # Double for grid pattern (both directions).
 
         # For 45-degree lines, calculate the diagonal span.
         width = maxX - minX
@@ -827,13 +829,22 @@ module.exports =
         # Grid pattern: generate both +45° and -45° lines on EVERY layer (not alternating).
         # This creates a crosshatch pattern where lines intersect.
         # Unlike skin, infill uses the same pattern on all layers.
+        # Center the grid at origin (0, 0) in local coordinates, which corresponds to
+        # the build plate center after centerOffsetX/Y are applied.
 
         # Track last position for efficient zig-zag pattern.
         lastEndPoint = null
 
-        # Generate +45° lines (y = x + offset).
-        offset = minY - maxX - diagonalSpan
-        maxOffset = maxY - minX
+        # Generate +45° lines (y = x + offset), centered at origin (0, 0).
+        # For a line passing through origin: y = x + 0, so centerOffset = 0.
+        centerOffset = 0
+        
+        # Calculate how many lines to generate in each direction from center.
+        numLinesUp = Math.ceil(diagonalSpan / (lineSpacing * Math.sqrt(2)))
+        
+        # Start from center and generate lines in both directions.
+        offset = centerOffset - numLinesUp * lineSpacing * Math.sqrt(2)
+        maxOffset = centerOffset + numLinesUp * lineSpacing * Math.sqrt(2)
 
         while offset < maxOffset
 
@@ -921,9 +932,13 @@ module.exports =
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
 
-        # Generate -45° lines (y = -x + offset).
-        offset = minY + minX - diagonalSpan
-        maxOffset = maxY + maxX
+        # Generate -45° lines (y = -x + offset), centered at origin (0, 0).
+        # For a line passing through origin: y = -x + 0, so centerOffset = 0.
+        centerOffset = 0
+        
+        # Start from center and generate lines in both directions.
+        offset = centerOffset - numLinesUp * lineSpacing * Math.sqrt(2)
+        maxOffset = centerOffset + numLinesUp * lineSpacing * Math.sqrt(2)
 
         while offset < maxOffset
 
