@@ -1,6 +1,6 @@
 # Tests for G-code generation methods
 
-Polyslice = require('../index')
+Polyslice = require('../../index')
 
 describe 'G-code Generation (Coders)', ->
 
@@ -249,8 +249,8 @@ describe 'G-code Generation (Coders)', ->
 
         test 'should generate metadata header', ->
 
-            Printer = require('../config/printer')
-            Filament = require('../config/filament')
+            Printer = require('../../config/printer')
+            Filament = require('../../config/filament')
 
             printer = new Printer('Ender3')
             filament = new Filament('GenericPLA')

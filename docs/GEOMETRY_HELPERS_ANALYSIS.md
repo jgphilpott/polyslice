@@ -81,6 +81,7 @@ If contributing to Polytree:
 1. **Create a new module** in Polytree for polygon operations:
    ```javascript
    Polytree.polygon.offset(path, distance, options)
+   // options: { simplify: boolean, angleThreshold: number }
    Polytree.polygon.simplify(path, angleThreshold)
    ```
 
@@ -93,6 +94,8 @@ If contributing to Polytree:
 3. **Create slicing utilities module**:
    ```javascript
    Polytree.slicing.segmentsToPaths(segments, epsilon)
+   // segments: Array of Line3 objects from sliceIntoLayers() output
+   // epsilon: number - tolerance for point matching (default: 0.001)
    ```
 
 ## Benefits of Contributing to Polytree
@@ -118,7 +121,7 @@ If contributing to Polytree:
 
 ## Notes
 
-- The `createInsetPath` function is particularly valuable because polygon offsetting is non-trivial
+- The `createInsetPath` function is particularly valuable because polygon offsetting is a non-trivial operation
 - The path simplification (detecting significant corners) within `createInsetPath` is also useful standalone
 - These functions are already tested and working in production (Polyslice)
 - They're written in CoffeeScript but can be converted to JavaScript for Polytree
