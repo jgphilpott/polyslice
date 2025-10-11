@@ -21,7 +21,7 @@ A crosshatch pattern that generates both +45° and -45° diagonal lines on every
 
 ### Cubic Pattern (`cubic.coffee`)
 
-A 3D cubic lattice structure that rotates diagonal lines across layers to form a cubic pattern.
+A 3D cubic lattice structure that varies diagonal lines across layers to form a cubic pattern.
 
 **Characteristics:**
 - More efficient than grid (uses ~30-50% less material)

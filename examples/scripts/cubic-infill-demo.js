@@ -2,7 +2,7 @@
  * Cubic Infill Pattern Demonstration
  *
  * This example demonstrates the cubic infill pattern, which creates a 3D cubic
- * lattice structure by rotating diagonal lines across layers. The pattern
+ * lattice structure by varying diagonal lines across layers. The pattern
  * repeats every 3 layers:
  * - Layer 0 (mod 3 = 0): Both +45° and -45° lines (crosshatch)
  * - Layer 1 (mod 3 = 1): Only +45° lines
