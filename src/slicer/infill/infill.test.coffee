@@ -190,7 +190,7 @@ describe 'Infill Orchestration', ->
 
             # The formula is: baseSpacing = nozzleDiameter / (density / 100)
             # Then doubled for grid pattern: lineSpacing = baseSpacing * 2
-            
+
             nozzleDiameter = 0.4
             density = 20
 

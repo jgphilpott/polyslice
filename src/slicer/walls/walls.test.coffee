@@ -241,12 +241,12 @@ describe 'Wall Generation', ->
                 # Detect wall type changes.
                 if line.includes('; TYPE: WALL-')
                     currentWallType = if line.includes('OUTER') then 'OUTER' else 'INNER'
-                    
+
                     # If wall type changed, we should see a G0 (travel) command before the next G1.
                     if previousWallType and currentWallType isnt previousWallType
                         # Next line should be a G0 or G1 travel move (no E value).
                         inWall = false
-                    
+
                     previousWallType = currentWallType
                     inWall = true
                     continue
@@ -335,7 +335,7 @@ describe 'Wall Generation', ->
 
             # Check that top layer (which should be a perfect square) has exactly 4 corners.
             lines = result.split('\n')
-            
+
             # Find the last layer before post-print.
             lastLayerLines = []
             inLastLayer = false
