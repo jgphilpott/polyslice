@@ -1,8 +1,7 @@
 # Infill generation module for Polyslice.
 
 coders = require('../gcode/coders')
-
-geometryHelpers = require('../geometry/helpers')
+helpers = require('../geometry/helpers')
 
 gridPattern = require('./patterns/grid')
 
@@ -29,7 +28,7 @@ module.exports =
 
         # Create inset boundary for infill area (half nozzle diameter gap from innermost wall).
         infillGap = nozzleDiameter / 2
-        infillBoundary = geometryHelpers.createInsetPath(boundaryPath, infillGap)
+        infillBoundary = helpers.createInsetPath(boundaryPath, infillGap)
 
         return if infillBoundary.length < 3
 

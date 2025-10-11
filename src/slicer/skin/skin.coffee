@@ -1,8 +1,7 @@
 # Skin generation module for Polyslice.
 
 coders = require('../gcode/coders')
-
-geometryHelpers = require('../geometry/helpers')
+helpers = require('../geometry/helpers')
 
 module.exports =
 
@@ -19,27 +18,32 @@ module.exports =
         # Step 1: Generate skin wall (perimeter pass around skin boundary).
         # Create an inset of full nozzle diameter from the boundary path.
         skinWallInset = nozzleDiameter
-        skinWallPath = geometryHelpers.createInsetPath(boundaryPath, skinWallInset)
+        skinWallPath = helpers.createInsetPath(boundaryPath, skinWallInset)
 
         if skinWallPath.length >= 3
 
             # Choose starting point closest to last wall position to minimize travel.
             if lastWallPoint?
+
                 # Find the point in skinWallPath closest to lastWallPoint.
                 minDistSq = Infinity
                 startIdx = 0
-                
+
                 for point, idx in skinWallPath
+
                     distSq = (point.x - lastWallPoint.x) ** 2 + (point.y - lastWallPoint.y) ** 2
+
                     if distSq < minDistSq
+
                         minDistSq = distSq
                         startIdx = idx
-                
+
                 # Rotate the path to start from the closest point.
                 skinWallPath = skinWallPath[startIdx...] .concat(skinWallPath[0...startIdx]) if startIdx > 0
 
             # Move to start of skin wall.
             firstPoint = skinWallPath[0]
+
             offsetX = firstPoint.x + centerOffsetX
             offsetY = firstPoint.y + centerOffsetY
 
@@ -94,7 +98,7 @@ module.exports =
         infillInset = skinWallInset + infillGap  # Total: 1.5 * nozzleDiameter from boundary.
 
         # Create inset boundary for infill area.
-        infillBoundary = geometryHelpers.createInsetPath(boundaryPath, infillInset)
+        infillBoundary = helpers.createInsetPath(boundaryPath, infillInset)
 
         return if infillBoundary.length < 3
 

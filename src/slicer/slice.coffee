@@ -1,16 +1,13 @@
 # Main slicing method for Polyslice.
 
+Polytree = require('@jgphilpott/polytree')
+
 coders = require('./gcode/coders')
-
-geometryHelpers = require('./geometry/helpers')
-
-wallsModule = require('./walls/walls')
-
-skinModule = require('./skin/skin')
+helpers = require('./geometry/helpers')
 
 infillModule = require('./infill/infill')
-
-Polytree = require('@jgphilpott/polytree')
+skinModule = require('./skin/skin')
+wallsModule = require('./walls/walls')
 
 module.exports =
 
@@ -67,10 +64,7 @@ module.exports =
 
         if fanSpeed > 0
 
-            if verbose
-                slicer.gcode += coders.codeFanSpeed(slicer, fanSpeed).replace(slicer.newline, "; Start Cooling Fan" + slicer.newline)
-            else
-                slicer.gcode += coders.codeFanSpeed(slicer, fanSpeed)
+            slicer.gcode += coders.codeFanSpeed(slicer, fanSpeed).replace(slicer.newline, (if verbose then "; Start Cooling Fan" + slicer.newline else slicer.newline))
 
         if verbose then slicer.gcode += coders.codeMessage(slicer, "Printing #{allLayers.length} layers...")
 
@@ -83,7 +77,7 @@ module.exports =
             currentZ = minZ + layerIndex * layerHeight
 
             # Convert Polytree line segments to closed paths.
-            layerPaths = geometryHelpers.connectSegmentsToPaths(layerSegments)
+            layerPaths = helpers.connectSegmentsToPaths(layerSegments)
 
             # Only output layer marker if layer has content.
             if verbose and layerPaths.length > 0
@@ -120,8 +114,6 @@ module.exports =
             return scene.mesh
 
         return null
-
-
 
     # Generate G-code for a single layer.
     generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0) ->
@@ -172,7 +164,7 @@ module.exports =
                 # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
 
-                    insetPath = geometryHelpers.createInsetPath(currentPath, nozzleDiameter)
+                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter)
 
                     # Stop if inset path becomes degenerate.
                     break if insetPath.length < 3

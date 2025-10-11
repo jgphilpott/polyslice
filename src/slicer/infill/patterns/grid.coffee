@@ -44,10 +44,10 @@ module.exports =
         # Generate +45° lines (y = x + offset), centered at origin (0, 0).
         # For a line passing through origin: y = x + 0, so centerOffset = 0.
         centerOffset = 0
-        
+
         # Calculate how many lines to generate in each direction from center.
         numLinesUp = Math.ceil(diagonalSpan / (lineSpacing * Math.sqrt(2)))
-        
+
         # Start from center and generate lines in both directions.
         offset = centerOffset - numLinesUp * lineSpacing * Math.sqrt(2)
         maxOffset = centerOffset + numLinesUp * lineSpacing * Math.sqrt(2)
@@ -93,12 +93,12 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
+            offset += lineSpacing * Math.sqrt(2) # Account for 45-degree angle.
 
         # Generate -45° lines (y = -x + offset), centered at origin (0, 0).
         # For a line passing through origin: y = -x + 0, so centerOffset = 0.
         centerOffset = 0
-        
+
         # Start from center and generate lines in both directions.
         offset = centerOffset - numLinesUp * lineSpacing * Math.sqrt(2)
         maxOffset = centerOffset + numLinesUp * lineSpacing * Math.sqrt(2)
@@ -144,7 +144,7 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
+            offset += lineSpacing * Math.sqrt(2) # Account for 45-degree angle.
 
         # Now render all collected lines in optimal order to minimize travel.
         # Start with the line closest to the last wall position.
@@ -169,18 +169,17 @@ module.exports =
 
                         minDistSq = distSq0
                         bestLineIdx = idx
-                        bestFlipped = false  # Start from line.start
+                        bestFlipped = false # Start from line.start
 
                     if distSq1 < minDistSq
 
                         minDistSq = distSq1
                         bestLineIdx = idx
-                        bestFlipped = true  # Start from line.end (flip the line)
+                        bestFlipped = true # Start from line.end (flip the line)
 
                 else
 
-                    # No last position, just use first line.
-                    break
+                    break # No last position, just use first line.
 
             # Get the best line and remove it from the list.
             bestLine = allInfillLines[bestLineIdx]

@@ -716,10 +716,7 @@ module.exports =
 
         # Set extrusion mode based on slicer settings.
         isAbsoluteExtrusion = slicer.getExtruderMode() is "absolute"
-        if verbose
-            gcode += module.exports.codeExtruderMode(slicer, isAbsoluteExtrusion).replace(slicer.newline, "; Set '" + slicer.getExtruderMode() + "' Extrusion Mode" + slicer.newline)
-        else
-            gcode += module.exports.codeExtruderMode(slicer, isAbsoluteExtrusion)
+        gcode += module.exports.codeExtruderMode(slicer, isAbsoluteExtrusion).replace(slicer.newline, (if verbose then "; Set '" + slicer.getExtruderMode() + "' Extrusion Mode" + slicer.newline else slicer.newline))
 
         # Set workspace plane and units.
         gcode += module.exports.codeWorkspacePlane(slicer).replace(slicer.newline, (if verbose then "; Set Workspace Plane" + slicer.newline else slicer.newline))
