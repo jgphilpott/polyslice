@@ -2,7 +2,7 @@ helpers = require('./utils/helpers')
 accessors = require('./utils/accessors')
 conversions = require('./utils/conversions')
 
-coders = require('./slicer/coders')
+coders = require('./slicer/coders/coders')
 slicer = require('./slicer/slice')
 
 class Polyslice
