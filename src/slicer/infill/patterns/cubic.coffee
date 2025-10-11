@@ -5,7 +5,7 @@ coders = require('../../gcode/coders')
 module.exports =
 
     # Generate cubic pattern infill (3D cubic lattice structure).
-    # Cubic infill creates a 3D lattice by rotating diagonal lines across layers.
+    # Cubic infill creates a 3D lattice by varying diagonal lines across layers.
     # Pattern repeats every 3 layers with different orientations to form cube diagonals.
     generateCubicInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, layerIndex = 0) ->
 
