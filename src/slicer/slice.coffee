@@ -434,11 +434,15 @@ module.exports =
             isBottomLayer = layerIndex <= skinLayerCount
             isTopLayer = totalLayers > 0 and layerIndex >= (totalLayers - skinLayerCount)
 
+            # The innermost wall ends at its first point (closed loop).
+            # Track this position to minimize travel distance to infill/skin start.
+            lastWallPoint = if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y } else null
+
             if isBottomLayer or isTopLayer
 
                 # Generate skin for this layer.
                 # currentPath now holds the innermost wall boundary.
-                @generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex)
+                @generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
             else
 
@@ -449,7 +453,7 @@ module.exports =
                 if infillDensity > 0
 
                     # currentPath now holds the innermost wall boundary.
-                    @generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex)
+                    @generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
     # Generate G-code for a single wall (outer or inner).
     generateWallGCode: (slicer, path, z, centerOffsetX, centerOffsetY, wallType) ->
@@ -529,7 +533,7 @@ module.exports =
             slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
 
     # Generate G-code for skin (top/bottom solid infill).
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex) ->
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null) ->
 
         return if boundaryPath.length < 3
 
@@ -544,6 +548,21 @@ module.exports =
         skinWallPath = @createInsetPath(boundaryPath, skinWallInset)
 
         if skinWallPath.length >= 3
+
+            # Choose starting point closest to last wall position to minimize travel.
+            if lastWallPoint?
+                # Find the point in skinWallPath closest to lastWallPoint.
+                minDistSq = Infinity
+                startIdx = 0
+                
+                for point, idx in skinWallPath
+                    distSq = (point.x - lastWallPoint.x) ** 2 + (point.y - lastWallPoint.y) ** 2
+                    if distSq < minDistSq
+                        minDistSq = distSq
+                        startIdx = idx
+                
+                # Rotate the path to start from the closest point.
+                skinWallPath = skinWallPath[startIdx...] .concat(skinWallPath[0...startIdx]) if startIdx > 0
 
             # Move to start of skin wall.
             firstPoint = skinWallPath[0]
@@ -771,7 +790,7 @@ module.exports =
             offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
 
     # Generate G-code for infill (interior fill with variable density).
-    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex) ->
+    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null) ->
 
         return if boundaryPath.length < 3
 
@@ -832,8 +851,8 @@ module.exports =
         # Center the grid at origin (0, 0) in local coordinates, which corresponds to
         # the build plate center after centerOffsetX/Y are applied.
 
-        # Track last position for efficient zig-zag pattern.
-        lastEndPoint = null
+        # Collect all infill line segments first, then sort/render to minimize travel.
+        allInfillLines = []
 
         # Generate +45° lines (y = x + offset), centered at origin (0, 0).
         # For a line passing through origin: y = x + 0, so centerOffset = 0.
@@ -880,54 +899,11 @@ module.exports =
             # We should have exactly 2 intersection points.
             if intersections.length >= 2
 
-                # For zig-zag pattern, choose start/end to minimize travel distance.
-                if lastEndPoint?
-
-                    # Use squared distances for comparison (more efficient, no sqrt needed).
-                    distSq0 = (intersections[0].x - lastEndPoint.x) ** 2 + (intersections[0].y - lastEndPoint.y) ** 2
-                    distSq1 = (intersections[1].x - lastEndPoint.x) ** 2 + (intersections[1].y - lastEndPoint.y) ** 2
-
-                    # Start from the closer point.
-                    if distSq0 < distSq1
-
-                        startPoint = intersections[0]
-                        endPoint = intersections[1]
-
-                    else
-
-                        startPoint = intersections[1]
-                        endPoint = intersections[0]
-
-                else
-
-                    # First line: use consistent ordering.
-                    startPoint = intersections[0]
-                    endPoint = intersections[1]
-
-                # Move to start of line (travel move).
-                offsetStartX = startPoint.x + centerOffsetX
-                offsetStartY = startPoint.y + centerOffsetY
-
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
-
-                # Draw the diagonal line.
-                dx = endPoint.x - startPoint.x
-                dy = endPoint.y - startPoint.y
-
-                distance = Math.sqrt(dx * dx + dy * dy)
-
-                if distance > 0.001
-
-                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                    slicer.cumulativeE += extrusionDelta
-
-                    offsetEndX = endPoint.x + centerOffsetX
-                    offsetEndY = endPoint.y + centerOffsetY
-
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
-
-                    # Track where this line ended for next iteration.
-                    lastEndPoint = endPoint
+                # Store this line segment for later rendering.
+                allInfillLines.push({
+                    start: intersections[0]
+                    end: intersections[1]
+                })
 
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
@@ -974,54 +950,87 @@ module.exports =
             # We should have exactly 2 intersection points.
             if intersections.length >= 2
 
-                # For zig-zag pattern, choose start/end to minimize travel distance.
-                if lastEndPoint?
-
-                    # Use squared distances for comparison (more efficient, no sqrt needed).
-                    distSq0 = (intersections[0].x - lastEndPoint.x) ** 2 + (intersections[0].y - lastEndPoint.y) ** 2
-                    distSq1 = (intersections[1].x - lastEndPoint.x) ** 2 + (intersections[1].y - lastEndPoint.y) ** 2
-
-                    # Start from the closer point.
-                    if distSq0 < distSq1
-
-                        startPoint = intersections[0]
-                        endPoint = intersections[1]
-
-                    else
-
-                        startPoint = intersections[1]
-                        endPoint = intersections[0]
-
-                else
-
-                    # First line: use consistent ordering.
-                    startPoint = intersections[0]
-                    endPoint = intersections[1]
-
-                # Move to start of line (travel move).
-                offsetStartX = startPoint.x + centerOffsetX
-                offsetStartY = startPoint.y + centerOffsetY
-
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
-
-                # Draw the diagonal line.
-                dx = endPoint.x - startPoint.x
-                dy = endPoint.y - startPoint.y
-
-                distance = Math.sqrt(dx * dx + dy * dy)
-
-                if distance > 0.001
-
-                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                    slicer.cumulativeE += extrusionDelta
-
-                    offsetEndX = endPoint.x + centerOffsetX
-                    offsetEndY = endPoint.y + centerOffsetY
-
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
-
-                    # Track where this line ended for next iteration.
-                    lastEndPoint = endPoint
+                # Store this line segment for later rendering.
+                allInfillLines.push({
+                    start: intersections[0]
+                    end: intersections[1]
+                })
 
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
+
+        # Now render all collected lines in optimal order to minimize travel.
+        # Start with the line closest to the last wall position.
+        lastEndPoint = lastWallPoint
+
+        while allInfillLines.length > 0
+
+            # Find the line with an endpoint closest to current position.
+            minDistSq = Infinity
+            bestLineIdx = 0
+            bestFlipped = false
+
+            for line, idx in allInfillLines
+
+                # Check distance to both endpoints of this line.
+                if lastEndPoint?
+
+                    distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
+                    distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
+
+                    if distSq0 < minDistSq
+
+                        minDistSq = distSq0
+                        bestLineIdx = idx
+                        bestFlipped = false  # Start from line.start
+
+                    if distSq1 < minDistSq
+
+                        minDistSq = distSq1
+                        bestLineIdx = idx
+                        bestFlipped = true  # Start from line.end (flip the line)
+
+                else
+
+                    # No last position, just use first line.
+                    break
+
+            # Get the best line and remove it from the list.
+            bestLine = allInfillLines[bestLineIdx]
+            allInfillLines.splice(bestLineIdx, 1)
+
+            # Determine start and end based on whether we need to flip.
+            if bestFlipped
+
+                startPoint = bestLine.end
+                endPoint = bestLine.start
+
+            else
+
+                startPoint = bestLine.start
+                endPoint = bestLine.end
+
+            # Move to start of line (travel move).
+            offsetStartX = startPoint.x + centerOffsetX
+            offsetStartY = startPoint.y + centerOffsetY
+
+            slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+
+            # Draw the diagonal line.
+            dx = endPoint.x - startPoint.x
+            dy = endPoint.y - startPoint.y
+
+            distance = Math.sqrt(dx * dx + dy * dy)
+
+            if distance > 0.001
+
+                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                slicer.cumulativeE += extrusionDelta
+
+                offsetEndX = endPoint.x + centerOffsetX
+                offsetEndY = endPoint.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+
+                # Track where this line ended for next iteration.
+                lastEndPoint = endPoint
