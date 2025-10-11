@@ -815,41 +815,83 @@ module.exports =
         # For example: 20% density → spacing = 0.4 / 0.2 = 2.0mm
         lineSpacing = nozzleDiameter / (infillDensity / 100.0)
 
+        # For 45-degree lines, calculate the diagonal span.
+        width = maxX - minX
+        height = maxY - minY
+
+        diagonalSpan = Math.sqrt(width * width + height * height)
+
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Grid pattern: alternate between horizontal (0°) and vertical (90°) lines per layer.
-        # Even layers: horizontal lines (constant Y, varying X).
-        # Odd layers: vertical lines (constant X, varying Y).
-        useHorizontal = (layerIndex % 2) is 0
+        # Grid pattern: generate both +45° and -45° lines on EVERY layer (not alternating).
+        # This creates a crosshatch pattern where lines intersect.
+        # Unlike skin, infill uses the same pattern on all layers.
 
         # Track last position for efficient zig-zag pattern.
         lastEndPoint = null
 
-        if useHorizontal
+        # Generate +45° lines (y = x + offset).
+        offset = minY - maxX - diagonalSpan
+        maxOffset = maxY - minX
 
-            # Generate horizontal lines (Y = constant, X varies).
-            currentY = minY
+        while offset < maxOffset
 
-            while currentY <= maxY
+            # Calculate intersection points with bounding box.
+            intersections = []
 
-                # Line runs from (minX, currentY) to (maxX, currentY).
-                startPoint = { x: minX, y: currentY }
-                endPoint = { x: maxX, y: currentY }
+            # Line equation: y = x + offset (slope = +1).
 
-                # For zig-zag, alternate direction based on previous end point.
+            # Check intersection with left edge (x = minX).
+            y = minX + offset
+            if y >= minY and y <= maxY
+
+                intersections.push({ x: minX, y: y })
+
+            # Check intersection with right edge (x = maxX).
+            y = maxX + offset
+            if y >= minY and y <= maxY
+
+                intersections.push({ x: maxX, y: y })
+
+            # Check intersection with bottom edge (y = minY).
+            x = minY - offset
+            if x >= minX and x <= maxX
+
+                intersections.push({ x: x, y: minY })
+
+            # Check intersection with top edge (y = maxY).
+            x = maxY - offset
+            if x >= minX and x <= maxX
+
+                intersections.push({ x: x, y: maxY })
+
+            # We should have exactly 2 intersection points.
+            if intersections.length >= 2
+
+                # For zig-zag pattern, choose start/end to minimize travel distance.
                 if lastEndPoint?
 
                     # Use squared distances for comparison (more efficient, no sqrt needed).
-                    distSq0 = (startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2
-                    distSq1 = (endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2
+                    distSq0 = (intersections[0].x - lastEndPoint.x) ** 2 + (intersections[0].y - lastEndPoint.y) ** 2
+                    distSq1 = (intersections[1].x - lastEndPoint.x) ** 2 + (intersections[1].y - lastEndPoint.y) ** 2
 
-                    if distSq1 < distSq0
+                    # Start from the closer point.
+                    if distSq0 < distSq1
 
-                        # Swap to start from the closer end.
-                        temp = startPoint
-                        startPoint = endPoint
-                        endPoint = temp
+                        startPoint = intersections[0]
+                        endPoint = intersections[1]
+
+                    else
+
+                        startPoint = intersections[1]
+                        endPoint = intersections[0]
+
+                else
+
+                    # First line: use consistent ordering.
+                    startPoint = intersections[0]
+                    endPoint = intersections[1]
 
                 # Move to start of line (travel move).
                 offsetStartX = startPoint.x + centerOffsetX
@@ -857,7 +899,7 @@ module.exports =
 
                 slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
-                # Draw the infill line.
+                # Draw the diagonal line.
                 dx = endPoint.x - startPoint.x
                 dy = endPoint.y - startPoint.y
 
@@ -873,35 +915,73 @@ module.exports =
 
                     slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
 
+                    # Track where this line ended for next iteration.
                     lastEndPoint = endPoint
 
-                # Move to next line.
-                currentY += lineSpacing
+            # Move to next diagonal line.
+            offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
 
-        else
+        # Generate -45° lines (y = -x + offset).
+        offset = minY + minX - diagonalSpan
+        maxOffset = maxY + maxX
 
-            # Generate vertical lines (X = constant, Y varies).
-            currentX = minX
+        while offset < maxOffset
 
-            while currentX <= maxX
+            # Calculate intersection points with bounding box.
+            intersections = []
 
-                # Line runs from (currentX, minY) to (currentX, maxY).
-                startPoint = { x: currentX, y: minY }
-                endPoint = { x: currentX, y: maxY }
+            # Line equation: y = -x + offset (slope = -1).
 
-                # For zig-zag, alternate direction based on previous end point.
+            # Check intersection with left edge (x = minX).
+            y = offset - minX
+            if y >= minY and y <= maxY
+
+                intersections.push({ x: minX, y: y })
+
+            # Check intersection with right edge (x = maxX).
+            y = offset - maxX
+            if y >= minY and y <= maxY
+
+                intersections.push({ x: maxX, y: y })
+
+            # Check intersection with bottom edge (y = minY).
+            x = offset - minY
+            if x >= minX and x <= maxX
+
+                intersections.push({ x: x, y: minY })
+
+            # Check intersection with top edge (y = maxY).
+            x = offset - maxY
+            if x >= minX and x <= maxX
+
+                intersections.push({ x: x, y: maxY })
+
+            # We should have exactly 2 intersection points.
+            if intersections.length >= 2
+
+                # For zig-zag pattern, choose start/end to minimize travel distance.
                 if lastEndPoint?
 
                     # Use squared distances for comparison (more efficient, no sqrt needed).
-                    distSq0 = (startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2
-                    distSq1 = (endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2
+                    distSq0 = (intersections[0].x - lastEndPoint.x) ** 2 + (intersections[0].y - lastEndPoint.y) ** 2
+                    distSq1 = (intersections[1].x - lastEndPoint.x) ** 2 + (intersections[1].y - lastEndPoint.y) ** 2
 
-                    if distSq1 < distSq0
+                    # Start from the closer point.
+                    if distSq0 < distSq1
 
-                        # Swap to start from the closer end.
-                        temp = startPoint
-                        startPoint = endPoint
-                        endPoint = temp
+                        startPoint = intersections[0]
+                        endPoint = intersections[1]
+
+                    else
+
+                        startPoint = intersections[1]
+                        endPoint = intersections[0]
+
+                else
+
+                    # First line: use consistent ordering.
+                    startPoint = intersections[0]
+                    endPoint = intersections[1]
 
                 # Move to start of line (travel move).
                 offsetStartX = startPoint.x + centerOffsetX
@@ -909,7 +989,7 @@ module.exports =
 
                 slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
-                # Draw the infill line.
+                # Draw the diagonal line.
                 dx = endPoint.x - startPoint.x
                 dy = endPoint.y - startPoint.y
 
@@ -925,7 +1005,8 @@ module.exports =
 
                     slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
 
+                    # Track where this line ended for next iteration.
                     lastEndPoint = endPoint
 
-                # Move to next line.
-                currentX += lineSpacing
+            # Move to next diagonal line.
+            offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.

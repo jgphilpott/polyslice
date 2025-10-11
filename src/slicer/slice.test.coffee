@@ -1107,7 +1107,7 @@ describe 'Slicing', ->
             # Higher density should have more infill moves.
             expect(moves50).toBeGreaterThan(moves20)
 
-        test 'should alternate between horizontal and vertical lines per layer', ->
+        test 'should generate crosshatch pattern with 45-degree lines', ->
 
             # Create a 1cm cube.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -1166,12 +1166,22 @@ describe 'Slicing', ->
             # Check that we have infill layers.
             expect(infillLayers.length).toBeGreaterThan(5)
 
-            # Analyze patterns: horizontal lines have similar Y, vertical lines have similar X.
-            analyzePattern = (coords) ->
+            # Check first few middle layers that should have infill.
+            # (Skip first few layers which might be skin).
+            middleLayers = infillLayers.filter((l) -> l.layer > 5 and l.layer < 45)
 
-                return 'unknown' if coords.length < 2
+            expect(middleLayers.length).toBeGreaterThan(5)
 
-                # Check variance in X vs Y to determine pattern.
+            # Grid pattern should have diagonal lines at 45-degree angles.
+            # Check that X and Y both vary (diagonal movement).
+            for layer in middleLayers.slice(0, 5)
+
+                coords = layer.coords
+
+                # Need at least 4 points to verify diagonal pattern.
+                continue if coords.length < 4
+
+                # For diagonal lines, both X and Y should change.
                 xVariance = 0
                 yVariance = 0
 
@@ -1179,29 +1189,10 @@ describe 'Slicing', ->
                     xVariance += Math.abs(coords[i].x - coords[i - 1].x)
                     yVariance += Math.abs(coords[i].y - coords[i - 1].y)
 
-                # Horizontal lines: more X variation, less Y variation.
-                # Vertical lines: more Y variation, less X variation.
-                if xVariance > yVariance
-                    return 'horizontal'
-                else
-                    return 'vertical'
-
-            # Check first few middle layers that should have infill.
-            # (Skip first few layers which might be skin).
-            middleLayers = infillLayers.filter((l) -> l.layer > 5 and l.layer < 45)
-
-            expect(middleLayers.length).toBeGreaterThan(5)
-
-            # Adjacent layers should alternate patterns.
-            for i in [0...Math.min(10, middleLayers.length - 1)]
-
-                pattern1 = analyzePattern(middleLayers[i].coords)
-                pattern2 = analyzePattern(middleLayers[i + 1].coords)
-
-                # Adjacent layers should have different patterns (alternating).
-                # Even layer indices use horizontal lines, odd layer indices use vertical lines.
-                expect(pattern1).not.toBe('unknown')
-                expect(pattern2).not.toBe('unknown')
+                # Both X and Y should have significant variance for diagonal lines.
+                # (Unlike horizontal/vertical which have variance in only one dimension).
+                expect(xVariance).toBeGreaterThan(0)
+                expect(yVariance).toBeGreaterThan(0)
 
             return # Explicitly return undefined for Jest.
 
