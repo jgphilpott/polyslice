@@ -24,6 +24,12 @@ describe 'Infill Orchestration', ->
 
             expect(slicer.getInfillPattern()).toBe('grid')
 
+        test 'should set cubic pattern', ->
+
+            slicer.setInfillPattern('cubic')
+
+            expect(slicer.getInfillPattern()).toBe('cubic')
+
         test 'should generate infill with grid pattern', ->
 
             # Create a 1cm cube.
@@ -38,6 +44,27 @@ describe 'Infill Orchestration', ->
             slicer.setLayerHeight(0.2)
             slicer.setInfillDensity(20)
             slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Should contain infill type marker.
+            expect(result).toContain('; TYPE: FILL')
+
+        test 'should generate infill with cubic pattern', ->
+
+            # Create a 1cm cube.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('cubic')
             slicer.setVerbose(true)
 
             result = slicer.slice(mesh)
