@@ -240,25 +240,29 @@ module.exports =
         # This allows drawing multiple connected edges in one continuous path.
         # Use a helper function to create consistent point keys.
         createPointKey = (x, y) ->
+
             # Round to 0.01mm precision (10 microns).
             rx = Math.round(x * 100) / 100
             ry = Math.round(y * 100) / 100
+
             return "#{rx},#{ry}"
-        
+
         pointToEdges = {}  # Map from point key to list of edge indices.
-        
+
         for edge, idx in allInfillLines
-        
+
             # Create point keys for start and end.
             startKey = createPointKey(edge.start.x, edge.start.y)
             endKey = createPointKey(edge.end.x, edge.end.y)
-            
+
             if not pointToEdges[startKey]
+
                 pointToEdges[startKey] = []
-            
+
             if not pointToEdges[endKey]
+
                 pointToEdges[endKey] = []
-                
+
             pointToEdges[startKey].push({ idx: idx, endpoint: 'start' })
             pointToEdges[endKey].push({ idx: idx, endpoint: 'end' })
 
@@ -274,8 +278,9 @@ module.exports =
             bestFlipped = false
 
             for edge, idx in allInfillLines
-            
+
                 if drawnEdges[idx]
+
                     continue
 
                 if lastEndPoint?
@@ -284,24 +289,26 @@ module.exports =
                     distSq1 = (edge.end.x - lastEndPoint.x) ** 2 + (edge.end.y - lastEndPoint.y) ** 2
 
                     if distSq0 < minDistSq
-                    
+
                         minDistSq = distSq0
                         bestIdx = idx
                         bestFlipped = false
 
                     if distSq1 < minDistSq
-                    
+
                         minDistSq = distSq1
                         bestIdx = idx
                         bestFlipped = true
 
                 else
-                
+
                     bestIdx = idx
                     bestFlipped = false
+
                     break
 
             if bestIdx is -1
+
                 break  # No more edges to draw.
 
             # Build a chain of connected edges starting from bestIdx.
@@ -310,17 +317,17 @@ module.exports =
             currentFlipped = bestFlipped
 
             while currentIdx isnt -1 and not drawnEdges[currentIdx]
-            
+
                 edge = allInfillLines[currentIdx]
                 drawnEdges[currentIdx] = true
 
                 if currentFlipped
-                
+
                     chain.push({ start: edge.end, end: edge.start })
                     currentPoint = edge.start
-                
+
                 else
-                
+
                     chain.push({ start: edge.start, end: edge.end })
                     currentPoint = edge.end
 
@@ -329,35 +336,37 @@ module.exports =
                 nextIdx = -1
 
                 if pointToEdges[pointKey]
-                
+
                     for connection in pointToEdges[pointKey]
-                    
+
                         if not drawnEdges[connection.idx]
-                        
+
                             nextIdx = connection.idx
                             currentFlipped = (connection.endpoint is 'end')
+
                             break
 
                 currentIdx = nextIdx
 
             # Draw the chain.
             for segment, segIdx in chain
-            
+
                 if segIdx is 0
-                
+
                     # First segment: travel move to start.
                     offsetStartX = segment.start.x + centerOffsetX
                     offsetStartY = segment.start.y + centerOffsetY
-                    
+
                     slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
                 # Draw extrusion move.
                 dx = segment.end.x - segment.start.x
                 dy = segment.end.y - segment.start.y
+
                 distance = Math.sqrt(dx * dx + dy * dy)
 
                 if distance > 0.001
-                
+
                     extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
                     slicer.cumulativeE += extrusionDelta
 
