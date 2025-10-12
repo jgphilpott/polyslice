@@ -5,6 +5,7 @@ helpers = require('../geometry/helpers')
 
 gridPattern = require('./patterns/grid')
 trianglesPattern = require('./patterns/triangles')
+gyroidPattern = require('./patterns/gyroid')
 
 module.exports =
 
@@ -21,9 +22,9 @@ module.exports =
         # Skip if no infill density configured.
         return if infillDensity <= 0
 
-        # Only process grid and triangles patterns for now.
-        # Other patterns (lines, cubic, gyroid, honeycomb) not yet implemented.
-        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles'
+        # Only process grid, triangles, and gyroid patterns for now.
+        # Other patterns (lines, cubic, honeycomb) not yet implemented.
+        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'gyroid'
 
         if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
 
@@ -37,6 +38,7 @@ module.exports =
         # Different patterns require different spacing multipliers:
         # - Grid (2 directions): multiply by 2
         # - Triangles (3 directions): multiply by 3
+        # - Gyroid (3D surface): multiply by 1 (natural density control via scale)
         baseSpacing = nozzleDiameter / (infillDensity / 100.0)
 
         if infillPattern is 'grid'
@@ -58,3 +60,14 @@ module.exports =
             lineSpacing = baseSpacing * 3.0
 
             trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
+
+        else if infillPattern is 'gyroid'
+
+            # Gyroid uses a triply periodic minimal surface (3D mathematical surface).
+            # The pattern naturally varies between layers, creating strong isotropic structure.
+            # Formula: spacing = (nozzleDiameter / (density / 100)) * 1
+            # The scale directly controls the frequency/density of the gyroid pattern.
+            # For example: 20% density → spacing = (0.4 / 0.2) * 1 = 2.0mm
+            lineSpacing = baseSpacing * 1.0
+
+            gyroidPattern.generateGyroidInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
