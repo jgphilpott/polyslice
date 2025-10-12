@@ -94,39 +94,58 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Honeycomb pattern: create actual hexagon cells that tessellate.
-        # For a regular hexagon with center-to-center distance based on lineSpacing:
-        # - Hexagon side length: s = lineSpacing / sqrt(3)
-        # - Horizontal spacing between hexagon centers: 1.5 * s
-        # - Vertical spacing between hexagon rows: sqrt(3) * s
+        # Honeycomb pattern: create actual hexagon cells that tessellate with shared edges.
+        # Hexagons are drawn in pointy-top orientation (vertex at 0° points right).
+        # For a regular hexagon with side length 's':
+        # - Horizontal spacing between centers: sqrt(3) * s
+        # - Vertical spacing between rows: 1.5 * s
+        # - Every other row offset by: sqrt(3) * s / 2
         
         # Adjust lineSpacing to create appropriate hexagon size.
         # The lineSpacing parameter represents the desired spacing between hexagon centers.
         hexagonSide = lineSpacing / Math.sqrt(3)
-        horizontalSpacing = 1.5 * hexagonSide
-        verticalSpacing = Math.sqrt(3) * hexagonSide
+        horizontalSpacing = Math.sqrt(3) * hexagonSide
+        verticalSpacing = 1.5 * hexagonSide
 
-        # Collect all hexagon edge segments.
-        allInfillLines = []
+        # Collect unique hexagon edge segments (avoid drawing shared edges twice).
+        uniqueEdges = {}
+        
+        # Helper to create edge key (ensures consistent ordering).
+        createEdgeKey = (x1, y1, x2, y2) ->
+            # Use precise rounding to 0.01mm precision (10 microns).
+            rx1 = Math.round(x1 * 100) / 100
+            ry1 = Math.round(y1 * 100) / 100
+            rx2 = Math.round(x2 * 100) / 100
+            ry2 = Math.round(y2 * 100) / 100
+            
+            # Order points to ensure edge direction doesn't matter.
+            if rx1 < rx2 or (rx1 is rx2 and ry1 < ry2)
+                return "#{rx1},#{ry1}-#{rx2},#{ry2}"
+            else
+                return "#{rx2},#{ry2}-#{rx1},#{ry1}"
 
-        # Calculate hexagon grid starting from center (0, 0).
+        # Calculate pattern center (build plate center, not origin).
+        # The build plate center is at centerOffsetX, centerOffsetY.
+        patternCenterX = 0
+        patternCenterY = 0
+
         # Determine how many rows and columns we need to cover the area.
         numRows = Math.ceil(height / verticalSpacing) + 2
         numCols = Math.ceil(width / horizontalSpacing) + 2
 
-        # Generate hexagons in a honeycomb pattern centered at origin.
+        # Generate hexagons in a honeycomb pattern centered at pattern center.
         for row in [-numRows..numRows]
 
             for col in [-numCols..numCols]
 
-                # Calculate hexagon center position.
+                # Calculate hexagon center position relative to pattern center.
                 # In honeycomb, every other row is offset by half horizontal spacing.
-                centerX = col * 2 * horizontalSpacing
+                centerX = patternCenterX + col * horizontalSpacing
                 
                 if row % 2 != 0
-                    centerX += horizontalSpacing
+                    centerX += horizontalSpacing / 2
 
-                centerY = row * verticalSpacing
+                centerY = patternCenterY + row * verticalSpacing
 
                 # Generate the 6 vertices of this hexagon.
                 vertices = []
@@ -158,16 +177,34 @@ module.exports =
                         v1 = vertices[i]
                         v2 = vertices[(i + 1) % 6]
 
-                        # Clip edge to bounding box.
+                        # Clip edge to bounding box first.
                         clippedSegment = clipLineToBounds(v1, v2, minX, maxX, minY, maxY)
 
                         if clippedSegment?
                         
-                            # Store clipped edge segment.
-                            allInfillLines.push({
-                                start: { x: clippedSegment.p1.x, y: clippedSegment.p1.y }
-                                end: { x: clippedSegment.p2.x, y: clippedSegment.p2.y }
-                            })
+                            # Create edge key AFTER clipping (using clipped coordinates).
+                            edgeKey = createEdgeKey(
+                                clippedSegment.p1.x, clippedSegment.p1.y,
+                                clippedSegment.p2.x, clippedSegment.p2.y
+                            )
+                            
+                            # Only add edge if we haven't seen it before.
+                            if not uniqueEdges[edgeKey]
+                            
+                                # Store clipped edge segment.
+                                uniqueEdges[edgeKey] = {
+                                    start: { x: clippedSegment.p1.x, y: clippedSegment.p1.y }
+                                    end: { x: clippedSegment.p2.x, y: clippedSegment.p2.y }
+                                }
+
+        # Convert unique edges map to array.
+        allInfillLines = []
+        
+        for key, edge of uniqueEdges
+        
+            if edge?  # Only add edges that were successfully clipped and stored.
+            
+                allInfillLines.push(edge)
 
         # Now render all collected lines in optimal order to minimize travel.
         # Start with the line closest to the last wall position.
