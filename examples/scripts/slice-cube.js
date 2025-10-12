@@ -43,7 +43,7 @@ const slicer = new Polyslice({
   shellWallThickness: 0.8,
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
-  infillPattern: 'triangles',
+  infillPattern: 'hexagons',
   infillDensity: 30,
   bedTemperature: 0,
   layerHeight: 0.2,

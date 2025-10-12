@@ -14,11 +14,14 @@ clipLineToBounds = (p1, p2, minX, maxX, minY, maxY) ->
     TOP = 8     # 1000
 
     computeOutcode = (x, y) ->
+
         code = INSIDE
+
         if x < minX then code |= LEFT
         else if x > maxX then code |= RIGHT
         if y < minY then code |= BOTTOM
         else if y > maxY then code |= TOP
+
         return code
 
     x1 = p1.x
@@ -33,10 +36,12 @@ clipLineToBounds = (p1, p2, minX, maxX, minY, maxY) ->
 
         # Both endpoints inside - accept.
         if (outcode1 | outcode2) is 0
+
             return { p1: { x: x1, y: y1 }, p2: { x: x2, y: y2 } }
 
         # Both endpoints outside same region - reject.
         if (outcode1 & outcode2) != 0
+
             return null
 
         # At least one endpoint is outside - find intersection.
@@ -44,26 +49,38 @@ clipLineToBounds = (p1, p2, minX, maxX, minY, maxY) ->
 
         # Find intersection point.
         if (outcodeOut & TOP) != 0
+
             x = x1 + (x2 - x1) * (maxY - y1) / (y2 - y1)
             y = maxY
+
         else if (outcodeOut & BOTTOM) != 0
+
             x = x1 + (x2 - x1) * (minY - y1) / (y2 - y1)
             y = minY
+
         else if (outcodeOut & RIGHT) != 0
+
             y = y1 + (y2 - y1) * (maxX - x1) / (x2 - x1)
             x = maxX
+
         else if (outcodeOut & LEFT) != 0
+
             y = y1 + (y2 - y1) * (minX - x1) / (x2 - x1)
             x = minX
 
         # Replace point outside with intersection point.
         if outcodeOut is outcode1
+
             x1 = x
             y1 = y
+
             outcode1 = computeOutcode(x1, y1)
+
         else
+
             x2 = x
             y2 = y
+
             outcode2 = computeOutcode(x2, y2)
 
 module.exports =
@@ -99,11 +116,11 @@ module.exports =
         # Vertices start at 30° and increment by 60°: 30°, 90°, 150°, 210°, 270°, 330°
         # For a regular hexagon with side length 's':
         # - Width (point-to-point horizontally): 2 * s (but edges are at s*sqrt(3))
-        # - Height (flat-to-flat vertically): sqrt(3) * s  
+        # - Height (flat-to-flat vertically): sqrt(3) * s
         # - Horizontal spacing between centers: s * sqrt(3) (for edge sharing)
         # - Vertical spacing between rows: 1.5 * s
         # - Every other row offset by: s * sqrt(3) / 2 (half of horizontal spacing)
-        
+
         # Adjust lineSpacing to create appropriate hexagon size.
         # The lineSpacing parameter represents the desired spacing between hexagon centers.
         hexagonSide = lineSpacing / Math.sqrt(3)
@@ -112,19 +129,23 @@ module.exports =
 
         # Collect unique hexagon edge segments (avoid drawing shared edges twice).
         uniqueEdges = {}
-        
+
         # Helper to create edge key (ensures consistent ordering).
         createEdgeKey = (x1, y1, x2, y2) ->
+
             # Use precise rounding to 0.01mm precision (10 microns).
             rx1 = Math.round(x1 * 100) / 100
             ry1 = Math.round(y1 * 100) / 100
             rx2 = Math.round(x2 * 100) / 100
             ry2 = Math.round(y2 * 100) / 100
-            
+
             # Order points to ensure edge direction doesn't matter.
             if rx1 < rx2 or (rx1 is rx2 and ry1 < ry2)
+
                 return "#{rx1},#{ry1}-#{rx2},#{ry2}"
+
             else
+
                 return "#{rx2},#{ry2}-#{rx1},#{ry1}"
 
         # Calculate pattern center (build plate center, not origin).
@@ -144,8 +165,9 @@ module.exports =
                 # Calculate hexagon center position relative to pattern center.
                 # In honeycomb, every other row is offset by half horizontal spacing.
                 centerX = patternCenterX + col * horizontalSpacing
-                
+
                 if row % 2 != 0
+
                     centerX += horizontalSpacing / 2
 
                 centerY = patternCenterY + row * verticalSpacing
@@ -153,31 +175,35 @@ module.exports =
                 # Generate the 6 vertices of this hexagon (flat-top orientation).
                 # Vertices start at 30° and go clockwise: 30°, 90°, 150°, 210°, 270°, 330°
                 vertices = []
-                
+
                 for i in [0...6]
-                
+
                     angle = (30 + i * 60) * Math.PI / 180
+
                     vx = centerX + hexagonSide * Math.cos(angle)
                     vy = centerY + hexagonSide * Math.sin(angle)
+
                     vertices.push({ x: vx, y: vy })
 
                 # Check if any part of this hexagon is within the bounding box.
                 # Simple check: if any vertex is within an expanded boundary.
                 expandedMargin = hexagonSide * 2
                 hexagonInBounds = false
-                
+
                 for v in vertices
-                
+
                     if v.x >= minX - expandedMargin and v.x <= maxX + expandedMargin and
                        v.y >= minY - expandedMargin and v.y <= maxY + expandedMargin
+
                         hexagonInBounds = true
+
                         break
 
                 # If hexagon is potentially visible, add its edges.
                 if hexagonInBounds
-                
+
                     for i in [0...6]
-                    
+
                         v1 = vertices[i]
                         v2 = vertices[(i + 1) % 6]
 
@@ -185,16 +211,16 @@ module.exports =
                         clippedSegment = clipLineToBounds(v1, v2, minX, maxX, minY, maxY)
 
                         if clippedSegment?
-                        
+
                             # Create edge key AFTER clipping (using clipped coordinates).
                             edgeKey = createEdgeKey(
                                 clippedSegment.p1.x, clippedSegment.p1.y,
                                 clippedSegment.p2.x, clippedSegment.p2.y
                             )
-                            
+
                             # Only add edge if we haven't seen it before.
                             if not uniqueEdges[edgeKey]
-                            
+
                                 # Store clipped edge segment.
                                 uniqueEdges[edgeKey] = {
                                     start: { x: clippedSegment.p1.x, y: clippedSegment.p1.y }
@@ -203,11 +229,11 @@ module.exports =
 
         # Convert unique edges map to array.
         allInfillLines = []
-        
+
         for key, edge of uniqueEdges
-        
-            if edge?  # Only add edges that were successfully clipped and stored.
-            
+
+            if edge? # Only add edges that were successfully clipped and stored.
+
                 allInfillLines.push(edge)
 
         # Now render all collected lines in optimal order to minimize travel.
