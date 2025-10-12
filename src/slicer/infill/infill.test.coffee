@@ -72,6 +72,33 @@ describe 'Infill Orchestration', ->
             # Should contain infill type marker.
             expect(result).toContain('; TYPE: FILL')
 
+        test 'should set hexagons pattern', ->
+
+            slicer.setInfillPattern('hexagons')
+
+            expect(slicer.getInfillPattern()).toBe('hexagons')
+
+        test 'should generate infill with hexagons pattern', ->
+
+            # Create a 1cm cube.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('hexagons')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Should contain infill type marker.
+            expect(result).toContain('; TYPE: FILL')
+
     describe 'Infill Density', ->
 
         test 'should skip infill when density is 0', ->
@@ -230,6 +257,19 @@ describe 'Infill Orchestration', ->
 
             # The formula is: baseSpacing = nozzleDiameter / (density / 100)
             # Then tripled for triangles pattern: lineSpacing = baseSpacing * 3
+
+            nozzleDiameter = 0.4
+            density = 20
+
+            # Expected: 0.4 / 0.2 * 3 = 6.0mm
+            expectedSpacing = (nozzleDiameter / (density / 100.0)) * 3.0
+
+            expect(expectedSpacing).toBeCloseTo(6.0, 1)
+
+        test 'should calculate correct line spacing for hexagons density', ->
+
+            # The formula is: baseSpacing = nozzleDiameter / (density / 100)
+            # Then tripled for hexagons pattern: lineSpacing = baseSpacing * 3
 
             nozzleDiameter = 0.4
             density = 20
