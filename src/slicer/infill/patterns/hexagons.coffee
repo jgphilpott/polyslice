@@ -95,16 +95,19 @@ module.exports =
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
         # Honeycomb pattern: create actual hexagon cells that tessellate with shared edges.
-        # Hexagons are drawn in pointy-top orientation (vertex at 0° points right).
+        # Hexagons are drawn in flat-top orientation (flat sides horizontal).
+        # Vertices start at 30° and increment by 60°: 30°, 90°, 150°, 210°, 270°, 330°
         # For a regular hexagon with side length 's':
-        # - Horizontal spacing between centers: sqrt(3) * s
+        # - Width (point-to-point horizontally): 2 * s (but edges are at s*sqrt(3))
+        # - Height (flat-to-flat vertically): sqrt(3) * s  
+        # - Horizontal spacing between centers: s * sqrt(3) (for edge sharing)
         # - Vertical spacing between rows: 1.5 * s
-        # - Every other row offset by: sqrt(3) * s / 2
+        # - Every other row offset by: s * sqrt(3) / 2 (half of horizontal spacing)
         
         # Adjust lineSpacing to create appropriate hexagon size.
         # The lineSpacing parameter represents the desired spacing between hexagon centers.
         hexagonSide = lineSpacing / Math.sqrt(3)
-        horizontalSpacing = Math.sqrt(3) * hexagonSide
+        horizontalSpacing = hexagonSide * Math.sqrt(3)
         verticalSpacing = 1.5 * hexagonSide
 
         # Collect unique hexagon edge segments (avoid drawing shared edges twice).
@@ -147,12 +150,13 @@ module.exports =
 
                 centerY = patternCenterY + row * verticalSpacing
 
-                # Generate the 6 vertices of this hexagon.
+                # Generate the 6 vertices of this hexagon (flat-top orientation).
+                # Vertices start at 30° and go clockwise: 30°, 90°, 150°, 210°, 270°, 330°
                 vertices = []
                 
                 for i in [0...6]
                 
-                    angle = (i * 60) * Math.PI / 180
+                    angle = (30 + i * 60) * Math.PI / 180
                     vx = centerX + hexagonSide * Math.cos(angle)
                     vy = centerY + hexagonSide * Math.sin(angle)
                     vertices.push({ x: vx, y: vy })
