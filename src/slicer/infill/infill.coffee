@@ -4,6 +4,7 @@ coders = require('../gcode/coders')
 helpers = require('../geometry/helpers')
 
 gridPattern = require('./patterns/grid')
+trianglesPattern = require('./patterns/triangles')
 cubicPattern = require('./patterns/cubic')
 
 module.exports =
@@ -21,9 +22,9 @@ module.exports =
         # Skip if no infill density configured.
         return if infillDensity <= 0
 
-        # Only process grid and cubic patterns for now.
-        # Other patterns (lines, triangles, gyroid, honeycomb) not yet implemented.
-        return if infillPattern not in ['grid', 'cubic']
+        # Only process grid, triangles, and cubic patterns for now.
+        # Other patterns (lines, gyroid, honeycomb) not yet implemented.
+        return if infillPattern not in ['grid', 'triangles', 'cubic']
 
         if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
 
@@ -34,32 +35,39 @@ module.exports =
         return if infillBoundary.length < 3
 
         # Calculate line spacing based on infill density.
-        # For grid pattern: we generate BOTH +45° and -45° lines (crosshatch), so double spacing.
-        # For cubic pattern: we generate lines across 3 layers to form a 3D cubic structure,
-        # using less material per layer cycle.
+        # Different patterns require different spacing multipliers:
+        # - Grid (2 directions): multiply by 2
+        # - Triangles (3 directions): multiply by 3
+        # - Cubic (2 directions with progressive shift): multiply by 2.4
         baseSpacing = nozzleDiameter / (infillDensity / 100.0)
 
         if infillPattern is 'grid'
 
-            # Grid uses both directions on every layer, so double the spacing.
+            # Grid uses +45° and -45° lines (2 directions).
             # Formula: spacing = (nozzleDiameter / (density / 100)) * 2
             # For example: 20% density → spacing = (0.4 / 0.2) * 2 = 4.0mm per direction
             # This gives 10% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 2.0
 
-        else if infillPattern is 'cubic'
-
-            # Cubic uses one direction on layers 1 and 2, both on layer 0.
-            # Over 3 layers, we have 4 sets of lines total (2 + 1 + 1).
-            # To use less material (efficiency of 3D structure), we increase spacing.
-            # Multiply by 2.4 to achieve ~70% of grid's material usage at same density.
-            lineSpacing = baseSpacing * 2.4
-
-        # Delegate to pattern-specific generator.
-        if infillPattern is 'grid'
-
             gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
 
+        else if infillPattern is 'triangles'
+
+            # Triangles uses 45°, 105° (45°+60°), and -15° (45°-60°) lines (3 directions).
+            # Formula: spacing = (nozzleDiameter / (density / 100)) * 3
+            # For example: 20% density → spacing = (0.4 / 0.2) * 3 = 6.0mm per direction
+            # This gives ~6.67% in each direction, totaling 20% combined.
+            lineSpacing = baseSpacing * 3.0
+
+            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
+
         else if infillPattern is 'cubic'
+
+            # Cubic uses +45° and -45° lines (2 directions) with progressive layer shifting.
+            # The 3D structure is created by shifting line positions across layers.
+            # Formula: spacing = (nozzleDiameter / (density / 100)) * 2.4
+            # For example: 20% density → spacing = (0.4 / 0.2) * 2.4 = 4.8mm per direction
+            # The 2.4 multiplier accounts for the 4-layer cycle and material efficiency.
+            lineSpacing = baseSpacing * 2.4
 
             cubicPattern.generateCubicInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, layerIndex)
