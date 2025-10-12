@@ -37,7 +37,7 @@ module.exports =
         # The baseline extends diagonally at 45° from origin (like grid pattern).
         # The other two lines are at ±60° relative to the baseline.
         # Center the pattern at origin (0, 0) in local coordinates.
-        #
+
         # For proper equilateral triangle tessellation, all three line sets must use
         # the same perpendicular spacing. We use lineSpacing as the base perpendicular
         # distance between parallel lines in each set.
@@ -109,7 +109,7 @@ module.exports =
         # Slope = tan(105°) = -cot(15°) ≈ -3.732.
         # Line equation: y = -3.732 * x + offset.
         slope = -1 / Math.tan(15 * Math.PI / 180)  # tan(105°) = -cot(15°)
-        
+
         # For lines at 105° angle, calculate offset step for same perpendicular spacing.
         # The perpendicular distance between lines is lineSpacing.
         # For angle 105°, offsetStep = lineSpacing / |cos(105°)| ≈ lineSpacing * 3.864
@@ -171,7 +171,7 @@ module.exports =
         # Slope = tan(-15°) ≈ -0.268.
         # Line equation: y = -0.268 * x + offset.
         slope = Math.tan(-15 * Math.PI / 180)
-        
+
         # For lines at -15° angle, calculate offset step for same perpendicular spacing.
         # The perpendicular distance between lines is lineSpacing.
         # For angle -15°, offsetStep = lineSpacing / |cos(-15°)| ≈ lineSpacing * 1.035
