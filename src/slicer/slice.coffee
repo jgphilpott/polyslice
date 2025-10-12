@@ -8,6 +8,7 @@ helpers = require('./geometry/helpers')
 infillModule = require('./infill/infill')
 skinModule = require('./skin/skin')
 wallsModule = require('./walls/walls')
+supportModule = require('./support/support')
 
 module.exports =
 
@@ -78,6 +79,12 @@ module.exports =
 
             # Convert Polytree line segments to closed paths.
             layerPaths = helpers.connectSegmentsToPaths(layerSegments)
+
+            # Generate support structures if enabled.
+            # Support generation currently checks supportEnabled flag internally.
+            if slicer.getSupportEnabled()
+
+                supportModule.generateSupportGCode(slicer, mesh, layerIndex, currentZ, centerOffsetX, centerOffsetY)
 
             # Only output layer marker if layer has content.
             if verbose and layerPaths.length > 0

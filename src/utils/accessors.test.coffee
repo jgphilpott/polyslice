@@ -36,6 +36,23 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setTimeUnit('invalid')
             expect(slicer.getTimeUnit()).toBe('milliseconds') # unchanged.
 
+        test 'should set and get angle unit', ->
+
+            expect(slicer.getAngleUnit()).toBe('degree')
+
+            slicer.setAngleUnit('radian')
+            expect(slicer.getAngleUnit()).toBe('radian')
+
+            slicer.setAngleUnit('gradian')
+            expect(slicer.getAngleUnit()).toBe('gradian')
+
+            slicer.setAngleUnit('degree')
+            expect(slicer.getAngleUnit()).toBe('degree')
+
+            # Should ignore invalid values.
+            slicer.setAngleUnit('invalid')
+            expect(slicer.getAngleUnit()).toBe('degree') # unchanged.
+
     describe 'Temperature Accessors', ->
 
         test 'should set and get temperatures', ->
@@ -223,6 +240,27 @@ describe 'Accessors (Getters and Setters)', ->
             # Test invalid type (should not change).
             slicer.setSupportType('invalid')
             expect(slicer.getSupportType()).toBe('tree')
+
+            # Test support threshold (default 45 degrees).
+            expect(slicer.getSupportThreshold()).toBe(45)
+
+            slicer.setSupportThreshold(60)
+            expect(slicer.getSupportThreshold()).toBe(60)
+
+            slicer.setSupportThreshold(30)
+            expect(slicer.getSupportThreshold()).toBe(30)
+
+            # Should ignore values outside valid range (0-90).
+            slicer.setSupportThreshold(-10)
+            expect(slicer.getSupportThreshold()).toBe(30) # unchanged.
+
+            slicer.setSupportThreshold(100)
+            expect(slicer.getSupportThreshold()).toBe(30) # unchanged.
+
+            # Test with radians.
+            radianSlicer = new Polyslice({angleUnit: 'radian'})
+            radianSlicer.setSupportThreshold(Math.PI / 4) # 45 degrees.
+            expect(radianSlicer.getSupportThreshold()).toBeCloseTo(Math.PI / 4, 3)
 
         test 'should set and get adhesion settings', ->
 
