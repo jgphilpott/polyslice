@@ -21,18 +21,24 @@ A crosshatch pattern that generates both +45° and -45° diagonal lines on every
 
 ### Cubic Pattern (`cubic.coffee`)
 
-A 3D cubic lattice structure that varies diagonal lines across layers to form a cubic pattern.
+A TRUE 3D cubic lattice structure that shifts diagonal lines across layers to create interlocking cubes.
 
 **Characteristics:**
+- Creates actual 3D structure (lines shift position as Z increases)
 - More efficient than grid (uses ~30-50% less material)
-- Creates 3D interlocking structure
+- Lines from different layers connect diagonally in 3D space
 - Better strength-to-weight ratio
-- Pattern repeats every 3 layers
+- Pattern repeats every 4 layers with progressive shifts
 
-**Layer Cycle:**
-- Layer 0 (mod 3 = 0): Both +45° and -45° lines (crosshatch)
-- Layer 1 (mod 3 = 1): Only +45° diagonal lines
-- Layer 2 (mod 3 = 2): Only -45° diagonal lines
+**How it Works:**
+- Uses both +45° and -45° diagonal lines on EVERY layer (like grid)
+- BUT lines shift their XY position progressively on each layer
+- Layer 0: Lines at base positions
+- Layer 1: Lines shift by spacing/4
+- Layer 2: Lines shift by spacing/2
+- Layer 3: Lines shift by 3*spacing/4
+- Layer 4: Back to base positions (cycle repeats)
+- This creates a helical/staggered pattern that forms 3D cubes when viewed across layers
 
 **Use cases:**
 - Reducing print time and material usage

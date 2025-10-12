@@ -5,12 +5,13 @@ coders = require('../../gcode/coders')
 module.exports =
 
     # Generate cubic pattern infill (3D cubic lattice structure).
-    # Cubic infill creates a 3D lattice by varying diagonal lines across layers.
-    # Pattern repeats every 3 layers with different orientations to form cube diagonals.
+    # Cubic infill creates a TRUE 3D lattice where lines shift across layers to form cube edges.
+    # The pattern creates tilted cubes in 3D space, with lines connecting across multiple Z layers.
     generateCubicInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, layerIndex = 0) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
+        layerHeight = slicer.getLayerHeight()
 
         # Calculate bounding box of infill area.
         minX = Infinity
@@ -34,198 +35,102 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Cubic pattern: vary diagonal lines across layers to form 3D cubic structure.
-        # Use layer index modulo 3 to determine which orientation to use.
-        # Layer 0 (mod 3 = 0): Both +45° and -45° (crosshatch like grid).
-        # Layer 1 (mod 3 = 1): Only +45° diagonal lines.
-        # Layer 2 (mod 3 = 2): Only -45° diagonal lines.
-        # This creates a repeating 3-layer pattern that forms cubic cells in 3D.
-
-        orientation = layerIndex % 3
+        # TRUE Cubic pattern: Creates a 3D cubic lattice by shifting diagonal lines across layers.
+        # The key difference from grid: lines shift their XY position as Z increases, 
+        # creating a 3D interlocking structure rather than flat 2D layers.
+        #
+        # Pattern concept:
+        # - Use diagonal lines at +45° and -45° (like grid)
+        # - BUT shift the line positions progressively on each layer
+        # - The shift creates a helical/spiral effect when viewed in 3D
+        # - Lines from different layers connect diagonally in Z, forming 3D cube edges
+        #
+        # The pattern repeats every 4 layers (not 3) for proper cubic geometry:
+        # - Layer 0: Lines at positions [0, spacing, 2*spacing, ...]
+        # - Layer 1: Lines shift by spacing/4 in one direction
+        # - Layer 2: Lines shift by spacing/2 (half period)
+        # - Layer 3: Lines shift by 3*spacing/4
+        # - Layer 4: Back to layer 0 pattern (completes the cycle)
 
         # Collect all infill line segments first, then sort/render to minimize travel.
         allInfillLines = []
 
-        # Center the pattern at origin (0, 0) in local coordinates.
-        centerOffset = 0
+        # Calculate the phase shift for this layer to create the 3D effect.
+        # This shift moves the line pattern progressively on each layer.
+        # The pattern repeats every 4 layers for proper cubic geometry.
+        cycleLength = 4
+        cyclePhase = layerIndex % cycleLength
+        phaseShift = (cyclePhase * lineSpacing / cycleLength)
 
-        # Calculate how many lines to generate in each direction from center.
-        # For cubic pattern, we use wider spacing since we're building a 3D structure.
-        # The spacing is already calculated in the parent to account for density.
+        # Calculate how many lines we need.
         numLines = Math.ceil(diagonalSpan / (lineSpacing * Math.sqrt(2)))
 
-        # Generate diagonal lines based on current layer orientation.
-        if orientation is 0
+        # Generate +45° diagonal lines with phase shift.
+        offset = -numLines * lineSpacing * Math.sqrt(2) + phaseShift
+        maxOffset = numLines * lineSpacing * Math.sqrt(2) + phaseShift
 
-            # Layer 0: Standard +45° and -45° lines (same as grid pattern).
-            # Generate +45° lines (y = x + offset).
-            offset = centerOffset - numLines * lineSpacing * Math.sqrt(2)
-            maxOffset = centerOffset + numLines * lineSpacing * Math.sqrt(2)
+        while offset < maxOffset
 
-            while offset < maxOffset
+            intersections = []
 
-                intersections = []
+            # Line equation: y = x + offset (slope = +1).
+            y = minX + offset
+            if y >= minY and y <= maxY
+                intersections.push({ x: minX, y: y })
 
-                # Line equation: y = x + offset (slope = +1).
-                # Check intersection with left edge (x = minX).
-                y = minX + offset
-                if y >= minY and y <= maxY
+            y = maxX + offset
+            if y >= minY and y <= maxY
+                intersections.push({ x: maxX, y: y })
 
-                    intersections.push({ x: minX, y: y })
+            x = minY - offset
+            if x >= minX and x <= maxX
+                intersections.push({ x: x, y: minY })
 
-                # Check intersection with right edge (x = maxX).
-                y = maxX + offset
-                if y >= minY and y <= maxY
+            x = maxY - offset
+            if x >= minX and x <= maxX
+                intersections.push({ x: x, y: maxY })
 
-                    intersections.push({ x: maxX, y: y })
+            if intersections.length >= 2
+                allInfillLines.push({
+                    start: intersections[0]
+                    end: intersections[1]
+                })
 
-                # Check intersection with bottom edge (y = minY).
-                x = minY - offset
-                if x >= minX and x <= maxX
+            offset += lineSpacing * Math.sqrt(2)
 
-                    intersections.push({ x: x, y: minY })
+        # Generate -45° diagonal lines with phase shift in opposite direction.
+        # This creates the interlocking 3D structure.
+        offset = -numLines * lineSpacing * Math.sqrt(2) - phaseShift
+        maxOffset = numLines * lineSpacing * Math.sqrt(2) - phaseShift
 
-                # Check intersection with top edge (y = maxY).
-                x = maxY - offset
-                if x >= minX and x <= maxX
+        while offset < maxOffset
 
-                    intersections.push({ x: x, y: maxY })
+            intersections = []
 
-                # Store line segment if we have exactly 2 intersection points.
-                if intersections.length >= 2
+            # Line equation: y = -x + offset (slope = -1).
+            y = offset - minX
+            if y >= minY and y <= maxY
+                intersections.push({ x: minX, y: y })
 
-                    allInfillLines.push({
-                        start: intersections[0]
-                        end: intersections[1]
-                    })
+            y = offset - maxX
+            if y >= minY and y <= maxY
+                intersections.push({ x: maxX, y: y })
 
-                offset += lineSpacing * Math.sqrt(2)
+            x = offset - minY
+            if x >= minX and x <= maxX
+                intersections.push({ x: x, y: minY })
 
-            # Generate -45° lines (y = -x + offset).
-            offset = centerOffset - numLines * lineSpacing * Math.sqrt(2)
-            maxOffset = centerOffset + numLines * lineSpacing * Math.sqrt(2)
+            x = offset - maxY
+            if x >= minX and x <= maxX
+                intersections.push({ x: x, y: maxY })
 
-            while offset < maxOffset
+            if intersections.length >= 2
+                allInfillLines.push({
+                    start: intersections[0]
+                    end: intersections[1]
+                })
 
-                intersections = []
-
-                # Line equation: y = -x + offset (slope = -1).
-                # Check intersection with left edge (x = minX).
-                y = offset - minX
-                if y >= minY and y <= maxY
-
-                    intersections.push({ x: minX, y: y })
-
-                # Check intersection with right edge (x = maxX).
-                y = offset - maxX
-                if y >= minY and y <= maxY
-
-                    intersections.push({ x: maxX, y: y })
-
-                # Check intersection with bottom edge (y = minY).
-                x = offset - minY
-                if x >= minX and x <= maxX
-
-                    intersections.push({ x: x, y: minY })
-
-                # Check intersection with top edge (y = maxY).
-                x = offset - maxY
-                if x >= minX and x <= maxX
-
-                    intersections.push({ x: x, y: maxY })
-
-                # Store line segment if we have exactly 2 intersection points.
-                if intersections.length >= 2
-
-                    allInfillLines.push({
-                        start: intersections[0]
-                        end: intersections[1]
-                    })
-
-                offset += lineSpacing * Math.sqrt(2)
-
-        else if orientation is 1
-
-            # Layer 1 (mod 3 = 1): Use only +45° diagonal lines.
-            # This creates one diagonal direction of the cubic structure.
-            offset = centerOffset - numLines * lineSpacing * Math.sqrt(2)
-            maxOffset = centerOffset + numLines * lineSpacing * Math.sqrt(2)
-
-            while offset < maxOffset
-
-                intersections = []
-
-                # For cubic infill, use only +45° lines on layer 1 of the 3-layer cycle.
-                # Line equation: y = x + offset (slope = +1).
-                y = minX + offset
-                if y >= minY and y <= maxY
-
-                    intersections.push({ x: minX, y: y })
-
-                y = maxX + offset
-                if y >= minY and y <= maxY
-
-                    intersections.push({ x: maxX, y: y })
-
-                x = minY - offset
-                if x >= minX and x <= maxX
-
-                    intersections.push({ x: x, y: minY })
-
-                x = maxY - offset
-                if x >= minX and x <= maxX
-
-                    intersections.push({ x: x, y: maxY })
-
-                if intersections.length >= 2
-
-                    allInfillLines.push({
-                        start: intersections[0]
-                        end: intersections[1]
-                    })
-
-                offset += lineSpacing * Math.sqrt(2)
-
-        else if orientation is 2
-
-            # Layer 2 (mod 3 = 2): Use only -45° diagonal lines.
-            # This creates the opposite diagonal direction to complete the cubic structure.
-            offset = centerOffset - numLines * lineSpacing * Math.sqrt(2)
-            maxOffset = centerOffset + numLines * lineSpacing * Math.sqrt(2)
-
-            while offset < maxOffset
-
-                intersections = []
-
-                # Line equation: y = -x + offset (slope = -1).
-                y = offset - minX
-                if y >= minY and y <= maxY
-
-                    intersections.push({ x: minX, y: y })
-
-                y = offset - maxX
-                if y >= minY and y <= maxY
-
-                    intersections.push({ x: maxX, y: y })
-
-                x = offset - minY
-                if x >= minX and x <= maxX
-
-                    intersections.push({ x: x, y: minY })
-
-                x = offset - maxY
-                if x >= minX and x <= maxX
-
-                    intersections.push({ x: x, y: maxY })
-
-                if intersections.length >= 2
-
-                    allInfillLines.push({
-                        start: intersections[0]
-                        end: intersections[1]
-                    })
-
-                offset += lineSpacing * Math.sqrt(2)
+            offset += lineSpacing * Math.sqrt(2)
 
         # Now render all collected lines in optimal order to minimize travel.
         # Start with the line closest to the last wall position.

@@ -1,15 +1,24 @@
 /**
  * Cubic Infill Pattern Demonstration
  *
- * This example demonstrates the cubic infill pattern, which creates a 3D cubic
- * lattice structure by varying diagonal lines across layers. The pattern
- * repeats every 3 layers:
- * - Layer 0 (mod 3 = 0): Both +45° and -45° lines (crosshatch)
- * - Layer 1 (mod 3 = 1): Only +45° lines
- * - Layer 2 (mod 3 = 2): Only -45° lines
+ * This example demonstrates the cubic infill pattern, which creates a TRUE 3D cubic
+ * lattice structure by SHIFTING diagonal lines across layers. Unlike grid pattern
+ * which repeats the same crosshatch on every layer, cubic pattern progressively
+ * shifts the line positions to create interlocking 3D cubes.
  *
- * This creates a more efficient 3D structure compared to grid pattern,
- * using approximately 30% less material while maintaining strength.
+ * Pattern behavior:
+ * - Uses both +45° and -45° diagonal lines on EVERY layer
+ * - Lines shift their XY position as Z increases (pattern repeats every 4 layers)
+ * - Layer 0: Lines at base positions
+ * - Layer 1: Lines shift by 1/4 of spacing
+ * - Layer 2: Lines shift by 1/2 of spacing
+ * - Layer 3: Lines shift by 3/4 of spacing
+ * - Layer 4: Back to base (cycle repeats)
+ *
+ * This creates a helical/staggered pattern where lines from different layers
+ * connect diagonally in 3D space, forming actual cube edges rather than
+ * flat 2D layers. Uses approximately 30% less material than grid while
+ * maintaining strength.
  */
 
 const Polyslice = require('../../src/index.js');
@@ -96,9 +105,9 @@ console.log(`- Total layers: ${layerCount}`);
 console.log(`- Layers with infill: ${infillLayerCount}`);
 console.log(`- Total infill moves: ${totalInfillMoves}\n`);
 
-// Analyze the 3-layer pattern cycle.
-console.log('Cubic Pattern Analysis (3-layer cycle):');
-console.log('Layer | Cycle | Infill Moves | Pattern');
+// Analyze the 4-layer pattern cycle with progressive shift.
+console.log('Cubic Pattern Analysis (4-layer cycle with progressive shift):');
+console.log('Layer | Cycle | Infill Moves | Shift Phase');
 console.log('------|-------|--------------|---------------------------');
 
 // Get middle layers (skip skin layers at top and bottom).
@@ -106,47 +115,41 @@ const skinLayers = Math.ceil(slicer.getShellSkinThickness() / slicer.getLayerHei
 const startLayer = skinLayers;
 const endLayer = layerCount - skinLayers;
 
-let layer0Total = 0;
-let layer1Total = 0;
-let layer2Total = 0;
-let layer0Count = 0;
-let layer1Count = 0;
-let layer2Count = 0;
+let cycleTotals = [0, 0, 0, 0];
+let cycleCounts = [0, 0, 0, 0];
 
-for (let i = startLayer; i < Math.min(startLayer + 12, endLayer); i++) {
+for (let i = startLayer; i < Math.min(startLayer + 16, endLayer); i++) {
     const moves = layerInfillMoves[i] || 0;
-    const cycle = i % 3;
-    let pattern = '';
+    const cycle = i % 4;
+    let phase = '';
     
     if (cycle === 0) {
-        pattern = 'Both +45° and -45° (crosshatch)';
-        layer0Total += moves;
-        layer0Count++;
+        phase = 'Base position (0/4)';
     } else if (cycle === 1) {
-        pattern = 'Only +45° diagonal';
-        layer1Total += moves;
-        layer1Count++;
+        phase = 'Shift by 1/4 spacing';
     } else if (cycle === 2) {
-        pattern = 'Only -45° diagonal';
-        layer2Total += moves;
-        layer2Count++;
+        phase = 'Shift by 1/2 spacing';
+    } else if (cycle === 3) {
+        phase = 'Shift by 3/4 spacing';
     }
     
-    console.log(`${String(i).padStart(5)} | ${cycle}     | ${String(moves).padStart(12)} | ${pattern}`);
+    cycleTotals[cycle] += moves;
+    cycleCounts[cycle]++;
+    
+    console.log(`${String(i).padStart(5)} | ${cycle}     | ${String(moves).padStart(12)} | ${phase}`);
 }
 
 console.log('\nPattern Statistics:');
-if (layer0Count > 0 && layer1Count > 0 && layer2Count > 0) {
-    const avg0 = Math.round(layer0Total / layer0Count);
-    const avg1 = Math.round(layer1Total / layer1Count);
-    const avg2 = Math.round(layer2Total / layer2Count);
-    
-    console.log(`- Layer 0 (mod 3 = 0) average: ${avg0} moves (crosshatch)`);
-    console.log(`- Layer 1 (mod 3 = 1) average: ${avg1} moves (one diagonal)`);
-    console.log(`- Layer 2 (mod 3 = 2) average: ${avg2} moves (one diagonal)`);
-    console.log(`- Ratio (Layer 0 : Layer 1): ${(avg0 / avg1).toFixed(2)}:1`);
-    console.log('  (Layer 0 should have ~2x moves since it has both directions)\n');
+console.log('All layers use both +45° and -45° diagonals, but shifted:');
+for (let i = 0; i < 4; i++) {
+    if (cycleCounts[i] > 0) {
+        const avg = Math.round(cycleTotals[i] / cycleCounts[i]);
+        console.log(`- Cycle ${i} average: ${avg} moves`);
+    }
 }
+const totalAvg = cycleTotals.reduce((a, b) => a + b) / cycleCounts.reduce((a, b) => a + b);
+console.log(`- Overall average: ${Math.round(totalAvg)} moves per layer`);
+console.log('- Pattern shifts create 3D interlocking structure\n');
 
 // Compare with grid pattern.
 console.log('Comparison with Grid Pattern:');
