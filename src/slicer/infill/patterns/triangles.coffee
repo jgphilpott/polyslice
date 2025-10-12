@@ -37,23 +37,30 @@ module.exports =
         # The baseline extends diagonally at 45° from origin (like grid pattern).
         # The other two lines are at ±60° relative to the baseline.
         # Center the pattern at origin (0, 0) in local coordinates.
+        #
+        # For proper equilateral triangle tessellation, all three line sets must use
+        # the same perpendicular spacing. We use lineSpacing as the base perpendicular
+        # distance between parallel lines in each set.
 
         # Collect all infill line segments first, then sort/render to minimize travel.
         allInfillLines = []
 
         # Generate baseline at 45° (y = x + offset).
         # This is the primary diagonal line, same as grid's +45° line.
+        # For a 45° line (slope = 1), moving perpendicular by distance lineSpacing
+        # requires changing the y-intercept by lineSpacing * sqrt(2).
         centerOffset = 0
 
         # For 45-degree lines, account for diagonal spacing.
-        diagonalSpacing45 = lineSpacing * Math.sqrt(2)
+        # Perpendicular spacing = lineSpacing, offset spacing = lineSpacing * sqrt(2)
+        offsetStep45 = lineSpacing * Math.sqrt(2)
 
         # Calculate how many lines to generate in each direction from center.
-        numLinesUp = Math.ceil(diagonalSpan / diagonalSpacing45)
+        numLinesUp = Math.ceil(diagonalSpan / offsetStep45)
 
         # Start from center and generate lines in both directions.
-        offset = centerOffset - numLinesUp * diagonalSpacing45
-        maxOffset = centerOffset + numLinesUp * diagonalSpacing45
+        offset = centerOffset - numLinesUp * offsetStep45
+        maxOffset = centerOffset + numLinesUp * offsetStep45
 
         while offset < maxOffset
 
@@ -96,24 +103,26 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += diagonalSpacing45
+            offset += offsetStep45
 
         # Generate lines at 105° (45° + 60°), which is equivalent to -75°.
         # Slope = tan(105°) = -cot(15°) ≈ -3.732.
         # Line equation: y = -3.732 * x + offset.
         slope = -1 / Math.tan(15 * Math.PI / 180)  # tan(105°) = -cot(15°)
         
-        # For lines at this angle, calculate perpendicular spacing.
-        # The angle between 45° and 105° is 60°.
-        diagonalSpacing105 = lineSpacing * 2 / Math.sqrt(3)
+        # For lines at 105° angle, calculate offset step for same perpendicular spacing.
+        # The perpendicular distance between lines is lineSpacing.
+        # For angle 105°, offsetStep = lineSpacing / |cos(105°)| ≈ lineSpacing * 3.864
+        angle105 = 105 * Math.PI / 180
+        offsetStep105 = lineSpacing / Math.abs(Math.cos(angle105))
         centerOffset = 0
 
         # Calculate how many lines to generate.
-        numLinesUp = Math.ceil(diagonalSpan / diagonalSpacing105)
+        numLinesUp = Math.ceil(diagonalSpan / offsetStep105)
 
         # Start from center and generate lines in both directions.
-        offset = centerOffset - numLinesUp * diagonalSpacing105
-        maxOffset = centerOffset + numLinesUp * diagonalSpacing105
+        offset = centerOffset - numLinesUp * offsetStep105
+        maxOffset = centerOffset + numLinesUp * offsetStep105
 
         while offset < maxOffset
 
@@ -156,20 +165,26 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += diagonalSpacing105
+            offset += offsetStep105
 
         # Generate lines at -15° (45° - 60°).
         # Slope = tan(-15°) ≈ -0.268.
         # Line equation: y = -0.268 * x + offset.
         slope = Math.tan(-15 * Math.PI / 180)
         
-        # For lines at this angle, calculate perpendicular spacing.
-        diagonalSpacing15 = lineSpacing * 2 / Math.sqrt(3)
+        # For lines at -15° angle, calculate offset step for same perpendicular spacing.
+        # The perpendicular distance between lines is lineSpacing.
+        # For angle -15°, offsetStep = lineSpacing / |cos(-15°)| ≈ lineSpacing * 1.035
+        angle15 = -15 * Math.PI / 180
+        offsetStep15 = lineSpacing / Math.abs(Math.cos(angle15))
         centerOffset = 0
 
+        # Calculate how many lines to generate.
+        numLinesUp = Math.ceil(diagonalSpan / offsetStep15)
+
         # Start from center and generate lines in both directions.
-        offset = centerOffset - numLinesUp * diagonalSpacing15
-        maxOffset = centerOffset + numLinesUp * diagonalSpacing15
+        offset = centerOffset - numLinesUp * offsetStep15
+        maxOffset = centerOffset + numLinesUp * offsetStep15
 
         while offset < maxOffset
 
@@ -212,7 +227,7 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += diagonalSpacing15
+            offset += offsetStep15
 
         # Now render all collected lines in optimal order to minimize travel.
         # Start with the line closest to the last wall position.
