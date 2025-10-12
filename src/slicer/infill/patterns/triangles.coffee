@@ -32,63 +32,95 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Triangles pattern: generate lines at 0°, +60°, and -60° angles.
+        # Triangles pattern: generate lines at 45° (baseline), +60° from baseline (105°), and -60° from baseline (-15°).
         # This creates a tessellation of equilateral triangles.
-        # Unlike grid which uses +45° and -45°, triangles use horizontal and two 60° diagonals.
+        # The baseline extends diagonally at 45° from origin (like grid pattern).
+        # The other two lines are at ±60° relative to the baseline.
         # Center the pattern at origin (0, 0) in local coordinates.
 
         # Collect all infill line segments first, then sort/render to minimize travel.
         allInfillLines = []
 
-        # Generate horizontal lines (0°, y = constant).
-        # For horizontal lines, we iterate through Y values.
+        # Generate baseline at 45° (y = x + offset).
+        # This is the primary diagonal line, same as grid's +45° line.
         centerOffset = 0
+
+        # For 45-degree lines, account for diagonal spacing.
+        diagonalSpacing45 = lineSpacing * Math.sqrt(2)
 
         # Calculate how many lines to generate in each direction from center.
-        numLinesUp = Math.ceil(height / lineSpacing)
+        numLinesUp = Math.ceil(diagonalSpan / diagonalSpacing45)
 
         # Start from center and generate lines in both directions.
-        offset = centerOffset - numLinesUp * lineSpacing
-        maxOffset = centerOffset + numLinesUp * lineSpacing
-
-        while offset < maxOffset
-
-            # Horizontal line at y = offset.
-            # Check if line intersects the bounding box.
-            y = offset
-
-            if y >= minY and y <= maxY
-
-                # Line extends from minX to maxX at this y.
-                allInfillLines.push({
-                    start: { x: minX, y: y }
-                    end: { x: maxX, y: y }
-                })
-
-            # Move to next horizontal line.
-            offset += lineSpacing
-
-        # Generate +60° lines (slope = tan(60°) = sqrt(3) ≈ 1.732).
-        # Line equation: y = sqrt(3) * x + offset.
-        # For 60-degree lines, the perpendicular spacing between lines is lineSpacing * 2 / sqrt(3).
-        # This accounts for the projection of the spacing onto the perpendicular direction.
-        slope = Math.sqrt(3)
-        diagonalLineSpacing = lineSpacing * 2 / Math.sqrt(3)
-        centerOffset = 0
-
-        # Calculate how many lines to generate.
-        numLinesUp = Math.ceil(diagonalSpan / diagonalLineSpacing)
-
-        # Start from center and generate lines in both directions.
-        offset = centerOffset - numLinesUp * diagonalLineSpacing
-        maxOffset = centerOffset + numLinesUp * diagonalLineSpacing
+        offset = centerOffset - numLinesUp * diagonalSpacing45
+        maxOffset = centerOffset + numLinesUp * diagonalSpacing45
 
         while offset < maxOffset
 
             # Calculate intersection points with bounding box.
             intersections = []
 
-            # Line equation: y = sqrt(3) * x + offset.
+            # Line equation: y = x + offset (slope = +1).
+
+            # Check intersection with left edge (x = minX).
+            y = minX + offset
+            if y >= minY and y <= maxY
+
+                intersections.push({ x: minX, y: y })
+
+            # Check intersection with right edge (x = maxX).
+            y = maxX + offset
+            if y >= minY and y <= maxY
+
+                intersections.push({ x: maxX, y: y })
+
+            # Check intersection with bottom edge (y = minY).
+            x = minY - offset
+            if x >= minX and x <= maxX
+
+                intersections.push({ x: x, y: minY })
+
+            # Check intersection with top edge (y = maxY).
+            x = maxY - offset
+            if x >= minX and x <= maxX
+
+                intersections.push({ x: x, y: maxY })
+
+            # We should have exactly 2 intersection points.
+            if intersections.length >= 2
+
+                # Store this line segment for later rendering.
+                allInfillLines.push({
+                    start: intersections[0]
+                    end: intersections[1]
+                })
+
+            # Move to next diagonal line.
+            offset += diagonalSpacing45
+
+        # Generate lines at 105° (45° + 60°), which is equivalent to -75°.
+        # Slope = tan(105°) = -cot(15°) ≈ -3.732.
+        # Line equation: y = -3.732 * x + offset.
+        slope = -1 / Math.tan(15 * Math.PI / 180)  # tan(105°) = -cot(15°)
+        
+        # For lines at this angle, calculate perpendicular spacing.
+        # The angle between 45° and 105° is 60°.
+        diagonalSpacing105 = lineSpacing * 2 / Math.sqrt(3)
+        centerOffset = 0
+
+        # Calculate how many lines to generate.
+        numLinesUp = Math.ceil(diagonalSpan / diagonalSpacing105)
+
+        # Start from center and generate lines in both directions.
+        offset = centerOffset - numLinesUp * diagonalSpacing105
+        maxOffset = centerOffset + numLinesUp * diagonalSpacing105
+
+        while offset < maxOffset
+
+            # Calculate intersection points with bounding box.
+            intersections = []
+
+            # Line equation: y = slope * x + offset.
 
             # Check intersection with left edge (x = minX).
             y = slope * minX + offset
@@ -124,16 +156,20 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += diagonalLineSpacing
+            offset += diagonalSpacing105
 
-        # Generate -60° lines (slope = tan(-60°) = -sqrt(3)).
-        # Line equation: y = -sqrt(3) * x + offset.
-        slope = -Math.sqrt(3)
+        # Generate lines at -15° (45° - 60°).
+        # Slope = tan(-15°) ≈ -0.268.
+        # Line equation: y = -0.268 * x + offset.
+        slope = Math.tan(-15 * Math.PI / 180)
+        
+        # For lines at this angle, calculate perpendicular spacing.
+        diagonalSpacing15 = lineSpacing * 2 / Math.sqrt(3)
         centerOffset = 0
 
         # Start from center and generate lines in both directions.
-        offset = centerOffset - numLinesUp * diagonalLineSpacing
-        maxOffset = centerOffset + numLinesUp * diagonalLineSpacing
+        offset = centerOffset - numLinesUp * diagonalSpacing15
+        maxOffset = centerOffset + numLinesUp * diagonalSpacing15
 
         while offset < maxOffset
 
@@ -176,7 +212,7 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += diagonalLineSpacing
+            offset += diagonalSpacing15
 
         # Now render all collected lines in optimal order to minimize travel.
         # Start with the line closest to the last wall position.

@@ -51,7 +51,7 @@ module.exports =
 
         else if infillPattern is 'triangles'
 
-            # Triangles uses 0°, +60°, and -60° lines (3 directions).
+            # Triangles uses 45°, 105° (45°+60°), and -15° (45°-60°) lines (3 directions).
             # Formula: spacing = (nozzleDiameter / (density / 100)) * 3
             # For example: 20% density → spacing = (0.4 / 0.2) * 3 = 6.0mm per direction
             # This gives ~6.67% in each direction, totaling 20% combined.

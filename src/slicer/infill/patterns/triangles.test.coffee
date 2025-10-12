@@ -185,17 +185,14 @@ describe 'Triangles Infill Generation', ->
 
             expect(middleLayers.length).toBeGreaterThan(5)
 
-            # Triangles pattern should have horizontal and diagonal lines.
-            # We should detect movement in different directions (0°, +60°, -60°).
+            # Triangles pattern should have diagonal lines at various angles.
+            # We should detect movement in different directions (45°, 105°, -15°).
             for layer in middleLayers.slice(0, 3)
 
                 coords = layer.coords
 
                 # Need at least 4 points to verify pattern.
                 continue if coords.length < 4
-
-                # Check for horizontal segments (Y constant, X varies).
-                hasHorizontal = false
 
                 # Check for diagonal segments (both X and Y vary).
                 hasDiagonal = false
@@ -205,16 +202,12 @@ describe 'Triangles Infill Generation', ->
                     dx = Math.abs(coords[i].x - coords[i - 1].x)
                     dy = Math.abs(coords[i].y - coords[i - 1].y)
 
-                    # Horizontal line: Y constant, X varies.
-                    if dx > 0.5 and dy < 0.1
-                        hasHorizontal = true
-
                     # Diagonal line: both X and Y vary.
                     if dx > 0.5 and dy > 0.5
                         hasDiagonal = true
 
-                # Triangles pattern should have both horizontal and diagonal lines.
-                expect(hasHorizontal or hasDiagonal).toBe(true)
+                # Triangles pattern should have diagonal lines.
+                expect(hasDiagonal).toBe(true)
 
             return # Explicitly return undefined for Jest.
 
