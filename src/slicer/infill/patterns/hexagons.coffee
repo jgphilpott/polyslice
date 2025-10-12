@@ -236,77 +236,134 @@ module.exports =
 
                 allInfillLines.push(edge)
 
-        # Now render all collected lines in optimal order to minimize travel.
-        # Start with the line closest to the last wall position.
+        # Build a connectivity graph to find connected edge chains.
+        # This allows drawing multiple connected edges in one continuous path.
+        # Use a helper function to create consistent point keys.
+        createPointKey = (x, y) ->
+            # Round to 0.01mm precision (10 microns).
+            rx = Math.round(x * 100) / 100
+            ry = Math.round(y * 100) / 100
+            return "#{rx},#{ry}"
+        
+        pointToEdges = {}  # Map from point key to list of edge indices.
+        
+        for edge, idx in allInfillLines
+        
+            # Create point keys for start and end.
+            startKey = createPointKey(edge.start.x, edge.start.y)
+            endKey = createPointKey(edge.end.x, edge.end.y)
+            
+            if not pointToEdges[startKey]
+                pointToEdges[startKey] = []
+            
+            if not pointToEdges[endKey]
+                pointToEdges[endKey] = []
+                
+            pointToEdges[startKey].push({ idx: idx, endpoint: 'start' })
+            pointToEdges[endKey].push({ idx: idx, endpoint: 'end' })
+
+        # Track which edges have been drawn.
+        drawnEdges = {}
         lastEndPoint = lastWallPoint
 
-        while allInfillLines.length > 0
+        while Object.keys(drawnEdges).length < allInfillLines.length
 
-            # Find the line with an endpoint closest to current position.
+            # Find the nearest undrawn edge to current position.
             minDistSq = Infinity
-            bestLineIdx = 0
+            bestIdx = -1
             bestFlipped = false
 
-            for line, idx in allInfillLines
+            for edge, idx in allInfillLines
+            
+                if drawnEdges[idx]
+                    continue
 
-                # Check distance to both endpoints of this line.
                 if lastEndPoint?
 
-                    distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
-                    distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
+                    distSq0 = (edge.start.x - lastEndPoint.x) ** 2 + (edge.start.y - lastEndPoint.y) ** 2
+                    distSq1 = (edge.end.x - lastEndPoint.x) ** 2 + (edge.end.y - lastEndPoint.y) ** 2
 
                     if distSq0 < minDistSq
-
+                    
                         minDistSq = distSq0
-                        bestLineIdx = idx
-                        bestFlipped = false # Start from line.start
+                        bestIdx = idx
+                        bestFlipped = false
 
                     if distSq1 < minDistSq
-
+                    
                         minDistSq = distSq1
-                        bestLineIdx = idx
-                        bestFlipped = true # Start from line.end (flip the line)
+                        bestIdx = idx
+                        bestFlipped = true
 
                 else
+                
+                    bestIdx = idx
+                    bestFlipped = false
+                    break
 
-                    break # No last position, just use first line.
+            if bestIdx is -1
+                break  # No more edges to draw.
 
-            # Get the best line and remove it from the list.
-            bestLine = allInfillLines[bestLineIdx]
-            allInfillLines.splice(bestLineIdx, 1)
+            # Build a chain of connected edges starting from bestIdx.
+            chain = []
+            currentIdx = bestIdx
+            currentFlipped = bestFlipped
 
-            # Determine start and end based on whether we need to flip.
-            if bestFlipped
+            while currentIdx isnt -1 and not drawnEdges[currentIdx]
+            
+                edge = allInfillLines[currentIdx]
+                drawnEdges[currentIdx] = true
 
-                startPoint = bestLine.end
-                endPoint = bestLine.start
+                if currentFlipped
+                
+                    chain.push({ start: edge.end, end: edge.start })
+                    currentPoint = edge.start
+                
+                else
+                
+                    chain.push({ start: edge.start, end: edge.end })
+                    currentPoint = edge.end
 
-            else
+                # Look for a connected edge at currentPoint.
+                pointKey = createPointKey(currentPoint.x, currentPoint.y)
+                nextIdx = -1
 
-                startPoint = bestLine.start
-                endPoint = bestLine.end
+                if pointToEdges[pointKey]
+                
+                    for connection in pointToEdges[pointKey]
+                    
+                        if not drawnEdges[connection.idx]
+                        
+                            nextIdx = connection.idx
+                            currentFlipped = (connection.endpoint is 'end')
+                            break
 
-            # Move to start of line (travel move).
-            offsetStartX = startPoint.x + centerOffsetX
-            offsetStartY = startPoint.y + centerOffsetY
+                currentIdx = nextIdx
 
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+            # Draw the chain.
+            for segment, segIdx in chain
+            
+                if segIdx is 0
+                
+                    # First segment: travel move to start.
+                    offsetStartX = segment.start.x + centerOffsetX
+                    offsetStartY = segment.start.y + centerOffsetY
+                    
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
-            # Draw the diagonal line.
-            dx = endPoint.x - startPoint.x
-            dy = endPoint.y - startPoint.y
+                # Draw extrusion move.
+                dx = segment.end.x - segment.start.x
+                dy = segment.end.y - segment.start.y
+                distance = Math.sqrt(dx * dx + dy * dy)
 
-            distance = Math.sqrt(dx * dx + dy * dy)
+                if distance > 0.001
+                
+                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    slicer.cumulativeE += extrusionDelta
 
-            if distance > 0.001
+                    offsetEndX = segment.end.x + centerOffsetX
+                    offsetEndY = segment.end.y + centerOffsetY
 
-                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                slicer.cumulativeE += extrusionDelta
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
 
-                offsetEndX = endPoint.x + centerOffsetX
-                offsetEndY = endPoint.y + centerOffsetY
-
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
-
-                # Track where this line ended for next iteration.
-                lastEndPoint = endPoint
+                    lastEndPoint = segment.end
