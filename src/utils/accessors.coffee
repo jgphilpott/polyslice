@@ -410,9 +410,15 @@ module.exports =
 
     setSupportThreshold: (slicer, angle = 45) ->
 
-        if typeof angle is "number" and angle >= 0 and angle <= 90
+        if typeof angle is "number" and angle >= 0
 
-            slicer.supportThreshold = conversions.angleToInternal(angle, slicer.angleUnit)
+            # Convert to internal units (degrees) first.
+            angleInDegrees = conversions.angleToInternal(angle, slicer.angleUnit)
+
+            # Validate that the angle in degrees is within 0-90 range.
+            if angleInDegrees >= 0 and angleInDegrees <= 90
+
+                slicer.supportThreshold = angleInDegrees
 
         return slicer
 

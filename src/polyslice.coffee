@@ -47,7 +47,7 @@ class Polyslice
         @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches'].
         @speedUnit = options.speedUnit ?= "millimeterSecond" # String ['millimeterSecond', 'inchSecond', 'meterSecond'].
         @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin'].
-        @angleUnit = options.angleUnit ?= "degree" # String ['degree', 'radian'].
+        @angleUnit = options.angleUnit ?= "degree" # String ['degree', 'radian', 'gradian'].
 
         # Temperature control settings for hotend and heated bed (stored internally in Celsius).
         @nozzleTemperature = conversions.temperatureToInternal(options.nozzleTemperature ? filamentSettings.nozzleTemperature ? 0, this.temperatureUnit) # Number (°C internal).
