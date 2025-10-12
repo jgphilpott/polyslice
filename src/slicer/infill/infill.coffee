@@ -5,6 +5,7 @@ helpers = require('../geometry/helpers')
 
 gridPattern = require('./patterns/grid')
 trianglesPattern = require('./patterns/triangles')
+hexagonsPattern = require('./patterns/hexagons')
 
 module.exports =
 
@@ -21,9 +22,9 @@ module.exports =
         # Skip if no infill density configured.
         return if infillDensity <= 0
 
-        # Only process grid and triangles patterns for now.
+        # Only process grid, triangles, and hexagons patterns for now.
         # Other patterns (lines, cubic, gyroid, honeycomb) not yet implemented.
-        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles'
+        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons'
 
         if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
 
@@ -37,6 +38,7 @@ module.exports =
         # Different patterns require different spacing multipliers:
         # - Grid (2 directions): multiply by 2
         # - Triangles (3 directions): multiply by 3
+        # - Hexagons (3 directions): multiply by 3
         baseSpacing = nozzleDiameter / (infillDensity / 100.0)
 
         if infillPattern is 'grid'
@@ -58,3 +60,13 @@ module.exports =
             lineSpacing = baseSpacing * 3.0
 
             trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
+
+        else if infillPattern is 'hexagons'
+
+            # Hexagons uses 0° (horizontal), 60°, and 120° (-60°) lines (3 directions).
+            # Formula: spacing = (nozzleDiameter / (density / 100)) * 3
+            # For example: 20% density → spacing = (0.4 / 0.2) * 3 = 6.0mm per direction
+            # This gives ~6.67% in each direction, totaling 20% combined.
+            lineSpacing = baseSpacing * 3.0
+
+            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
