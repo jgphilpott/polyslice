@@ -70,15 +70,18 @@ module.exports =
 
         # Generate +60° lines (slope = tan(60°) = sqrt(3) ≈ 1.732).
         # Line equation: y = sqrt(3) * x + offset.
+        # For 60-degree lines, the perpendicular spacing between lines is lineSpacing * 2 / sqrt(3).
+        # This accounts for the projection of the spacing onto the perpendicular direction.
         slope = Math.sqrt(3)
+        diagonalLineSpacing = lineSpacing * 2 / Math.sqrt(3)
         centerOffset = 0
 
         # Calculate how many lines to generate.
-        numLinesUp = Math.ceil(diagonalSpan / (lineSpacing * 2 / Math.sqrt(3)))
+        numLinesUp = Math.ceil(diagonalSpan / diagonalLineSpacing)
 
         # Start from center and generate lines in both directions.
-        offset = centerOffset - numLinesUp * lineSpacing * 2 / Math.sqrt(3)
-        maxOffset = centerOffset + numLinesUp * lineSpacing * 2 / Math.sqrt(3)
+        offset = centerOffset - numLinesUp * diagonalLineSpacing
+        maxOffset = centerOffset + numLinesUp * diagonalLineSpacing
 
         while offset < maxOffset
 
@@ -121,7 +124,7 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += lineSpacing * 2 / Math.sqrt(3)
+            offset += diagonalLineSpacing
 
         # Generate -60° lines (slope = tan(-60°) = -sqrt(3)).
         # Line equation: y = -sqrt(3) * x + offset.
@@ -129,8 +132,8 @@ module.exports =
         centerOffset = 0
 
         # Start from center and generate lines in both directions.
-        offset = centerOffset - numLinesUp * lineSpacing * 2 / Math.sqrt(3)
-        maxOffset = centerOffset + numLinesUp * lineSpacing * 2 / Math.sqrt(3)
+        offset = centerOffset - numLinesUp * diagonalLineSpacing
+        maxOffset = centerOffset + numLinesUp * diagonalLineSpacing
 
         while offset < maxOffset
 
@@ -173,7 +176,7 @@ module.exports =
                 })
 
             # Move to next diagonal line.
-            offset += lineSpacing * 2 / Math.sqrt(3)
+            offset += diagonalLineSpacing
 
         # Now render all collected lines in optimal order to minimize travel.
         # Start with the line closest to the last wall position.

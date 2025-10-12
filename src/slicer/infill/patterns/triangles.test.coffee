@@ -216,7 +216,7 @@ describe 'Triangles Infill Generation', ->
                 # Triangles pattern should have both horizontal and diagonal lines.
                 expect(hasHorizontal or hasDiagonal).toBe(true)
 
-            return # Explicitly return undefined for Jest.
+            undefined
 
         test 'should use infill speed for infill lines', ->
 
