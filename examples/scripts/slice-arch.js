@@ -2,10 +2,10 @@
  * Example showing how to slice an STL model with support structures
  * This demonstrates the support generation functionality of Polyslice
  * by loading an STL file from the resources folder
- * 
+ *
  * Usage:
  *   node examples/scripts/slice-arch.js
- * 
+ *
  * The example loads block.test.stl by default. You can modify the script
  * to load strip.test.stl or other STL files with overhanging features.
  */
@@ -31,26 +31,27 @@ console.log(`- Brand: ${filament.brand}\n`);
 async function main() {
     // Load the test STL file with overhangs
     const stlPath = path.join(__dirname, '..', '..', 'resources', 'support', 'block.test.stl');
-    
+
     console.log('Loading STL file...');
     console.log(`- Path: ${stlPath}\n`);
-    
+
     let mesh;
-    
+
     try {
         // Load STL using three.js STLLoader with parse method
         // This is more reliable in Node.js than using the URL-based load method
         const THREE = require('three');
         const { STLLoader } = await import('three/examples/jsm/loaders/STLLoader.js');
-        
+
         const buffer = fs.readFileSync(stlPath);
         const loader = new STLLoader();
         const geometry = loader.parse(buffer.buffer);
-        
+        geometry.rotateX(Math.PI);
+
         // Create mesh with the loaded geometry
         const material = new THREE.MeshPhongMaterial({ color: 0x808080, specular: 0x111111, shininess: 200 });
         mesh = new THREE.Mesh(geometry, material);
-        
+
         console.log('✅ STL file loaded successfully');
         console.log(`- Geometry type: ${mesh.geometry.type}`);
         console.log(`- Vertices: ${mesh.geometry.attributes.position.count}`);
@@ -128,7 +129,7 @@ async function main() {
         supportLines.slice(0, 10).forEach(line => {
             console.log(`  ${line.trim()}`);
         });
-        
+
         if (supportLines.length > 10) {
             console.log(`  ... (${supportLines.length - 10} more support lines)\n`);
         }
