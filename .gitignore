@@ -43,6 +43,7 @@ marlin
 
 # Generated G-code Files
 *.gcode
+!resources/**/*.gcode
 !examples/visualizer/example.gcode
 
 # Example Output Files
