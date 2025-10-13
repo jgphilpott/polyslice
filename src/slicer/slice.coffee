@@ -46,6 +46,18 @@ module.exports =
         minZ = boundingBox.min.z
         maxZ = boundingBox.max.z
 
+        # Ensure the mesh is positioned above the build plate (no negative Z).
+        # If minZ < 0, raise the entire mesh so it sits on the build plate.
+        if minZ < 0
+            zOffset = -minZ
+            mesh.position.z += zOffset
+            mesh.updateMatrixWorld()
+            
+            # Recalculate bounding box after adjustment.
+            boundingBox = new THREE.Box3().setFromObject(mesh)
+            minZ = boundingBox.min.z
+            maxZ = boundingBox.max.z
+
         layerHeight = slicer.getLayerHeight()
 
         # Use Polytree to slice the mesh into layers.
@@ -92,7 +104,7 @@ module.exports =
                 slicer.gcode += coders.codeMessage(slicer, "LAYER: #{layerIndex}")
 
             # Generate G-code for this layer with center offset.
-            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers)
+            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers, allLayers)
 
         slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
@@ -123,7 +135,7 @@ module.exports =
         return null
 
     # Generate G-code for a single layer.
-    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0) ->
+    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0, allLayers = []) ->
 
         return if paths.length is 0
 
@@ -178,18 +190,51 @@ module.exports =
 
                     currentPath = insetPath
 
-            # After walls, generate skin if this is a bottom or top layer.
-            # Bottom layers: layerIndex <= skinLayerCount
-            # Top layers: layerIndex >= (totalLayers - skinLayerCount)
-            # Use <= for bottom because layer 0 is typically empty (on bed).
-            isBottomLayer = layerIndex <= skinLayerCount
-            isTopLayer = totalLayers > 0 and layerIndex >= (totalLayers - skinLayerCount)
+            # After walls, determine if skin or infill should be generated.
+            # Skin is generated for layers within shellSkinThickness of top or bottom surfaces.
+            # This provides solid layers at the top and bottom of the print and at any internal
+            # horizontal surfaces (bridges, overhangs, etc.).
+            
+            # Check if we're within skinLayerCount of top or bottom of model.
+            # Also check if there's a gap (missing layer) above or below within skin distance.
+            isTopSurface = false
+            isBottomSurface = false
+            
+            # Bottom surface detection:
+            # 1. Within first skinLayerCount layers (absolute bottom)
+            # 2. OR if there's a gap below (indicating start of new solid region)
+            if layerIndex < skinLayerCount
+                isBottomSurface = true
+            else
+                # Check if there's a gap in layers below this one within skinLayerCount distance.
+                gapBelow = false
+                for checkIdx in [Math.max(0, layerIndex - skinLayerCount)...layerIndex]
+                    if not allLayers[checkIdx]? or allLayers[checkIdx].length is 0
+                        gapBelow = true
+                        break
+                if gapBelow
+                    isBottomSurface = true
+            
+            # Top surface detection:
+            # 1. Within last skinLayerCount layers (absolute top)
+            # 2. OR if there's a gap above (indicating end of solid region)
+            if layerIndex >= totalLayers - skinLayerCount
+                isTopSurface = true
+            else
+                # Check if there's a gap in layers above this one within skinLayerCount distance.
+                gapAbove = false
+                for checkIdx in [layerIndex + 1...Math.min(totalLayers, layerIndex + skinLayerCount + 1)]
+                    if not allLayers[checkIdx]? or allLayers[checkIdx].length is 0
+                        gapAbove = true
+                        break
+                if gapAbove
+                    isTopSurface = true
 
             # The innermost wall ends at its first point (closed loop).
             # Track this position to minimize travel distance to infill/skin start.
             lastWallPoint = if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y } else null
 
-            if isBottomLayer or isTopLayer
+            if isTopSurface or isBottomSurface
 
                 # Generate skin for this layer.
                 # currentPath now holds the innermost wall boundary.
