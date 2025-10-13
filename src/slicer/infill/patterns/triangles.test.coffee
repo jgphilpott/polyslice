@@ -446,3 +446,150 @@ describe 'Triangles Infill Generation', ->
 
             expect(gridSpacing).toBeCloseTo(4.0, 1)
             expect(trianglesSpacing).toBeCloseTo(6.0, 1)
+
+    describe 'Regression Tests', ->
+
+        test 'should generate infill lines at 30% density (regression for missing lines)', ->
+
+            # This is a regression test for the bug where triangles infill at densities
+            # that are multiples of 30 (30%, 60%, 90%) had missing lines.
+            # The root cause was that centerOffset was hardcoded to 0 instead of being
+            # calculated based on the bounding box center.
+
+            # Create a 1cm cube.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(30)
+            slicer.setInfillPattern('triangles')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Extract a middle layer (e.g., layer 5) and count infill moves.
+            lines = result.split('\n')
+            inLayer5 = false
+            inFill = false
+            fillMoves = 0
+
+            for line in lines
+
+                if line.includes('LAYER: 5')
+                    inLayer5 = true
+
+                if line.includes('LAYER: 6')
+                    break
+
+                if inLayer5
+
+                    if line.includes('; TYPE: FILL')
+                        inFill = true
+
+                    if line.includes('; TYPE:') and not line.includes('FILL')
+                        inFill = false
+
+                    if inFill and line.includes('G1') and line.includes('E')
+                        fillMoves++
+
+            # At 30% density, we should have a reasonable number of infill lines.
+            # The bug caused very few or no lines in certain directions.
+            # With the fix, we should have at least 6-8 infill moves for a 1cm cube.
+            expect(fillMoves).toBeGreaterThanOrEqual(6)
+
+        test 'should generate infill lines at 60% density (regression for missing lines)', ->
+
+            # Create a 1cm cube.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(60)
+            slicer.setInfillPattern('triangles')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Extract a middle layer and count infill moves.
+            lines = result.split('\n')
+            inLayer5 = false
+            inFill = false
+            fillMoves = 0
+
+            for line in lines
+
+                if line.includes('LAYER: 5')
+                    inLayer5 = true
+
+                if line.includes('LAYER: 6')
+                    break
+
+                if inLayer5
+
+                    if line.includes('; TYPE: FILL')
+                        inFill = true
+
+                    if line.includes('; TYPE:') and not line.includes('FILL')
+                        inFill = false
+
+                    if inFill and line.includes('G1') and line.includes('E')
+                        fillMoves++
+
+            # At 60% density, we should have more infill lines than at 30%.
+            expect(fillMoves).toBeGreaterThanOrEqual(12)
+
+        test 'should generate infill lines at 90% density (regression for missing lines)', ->
+
+            # Create a 1cm cube.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(90)
+            slicer.setInfillPattern('triangles')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Extract a middle layer and count infill moves.
+            lines = result.split('\n')
+            inLayer5 = false
+            inFill = false
+            fillMoves = 0
+
+            for line in lines
+
+                if line.includes('LAYER: 5')
+                    inLayer5 = true
+
+                if line.includes('LAYER: 6')
+                    break
+
+                if inLayer5
+
+                    if line.includes('; TYPE: FILL')
+                        inFill = true
+
+                    if line.includes('; TYPE:') and not line.includes('FILL')
+                        inFill = false
+
+                    if inFill and line.includes('G1') and line.includes('E')
+                        fillMoves++
+
+            # At 90% density, we should have significantly more infill lines.
+            expect(fillMoves).toBeGreaterThanOrEqual(20)
