@@ -45,11 +45,16 @@ module.exports =
         # Collect all infill line segments first, then sort/render to minimize travel.
         allInfillLines = []
 
+        # Calculate center of bounding box to properly center the pattern.
+        centerX = (minX + maxX) / 2
+        centerY = (minY + maxY) / 2
+
         # Generate baseline at 45° (y = x + offset).
         # This is the primary diagonal line, same as grid's +45° line.
         # For a 45° line (slope = 1), moving perpendicular by distance lineSpacing
         # requires changing the y-intercept by lineSpacing * sqrt(2).
-        centerOffset = 0
+        # The center line should pass through (centerX, centerY), so: centerY = centerX + centerOffset
+        centerOffset = centerY - centerX
 
         # For 45-degree lines, account for diagonal spacing.
         # Perpendicular spacing = lineSpacing, offset spacing = lineSpacing * sqrt(2)
@@ -62,7 +67,7 @@ module.exports =
         offset = centerOffset - numLinesUp * offsetStep45
         maxOffset = centerOffset + numLinesUp * offsetStep45
 
-        while offset < maxOffset
+        while offset <= maxOffset
 
             # Calculate intersection points with bounding box.
             intersections = []
@@ -115,7 +120,9 @@ module.exports =
         # For angle 105°, offsetStep = lineSpacing / |cos(105°)| ≈ lineSpacing * 3.864
         angle105 = 105 * Math.PI / 180
         offsetStep105 = lineSpacing / Math.abs(Math.cos(angle105))
-        centerOffset = 0
+
+        # The center line should pass through (centerX, centerY), so: centerY = slope * centerX + centerOffset
+        centerOffset = centerY - slope * centerX
 
         # Calculate how many lines to generate.
         numLinesUp = Math.ceil(diagonalSpan / offsetStep105)
@@ -124,7 +131,7 @@ module.exports =
         offset = centerOffset - numLinesUp * offsetStep105
         maxOffset = centerOffset + numLinesUp * offsetStep105
 
-        while offset < maxOffset
+        while offset <= maxOffset
 
             # Calculate intersection points with bounding box.
             intersections = []
@@ -177,7 +184,9 @@ module.exports =
         # For angle -15°, offsetStep = lineSpacing / |cos(-15°)| ≈ lineSpacing * 1.035
         angle15 = -15 * Math.PI / 180
         offsetStep15 = lineSpacing / Math.abs(Math.cos(angle15))
-        centerOffset = 0
+
+        # The center line should pass through (centerX, centerY), so: centerY = slope * centerX + centerOffset
+        centerOffset = centerY - slope * centerX
 
         # Calculate how many lines to generate.
         numLinesUp = Math.ceil(diagonalSpan / offsetStep15)
@@ -186,7 +195,7 @@ module.exports =
         offset = centerOffset - numLinesUp * offsetStep15
         maxOffset = centerOffset + numLinesUp * offsetStep15
 
-        while offset < maxOffset
+        while offset <= maxOffset
 
             # Calculate intersection points with bounding box.
             intersections = []
