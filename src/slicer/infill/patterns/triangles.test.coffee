@@ -497,10 +497,11 @@ describe 'Triangles Infill Generation', ->
                     if inFill and line.includes('G1') and line.includes('E')
                         fillMoves++
 
-            # At 30% density, we should have a reasonable number of infill lines.
-            # The bug caused very few or no lines in certain directions.
-            # With the fix, we should have at least 6-8 infill moves for a 1cm cube.
-            expect(fillMoves).toBeGreaterThanOrEqual(6)
+            # At 30% density, we should have exactly 9 infill lines for a 1cm cube.
+            # This represents 3 lines in each of the 3 directions (45°, 105°, -15°).
+            # The original bug had the while loop condition as `offset < maxOffset` which
+            # excluded the last line in some directions when offset exactly equaled maxOffset.
+            expect(fillMoves).toBe(9)
 
         test 'should generate infill lines at 60% density (regression for missing lines)', ->
 
@@ -545,8 +546,9 @@ describe 'Triangles Infill Generation', ->
                     if inFill and line.includes('G1') and line.includes('E')
                         fillMoves++
 
-            # At 60% density, we should have more infill lines than at 30%.
-            expect(fillMoves).toBeGreaterThanOrEqual(12)
+            # At 60% density, we should have 17 infill lines for a 1cm cube.
+            # With tighter line spacing, more lines fit in the infill area.
+            expect(fillMoves).toBe(17)
 
         test 'should generate infill lines at 90% density (regression for missing lines)', ->
 
@@ -591,5 +593,6 @@ describe 'Triangles Infill Generation', ->
                     if inFill and line.includes('G1') and line.includes('E')
                         fillMoves++
 
-            # At 90% density, we should have significantly more infill lines.
-            expect(fillMoves).toBeGreaterThanOrEqual(20)
+            # At 90% density, we should have 24 infill lines for a 1cm cube.
+            # Very tight line spacing results in dense infill coverage.
+            expect(fillMoves).toBe(24)

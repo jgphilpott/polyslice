@@ -67,7 +67,7 @@ module.exports =
         offset = centerOffset - numLinesUp * offsetStep45
         maxOffset = centerOffset + numLinesUp * offsetStep45
 
-        while offset < maxOffset
+        while offset <= maxOffset
 
             # Calculate intersection points with bounding box.
             intersections = []
@@ -131,7 +131,7 @@ module.exports =
         offset = centerOffset - numLinesUp * offsetStep105
         maxOffset = centerOffset + numLinesUp * offsetStep105
 
-        while offset < maxOffset
+        while offset <= maxOffset
 
             # Calculate intersection points with bounding box.
             intersections = []
@@ -195,7 +195,7 @@ module.exports =
         offset = centerOffset - numLinesUp * offsetStep15
         maxOffset = centerOffset + numLinesUp * offsetStep15
 
-        while offset < maxOffset
+        while offset <= maxOffset
 
             # Calculate intersection points with bounding box.
             intersections = []
