@@ -84,7 +84,7 @@ module.exports =
             # Support generation currently checks supportEnabled flag internally.
             if slicer.getSupportEnabled()
 
-                supportModule.generateSupportGCode(slicer, mesh, layerIndex, currentZ, centerOffsetX, centerOffsetY)
+                supportModule.generateSupportGCode(slicer, mesh, allLayers, layerIndex, currentZ, centerOffsetX, centerOffsetY, minZ, layerHeight)
 
             # Only output layer marker if layer has content.
             if verbose and layerPaths.length > 0

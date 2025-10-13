@@ -115,33 +115,106 @@ describe 'Support Module', ->
 
             expect(result).toBeUndefined()
 
-    describe 'Future Implementation', ->
+    describe 'Overhang Detection', ->
 
-        test 'placeholder for overhang detection', ->
+        test 'should detect overhangs on horizontal downward-facing surfaces', ->
 
-            # TODO: Add tests for overhang detection based on supportThreshold.
-            # This will require analyzing mesh geometry and detecting faces
-            # with angles exceeding the threshold.
+            slicer.setSupportEnabled(true)
+            slicer.setSupportThreshold(45)
 
-            expect(true).toBe(true)
+            # Create a simple box that's elevated (has underside that needs support).
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            geometry.computeVertexNormals() # Required for detection.
+            mesh = new THREE.Mesh(geometry)
+            mesh.position.set(0, 0, 15) # Elevated 15mm above build plate.
+            mesh.updateMatrixWorld()
 
-        test 'placeholder for support column generation', ->
+            # Detect overhangs.
+            overhangs = supportModule.detectOverhangs(mesh, 45, 0)
 
-            # TODO: Add tests for generating support columns from build plate
-            # to overhanging regions.
+            # Should detect the bottom face of the box as an overhang.
+            expect(overhangs.length).toBeGreaterThan(0)
 
-            expect(true).toBe(true)
+        test 'should not detect overhangs on vertical faces', ->
 
-        test 'placeholder for interface layer generation', ->
+            slicer.setSupportEnabled(true)
+            slicer.setSupportThreshold(45)
 
-            # TODO: Add tests for generating interface layers between support
-            # and model for easier removal.
+            # Create a simple box on the build plate.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            geometry.computeVertexNormals() # Required for detection.
+            mesh = new THREE.Mesh(geometry)
+            mesh.position.set(0, 0, 5) # Bottom at Z=0.
+            mesh.updateMatrixWorld()
 
-            expect(true).toBe(true)
+            # Detect overhangs.
+            overhangs = supportModule.detectOverhangs(mesh, 45, 0)
 
-        test 'placeholder for G-code output', ->
+            # Should not detect overhangs for a simple box on build plate.
+            expect(overhangs.length).toBe(0)
 
-            # TODO: Add tests for validating G-code output for support structures.
-            # This should include proper travel moves, extrusion, and speed settings.
+        test 'should respect support threshold angle', ->
 
-            expect(true).toBe(true)
+            slicer.setSupportEnabled(true)
+
+            # Create a box.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            geometry.computeVertexNormals() # Required for detection.
+            mesh = new THREE.Mesh(geometry)
+            mesh.position.set(0, 0, 15)
+            mesh.updateMatrixWorld()
+
+            # With 0° threshold, all downward faces need support.
+            overhangs0 = supportModule.detectOverhangs(mesh, 0, 0)
+            expect(overhangs0.length).toBeGreaterThan(0)
+
+            # With 90° threshold, no faces need support (very permissive).
+            overhangs90 = supportModule.detectOverhangs(mesh, 90, 0)
+            expect(overhangs90.length).toBe(0)
+
+    describe 'Support Column Generation', ->
+
+        test 'should generate G-code for support columns', ->
+
+            slicer.setSupportEnabled(true)
+            slicer.setSupportThreshold(45)
+
+            # Create a simple bridge geometry.
+            leftPillar = new THREE.BoxGeometry(5, 5, 10)
+            rightPillar = new THREE.BoxGeometry(5, 5, 10)
+            bridge = new THREE.BoxGeometry(20, 5, 5)
+
+            # Merge geometries manually for testing.
+            geometry = new THREE.BufferGeometry()
+            
+            # For simplicity, just test that the module can be called.
+            mesh = new THREE.Mesh(leftPillar)
+            mesh.position.set(0, 0, 10)
+            mesh.updateMatrixWorld()
+
+            # This should not throw an error.
+            expect(() =>
+                supportModule.generateSupportGCode(slicer, mesh, [], 0, 0, 0, 0, 0, 0.2)
+            ).not.toThrow()
+
+    describe 'Integration', ->
+
+        test 'should cache overhang detection across layers', ->
+
+            slicer.setSupportEnabled(true)
+            slicer.setSupportThreshold(45)
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            geometry.computeVertexNormals() # Required for detection.
+            mesh = new THREE.Mesh(geometry)
+            mesh.position.set(0, 0, 15)
+            mesh.updateMatrixWorld()
+
+            # First call should detect and cache.
+            supportModule.generateSupportGCode(slicer, mesh, [], 0, 0, 0, 0, 0, 0.2)
+            expect(slicer._overhangRegions).toBeDefined()
+
+            # Second call should use cached data.
+            cachedRegions = slicer._overhangRegions
+            supportModule.generateSupportGCode(slicer, mesh, [], 1, 0.2, 0, 0, 0, 0.2)
+            expect(slicer._overhangRegions).toBe(cachedRegions)
