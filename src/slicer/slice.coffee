@@ -204,7 +204,8 @@ module.exports =
             isBottomSurface = false
             
             # Always generate skin for the first and last few layers (absolute top/bottom).
-            if layerIndex < skinLayerCount
+            # Use <= to include skinLayerCount layers (accounts for layer 0 sometimes being empty).
+            if layerIndex <= skinLayerCount
                 isBottomSurface = true
             if layerIndex >= totalLayers - skinLayerCount
                 isTopSurface = true
