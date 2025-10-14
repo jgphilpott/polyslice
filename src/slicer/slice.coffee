@@ -104,7 +104,7 @@ module.exports =
                 slicer.gcode += coders.codeMessage(slicer, "LAYER: #{layerIndex}")
 
             # Generate G-code for this layer with center offset.
-            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers, allLayers)
+            @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers, allLayers, layerSegments)
 
         slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
@@ -135,7 +135,7 @@ module.exports =
         return null
 
     # Generate G-code for a single layer.
-    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0, allLayers = []) ->
+    generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0, allLayers = [], layerSegments = []) ->
 
         return if paths.length is 0
 
@@ -195,39 +195,54 @@ module.exports =
             # This provides solid layers at the top and bottom of the print and at any internal
             # horizontal surfaces (bridges, overhangs, etc.).
             
-            # Check if we're within skinLayerCount of top or bottom of model.
-            # Also check if there's a gap (missing layer) above or below within skin distance.
+            # For proper skin detection on complex shapes (like 'L' shapes), we need to detect
+            # when the geometry changes above/below. We check if there's significantly less
+            # geometry (measured by number of line segments) in layers above/below.
+            
             isTopSurface = false
             isBottomSurface = false
             
+            # Get current layer segment count for comparison.
+            currentLayerSegmentCount = layerSegments.length
+            
             # Bottom surface detection:
             # 1. Within first skinLayerCount layers (absolute bottom)
-            # 2. OR if there's a gap below (indicating start of new solid region)
             if layerIndex < skinLayerCount
                 isBottomSurface = true
             else
-                # Check if there's a gap in layers below this one within skinLayerCount distance.
-                gapBelow = false
+                # Check if any layer below within skinLayerCount has significantly fewer segments or is empty.
+                # A reduction of more than 10% indicates a geometry change (new solid region starting).
+                hasLessGeometryBelow = false
                 for checkIdx in [Math.max(0, layerIndex - skinLayerCount)...layerIndex]
-                    if not allLayers[checkIdx]? or allLayers[checkIdx].length is 0
-                        gapBelow = true
+                    checkLayerSegments = allLayers[checkIdx]
+                    if not checkLayerSegments? or checkLayerSegments.length is 0
+                        hasLessGeometryBelow = true
                         break
-                if gapBelow
+                    # Check if this layer has significantly fewer segments (more than 10% reduction).
+                    if checkLayerSegments.length < currentLayerSegmentCount * 0.9
+                        hasLessGeometryBelow = true
+                        break
+                if hasLessGeometryBelow
                     isBottomSurface = true
             
             # Top surface detection:
             # 1. Within last skinLayerCount layers (absolute top)
-            # 2. OR if there's a gap above (indicating end of solid region)
             if layerIndex >= totalLayers - skinLayerCount
                 isTopSurface = true
             else
-                # Check if there's a gap in layers above this one within skinLayerCount distance.
-                gapAbove = false
+                # Check if any layer above within skinLayerCount has significantly fewer segments or is empty.
+                # A reduction of more than 10% indicates a geometry change (solid region ending).
+                hasLessGeometryAbove = false
                 for checkIdx in [layerIndex + 1...Math.min(totalLayers, layerIndex + skinLayerCount + 1)]
-                    if not allLayers[checkIdx]? or allLayers[checkIdx].length is 0
-                        gapAbove = true
+                    checkLayerSegments = allLayers[checkIdx]
+                    if not checkLayerSegments? or checkLayerSegments.length is 0
+                        hasLessGeometryAbove = true
                         break
-                if gapAbove
+                    # Check if the layer above has significantly fewer segments (more than 10% reduction).
+                    if checkLayerSegments.length < currentLayerSegmentCount * 0.9
+                        hasLessGeometryAbove = true
+                        break
+                if hasLessGeometryAbove
                     isTopSurface = true
 
             # The innermost wall ends at its first point (closed loop).
