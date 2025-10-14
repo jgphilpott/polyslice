@@ -190,60 +190,71 @@ module.exports =
 
                     currentPath = insetPath
 
-            # After walls, determine if skin or infill should be generated.
-            # Skin is generated for layers within shellSkinThickness of top or bottom surfaces.
-            # This provides solid layers at the top and bottom of the print and at any internal
-            # horizontal surfaces (bridges, overhangs, etc.).
-            
-            # For proper skin detection on complex shapes (like 'L' shapes), we need to detect
-            # when the geometry changes above/below. We check if there's significantly less
-            # geometry (measured by number of line segments) in layers above/below.
+            # After walls, determine if skin or infill should be generated for THIS specific region.
+            # Professional slicers analyze each perimeter/region independently to detect if that
+            # specific area is a top or bottom surface, not the entire layer.
+            #
+            # Skin Detection Strategy:
+            # 1. For layers within skinLayerCount of absolute top/bottom: always generate skin
+            # 2. For middle layers: check if THIS region has overlapping geometry above/below
+            #    - Compare current region's bounding box with regions in layers above/below
+            #    - If no overlap found within skinLayerCount distance, it's a surface
             
             isTopSurface = false
             isBottomSurface = false
             
-            # Get current layer segment count for comparison.
-            currentLayerSegmentCount = layerSegments.length
-            
-            # Bottom surface detection:
-            # 1. Within first skinLayerCount layers (absolute bottom)
+            # Always generate skin for the first and last few layers (absolute top/bottom).
             if layerIndex < skinLayerCount
                 isBottomSurface = true
-            else
-                # Check if any layer below within skinLayerCount has significantly fewer segments or is empty.
-                # A reduction of more than 10% indicates a geometry change (new solid region starting).
-                hasLessGeometryBelow = false
-                for checkIdx in [Math.max(0, layerIndex - skinLayerCount)...layerIndex]
-                    checkLayerSegments = allLayers[checkIdx]
-                    if not checkLayerSegments? or checkLayerSegments.length is 0
-                        hasLessGeometryBelow = true
-                        break
-                    # Check if this layer has significantly fewer segments (more than 10% reduction).
-                    if checkLayerSegments.length < currentLayerSegmentCount * 0.9
-                        hasLessGeometryBelow = true
-                        break
-                if hasLessGeometryBelow
-                    isBottomSurface = true
-            
-            # Top surface detection:
-            # 1. Within last skinLayerCount layers (absolute top)
             if layerIndex >= totalLayers - skinLayerCount
                 isTopSurface = true
-            else
-                # Check if any layer above within skinLayerCount has significantly fewer segments or is empty.
-                # A reduction of more than 10% indicates a geometry change (solid region ending).
-                hasLessGeometryAbove = false
-                for checkIdx in [layerIndex + 1...Math.min(totalLayers, layerIndex + skinLayerCount + 1)]
-                    checkLayerSegments = allLayers[checkIdx]
-                    if not checkLayerSegments? or checkLayerSegments.length is 0
-                        hasLessGeometryAbove = true
-                        break
-                    # Check if the layer above has significantly fewer segments (more than 10% reduction).
-                    if checkLayerSegments.length < currentLayerSegmentCount * 0.9
-                        hasLessGeometryAbove = true
-                        break
-                if hasLessGeometryAbove
-                    isTopSurface = true
+            
+            # For middle layers, check if THIS specific region needs skin.
+            # Strategy: Check if there's geometry directly above/below this region.
+            # This is done by checking if ANY path in layers above/below contains or
+            # substantially overlaps with this region's center point.
+            if not (isTopSurface or isBottomSurface)
+                
+                # Calculate center point of current path for overlap checking.
+                currentBounds = helpers.calculatePathBounds(currentPath)
+                centerX = (currentBounds.minX + currentBounds.maxX) / 2
+                centerY = (currentBounds.minY + currentBounds.maxY) / 2
+                
+                # Check for bottom surface: is this region's center covered by geometry below?
+                if layerIndex >= skinLayerCount
+                    isCoveredBelow = false
+                    for checkIdx in [Math.max(0, layerIndex - skinLayerCount)...layerIndex]
+                        checkSegments = allLayers[checkIdx]
+                        if checkSegments? and checkSegments.length > 0
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                            for checkPath in checkPaths
+                                # Check if the center point is inside this path's bounds.
+                                checkBounds = helpers.calculatePathBounds(checkPath)
+                                if centerX >= checkBounds.minX and centerX <= checkBounds.maxX and
+                                   centerY >= checkBounds.minY and centerY <= checkBounds.maxY
+                                    isCoveredBelow = true
+                                    break
+                        break if isCoveredBelow
+                    if not isCoveredBelow
+                        isBottomSurface = true
+                
+                # Check for top surface: is this region's center covered by geometry above?
+                if layerIndex < totalLayers - skinLayerCount
+                    isCoveredAbove = false
+                    for checkIdx in [layerIndex + 1...Math.min(totalLayers, layerIndex + skinLayerCount + 1)]
+                        checkSegments = allLayers[checkIdx]
+                        if checkSegments? and checkSegments.length > 0
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                            for checkPath in checkPaths
+                                # Check if the center point is inside this path's bounds.
+                                checkBounds = helpers.calculatePathBounds(checkPath)
+                                if centerX >= checkBounds.minX and centerX <= checkBounds.maxX and
+                                   centerY >= checkBounds.minY and centerY <= checkBounds.maxY
+                                    isCoveredAbove = true
+                                    break
+                        break if isCoveredAbove
+                    if not isCoveredAbove
+                        isTopSurface = true
 
             # The innermost wall ends at its first point (closed loop).
             # Track this position to minimize travel distance to infill/skin start.
@@ -251,7 +262,7 @@ module.exports =
 
             if isTopSurface or isBottomSurface
 
-                # Generate skin for this layer.
+                # Generate skin for this specific region.
                 # currentPath now holds the innermost wall boundary.
                 skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
