@@ -140,34 +140,42 @@ function createLegend() {
             <div id="legend">
                 <h3>Movement Types</h3>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="WALL-OUTER" checked />
                     <div class="legend-color" style="background-color: #ff6600;"></div>
                     <span>Outer Wall</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="WALL-INNER" checked />
                     <div class="legend-color" style="background-color: #ff9933;"></div>
                     <span>Inner Wall</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="SKIN" checked />
                     <div class="legend-color" style="background-color: #ffcc00;"></div>
                     <span>Skin (Top/Bottom)</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="FILL" checked />
                     <div class="legend-color" style="background-color: #00ccff;"></div>
                     <span>Infill</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="SUPPORT" checked />
                     <div class="legend-color" style="background-color: #ff00ff;"></div>
                     <span>Support</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="SKIRT" checked />
                     <div class="legend-color" style="background-color: #888888;"></div>
                     <span>Skirt/Brim</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="path" checked />
                     <div class="legend-color" style="background-color: #ff0000;"></div>
                     <span>Travel (Non-extruding)</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="extruded" checked />
                     <div class="legend-color" style="background-color: #00ff00;"></div>
                     <span>Other Extrusion</span>
                 </div>
@@ -191,6 +199,25 @@ function createLegend() {
     `;
 
   document.body.insertAdjacentHTML('beforeend', legendHTML);
+
+  // Setup event listeners for movement type checkboxes.
+  setupMovementTypeToggles();
+}
+
+/**
+ * Setup event listeners for movement type visibility toggles.
+ */
+function setupMovementTypeToggles() {
+  const checkboxes = document.querySelectorAll('.legend-checkbox');
+
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      // Update visibility based on both layer slider and movement type checkboxes.
+      if (layerSlider && allLayers.length > 0) {
+        updateLayerVisibility();
+      }
+    });
+  });
 }
 
 /**
@@ -240,8 +267,21 @@ function setupLayerSlider() {
 function updateLayerVisibility() {
   const visibleCount = parseInt(layerSlider.value);
 
+  // Get currently enabled movement types from checkboxes.
+  const enabledTypes = new Set();
+  document.querySelectorAll('.legend-checkbox:checked').forEach(checkbox => {
+    enabledTypes.add(checkbox.dataset.type);
+  });
+
   for (let i = 0; i < allLayers.length; i++) {
-    allLayers[i].visible = i < visibleCount;
+    const layer = allLayers[i];
+    const layerVisible = i < visibleCount;
+
+    // Check if this layer's type is enabled.
+    const typeEnabled = enabledTypes.has(layer.userData.type) || enabledTypes.has(layer.material.name);
+
+    // Layer is visible only if both conditions are met.
+    layer.visible = layerVisible && typeEnabled;
   }
 
   // Update info text.
