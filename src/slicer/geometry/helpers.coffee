@@ -321,3 +321,85 @@ module.exports =
 
         # Return overlap area.
         return overlapWidth * overlapHeight
+
+    # Check if a point is inside a polygon using ray casting algorithm.
+    # This is the standard point-in-polygon test used in computational geometry.
+    pointInPolygon: (point, polygon) ->
+
+        return false if not point or not polygon or polygon.length < 3
+
+        x = point.x
+        y = point.y
+        inside = false
+
+        j = polygon.length - 1
+
+        for i in [0...polygon.length]
+
+            xi = polygon[i].x
+            yi = polygon[i].y
+            xj = polygon[j].x
+            yj = polygon[j].y
+
+            # Ray casting: cast a ray from point to infinity and count intersections.
+            intersect = ((yi > y) isnt (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+
+            if intersect
+                inside = not inside
+
+            j = i
+
+        return inside
+
+    # Check if a region (polygon) is substantially covered by another region.
+    # Uses multi-point sampling for accurate coverage detection.
+    # Returns the coverage ratio (0.0 to 1.0).
+    calculateRegionCoverage: (testRegion, coveringRegions, sampleCount = 9) ->
+
+        return 0 if not testRegion or testRegion.length < 3
+        return 0 if not coveringRegions or coveringRegions.length is 0
+
+        # Calculate bounds for generating sample points.
+        bounds = @calculatePathBounds(testRegion)
+        
+        return 0 if not bounds
+
+        width = bounds.maxX - bounds.minX
+        height = bounds.maxY - bounds.minY
+
+        # Generate sample points in a grid pattern across the region.
+        # Use sqrt(sampleCount) to get grid dimensions.
+        gridSize = Math.ceil(Math.sqrt(sampleCount))
+        samplePoints = []
+
+        for i in [0...gridSize]
+            for j in [0...gridSize]
+                # Calculate sample point position.
+                xRatio = (i + 0.5) / gridSize
+                yRatio = (j + 0.5) / gridSize
+                
+                sampleX = bounds.minX + width * xRatio
+                sampleY = bounds.minY + height * yRatio
+
+                samplePoints.push({ x: sampleX, y: sampleY })
+
+        # Count how many sample points are inside the test region AND inside at least one covering region.
+        validSamples = 0
+        coveredSamples = 0
+
+        for samplePoint in samplePoints
+
+            # First check if sample point is actually inside the test region.
+            if @pointInPolygon(samplePoint, testRegion)
+                
+                validSamples++
+
+                # Check if this point is covered by any of the covering regions.
+                for coveringRegion in coveringRegions
+
+                    if @pointInPolygon(samplePoint, coveringRegion)
+                        coveredSamples++
+                        break
+
+        # Return coverage ratio (0.0 to 1.0).
+        return if validSamples > 0 then coveredSamples / validSamples else 0

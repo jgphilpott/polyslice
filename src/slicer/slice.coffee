@@ -209,51 +209,45 @@ module.exports =
             if layerIndex >= totalLayers - skinLayerCount
                 isTopSurface = true
             
-            # For middle layers, check if THIS specific region needs skin.
-            # Strategy: Check if there's geometry directly above/below this region.
-            # This is done by checking if ANY path in layers above/below contains or
-            # substantially overlaps with this region's center point.
+            # For middle layers, check if THIS specific region needs skin using polygon intersection.
+            # This uses a hybrid approach:
+            # 1. Point-in-polygon tests for precise geometric accuracy
+            # 2. Multi-point sampling to determine coverage ratio
+            # A region needs skin if it's not substantially covered (< 80% coverage threshold).
             if not (isTopSurface or isBottomSurface)
                 
-                # Calculate center point of current path for overlap checking.
-                currentBounds = helpers.calculatePathBounds(currentPath)
-                centerX = (currentBounds.minX + currentBounds.maxX) / 2
-                centerY = (currentBounds.minY + currentBounds.maxY) / 2
+                coverageThreshold = 0.7 # 70% coverage means the region is supported/covered.
                 
-                # Check for bottom surface: is this region's center covered by geometry below?
+                # Check for bottom surface: is this region substantially covered by geometry below?
                 if layerIndex >= skinLayerCount
-                    isCoveredBelow = false
+                    maxCoverageBelow = 0
                     for checkIdx in [Math.max(0, layerIndex - skinLayerCount)...layerIndex]
                         checkSegments = allLayers[checkIdx]
                         if checkSegments? and checkSegments.length > 0
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                            for checkPath in checkPaths
-                                # Check if the center point is inside this path's bounds.
-                                checkBounds = helpers.calculatePathBounds(checkPath)
-                                if centerX >= checkBounds.minX and centerX <= checkBounds.maxX and
-                                   centerY >= checkBounds.minY and centerY <= checkBounds.maxY
-                                    isCoveredBelow = true
-                                    break
-                        break if isCoveredBelow
-                    if not isCoveredBelow
+                            # Calculate coverage ratio using multi-point sampling.
+                            coverageRatio = helpers.calculateRegionCoverage(currentPath, checkPaths, 9)
+                            maxCoverageBelow = Math.max(maxCoverageBelow, coverageRatio)
+                            # Early exit if we find substantial coverage.
+                            break if maxCoverageBelow >= coverageThreshold
+                    # If less than 80% covered, this is a bottom surface.
+                    if maxCoverageBelow < coverageThreshold
                         isBottomSurface = true
                 
-                # Check for top surface: is this region's center covered by geometry above?
+                # Check for top surface: is this region substantially covered by geometry above?
                 if layerIndex < totalLayers - skinLayerCount
-                    isCoveredAbove = false
+                    maxCoverageAbove = 0
                     for checkIdx in [layerIndex + 1...Math.min(totalLayers, layerIndex + skinLayerCount + 1)]
                         checkSegments = allLayers[checkIdx]
                         if checkSegments? and checkSegments.length > 0
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                            for checkPath in checkPaths
-                                # Check if the center point is inside this path's bounds.
-                                checkBounds = helpers.calculatePathBounds(checkPath)
-                                if centerX >= checkBounds.minX and centerX <= checkBounds.maxX and
-                                   centerY >= checkBounds.minY and centerY <= checkBounds.maxY
-                                    isCoveredAbove = true
-                                    break
-                        break if isCoveredAbove
-                    if not isCoveredAbove
+                            # Calculate coverage ratio using multi-point sampling.
+                            coverageRatio = helpers.calculateRegionCoverage(currentPath, checkPaths, 9)
+                            maxCoverageAbove = Math.max(maxCoverageAbove, coverageRatio)
+                            # Early exit if we find substantial coverage.
+                            break if maxCoverageAbove >= coverageThreshold
+                    # If less than 80% covered, this is a top surface.
+                    if maxCoverageAbove < coverageThreshold
                         isTopSurface = true
 
             # The innermost wall ends at its first point (closed loop).
