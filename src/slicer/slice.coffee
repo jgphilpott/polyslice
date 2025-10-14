@@ -157,6 +157,11 @@ module.exports =
 
         # Calculate number of skin layers (top and bottom solid layers).
         skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
+        
+        # Cache for storing which regions on which layers are exposed surfaces.
+        # This will be populated on first access and reused for subsequent regions on the same layer.
+        if not slicer._exposedSurfaceCache?
+            slicer._exposedSurfaceCache = {}
 
         # Process each closed path (perimeter).
         for path in paths
@@ -191,79 +196,105 @@ module.exports =
                     currentPath = insetPath
 
             # After walls, determine if skin or infill should be generated for THIS specific region.
-            # Professional slicers analyze each perimeter/region independently to detect if that
-            # specific area is a top or bottom surface, not the entire layer.
+            # 
+            # Professional slicer skin detection strategy:
+            # 1. Identify "exposed surfaces" - regions where there's minimal coverage from adjacent layer
+            # 2. For TOP surfaces (not covered from above): generate skin on the exposed layer AND
+            #    skinLayerCount-1 layers immediately BELOW it
+            # 3. For BOTTOM surfaces (not covered from below): generate skin on the exposed layer AND
+            #    skinLayerCount-1 layers immediately ABOVE it
             #
-            # Skin Detection Strategy:
-            # 1. For layers within skinLayerCount of absolute top/bottom: always generate skin
-            # 2. For middle layers: check if THIS region has overlapping geometry above/below
-            #    - Compare current region's bounding box with regions in layers above/below
-            #    - If no overlap found within skinLayerCount distance, it's a surface
+            # Example: If layer 150 is a top surface (not covered by 151) and skinLayerCount=4:
+            #   - Layers 147, 148, 149, 150 all get skin (4 total layers)
+            #
+            # Implementation:
+            # - Check if any layer within skinLayerCount distance is an exposed surface
+            # - If yes, this layer gets skin
             
-            isTopSurface = false
-            isBottomSurface = false
-            
-            # Always generate skin for the first and last few layers (absolute top/bottom).
-            # Use <= to include skinLayerCount layers (accounts for layer 0 sometimes being empty).
-            if layerIndex <= skinLayerCount
-                isBottomSurface = true
-            if layerIndex >= totalLayers - skinLayerCount
-                isTopSurface = true
-            
-            # For middle layers, check if THIS specific region needs skin using polygon intersection.
-            # This uses a hybrid approach:
-            # 1. Point-in-polygon tests for precise geometric accuracy
-            # 2. Multi-point sampling to determine coverage ratio
-            # A region needs skin if it's not substantially covered (< 80% coverage threshold).
-            if not (isTopSurface or isBottomSurface)
-                
-                coverageThreshold = 0.7 # 70% coverage means the region is supported/covered.
-                
-                # Check for bottom surface: is this region substantially covered by geometry below?
-                if layerIndex >= skinLayerCount
-                    maxCoverageBelow = 0
-                    for checkIdx in [Math.max(0, layerIndex - skinLayerCount)...layerIndex]
-                        checkSegments = allLayers[checkIdx]
-                        if checkSegments? and checkSegments.length > 0
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                            # Calculate coverage ratio using multi-point sampling.
-                            coverageRatio = helpers.calculateRegionCoverage(currentPath, checkPaths, 9)
-                            maxCoverageBelow = Math.max(maxCoverageBelow, coverageRatio)
-                            # Early exit if we find substantial coverage.
-                            break if maxCoverageBelow >= coverageThreshold
-                    # If less than 80% covered, this is a bottom surface.
-                    if maxCoverageBelow < coverageThreshold
-                        isBottomSurface = true
-                
-                # Check for top surface: is this region substantially covered by geometry above?
-                if layerIndex < totalLayers - skinLayerCount
-                    maxCoverageAbove = 0
-                    for checkIdx in [layerIndex + 1...Math.min(totalLayers, layerIndex + skinLayerCount + 1)]
-                        checkSegments = allLayers[checkIdx]
-                        if checkSegments? and checkSegments.length > 0
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                            # Calculate coverage ratio using multi-point sampling.
-                            coverageRatio = helpers.calculateRegionCoverage(currentPath, checkPaths, 9)
-                            maxCoverageAbove = Math.max(maxCoverageAbove, coverageRatio)
-                            # Early exit if we find substantial coverage.
-                            break if maxCoverageAbove >= coverageThreshold
-                    # If less than 80% covered, this is a top surface.
-                    if maxCoverageAbove < coverageThreshold
-                        isTopSurface = true
-
             # The innermost wall ends at its first point (closed loop).
             # Track this position to minimize travel distance to infill/skin start.
             lastWallPoint = if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y } else null
+            
+            # Determine if this region needs skin.
+            needsSkin = false
+            skinAreas = [] # Will store only the exposed portions of currentPath
+            
+            # Always generate skin for the absolute top and bottom layers.
+            if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+                needsSkin = true
+                skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
+            else
+                # For middle layers, check if this region is within skinLayerCount distance 
+                # of an exposed surface (top or bottom).
+                #
+                # Algorithm:
+                # - Check layers within skinLayerCount range above/below current layer
+                # - If any of those layers is an exposed surface, current layer needs skin
+                
+                coverageThreshold = 0.7
+                
+                # Check if there's a top surface within skinLayerCount layers above us.
+                # A top surface is a layer that's not covered by the layer above it.
+                for checkIdx in [layerIndex..Math.min(totalLayers - 1, layerIndex + skinLayerCount - 1)]
+                    # Is checkIdx a top surface?
+                    if checkIdx < totalLayers - 1
+                        # Check if layer checkIdx+1 covers this region
+                        aboveSegments = allLayers[checkIdx + 1]
+                        if aboveSegments? and aboveSegments.length > 0
+                            abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
+                            coverageFromAbove = helpers.calculateRegionCoverage(currentPath, abovePaths, 9)
+                            if coverageFromAbove < coverageThreshold
+                                # checkIdx is a top surface exposure
+                                needsSkin = true
+                                skinAreas = [currentPath]
+                                break
+                        else
+                            # No geometry above means top surface
+                            needsSkin = true
+                            skinAreas = [currentPath]
+                            break
+                    else
+                        # checkIdx is the very top layer
+                        needsSkin = true
+                        skinAreas = [currentPath]
+                        break
+                
+                # Check if there's a bottom surface within skinLayerCount layers below us.
+                # A bottom surface is a layer that's not covered by the layer below it.
+                if not needsSkin
+                    for checkIdx in [layerIndex..Math.max(0, layerIndex - skinLayerCount + 1)] by -1
+                        # Is checkIdx a bottom surface?
+                        if checkIdx > 0
+                            # Check if layer checkIdx-1 covers this region
+                            belowSegments = allLayers[checkIdx - 1]
+                            if belowSegments? and belowSegments.length > 0
+                                belowPaths = helpers.connectSegmentsToPaths(belowSegments)
+                                coverageFromBelow = helpers.calculateRegionCoverage(currentPath, belowPaths, 9)
+                                if coverageFromBelow < coverageThreshold
+                                    # checkIdx is a bottom surface exposure
+                                    needsSkin = true
+                                    skinAreas = [currentPath]
+                                    break
+                            else
+                                # No geometry below means bottom surface
+                                needsSkin = true
+                                skinAreas = [currentPath]
+                                break
+                        else
+                            # checkIdx is layer 0 (bottom layer)
+                            needsSkin = true
+                            skinAreas = [currentPath]
+                            break
 
-            if isTopSurface or isBottomSurface
+            if needsSkin and skinAreas.length > 0
 
-                # Generate skin for this specific region.
-                # currentPath now holds the innermost wall boundary.
-                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                # Generate skin for each exposed area.
+                for skinArea in skinAreas
+                    skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
             else
 
-                # Generate infill for middle layers (not top/bottom).
+                # Generate infill for regions that don't need skin.
                 # Only generate if density > 0.
                 infillDensity = slicer.getInfillDensity()
 
