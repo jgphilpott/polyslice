@@ -140,34 +140,42 @@ function createLegend() {
             <div id="legend">
                 <h3>Movement Types</h3>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="WALL-OUTER" checked />
                     <div class="legend-color" style="background-color: #ff6600;"></div>
                     <span>Outer Wall</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="WALL-INNER" checked />
                     <div class="legend-color" style="background-color: #ff9933;"></div>
                     <span>Inner Wall</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="SKIN" checked />
                     <div class="legend-color" style="background-color: #ffcc00;"></div>
                     <span>Skin (Top/Bottom)</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="FILL" checked />
                     <div class="legend-color" style="background-color: #00ccff;"></div>
                     <span>Infill</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="SUPPORT" checked />
                     <div class="legend-color" style="background-color: #ff00ff;"></div>
                     <span>Support</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="SKIRT" checked />
                     <div class="legend-color" style="background-color: #888888;"></div>
                     <span>Skirt/Brim</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="path" checked />
                     <div class="legend-color" style="background-color: #ff0000;"></div>
                     <span>Travel (Non-extruding)</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox" data-type="extruded" checked />
                     <div class="legend-color" style="background-color: #00ff00;"></div>
                     <span>Other Extrusion</span>
                 </div>
@@ -175,14 +183,17 @@ function createLegend() {
             <div id="axes-legend">
                 <h3>Axes</h3>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
                     <div class="legend-color" style="background-color: #ff0000;"></div>
                     <span>X Axis</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
                     <div class="legend-color" style="background-color: #00ff00;"></div>
                     <span>Y Axis</span>
                 </div>
                 <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
                     <div class="legend-color" style="background-color: #0000ff;"></div>
                     <span>Z Axis</span>
                 </div>
@@ -191,6 +202,134 @@ function createLegend() {
     `;
 
   document.body.insertAdjacentHTML('beforeend', legendHTML);
+
+  // Setup event listeners for movement type checkboxes.
+  setupMovementTypeToggles();
+
+  // Setup event listeners for axis checkboxes.
+  setupAxisToggles();
+}
+
+/**
+ * Setup event listeners for movement type visibility toggles.
+ */
+function setupMovementTypeToggles() {
+  const checkboxes = document.querySelectorAll('.legend-checkbox');
+
+  // Load saved checkbox states from localStorage
+  loadCheckboxStates();
+
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', () => {
+      // Save checkbox state to localStorage
+      saveCheckboxStates();
+
+      // Update visibility based on both layer slider and movement type checkboxes.
+      if (layerSlider && allLayers.length > 0) {
+        updateLayerVisibility();
+      }
+    });
+  });
+}
+
+/**
+ * Setup event listeners for axis visibility toggles.
+ */
+function setupAxisToggles() {
+  const axisCheckboxes = document.querySelectorAll('.axis-checkbox');
+
+  // Load saved axis checkbox states from localStorage
+  loadAxisCheckboxStates();
+
+  axisCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', (event) => {
+      const axis = event.target.dataset.axis;
+      const isVisible = event.target.checked;
+
+      // Save axis checkbox state to localStorage
+      saveAxisCheckboxStates();
+
+      // Toggle visibility of the corresponding axis line
+      if (axesLines) {
+        const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+        axesLines[axisIndex].visible = isVisible;
+      }
+    });
+  });
+}
+
+/**
+ * Save checkbox states to localStorage.
+ */
+function saveCheckboxStates() {
+  const states = {};
+  document.querySelectorAll('.legend-checkbox:not(.axis-checkbox)').forEach(checkbox => {
+    states[checkbox.dataset.type] = checkbox.checked;
+  });
+  try {
+    localStorage.setItem('visualizer-checkbox-states', JSON.stringify(states));
+  } catch (error) {
+    console.warn('Failed to save checkbox states to localStorage:', error);
+  }
+}
+
+/**
+ * Save axis checkbox states to localStorage.
+ */
+function saveAxisCheckboxStates() {
+  const states = {};
+  document.querySelectorAll('.axis-checkbox').forEach(checkbox => {
+    states[checkbox.dataset.axis] = checkbox.checked;
+  });
+  try {
+    localStorage.setItem('visualizer-axis-checkbox-states', JSON.stringify(states));
+  } catch (error) {
+    console.warn('Failed to save axis checkbox states to localStorage:', error);
+  }
+}
+
+/**
+ * Load checkbox states from localStorage.
+ */
+function loadCheckboxStates() {
+  try {
+    const saved = localStorage.getItem('visualizer-checkbox-states');
+    if (saved) {
+      const states = JSON.parse(saved);
+      document.querySelectorAll('.legend-checkbox:not(.axis-checkbox)').forEach(checkbox => {
+        if (checkbox.dataset.type in states) {
+          checkbox.checked = states[checkbox.dataset.type];
+        }
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to load checkbox states from localStorage:', error);
+  }
+}
+
+/**
+ * Load axis checkbox states from localStorage.
+ */
+function loadAxisCheckboxStates() {
+  try {
+    const saved = localStorage.getItem('visualizer-axis-checkbox-states');
+    if (saved) {
+      const states = JSON.parse(saved);
+      document.querySelectorAll('.axis-checkbox').forEach(checkbox => {
+        const axis = checkbox.dataset.axis;
+        if (axis in states) {
+          checkbox.checked = states[axis];
+          // Apply the visibility state to the axis line
+          if (axesLines) {
+            const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+            axesLines[axisIndex].visible = checkbox.checked;
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.warn('Failed to load axis checkbox states from localStorage:', error);
+  }
 }
 
 /**
@@ -240,8 +379,21 @@ function setupLayerSlider() {
 function updateLayerVisibility() {
   const visibleCount = parseInt(layerSlider.value);
 
+  // Get currently enabled movement types from checkboxes.
+  const enabledTypes = new Set();
+  document.querySelectorAll('.legend-checkbox:checked').forEach(checkbox => {
+    enabledTypes.add(checkbox.dataset.type);
+  });
+
   for (let i = 0; i < allLayers.length; i++) {
-    allLayers[i].visible = i < visibleCount;
+    const layer = allLayers[i];
+    const layerVisible = i < visibleCount;
+
+    // Check if this layer's type is enabled.
+    const typeEnabled = enabledTypes.has(layer.userData.type) || enabledTypes.has(layer.material.name);
+
+    // Layer is visible only if both conditions are met.
+    layer.visible = layerVisible && typeEnabled;
   }
 
   // Update info text.
@@ -393,15 +545,11 @@ function setupDoubleClickHandler() {
       if (intersect.object instanceof THREE.LineSegments || 
           intersect.object instanceof THREE.Line) {
         
-        // Get the center point of the line segment
+        // Use the exact intersection point from the raycaster
         const point = intersect.point.clone();
         
-        // Calculate the bounding box of the intersected object
-        const box = new THREE.Box3().setFromObject(intersect.object);
-        const center = box.getCenter(new THREE.Vector3());
-        
-        // Focus camera on the line center
-        focusCameraOnPoint(center);
+        // Focus camera on the exact intersection point
+        focusCameraOnPoint(point);
         break;
       }
     }
@@ -412,16 +560,17 @@ function setupDoubleClickHandler() {
  * Focus camera on a specific point with smooth animation.
  */
 function focusCameraOnPoint(point) {
-  // Calculate distance from camera to point
-  const distance = camera.position.distanceTo(controls.target);
-  
-  // Calculate new camera position maintaining the same distance
+  // Calculate current camera direction
   const direction = new THREE.Vector3()
     .subVectors(camera.position, controls.target)
     .normalize();
   
+  // Set a closer distance for more precise focusing (20 units from the point)
+  const focusDistance = 20;
+  
+  // Calculate new camera position closer to the point
   const newCameraPosition = new THREE.Vector3()
-    .addVectors(point, direction.multiplyScalar(distance * 0.3));
+    .addVectors(point, direction.multiplyScalar(focusDistance));
   
   // Smoothly transition to new position
   const startPosition = camera.position.clone();
@@ -439,7 +588,7 @@ function focusCameraOnPoint(point) {
     // Interpolate camera position
     camera.position.lerpVectors(startPosition, newCameraPosition, easeProgress);
     
-    // Interpolate controls target
+    // Interpolate controls target to the exact clicked point
     controls.target.lerpVectors(startTarget, point, easeProgress);
     
     controls.update();
