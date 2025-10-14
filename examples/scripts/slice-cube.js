@@ -5,8 +5,8 @@
 
 const { Polyslice, Printer, Filament } = require('../../src/index');
 const THREE = require('three');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
 
 console.log('Polyslice Cube Slicing Example');
 console.log('===============================\n');
@@ -43,6 +43,8 @@ const slicer = new Polyslice({
   shellWallThickness: 0.8,
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
+  infillPattern: 'triangles',
+  infillDensity: 30,
   bedTemperature: 0,
   layerHeight: 0.2,
   testStrip: true,
@@ -94,7 +96,7 @@ if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
-const outputPath = path.join(outputDir, '1cm-cube.gcode');
+const outputPath = path.join(outputDir, '1cm-cube_' + slicer.getInfillPattern() + '-' + slicer.getInfillDensity() + '%.gcode');
 fs.writeFileSync(outputPath, gcode);
 
 console.log(`\n✅ G-code saved to: ${outputPath}`);

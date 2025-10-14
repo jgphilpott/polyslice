@@ -188,6 +188,14 @@ body {
   font-size: 12px;
 }
 
+.legend-checkbox {
+  margin-right: 8px;
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: #4caf50;
+}
+
 .legend-color {
   width: 30px;
   height: 3px;
