@@ -46,7 +46,7 @@ async function main() {
         const buffer = fs.readFileSync(stlPath);
         const loader = new STLLoader();
         const geometry = loader.parse(buffer.buffer);
-        geometry.rotateX(Math.PI);
+        // geometry.rotateX(Math.PI);
 
         // Create mesh with the loaded geometry
         const material = new THREE.MeshPhongMaterial({ color: 0x808080, specular: 0x111111, shininess: 200 });

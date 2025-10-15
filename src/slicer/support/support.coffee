@@ -25,6 +25,7 @@ module.exports =
 
         # Cache overhang detection on first call.
         if not slicer._overhangRegions?
+
             slicer._overhangRegions = @detectOverhangs(mesh, supportThreshold, minZ)
 
         overhangRegions = slicer._overhangRegions
@@ -49,6 +50,7 @@ module.exports =
                 supportsGenerated++
 
         if verbose and supportsGenerated > 0 and layerIndex is 0
+
             slicer.gcode += "; Support structures detected (#{overhangRegions.length} regions)" + slicer.newline
 
         return
@@ -61,7 +63,7 @@ module.exports =
         THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
 
         geometry = mesh.geometry
-        
+
         # Get position attribute from geometry.
         positions = geometry.attributes?.position
         return [] unless positions
@@ -89,11 +91,13 @@ module.exports =
                 positions.getY(i0),
                 positions.getZ(i0)
             )
+
             v1 = new THREE.Vector3(
                 positions.getX(i1),
                 positions.getY(i1),
                 positions.getZ(i1)
             )
+
             v2 = new THREE.Vector3(
                 positions.getX(i2),
                 positions.getY(i2),
@@ -114,31 +118,31 @@ module.exports =
             # A face pointing straight down (0, 0, -1) has angle 0° from down.
             # A face pointing horizontal has angle 90° from down.
             # A face pointing up (0, 0, 1) has angle 180° from down.
-            
+
             # We care about the Z component of the normal.
             # normal.z > 0: face points upward (no support needed)
             # normal.z = 0: face is vertical (no support needed)
             # normal.z < 0: face points downward (may need support)
-            
+
             # For downward-facing surfaces, check the angle from horizontal.
             # supportThreshold = 45° means surfaces angled more than 45° from vertical (or less than 45° from horizontal) need support.
             # A horizontal downward face (normal.z = -1) has angle 0° from horizontal, needs support.
             # A face at 45° from vertical (normal.z = -0.707) has angle 45° from horizontal, at the threshold.
             # A vertical face (normal.z = 0) has angle 90° from horizontal, no support needed.
-            
+
             if normal.z < 0
-                
+
                 # Calculate angle from horizontal using Z component.
                 # angle = acos(|normal.z|) gives angle from horizontal plane.
                 angleFromHorizontal = Math.acos(Math.abs(normal.z))
-                
+
                 # Convert to degrees for comparison.
                 angleFromHorizontalDeg = angleFromHorizontal * 180 / Math.PI
-                
+
                 # Need support if angle from horizontal is less than (90° - threshold).
                 # For threshold 45°: need support if angle < 45° from horizontal (more than 45° from vertical).
                 supportAngleLimit = 90 - thresholdAngle
-                
+
                 if angleFromHorizontalDeg < supportAngleLimit
 
                     # Calculate center point of the triangle.
@@ -174,6 +178,7 @@ module.exports =
         patchSize = supportLineWidth * 2
 
         if verbose
+
             slicer.gcode += "; Support column at (#{region.x.toFixed(2)}, #{region.y.toFixed(2)}, z=#{region.z.toFixed(2)})" + slicer.newline
 
         # Convert speeds to mm/min for G-code.

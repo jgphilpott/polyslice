@@ -49,12 +49,14 @@ module.exports =
         # Ensure the mesh is positioned above the build plate (no negative Z).
         # If minZ < 0, raise the entire mesh so it sits on the build plate.
         if minZ < 0
+
             zOffset = -minZ
             mesh.position.z += zOffset
             mesh.updateMatrixWorld()
-            
+
             # Recalculate bounding box after adjustment.
             boundingBox = new THREE.Box3().setFromObject(mesh)
+
             minZ = boundingBox.min.z
             maxZ = boundingBox.max.z
 
@@ -157,10 +159,11 @@ module.exports =
 
         # Calculate number of skin layers (top and bottom solid layers).
         skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
-        
+
         # Cache for storing which regions on which layers are exposed surfaces.
         # This will be populated on first access and reused for subsequent regions on the same layer.
         if not slicer._exposedSurfaceCache?
+
             slicer._exposedSurfaceCache = {}
 
         # Process each closed path (perimeter).
@@ -196,7 +199,7 @@ module.exports =
                     currentPath = insetPath
 
             # After walls, determine if skin or infill should be generated for THIS specific region.
-            # 
+            #
             # Professional slicer skin detection strategy:
             # 1. Identify "exposed surfaces" - regions where there's minimal coverage from adjacent layer
             # 2. For TOP surfaces (not covered from above): generate skin on the exposed layer AND
@@ -210,56 +213,72 @@ module.exports =
             # Implementation:
             # - Check if any layer within skinLayerCount distance is an exposed surface
             # - If yes, this layer gets skin
-            
+
             # The innermost wall ends at its first point (closed loop).
             # Track this position to minimize travel distance to infill/skin start.
             lastWallPoint = if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y } else null
-            
+
             # Determine if this region needs skin and calculate exposed areas.
             needsSkin = false
             skinAreas = [] # Will store only the exposed portions of currentPath
-            
+
             # Always generate skin for the absolute top and bottom layers.
             if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
                 needsSkin = true
                 skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
+
             else
-                # For middle layers, check if this region is within skinLayerCount distance 
+
+                # For middle layers, check if this region is within skinLayerCount distance
                 # of an exposed surface (top or bottom).
                 #
                 # Algorithm:
                 # - Check layers within skinLayerCount range above/below current layer
                 # - If any of those layers is an exposed surface, calculate the exposed areas
                 # - Generate skin only for the exposed portions
-                
+
                 coverageThreshold = 0.7
                 exposedFromAbove = []
                 exposedFromBelow = []
-                
+
                 # Check if there's a top surface within skinLayerCount layers above us.
                 # A top surface is a layer that's not covered by the layer above it.
                 for checkIdx in [layerIndex..Math.min(totalLayers - 1, layerIndex + skinLayerCount - 1)]
+
                     # Is checkIdx a top surface?
                     if checkIdx < totalLayers - 1
+
                         # Check if layer checkIdx+1 covers this region
                         aboveSegments = allLayers[checkIdx + 1]
+
                         if aboveSegments? and aboveSegments.length > 0
+
                             abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
                             coverageFromAbove = helpers.calculateRegionCoverage(currentPath, abovePaths, 9)
+
                             if coverageFromAbove < coverageThreshold
+
                                 # checkIdx is a top surface exposure - calculate exposed areas
                                 exposedAreas = helpers.calculateExposedAreas(currentPath, abovePaths, 81)
                                 exposedFromAbove.push(exposedAreas...)
+
                                 break
+
                         else
+
                             # No geometry above means top surface - entire region is exposed
                             exposedFromAbove.push(currentPath)
+
                             break
+
                     else
+
                         # checkIdx is the very top layer
                         exposedFromAbove.push(currentPath)
+
                         break
-                
+
                 # Check if there's a bottom surface within skinLayerCount layers below us.
                 # A bottom surface is a layer that's not covered by the layer below it.
                 if exposedFromAbove.length is 0
@@ -284,7 +303,7 @@ module.exports =
                             # checkIdx is layer 0 (bottom layer)
                             exposedFromBelow.push(currentPath)
                             break
-                
+
                 # Combine exposed areas from above and below.
                 skinAreas = exposedFromAbove.concat(exposedFromBelow)
                 needsSkin = skinAreas.length > 0
@@ -293,6 +312,7 @@ module.exports =
 
                 # Generate skin for each exposed area.
                 for skinArea in skinAreas
+
                     skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
             else
