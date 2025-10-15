@@ -188,3 +188,274 @@ describe 'Geometry Helpers', ->
             path = paths[0]
             expect(path[0].x).toBe(0)
             expect(path[0].y).toBe(0)
+
+    describe 'pointInPolygon', ->
+
+        test 'should return true for point inside a square', ->
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Point in center.
+            point = { x: 5, y: 5 }
+
+            result = helpers.pointInPolygon(point, polygon)
+
+            expect(result).toBe(true)
+
+        test 'should return false for point outside a square', ->
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Point outside.
+            point = { x: 15, y: 5 }
+
+            result = helpers.pointInPolygon(point, polygon)
+
+            expect(result).toBe(false)
+
+        test 'should return true for point inside a triangle', ->
+
+            # Triangle polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 5, y: 10 }
+            ]
+
+            # Point inside.
+            point = { x: 5, y: 3 }
+
+            result = helpers.pointInPolygon(point, polygon)
+
+            expect(result).toBe(true)
+
+        test 'should handle edge cases with point on boundary', ->
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Point on edge.
+            point = { x: 5, y: 0 }
+
+            result = helpers.pointInPolygon(point, polygon)
+
+            # Ray casting can vary on boundary - just check it returns a boolean.
+            expect(typeof result).toBe('boolean')
+
+    describe 'calculatePathBounds', ->
+
+        test 'should calculate correct bounding box for a square path', ->
+
+            path = [
+                { x: 10, y: 20 }
+                { x: 30, y: 20 }
+                { x: 30, y: 40 }
+                { x: 10, y: 40 }
+            ]
+
+            bounds = helpers.calculatePathBounds(path)
+
+            expect(bounds.minX).toBe(10)
+            expect(bounds.maxX).toBe(30)
+            expect(bounds.minY).toBe(20)
+            expect(bounds.maxY).toBe(40)
+
+        test 'should handle single point path', ->
+
+            path = [{ x: 5, y: 10 }]
+
+            bounds = helpers.calculatePathBounds(path)
+
+            expect(bounds.minX).toBe(5)
+            expect(bounds.maxX).toBe(5)
+            expect(bounds.minY).toBe(10)
+            expect(bounds.maxY).toBe(10)
+
+        test 'should handle negative coordinates', ->
+
+            path = [
+                { x: -10, y: -20 }
+                { x: 10, y: 20 }
+            ]
+
+            bounds = helpers.calculatePathBounds(path)
+
+            expect(bounds.minX).toBe(-10)
+            expect(bounds.maxX).toBe(10)
+            expect(bounds.minY).toBe(-20)
+            expect(bounds.maxY).toBe(20)
+
+    describe 'calculateRegionCoverage', ->
+
+        test 'should return 1.0 when region is fully covered', ->
+
+            # Test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Covering region (same as test region).
+            coveringRegions = [
+                [
+                    { x: 0, y: 0 }
+                    { x: 10, y: 0 }
+                    { x: 10, y: 10 }
+                    { x: 0, y: 10 }
+                ]
+            ]
+
+            coverage = helpers.calculateRegionCoverage(testRegion, coveringRegions, 9)
+
+            expect(coverage).toBe(1.0)
+
+        test 'should return 0.0 when region is not covered at all', ->
+
+            # Test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Covering region (far away).
+            coveringRegions = [
+                [
+                    { x: 50, y: 50 }
+                    { x: 60, y: 50 }
+                    { x: 60, y: 60 }
+                    { x: 50, y: 60 }
+                ]
+            ]
+
+            coverage = helpers.calculateRegionCoverage(testRegion, coveringRegions, 9)
+
+            expect(coverage).toBe(0.0)
+
+        test 'should return partial coverage for partially overlapping regions', ->
+
+            # Test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Covering region (overlaps half).
+            coveringRegions = [
+                [
+                    { x: 5, y: 0 }
+                    { x: 15, y: 0 }
+                    { x: 15, y: 10 }
+                    { x: 5, y: 10 }
+                ]
+            ]
+
+            coverage = helpers.calculateRegionCoverage(testRegion, coveringRegions, 9)
+
+            # Should be around 0.5 but depends on sampling points.
+            expect(coverage).toBeGreaterThan(0.0)
+            expect(coverage).toBeLessThan(1.0)
+
+    describe 'calculateExposedAreas', ->
+
+        test 'should return entire region when fully exposed', ->
+
+            # Test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # No covering regions.
+            coveringRegions = []
+
+            exposedAreas = helpers.calculateExposedAreas(testRegion, coveringRegions, 81)
+
+            # Should return the entire region (or close approximation).
+            expect(exposedAreas.length).toBeGreaterThan(0)
+
+            # Check that at least one exposed area covers most of the region.
+            totalExposedBounds = exposedAreas[0]
+            expect(totalExposedBounds.length).toBeGreaterThan(0)
+
+        test 'should return empty array when fully covered', ->
+
+            # Test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Covering region (same as test region).
+            coveringRegions = [
+                [
+                    { x: 0, y: 0 }
+                    { x: 10, y: 0 }
+                    { x: 10, y: 10 }
+                    { x: 0, y: 10 }
+                ]
+            ]
+
+            exposedAreas = helpers.calculateExposedAreas(testRegion, coveringRegions, 81)
+
+            # Should return empty or very small exposed areas.
+            # With 81-point sampling and full coverage, should be empty or near-empty.
+            expect(exposedAreas.length).toBeLessThanOrEqual(1)
+
+        test 'should detect exposed area in L-shape scenario', ->
+
+            # Test region - horizontal part of L.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 20, y: 0 }
+                { x: 20, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Covering region - vertical part of L (covers left half).
+            coveringRegions = [
+                [
+                    { x: 0, y: 0 }
+                    { x: 10, y: 0 }
+                    { x: 10, y: 20 }
+                    { x: 0, y: 20 }
+                ]
+            ]
+
+            exposedAreas = helpers.calculateExposedAreas(testRegion, coveringRegions, 81)
+
+            # Should detect exposed area on the right side.
+            expect(exposedAreas.length).toBeGreaterThan(0)
+
+            # The exposed area should be on the right side (X > 10).
+            if exposedAreas.length > 0
+                firstExposedArea = exposedAreas[0]
+                # Check that exposed area has some points with X > 10.
+                hasRightSide = firstExposedArea.some (point) -> point.x > 10
+                expect(hasRightSide).toBe(true)

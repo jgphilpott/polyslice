@@ -308,20 +308,20 @@ module.exports =
                 skinAreas = exposedFromAbove.concat(exposedFromBelow)
                 needsSkin = skinAreas.length > 0
 
+            # Generate infill for the entire innermost wall boundary first.
+            # This ensures no gaps in infill even on layers with skin.
+            # Only generate if density > 0.
+            infillDensity = slicer.getInfillDensity()
+
+            if infillDensity > 0
+
+                # currentPath now holds the innermost wall boundary.
+                infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+
+            # Then generate skin on top of the infill for exposed areas.
             if needsSkin and skinAreas.length > 0
 
                 # Generate skin for each exposed area.
                 for skinArea in skinAreas
 
                     skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
-
-            else
-
-                # Generate infill for regions that don't need skin.
-                # Only generate if density > 0.
-                infillDensity = slicer.getInfillDensity()
-
-                if infillDensity > 0
-
-                    # currentPath now holds the innermost wall boundary.
-                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
