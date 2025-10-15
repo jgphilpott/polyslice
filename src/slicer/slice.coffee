@@ -311,30 +311,38 @@ module.exports =
             # Generate infill and/or skin based on exposure.
             #
             # Strategy: Each area should be EITHER skin OR infill, not both and not empty.
-            # - Layers with ANY skin: Generate skin for entire area (ensures no overlap with infill)
-            # - Layers without skin: Generate normal infill
+            # - For layers with exposed areas:
+            #   1. Generate infill for entire innermost wall boundary first
+            #   2. Generate skin ONLY in exposed areas (overlays on top of infill)
+            # - For layers without exposed areas: Generate normal infill only
             #
-            # Rational: Layers that need skin (exposed surfaces) require solid fill for structural
-            # integrity. Rather than trying to calculate exact non-skin regions (complex polygon
-            # subtraction), we fill the entire layer with skin. This is:
-            # - Structurally sound (solid fill is stronger than sparse infill)
-            # - Avoids overlap (no infill + skin in same area)
-            # - Avoids gaps (no empty areas)
-            # - Simple to implement
-            #
-            # Trade-off: Uses more material on layers with partial exposure, but ensures quality.
+            # This ensures:
+            # - Complete coverage (no gaps)
+            # - Skin generated only where needed (exposed surfaces)
+            # - Infill in non-exposed areas provides fill without overlap issues
+            # - The overlapping skin/infill is acceptable since skin provides solid top surface
+            #   over the sparse infill underneath
+
+            infillDensity = slicer.getInfillDensity()
 
             if needsSkin
 
-                # This layer needs skin (absolute top/bottom or middle layer with exposure).
-                # Generate skin for entire innermost wall boundary to ensure complete coverage.
-                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                # This layer has exposed surfaces.
+                # First, generate infill for the entire innermost wall boundary.
+                # This provides structural fill for the non-exposed portions.
+                if infillDensity > 0
+
+                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+
+                # Then, generate skin ONLY in the exposed areas.
+                # This creates solid top/bottom surface over the infill.
+                for skinArea in skinAreas
+
+                    skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
             else
 
                 # No skin needed - generate normal sparse infill only.
-                infillDensity = slicer.getInfillDensity()
-
                 if infillDensity > 0
 
                     infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
