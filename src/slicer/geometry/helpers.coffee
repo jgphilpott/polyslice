@@ -578,6 +578,156 @@ module.exports =
         return if exposedAreas.length > 0 then exposedAreas else [testRegion]
 
     # Flood fill algorithm to find contiguous exposed regions in a grid.
+    # Calculate non-exposed areas (areas that should get infill, not skin).
+    # This takes the full boundary path and subtracts the exposed areas.
+    # Returns an array of bounding boxes representing non-exposed regions.
+    calculateNonExposedAreas: (fullBoundary, exposedAreas) ->
+
+        return [fullBoundary] if not exposedAreas or exposedAreas.length is 0
+
+        # For simplicity, we'll use a sampling-based approach:
+        # - Sample points across the full boundary
+        # - Check which points are NOT in any exposed area
+        # - Group contiguous non-exposed points into regions
+        #
+        # This is similar to calculateExposedAreas but inverted.
+
+        bounds = @calculatePathBounds(fullBoundary)
+
+        return [] if not bounds
+
+        # Use coarse grid (9x9) for non-exposed areas since infill doesn't need to be as precise.
+        gridSize = 9
+        stepX = (bounds.maxX - bounds.minX) / (gridSize - 1)
+        stepY = (bounds.maxY - bounds.minY) / (gridSize - 1)
+
+        # Sample and classify each point.
+        nonExposedPoints = []
+
+        for i in [0...gridSize]
+
+            for j in [0...gridSize]
+
+                pointX = bounds.minX + i * stepX
+                pointY = bounds.minY + j * stepY
+                testPoint = { x: pointX, y: pointY }
+
+                # Check if point is inside the full boundary.
+                if @pointInPolygon(testPoint, fullBoundary)
+
+                    # Check if point is inside any exposed area.
+                    isExposed = false
+
+                    for exposedArea in exposedAreas
+
+                        if @pointInPolygon(testPoint, exposedArea)
+
+                            isExposed = true
+                            break
+
+                    # If not in any exposed area, it's a non-exposed point.
+                    if not isExposed
+
+                        nonExposedPoints.push({ x: pointX, y: pointY, i: i, j: j })
+
+        # If most points are non-exposed (>80%), return entire boundary for efficiency.
+        totalPoints = gridSize * gridSize
+        nonExposedCount = nonExposedPoints.length
+
+        if nonExposedCount > totalPoints * 0.8
+
+            return [fullBoundary]
+
+        # If no non-exposed points, return empty (entire boundary is exposed).
+        return [] if nonExposedPoints.length is 0
+
+        # Group contiguous non-exposed points using flood fill.
+        visited = new Set()
+        nonExposedRegions = []
+
+        for point in nonExposedPoints
+
+            key = "#{point.i},#{point.j}"
+
+            continue if visited.has(key)
+
+            # Start a new region from this point.
+            regionPoints = @floodFillNonExposedRegion(nonExposedPoints, visited, point.i, point.j, gridSize)
+
+            continue if regionPoints.length is 0
+
+            # Create bounding box for this region.
+            minX = Infinity
+            maxX = -Infinity
+            minY = Infinity
+            maxY = -Infinity
+
+            for p in regionPoints
+
+                minX = Math.min(minX, p.x)
+                maxX = Math.max(maxX, p.x)
+                minY = Math.min(minY, p.y)
+                maxY = Math.max(maxY, p.y)
+
+            # Create a rectangular path for this non-exposed region.
+            nonExposedPath = [
+                { x: minX, y: minY }
+                { x: maxX, y: minY }
+                { x: maxX, y: maxY }
+                { x: minX, y: maxY }
+            ]
+
+            nonExposedRegions.push(nonExposedPath)
+
+        return nonExposedRegions
+
+    # Flood fill helper for non-exposed region detection.
+    floodFillNonExposedRegion: (nonExposedPoints, visited, startI, startJ, gridSize) ->
+
+        # Build a quick lookup map for non-exposed points.
+        pointMap = {}
+
+        for point in nonExposedPoints
+
+            key = "#{point.i},#{point.j}"
+            pointMap[key] = point
+
+        # Flood fill starting from (startI, startJ).
+        regionPoints = []
+        stack = [{ i: startI, j: startJ }]
+
+        while stack.length > 0
+
+            current = stack.pop()
+            key = "#{current.i},#{current.j}"
+
+            continue if visited.has(key)
+            continue if not pointMap[key]?
+
+            visited.add(key)
+            regionPoints.push(pointMap[key])
+
+            # Check 4-connected neighbors.
+            neighbors = [
+                { i: current.i - 1, j: current.j }
+                { i: current.i + 1, j: current.j }
+                { i: current.i, j: current.j - 1 }
+                { i: current.i, j: current.j + 1 }
+            ]
+
+            for neighbor in neighbors
+
+                continue if neighbor.i < 0 or neighbor.i >= gridSize
+                continue if neighbor.j < 0 or neighbor.j >= gridSize
+
+                neighborKey = "#{neighbor.i},#{neighbor.j}"
+
+                if not visited.has(neighborKey) and pointMap[neighborKey]?
+
+                    stack.push(neighbor)
+
+        return regionPoints
+
     floodFillExposedRegion: (exposedGrid, visited, startI, startJ, gridSize) ->
 
         region = []

@@ -179,6 +179,7 @@ module.exports =
 
         if verbose
 
+            slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
             slicer.gcode += "; Support column at (#{region.x.toFixed(2)}, #{region.y.toFixed(2)}, z=#{region.z.toFixed(2)})" + slicer.newline
 
         # Convert speeds to mm/min for G-code.

@@ -312,30 +312,33 @@ module.exports =
             #
             # Strategy: Each area should be EITHER skin OR infill, not both and not empty.
             # - For layers with exposed areas:
-            #   1. Generate infill for entire innermost wall boundary first
-            #   2. Generate skin ONLY in exposed areas (overlays on top of infill)
+            #   1. Calculate non-exposed areas (full boundary minus exposed areas)
+            #   2. Generate infill ONLY in non-exposed areas
+            #   3. Generate skin ONLY in exposed areas
             # - For layers without exposed areas: Generate normal infill only
             #
             # This ensures:
             # - Complete coverage (no gaps)
             # - Skin generated only where needed (exposed surfaces)
-            # - Infill in non-exposed areas provides fill without overlap issues
-            # - The overlapping skin/infill is acceptable since skin provides solid top surface
-            #   over the sparse infill underneath
+            # - Infill only in non-exposed areas (no overlap with skin)
+            # - Each area gets EITHER skin OR infill, never both
 
             infillDensity = slicer.getInfillDensity()
 
             if needsSkin
 
                 # This layer has exposed surfaces.
-                # First, generate infill for the entire innermost wall boundary.
-                # This provides structural fill for the non-exposed portions.
-                if infillDensity > 0
+                # Calculate non-exposed areas (where infill should go).
+                nonExposedAreas = helpers.calculateNonExposedAreas(currentPath, skinAreas)
 
-                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                # Generate infill ONLY in non-exposed areas.
+                if infillDensity > 0 and nonExposedAreas.length > 0
 
-                # Then, generate skin ONLY in the exposed areas.
-                # This creates solid top/bottom surface over the infill.
+                    for nonExposedArea in nonExposedAreas
+
+                        infillModule.generateInfillGCode(slicer, nonExposedArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+
+                # Generate skin ONLY in the exposed areas.
                 for skinArea in skinAreas
 
                     skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
