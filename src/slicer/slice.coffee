@@ -244,6 +244,7 @@ module.exports =
 
                 # Check if there's a top surface within skinLayerCount layers above us.
                 # A top surface is a layer that's not covered by the layer above it.
+                # We need to check up to skinLayerCount layers, so range is [layerIndex..layerIndex + skinLayerCount - 1]
                 for checkIdx in [layerIndex..Math.min(totalLayers - 1, layerIndex + skinLayerCount - 1)]
 
                     # Is checkIdx a top surface?
@@ -263,6 +264,7 @@ module.exports =
                                 exposedAreas = helpers.calculateExposedAreas(currentPath, abovePaths, 81)
                                 exposedFromAbove.push(exposedAreas...)
 
+                                # Found exposure - current layer gets skin if within range
                                 break
 
                         else
@@ -281,6 +283,7 @@ module.exports =
 
                 # Check if there's a bottom surface within skinLayerCount layers below us.
                 # A bottom surface is a layer that's not covered by the layer below it.
+                # We need to check down to skinLayerCount layers, so range is [layerIndex down to layerIndex - skinLayerCount + 1]
                 if exposedFromAbove.length is 0
                     for checkIdx in [layerIndex..Math.max(0, layerIndex - skinLayerCount + 1)] by -1
                         # Is checkIdx a bottom surface?
@@ -294,6 +297,7 @@ module.exports =
                                     # checkIdx is a bottom surface exposure - calculate exposed areas
                                     exposedAreas = helpers.calculateExposedAreas(currentPath, belowPaths, 81)
                                     exposedFromBelow.push(exposedAreas...)
+                                    # Found exposure - current layer gets skin if within range
                                     break
                             else
                                 # No geometry below means bottom surface - entire region is exposed
@@ -328,15 +332,11 @@ module.exports =
             if needsSkin
 
                 # This layer has exposed surfaces.
-                # Calculate non-exposed areas (where infill should go).
-                nonExposedAreas = helpers.calculateNonExposedAreas(currentPath, skinAreas)
+                # For now, generate infill across entire layer (will improve to exclude skin areas in future).
+                # TODO: Implement line clipping to avoid infill lines in skin areas.
+                if infillDensity > 0
 
-                # Generate infill ONLY in non-exposed areas.
-                if infillDensity > 0 and nonExposedAreas.length > 0
-
-                    for nonExposedArea in nonExposedAreas
-
-                        infillModule.generateInfillGCode(slicer, nonExposedArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
                 # Generate skin ONLY in the exposed areas.
                 for skinArea in skinAreas
