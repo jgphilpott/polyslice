@@ -24,6 +24,8 @@ resources/
 │   ├── sphere/
 │   ├── cone/
 │   └── torus/
+├── gcode/                          # G-code output samples (stored in Git LFS)
+│   └── infill/   # Infill pattern examples
 └── generate-models.js
 ```
 
@@ -116,6 +118,46 @@ const anyMesh = await Loader.load('resources/stl/cylinder/cylinder-1cm.stl');
 - Support vertex colors (not used in these files)
 - Sizes: ~1.2KB (cube) to ~60KB (sphere)
 
+## G-code Samples
+
+The `gcode/` directory contains example G-code output files demonstrating different infill patterns and densities. These files are stored using [Git LFS](https://git-lfs.github.com/) to keep the repository size manageable.
+
+### Available Samples
+
+The `infill/` subdirectory contains 12 G-code files showcasing various infill patterns:
+
+- **Grid pattern**: 20%, 40%, 60%, 80% density
+- **Hexagon pattern**: 20%, 40%, 60%, 80% density  
+- **Triangle pattern**: 20%, 40%, 60%, 80% density
+
+All samples are generated for a 1cm cube with 0.2mm layer height.
+
+### Git LFS
+
+These G-code files are tracked by Git LFS. When you clone the repository, Git LFS will automatically download the full files. If you don't have Git LFS installed, you'll only get small pointer files instead of the actual G-code content.
+
+**To install Git LFS:**
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install git-lfs
+
+# macOS
+brew install git-lfs
+
+# Windows
+# Download from https://git-lfs.github.com/
+
+# Initialize Git LFS
+git lfs install
+```
+
+After installing Git LFS in an existing clone, fetch the actual files:
+
+```bash
+git lfs pull
+```
+
 ## Testing
 
 These models are ideal for:
@@ -123,3 +165,4 @@ These models are ideal for:
 - Validating mesh geometry after import
 - Performance testing with different mesh complexities
 - Integration testing with the Polyslice slicer
+- Examining G-code output for different infill patterns and densities

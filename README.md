@@ -654,6 +654,20 @@ const gcode = slicer.slice(mesh);
 
 ## Development
 
+### Prerequisites
+
+This repository uses [Git LFS](https://git-lfs.github.com/) to store G-code sample files. Make sure you have Git LFS installed:
+
+```bash
+# Install Git LFS
+git lfs install
+
+# If you cloned before installing LFS, pull the actual files:
+git lfs pull
+```
+
+### Development Commands
+
 ```bash
 # Install Dependencies
 npm install
