@@ -70,6 +70,8 @@ async function main() {
         shellWallThickness: 0.8,
         lengthUnit: 'millimeters',
         timeUnit: 'seconds',
+        infillPattern: 'hexagons',
+        infillDensity: 30,
         bedTemperature: 0,
         layerHeight: 0.2,
         testStrip: false,

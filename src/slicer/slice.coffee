@@ -160,12 +160,6 @@ module.exports =
         # Calculate number of skin layers (top and bottom solid layers).
         skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
 
-        # Cache for storing which regions on which layers are exposed surfaces.
-        # This will be populated on first access and reused for subsequent regions on the same layer.
-        if not slicer._exposedSurfaceCache?
-
-            slicer._exposedSurfaceCache = {}
-
         # Process each closed path (perimeter).
         for path in paths
 
@@ -287,25 +281,36 @@ module.exports =
                 # A bottom surface is a layer that's not covered by the layer below it.
                 # We need to check down to skinLayerCount layers, so range is [layerIndex down to layerIndex - skinLayerCount + 1]
                 if exposedFromAbove.length is 0
+
                     for checkIdx in [layerIndex..Math.max(0, layerIndex - skinLayerCount + 1)] by -1
+
                         # Is checkIdx a bottom surface?
                         if checkIdx > 0
+
                             # Check if layer checkIdx-1 covers this region
                             belowSegments = allLayers[checkIdx - 1]
+
                             if belowSegments? and belowSegments.length > 0
+
                                 belowPaths = helpers.connectSegmentsToPaths(belowSegments)
                                 coverageFromBelow = helpers.calculateRegionCoverage(currentPath, belowPaths, 9)
+
                                 if coverageFromBelow < coverageThreshold
+
                                     # checkIdx is a bottom surface exposure - calculate exposed areas
                                     exposedAreas = helpers.calculateExposedAreas(currentPath, belowPaths, 81)
                                     exposedFromBelow.push(exposedAreas...)
                                     # Found exposure - current layer gets skin if within range
                                     break
+
                             else
+
                                 # No geometry below means bottom surface - entire region is exposed
                                 exposedFromBelow.push(currentPath)
                                 break
+
                         else
+
                             # checkIdx is layer 0 (bottom layer)
                             exposedFromBelow.push(currentPath)
                             break
