@@ -259,3 +259,499 @@ module.exports =
         y = y1 + t * (y2 - y1)
 
         return { x: x, y: y }
+
+    # Calculate the bounding box of a path.
+    calculatePathBounds: (path) ->
+
+        return null if not path or path.length is 0
+
+        minX = Infinity
+        maxX = -Infinity
+        minY = Infinity
+        maxY = -Infinity
+
+        for point in path
+
+            minX = Math.min(minX, point.x)
+            maxX = Math.max(maxX, point.x)
+            minY = Math.min(minY, point.y)
+            maxY = Math.max(maxY, point.y)
+
+        return {
+            minX: minX
+            maxX: maxX
+            minY: minY
+            maxY: maxY
+        }
+
+    # Check if two bounding boxes overlap in XY plane.
+    # Uses a small tolerance to account for touching edges.
+    boundsOverlap: (bounds1, bounds2, tolerance = 0.1) ->
+
+        return false if not bounds1 or not bounds2
+
+        # Check if bounds are separated on X axis.
+        if bounds1.maxX + tolerance < bounds2.minX or bounds2.maxX + tolerance < bounds1.minX
+
+            return false
+
+        # Check if bounds are separated on Y axis.
+        if bounds1.maxY + tolerance < bounds2.minY or bounds2.maxY + tolerance < bounds1.minY
+
+            return false
+
+        # Boxes overlap.
+        return true
+
+    # Calculate the overlapping area between two bounding boxes.
+    calculateOverlapArea: (bounds1, bounds2) ->
+
+        return 0 if not bounds1 or not bounds2
+
+        # Check if bounds overlap first.
+        if not @boundsOverlap(bounds1, bounds2, 0)
+
+            return 0
+
+        # Calculate overlap dimensions.
+        overlapMinX = Math.max(bounds1.minX, bounds2.minX)
+        overlapMaxX = Math.min(bounds1.maxX, bounds2.maxX)
+        overlapMinY = Math.max(bounds1.minY, bounds2.minY)
+        overlapMaxY = Math.min(bounds1.maxY, bounds2.maxY)
+
+        overlapWidth = overlapMaxX - overlapMinX
+        overlapHeight = overlapMaxY - overlapMinY
+
+        # Return overlap area.
+        return overlapWidth * overlapHeight
+
+    # Check if a point is inside a polygon using ray casting algorithm.
+    # This is the standard point-in-polygon test used in computational geometry.
+    pointInPolygon: (point, polygon) ->
+
+        return false if not point or not polygon or polygon.length < 3
+
+        x = point.x
+        y = point.y
+
+        inside = false
+
+        j = polygon.length - 1
+
+        for i in [0...polygon.length]
+
+            xi = polygon[i].x
+            yi = polygon[i].y
+            xj = polygon[j].x
+            yj = polygon[j].y
+
+            # Ray casting: cast a ray from point to infinity and count intersections.
+            intersect = ((yi > y) isnt (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+
+            if intersect
+
+                inside = not inside
+
+            j = i
+
+        return inside
+
+    # Check if a region (polygon) is substantially covered by another region.
+    # Uses multi-point sampling for accurate coverage detection.
+    # Returns the coverage ratio (0.0 to 1.0).
+    calculateRegionCoverage: (testRegion, coveringRegions, sampleCount = 9) ->
+
+        return 0 if not testRegion or testRegion.length < 3
+        return 0 if not coveringRegions or coveringRegions.length is 0
+
+        # Calculate bounds for generating sample points.
+        bounds = @calculatePathBounds(testRegion)
+
+        return 0 if not bounds
+
+        width = bounds.maxX - bounds.minX
+        height = bounds.maxY - bounds.minY
+
+        # Generate sample points in a grid pattern across the region.
+        # Use sqrt(sampleCount) to get grid dimensions.
+        gridSize = Math.ceil(Math.sqrt(sampleCount))
+        samplePoints = []
+
+        for i in [0...gridSize]
+
+            for j in [0...gridSize]
+
+                # Calculate sample point position.
+                xRatio = (i + 0.5) / gridSize
+                yRatio = (j + 0.5) / gridSize
+
+                sampleX = bounds.minX + width * xRatio
+                sampleY = bounds.minY + height * yRatio
+
+                samplePoints.push({ x: sampleX, y: sampleY })
+
+        # Count how many sample points are inside the test region AND inside at least one covering region.
+        validSamples = 0
+        coveredSamples = 0
+
+        for samplePoint in samplePoints
+
+            # First check if sample point is actually inside the test region.
+            if @pointInPolygon(samplePoint, testRegion)
+
+                validSamples++
+
+                # Check if this point is covered by any of the covering regions.
+                for coveringRegion in coveringRegions
+
+                    if @pointInPolygon(samplePoint, coveringRegion)
+
+                        coveredSamples++
+
+                        break
+
+        # Return coverage ratio (0.0 to 1.0).
+        return if validSamples > 0 then coveredSamples / validSamples else 0
+
+    # Calculate the exposed (uncovered) areas of a region.
+    # Returns an array of polygons representing the exposed portions.
+    # Uses dense sampling to identify uncovered areas and groups them into regions.
+    calculateExposedAreas: (testRegion, coveringRegions, sampleCount = 81) ->
+
+        return [testRegion] if not coveringRegions or coveringRegions.length is 0
+        return [] if not testRegion or testRegion.length < 3
+
+        # Calculate bounds for generating sample points.
+        bounds = @calculatePathBounds(testRegion)
+
+        return [testRegion] if not bounds
+
+        width = bounds.maxX - bounds.minX
+        height = bounds.maxY - bounds.minY
+
+        # Generate dense sample points in a grid pattern across the region.
+        # Use sqrt(sampleCount) to get grid dimensions.
+        gridSize = Math.ceil(Math.sqrt(sampleCount))
+
+        # Create 2D grid to track exposed points.
+        exposedGrid = []
+
+        for i in [0...gridSize]
+
+            row = []
+
+            for j in [0...gridSize]
+
+                # Calculate sample point position.
+                xRatio = (i + 0.5) / gridSize
+                yRatio = (j + 0.5) / gridSize
+
+                sampleX = bounds.minX + width * xRatio
+                sampleY = bounds.minY + height * yRatio
+
+                point = { x: sampleX, y: sampleY }
+
+                # Check if point is inside test region and NOT covered.
+                isInside = @pointInPolygon(point, testRegion)
+                isCovered = false
+
+                if isInside
+
+                    for coveringRegion in coveringRegions
+
+                        if @pointInPolygon(point, coveringRegion)
+
+                            isCovered = true
+
+                            break
+
+                # Mark as exposed if inside but not covered.
+                row.push(if isInside and not isCovered then point else null)
+
+            exposedGrid.push(row)
+
+        # Check if we have any exposed points.
+        hasExposedPoints = false
+
+        for row in exposedGrid
+
+            for point in row
+
+                if point?
+
+                    hasExposedPoints = true
+
+                    break
+
+            break if hasExposedPoints
+
+        # If no exposed points, return empty array (fully covered).
+        return [] if not hasExposedPoints
+
+        # If most points are exposed (>80%), return the entire region.
+        # This avoids unnecessary computation for mostly-exposed surfaces.
+        exposedCount = 0
+        totalValidPoints = 0
+
+        for row in exposedGrid
+
+            for point in row
+
+                if point?
+
+                    exposedCount++
+                    totalValidPoints++
+
+                else
+
+                    # Check if this grid position was inside the test region.
+                    i = exposedGrid.indexOf(row)
+                    j = row.indexOf(point)
+
+                    xRatio = (i + 0.5) / gridSize
+                    yRatio = (j + 0.5) / gridSize
+
+                    sampleX = bounds.minX + width * xRatio
+                    sampleY = bounds.minY + height * yRatio
+
+                    testPoint = { x: sampleX, y: sampleY }
+
+                    if @pointInPolygon(testPoint, testRegion)
+
+                        totalValidPoints++
+
+        if totalValidPoints > 0 and exposedCount / totalValidPoints > 0.8
+
+            return [testRegion]
+
+        # For partially exposed regions, create simplified exposed area polygons.
+        # Strategy: Find exposed regions and create bounding rectangles for them.
+        exposedAreas = []
+
+        # Find contiguous exposed regions using flood fill approach.
+        visited = []
+
+        for i in [0...gridSize]
+
+            row = []
+
+            for j in [0...gridSize]
+
+                row.push(false)
+
+            visited.push(row)
+
+        for i in [0...gridSize]
+
+            for j in [0...gridSize]
+
+                if exposedGrid[i][j]? and not visited[i][j]
+
+                    # Found an unvisited exposed point - flood fill to find region.
+                    region = @floodFillExposedRegion(exposedGrid, visited, i, j, gridSize)
+
+                    if region.length > 0
+
+                        # Create a bounding box for this exposed region.
+                        minI = Math.min.apply(null, region.map((p) -> p.i))
+                        maxI = Math.max.apply(null, region.map((p) -> p.i))
+                        minJ = Math.min.apply(null, region.map((p) -> p.j))
+                        maxJ = Math.max.apply(null, region.map((p) -> p.j))
+
+                        # Convert grid coordinates to actual coordinates.
+                        minX = bounds.minX + width * (minI / gridSize)
+                        maxX = bounds.minX + width * ((maxI + 1) / gridSize)
+                        minY = bounds.minY + height * (minJ / gridSize)
+                        maxY = bounds.minY + height * ((maxJ + 1) / gridSize)
+
+                        # Create rectangle polygon for this exposed area.
+                        exposedPoly = [
+                            { x: minX, y: minY, z: testRegion[0].z }
+                            { x: maxX, y: minY, z: testRegion[0].z }
+                            { x: maxX, y: maxY, z: testRegion[0].z }
+                            { x: minX, y: maxY, z: testRegion[0].z }
+                        ]
+
+                        exposedAreas.push(exposedPoly)
+
+        # If we found exposed areas, return them. Otherwise return entire region.
+        return if exposedAreas.length > 0 then exposedAreas else [testRegion]
+
+    # Flood fill algorithm to find contiguous exposed regions in a grid.
+    # Calculate non-exposed areas (areas that should get infill, not skin).
+    # This takes the full boundary path and subtracts the exposed areas.
+    # Returns an array of bounding boxes representing non-exposed regions.
+    calculateNonExposedAreas: (fullBoundary, exposedAreas) ->
+
+        return [fullBoundary] if not exposedAreas or exposedAreas.length is 0
+
+        # For simplicity, we'll use a sampling-based approach:
+        # - Sample points across the full boundary
+        # - Check which points are NOT in any exposed area
+        # - Group contiguous non-exposed points into regions
+        #
+        # This is similar to calculateExposedAreas but inverted.
+
+        bounds = @calculatePathBounds(fullBoundary)
+
+        return [] if not bounds
+
+        # Use coarse grid (9x9) for non-exposed areas since infill doesn't need to be as precise.
+        gridSize = 9
+        stepX = (bounds.maxX - bounds.minX) / (gridSize - 1)
+        stepY = (bounds.maxY - bounds.minY) / (gridSize - 1)
+
+        # Sample and classify each point.
+        nonExposedPoints = []
+
+        for i in [0...gridSize]
+
+            for j in [0...gridSize]
+
+                pointX = bounds.minX + i * stepX
+                pointY = bounds.minY + j * stepY
+                testPoint = { x: pointX, y: pointY }
+
+                # Check if point is inside the full boundary.
+                if @pointInPolygon(testPoint, fullBoundary)
+
+                    # Check if point is inside any exposed area.
+                    isExposed = false
+
+                    for exposedArea in exposedAreas
+
+                        if @pointInPolygon(testPoint, exposedArea)
+
+                            isExposed = true
+                            break
+
+                    # If not in any exposed area, it's a non-exposed point.
+                    if not isExposed
+
+                        nonExposedPoints.push({ x: pointX, y: pointY, i: i, j: j })
+
+        # If most points are non-exposed (>80%), return entire boundary for efficiency.
+        totalPoints = gridSize * gridSize
+        nonExposedCount = nonExposedPoints.length
+
+        if nonExposedCount > totalPoints * 0.8
+
+            return [fullBoundary]
+
+        # If no non-exposed points, return empty (entire boundary is exposed).
+        return [] if nonExposedPoints.length is 0
+
+        # Group contiguous non-exposed points using flood fill.
+        visited = new Set()
+        nonExposedRegions = []
+
+        for point in nonExposedPoints
+
+            key = "#{point.i},#{point.j}"
+
+            continue if visited.has(key)
+
+            # Start a new region from this point.
+            regionPoints = @floodFillNonExposedRegion(nonExposedPoints, visited, point.i, point.j, gridSize)
+
+            continue if regionPoints.length is 0
+
+            # Create bounding box for this region.
+            minX = Infinity
+            maxX = -Infinity
+            minY = Infinity
+            maxY = -Infinity
+
+            for p in regionPoints
+
+                minX = Math.min(minX, p.x)
+                maxX = Math.max(maxX, p.x)
+                minY = Math.min(minY, p.y)
+                maxY = Math.max(maxY, p.y)
+
+            # Create a rectangular path for this non-exposed region.
+            nonExposedPath = [
+                { x: minX, y: minY }
+                { x: maxX, y: minY }
+                { x: maxX, y: maxY }
+                { x: minX, y: maxY }
+            ]
+
+            nonExposedRegions.push(nonExposedPath)
+
+        return nonExposedRegions
+
+    # Flood fill helper for non-exposed region detection.
+    floodFillNonExposedRegion: (nonExposedPoints, visited, startI, startJ, gridSize) ->
+
+        # Build a quick lookup map for non-exposed points.
+        pointMap = {}
+
+        for point in nonExposedPoints
+
+            key = "#{point.i},#{point.j}"
+            pointMap[key] = point
+
+        # Flood fill starting from (startI, startJ).
+        regionPoints = []
+        stack = [{ i: startI, j: startJ }]
+
+        while stack.length > 0
+
+            current = stack.pop()
+            key = "#{current.i},#{current.j}"
+
+            continue if visited.has(key)
+            continue if not pointMap[key]?
+
+            visited.add(key)
+            regionPoints.push(pointMap[key])
+
+            # Check 4-connected neighbors.
+            neighbors = [
+                { i: current.i - 1, j: current.j }
+                { i: current.i + 1, j: current.j }
+                { i: current.i, j: current.j - 1 }
+                { i: current.i, j: current.j + 1 }
+            ]
+
+            for neighbor in neighbors
+
+                continue if neighbor.i < 0 or neighbor.i >= gridSize
+                continue if neighbor.j < 0 or neighbor.j >= gridSize
+
+                neighborKey = "#{neighbor.i},#{neighbor.j}"
+
+                if not visited.has(neighborKey) and pointMap[neighborKey]?
+
+                    stack.push(neighbor)
+
+        return regionPoints
+
+    floodFillExposedRegion: (exposedGrid, visited, startI, startJ, gridSize) ->
+
+        region = []
+        stack = [{ i: startI, j: startJ }]
+
+        while stack.length > 0
+            pos = stack.pop()
+            i = pos.i
+            j = pos.j
+
+            # Check bounds.
+            continue if i < 0 or i >= gridSize or j < 0 or j >= gridSize
+
+            # Check if already visited or not exposed.
+            continue if visited[i][j] or not exposedGrid[i][j]?
+
+            # Mark as visited and add to region.
+            visited[i][j] = true
+            region.push({ i: i, j: j, point: exposedGrid[i][j] })
+
+            # Add neighbors to stack.
+            stack.push({ i: i + 1, j: j })
+            stack.push({ i: i - 1, j: j })
+            stack.push({ i: i, j: j + 1 })
+            stack.push({ i: i, j: j - 1 })
+
+        return region

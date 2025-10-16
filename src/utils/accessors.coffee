@@ -30,6 +30,10 @@ module.exports =
 
         return slicer.speedUnit
 
+    getAngleUnit: (slicer) ->
+
+        return slicer.angleUnit
+
     getNozzleTemperature: (slicer) ->
 
         return conversions.temperatureFromInternal(slicer.nozzleTemperature, slicer.temperatureUnit)
@@ -113,6 +117,10 @@ module.exports =
     getSupportPlacement: (slicer) ->
 
         return slicer.supportPlacement
+
+    getSupportThreshold: (slicer) ->
+
+        return conversions.angleFromInternal(slicer.supportThreshold, slicer.angleUnit)
 
     getAdhesionEnabled: (slicer) ->
 
@@ -215,6 +223,16 @@ module.exports =
         if ["celsius", "fahrenheit", "kelvin"].includes unit
 
             slicer.temperatureUnit = String unit
+
+        return slicer
+
+    setAngleUnit: (slicer, unit = "degree") ->
+
+        unit = unit.toLowerCase().trim()
+
+        if ["degree", "radian", "gradian"].includes unit
+
+            slicer.angleUnit = String unit
 
         return slicer
 
@@ -387,6 +405,20 @@ module.exports =
         if ["everywhere", "buildPlate"].includes placement
 
             slicer.supportPlacement = String placement
+
+        return slicer
+
+    setSupportThreshold: (slicer, angle = 45) ->
+
+        if typeof angle is "number"
+
+            # Convert to internal units (degrees) first.
+            angleInDegrees = conversions.angleToInternal(angle, slicer.angleUnit)
+
+            # Validate that the angle in degrees is within 0-90 range.
+            if angleInDegrees >= 0 and angleInDegrees <= 90
+
+                slicer.supportThreshold = angleInDegrees
 
         return slicer
 

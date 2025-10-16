@@ -47,6 +47,7 @@ class Polyslice
         @lengthUnit = options.lengthUnit ?= "millimeters" # String ['millimeters', 'inches'].
         @speedUnit = options.speedUnit ?= "millimeterSecond" # String ['millimeterSecond', 'inchSecond', 'meterSecond'].
         @temperatureUnit = options.temperatureUnit ?= "celsius" # String ['celsius', 'fahrenheit', 'kelvin'].
+        @angleUnit = options.angleUnit ?= "degree" # String ['degree', 'radian', 'gradian'].
 
         # Temperature control settings for hotend and heated bed (stored internally in Celsius).
         @nozzleTemperature = conversions.temperatureToInternal(options.nozzleTemperature ? filamentSettings.nozzleTemperature ? 0, this.temperatureUnit) # Number (°C internal).
@@ -82,6 +83,7 @@ class Polyslice
         @supportEnabled = options.supportEnabled ?= false # Boolean.
         @supportType = options.supportType ?= "normal" # String ['normal', 'tree'].
         @supportPlacement = options.supportPlacement ?= "buildPlate" # String ['everywhere', 'buildPlate'].
+        @supportThreshold = conversions.angleToInternal(options.supportThreshold ?= 45, this.angleUnit) # Number (degrees internal).
 
         # Build plate adhesion settings for first layer stability.
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
@@ -122,6 +124,9 @@ class Polyslice
 
     getSpeedUnit: ->
         accessors.getSpeedUnit(this)
+
+    getAngleUnit: ->
+        accessors.getAngleUnit(this)
 
     getNozzleTemperature: ->
         accessors.getNozzleTemperature(this)
@@ -186,6 +191,9 @@ class Polyslice
     getSupportPlacement: ->
         accessors.getSupportPlacement(this)
 
+    getSupportThreshold: ->
+        accessors.getSupportThreshold(this)
+
     getAdhesionEnabled: ->
         accessors.getAdhesionEnabled(this)
 
@@ -241,6 +249,9 @@ class Polyslice
 
     setTemperatureUnit: (unit = "celsius") ->
         accessors.setTemperatureUnit(this, unit)
+
+    setAngleUnit: (unit = "degree") ->
+        accessors.setAngleUnit(this, unit)
 
     setNozzleTemperature: (temp = 0) ->
         accessors.setNozzleTemperature(this, temp)
@@ -304,6 +315,9 @@ class Polyslice
 
     setSupportPlacement: (placement = "buildPlate") ->
         accessors.setSupportPlacement(this, placement)
+
+    setSupportThreshold: (angle = 45) ->
+        accessors.setSupportThreshold(this, angle)
 
     setAdhesionEnabled: (enabled = false) ->
         accessors.setAdhesionEnabled(this, enabled)
