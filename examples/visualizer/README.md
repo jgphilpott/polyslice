@@ -180,17 +180,23 @@ Use the color coding to:
 
 ### Layer Slider
 
-When G-code contains layer information (LAYER comments), a vertical slider appears on the right side of the screen:
+When G-code contains layer information (LAYER comments), a dual vertical slider appears on the left side of the screen:
 
-- Drag the slider up to show more layers
-- Drag down to hide upper layers
+- **Green slider (right)**: Controls the maximum visible layer (top cutoff)
+  - Drag down to hide upper layers
+  - Drag up to show more layers from the top
+- **Orange slider (left)**: Controls the minimum visible layer (bottom cutoff)
+  - Drag up to hide lower layers
+  - Drag down to show more layers from the bottom
 - Shows "All Layers" when all layers are visible
-- Displays current layer count (e.g., "15 / 25")
+- Displays current layer range (e.g., "Layers 5 - 15 (11 / 25)")
 
 This is particularly useful for:
 - Examining individual layers in detail
 - Identifying issues at specific layer heights
 - Understanding the layer-by-layer build sequence
+- Isolating a specific range of layers to focus on a particular section of the print
+- Removing clutter from top and bottom to inspect middle layers
 
 ## Cura G-code Format Support
 
