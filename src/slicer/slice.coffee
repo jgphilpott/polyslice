@@ -221,12 +221,14 @@ module.exports =
             # Determine if this region needs skin and calculate exposed areas.
             needsSkin = false
             skinAreas = [] # Will store only the exposed portions of currentPath
+            isAbsoluteTopOrBottom = false # Track if this is absolute top/bottom layer
 
             # Always generate skin for the absolute top and bottom layers.
             if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
 
                 needsSkin = true
                 skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
+                isAbsoluteTopOrBottom = true # Mark as absolute top/bottom
 
             else
 
@@ -314,34 +316,41 @@ module.exports =
 
             # Generate infill and/or skin based on exposure.
             #
-            # Strategy: Each area should be EITHER skin OR infill, not both and not empty.
-            # - For layers with exposed areas:
-            #   1. Calculate non-exposed areas (full boundary minus exposed areas)
-            #   2. Generate infill ONLY in non-exposed areas
-            #   3. Generate skin ONLY in exposed areas
-            # - For layers without exposed areas: Generate normal infill only
+            # Strategy:
+            # - Absolute top/bottom layers: ONLY skin (no infill) for clean surfaces
+            # - Mixed layers (partial exposure): infill first (entire layer), then skin second (exposed areas)
+            #   This allows skin to cover infill pattern, preventing it from being visible on exterior
+            # - Middle layers (no exposure): ONLY infill
             #
             # This ensures:
+            # - Clean top/bottom surfaces (skin only, no infill overlap)
+            # - On mixed layers: infill provides structural support, skin covers it for clean exterior
             # - Complete coverage (no gaps)
-            # - Skin generated only where needed (exposed surfaces)
-            # - Infill only in non-exposed areas (no overlap with skin)
-            # - Each area gets EITHER skin OR infill, never both
 
             infillDensity = slicer.getInfillDensity()
 
             if needsSkin
 
-                # This layer has exposed surfaces.
-                # For now, generate infill across entire layer (will improve to exclude skin areas in future).
-                # TODO: Implement line clipping to avoid infill lines in skin areas.
-                if infillDensity > 0
+                if isAbsoluteTopOrBottom
 
-                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                    # Absolute top/bottom layers: ONLY skin (no infill).
+                    # This ensures clean top and bottom surfaces without visible infill pattern.
+                    for skinArea in skinAreas
 
-                # Generate skin ONLY in the exposed areas.
-                for skinArea in skinAreas
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
-                    skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                else
+
+                    # Mixed layers (partial exposure): infill first, then skin second.
+                    # This way the skin (printed after) covers the infill pattern on exposed surfaces.
+                    if infillDensity > 0
+
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+
+                    # Generate skin ONLY in the exposed areas.
+                    for skinArea in skinAreas
+
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
             else
 
