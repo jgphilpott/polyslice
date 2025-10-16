@@ -416,7 +416,10 @@ function updateLayerVisibility() {
     const segmentLayerIndex = segment.userData.layerIndex;
     
     // Check if this layer index is within the visible range
-    const layerVisible = segmentLayerIndex >= minLayer && segmentLayerIndex < maxLayer;
+    // If layerIndex is undefined, treat it as always visible (for backwards compatibility)
+    const layerVisible = segmentLayerIndex === undefined 
+      ? true 
+      : (segmentLayerIndex >= minLayer && segmentLayerIndex < maxLayer);
 
     // Check if this segment's type is enabled.
     const typeEnabled = enabledTypes.has(segment.userData.type) || enabledTypes.has(segment.material.name);
