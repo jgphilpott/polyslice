@@ -114,8 +114,9 @@ body {
 }
 
 #layer-slider-container.visible {
-  display: block;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 #layer-slider-min,
