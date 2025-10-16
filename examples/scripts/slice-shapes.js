@@ -22,21 +22,20 @@ console.log(`- Filament: ${filament.name} (${filament.type.toUpperCase()})`);
 console.log(`- Brand: ${filament.brand}\n`);
 
 // Configuration for batch slicing.
+const shapes = ['cube', 'cylinder', 'sphere', 'cone', 'torus'];
 const infillPatterns = ['grid', 'triangles', 'hexagons'];
 const densities = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
-// Output directory.
-const outputDir = path.join(__dirname, '../../resources/gcode/infill');
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
-}
+// Base output directory.
+const baseOutputDir = path.join(__dirname, '../../resources/gcode/infill');
 
 console.log('Batch Slicing Configuration:');
+console.log(`- Shapes: ${shapes.join(', ')}`);
 console.log(`- Infill Patterns: ${infillPatterns.join(', ')}`);
 console.log(`- Density Range: ${densities[0]}% to ${densities[densities.length - 1]}%`);
 console.log(`- Density Steps: ${densities.length} configurations`);
-console.log(`- Total Files: ${infillPatterns.length * densities.length}`);
-console.log(`- Output Directory: ${outputDir}\n`);
+console.log(`- Total Files: ${shapes.length * infillPatterns.length * densities.length}`);
+console.log(`- Output Directory: ${baseOutputDir}\n`);
 
 /**
  * Create a cube mesh for slicing.
@@ -46,13 +45,108 @@ console.log(`- Output Directory: ${outputDir}\n`);
 function createCube(size = 10) {
   const geometry = new THREE.BoxGeometry(size, size, size);
   const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-  const cube = new THREE.Mesh(geometry, material);
+  const mesh = new THREE.Mesh(geometry, material);
 
   // Position cube so the bottom is at Z=0.
-  cube.position.set(0, 0, size / 2);
-  cube.updateMatrixWorld();
+  mesh.position.set(0, 0, size / 2);
+  mesh.updateMatrixWorld();
 
-  return cube;
+  return mesh;
+}
+
+/**
+ * Create a cylinder mesh for slicing.
+ * @param {number} radius - Radius of the cylinder in millimeters.
+ * @param {number} height - Height of the cylinder in millimeters.
+ * @returns {THREE.Mesh} The cylinder mesh positioned at the build plate.
+ */
+function createCylinder(radius = 5, height = 10) {
+  const geometry = new THREE.CylinderGeometry(radius, radius, height, 32);
+  const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const mesh = new THREE.Mesh(geometry, material);
+
+  // Rotate to align with Z-axis and position so bottom is at Z=0.
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.set(0, 0, height / 2);
+  mesh.updateMatrixWorld();
+
+  return mesh;
+}
+
+/**
+ * Create a sphere mesh for slicing.
+ * @param {number} radius - Radius of the sphere in millimeters.
+ * @returns {THREE.Mesh} The sphere mesh positioned at the build plate.
+ */
+function createSphere(radius = 5) {
+  const geometry = new THREE.SphereGeometry(radius, 32, 32);
+  const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const mesh = new THREE.Mesh(geometry, material);
+
+  // Position sphere so the bottom is at Z=0.
+  mesh.position.set(0, 0, radius);
+  mesh.updateMatrixWorld();
+
+  return mesh;
+}
+
+/**
+ * Create a cone mesh for slicing.
+ * @param {number} radius - Base radius of the cone in millimeters.
+ * @param {number} height - Height of the cone in millimeters.
+ * @returns {THREE.Mesh} The cone mesh positioned at the build plate.
+ */
+function createCone(radius = 5, height = 10) {
+  const geometry = new THREE.ConeGeometry(radius, height, 32);
+  const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const mesh = new THREE.Mesh(geometry, material);
+
+  // Rotate to align with Z-axis and position so bottom is at Z=0.
+  mesh.rotation.x = Math.PI / 2;
+  mesh.position.set(0, 0, height / 2);
+  mesh.updateMatrixWorld();
+
+  return mesh;
+}
+
+/**
+ * Create a torus mesh for slicing.
+ * @param {number} radius - Major radius of the torus in millimeters.
+ * @param {number} tube - Minor radius (tube) of the torus in millimeters.
+ * @returns {THREE.Mesh} The torus mesh positioned at the build plate.
+ */
+function createTorus(radius = 5, tube = 2) {
+  const geometry = new THREE.TorusGeometry(radius, tube, 16, 32);
+  const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+  const mesh = new THREE.Mesh(geometry, material);
+
+  // Position torus so the bottom is at Z=0.
+  mesh.position.set(0, 0, tube);
+  mesh.updateMatrixWorld();
+
+  return mesh;
+}
+
+/**
+ * Create a shape mesh based on shape name.
+ * @param {string} shapeName - Name of the shape to create.
+ * @returns {THREE.Mesh} The shape mesh positioned at the build plate.
+ */
+function createShape(shapeName) {
+  switch (shapeName) {
+    case 'cube':
+      return createCube(10);
+    case 'cylinder':
+      return createCylinder(5, 10);
+    case 'sphere':
+      return createSphere(5);
+    case 'cone':
+      return createCone(5, 10);
+    case 'torus':
+      return createTorus(5, 2);
+    default:
+      throw new Error(`Unknown shape: ${shapeName}`);
+  }
 }
 
 /**
@@ -88,36 +182,48 @@ let successCount = 0;
 let failCount = 0;
 
 for (const pattern of infillPatterns) {
-  console.log(`\nProcessing pattern: ${pattern}`);
-  console.log('─'.repeat(50));
+  console.log(`\n${'='.repeat(70)}`);
+  console.log(`Processing infill pattern: ${pattern.toUpperCase()}`);
+  console.log('='.repeat(70));
 
-  for (const density of densities) {
-    try {
-      // Create a fresh cube for each slice.
-      const cube = createCube(10);
+  // Create output directory for this pattern.
+  const patternDir = path.join(baseOutputDir, pattern);
+  if (!fs.existsSync(patternDir)) {
+    fs.mkdirSync(patternDir, { recursive: true });
+  }
 
-      // Slice the cube.
-      const startTime = Date.now();
-      const gcode = sliceShape(cube, pattern, density);
-      const endTime = Date.now();
+  for (const shape of shapes) {
+    console.log(`\n  Shape: ${shape}`);
+    console.log('  ' + '─'.repeat(66));
 
-      // Generate output filename.
-      const filename = `1cm-cube_${pattern}-${density}%.gcode`;
-      const outputPath = path.join(outputDir, filename);
+    for (const density of densities) {
+      try {
+        // Create a fresh shape for each slice.
+        const mesh = createShape(shape);
 
-      // Save G-code to file.
-      fs.writeFileSync(outputPath, gcode);
+        // Slice the shape.
+        const startTime = Date.now();
+        const gcode = sliceShape(mesh, pattern, density);
+        const endTime = Date.now();
 
-      // Analyze the G-code.
-      const lines = gcode.split('\n').filter(line => line.trim() !== '');
-      const layerLines = lines.filter(line => line.includes('LAYER:'));
+        // Generate output filename.
+        const filename = `1cm-${shape}_${pattern}-${density}%.gcode`;
+        const outputPath = path.join(patternDir, filename);
 
-      console.log(`✅ ${filename.padEnd(35)} | ${(endTime - startTime).toString().padStart(4)}ms | ${lines.length.toString().padStart(5)} lines | ${layerLines.length.toString().padStart(2)} layers`);
+        // Save G-code to file.
+        fs.writeFileSync(outputPath, gcode);
 
-      successCount++;
-    } catch (error) {
-      console.error(`❌ Failed ${pattern}-${density}%: ${error.message}`);
-      failCount++;
+        // Analyze the G-code.
+        const lines = gcode.split('\n').filter(line => line.trim() !== '');
+        const layerLines = lines.filter(line => line.includes('LAYER:'));
+
+        console.log(`  ✅ ${filename.padEnd(42)} | ${(endTime - startTime).toString().padStart(4)}ms | ${lines.length.toString().padStart(5)} lines | ${layerLines.length.toString().padStart(2)} layers`);
+
+        successCount++;
+      } catch (error) {
+        console.error(`  ❌ Failed ${shape} ${pattern}-${density}%: ${error.message}`);
+        failCount++;
+      }
     }
   }
 }
@@ -125,15 +231,16 @@ for (const pattern of infillPatterns) {
 const totalEndTime = Date.now();
 const totalTime = totalEndTime - totalStartTime;
 
-console.log('\n' + '='.repeat(50));
+console.log('\n' + '='.repeat(70));
 console.log('Batch Slicing Complete');
-console.log('='.repeat(50));
-console.log(`✅ Successful: ${successCount}/${infillPatterns.length * densities.length}`);
+console.log('='.repeat(70));
+console.log(`✅ Successful: ${successCount}/${shapes.length * infillPatterns.length * densities.length}`);
 if (failCount > 0) {
-  console.log(`❌ Failed: ${failCount}/${infillPatterns.length * densities.length}`);
+  console.log(`❌ Failed: ${failCount}/${shapes.length * infillPatterns.length * densities.length}`);
 }
 console.log(`⏱️  Total Time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
-console.log(`📁 Output Directory: ${outputDir}`);
+console.log(`📁 Output Directory: ${baseOutputDir}`);
+console.log(`📂 Subdirectories: ${infillPatterns.map(p => `${p}/`).join(', ')}`);
 
 if (successCount > 0) {
   console.log('\n✅ Batch slicing completed successfully!');
