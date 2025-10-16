@@ -110,24 +110,53 @@ body {
   height: calc(100vh - 208px);
   min-height: 200px;
   max-height: calc(100vh - 208px);
+  width: 80px;
 }
 
 #layer-slider-container.visible {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: block;
+  position: relative;
 }
 
-#layer-slider {
+#layer-slider-min,
+#layer-slider-max {
   writing-mode: vertical-lr;
   direction: rtl;
   flex: 1;
   width: 30px;
   cursor: pointer;
   min-height: 150px;
+  position: absolute;
+  left: 15px;
+  top: 20px;
+  bottom: 50px;
+  height: auto;
 }
 
-#layer-slider::-webkit-slider-thumb {
+#layer-slider-min {
+  left: 35px;
+}
+
+#layer-slider-min::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 30px;
+  height: 20px;
+  background: #ff6600;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+#layer-slider-min::-moz-range-thumb {
+  width: 30px;
+  height: 20px;
+  background: #ff6600;
+  cursor: pointer;
+  border-radius: 3px;
+  border: none;
+}
+
+#layer-slider-max::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 30px;
@@ -137,7 +166,7 @@ body {
   border-radius: 3px;
 }
 
-#layer-slider::-moz-range-thumb {
+#layer-slider-max::-moz-range-thumb {
   width: 30px;
   height: 20px;
   background: #4caf50;
@@ -148,12 +177,15 @@ body {
 
 #layer-info {
   text-align: center;
-  margin-top: 10px;
   font-size: 12px;
   color: #4caf50;
   white-space: nowrap;
-  min-width: 80px;
-  width: 80px;
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: auto;
+  min-width: 60px;
 }
 
 /* Legend */

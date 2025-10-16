@@ -12,7 +12,10 @@ let scene, camera, renderer, controls;
 let gcodeObject = null;
 let axesLines;
 let allLayers = [];
-let layerSlider = null;
+let layersByIndex = {}; // Map layer index to LineSegments
+let layerCount = 0; // Total number of actual layers from LAYER comments
+let layerSliderMin = null;
+let layerSliderMax = null;
 
 // Initialize the visualizer on page load.
 window.addEventListener('DOMContentLoaded', init);
@@ -333,25 +336,27 @@ function loadAxisCheckboxStates() {
 }
 
 /**
- * Create the layer slider HTML element.
+ * Create the layer slider HTML elements (dual range sliders).
  */
 function createLayerSlider() {
   const sliderHTML = `
         <div id="layer-slider-container">
-            <input type="range" id="layer-slider" min="0" max="100" value="100" orient="vertical">
+            <input type="range" id="layer-slider-max" min="0" max="100" value="100" orient="vertical">
+            <input type="range" id="layer-slider-min" min="0" max="100" value="0" orient="vertical">
             <div id="layer-info">All Layers</div>
         </div>
     `;
 
   document.body.insertAdjacentHTML('beforeend', sliderHTML);
-  layerSlider = document.getElementById('layer-slider');
+  layerSliderMin = document.getElementById('layer-slider-min');
+  layerSliderMax = document.getElementById('layer-slider-max');
 }
 
 /**
  * Setup layer slider after G-code is loaded.
  */
 function setupLayerSlider() {
-  if (allLayers.length === 0) {
+  if (layerCount === 0) {
     document
       .getElementById('layer-slider-container')
       .classList.remove('visible');
@@ -361,23 +366,41 @@ function setupLayerSlider() {
   // Show the slider.
   document.getElementById('layer-slider-container').classList.add('visible');
 
-  // Setup slider range.
-  layerSlider.max = allLayers.length;
-  layerSlider.value = allLayers.length;
+  // Setup slider ranges.
+  layerSliderMin.min = 0;
+  layerSliderMin.max = layerCount;
+  layerSliderMin.value = 0;
+  
+  layerSliderMax.min = 0;
+  layerSliderMax.max = layerCount;
+  layerSliderMax.value = layerCount;
 
-  // Remove existing listener and add new one.
-  layerSlider.removeEventListener('input', updateLayerVisibility);
-  layerSlider.addEventListener('input', updateLayerVisibility);
+  // Remove existing listeners and add new ones.
+  layerSliderMin.removeEventListener('input', updateLayerVisibility);
+  layerSliderMax.removeEventListener('input', updateLayerVisibility);
+  layerSliderMin.addEventListener('input', updateLayerVisibility);
+  layerSliderMax.addEventListener('input', updateLayerVisibility);
 
   // Update initial display.
   updateLayerVisibility();
 }
 
 /**
- * Update layer visibility based on slider value.
+ * Update layer visibility based on slider values.
  */
 function updateLayerVisibility() {
-  const visibleCount = parseInt(layerSlider.value);
+  let minLayer = parseInt(layerSliderMin.value);
+  let maxLayer = parseInt(layerSliderMax.value);
+  
+  // Ensure min is not greater than max
+  if (minLayer > maxLayer) {
+    const temp = minLayer;
+    minLayer = maxLayer;
+    maxLayer = temp;
+    // Update slider values to reflect the swap
+    layerSliderMin.value = minLayer;
+    layerSliderMax.value = maxLayer;
+  }
 
   // Get currently enabled movement types from checkboxes.
   const enabledTypes = new Set();
@@ -385,22 +408,28 @@ function updateLayerVisibility() {
     enabledTypes.add(checkbox.dataset.type);
   });
 
+  // Update visibility for all line segments
   for (let i = 0; i < allLayers.length; i++) {
-    const layer = allLayers[i];
-    const layerVisible = i < visibleCount;
+    const segment = allLayers[i];
+    
+    // Get the layer index for this segment
+    const segmentLayerIndex = segment.userData.layerIndex;
+    
+    // Check if this layer index is within the visible range
+    const layerVisible = segmentLayerIndex >= minLayer && segmentLayerIndex < maxLayer;
 
-    // Check if this layer's type is enabled.
-    const typeEnabled = enabledTypes.has(layer.userData.type) || enabledTypes.has(layer.material.name);
+    // Check if this segment's type is enabled.
+    const typeEnabled = enabledTypes.has(segment.userData.type) || enabledTypes.has(segment.material.name);
 
-    // Layer is visible only if both conditions are met.
-    layer.visible = layerVisible && typeEnabled;
+    // Segment is visible only if both conditions are met.
+    segment.visible = layerVisible && typeEnabled;
   }
 
   // Update info text.
   const infoText =
-    visibleCount === allLayers.length
+    minLayer === 0 && maxLayer === layerCount
       ? 'All Layers'
-      : `${visibleCount} / ${allLayers.length}`;
+      : `Layers ${minLayer} - ${maxLayer - 1} (${maxLayer - minLayer} / ${layerCount})`;
   document.getElementById('layer-info').textContent = infoText;
 }
 
@@ -656,10 +685,43 @@ function loadGCode(content, filename) {
 
   // Collect all layers for slider control.
   allLayers = [];
+  layersByIndex = {};
+  
+  // Get layer count from metadata if available
+  if (gcodeObject.userData.metadata && gcodeObject.userData.metadata.layerCount > 0) {
+    layerCount = gcodeObject.userData.metadata.layerCount;
+  } else {
+    // Fallback: count unique layer names
+    const uniqueLayers = new Set();
+    gcodeObject.traverse(child => {
+      if (child instanceof THREE.LineSegments && child.name.startsWith('layer')) {
+        const layerNum = parseInt(child.name.replace('layer', ''));
+        if (!isNaN(layerNum)) {
+          uniqueLayers.add(layerNum);
+        }
+      }
+    });
+    layerCount = uniqueLayers.size;
+  }
+  
   gcodeObject.traverse(child => {
     if (child instanceof THREE.LineSegments) {
       allLayers.push(child);
       child.visible = true; // Show all layers by default.
+      
+      // Extract layer index from name (e.g., "layer0", "layer1")
+      if (child.name.startsWith('layer')) {
+        const layerIndex = parseInt(child.name.replace('layer', ''));
+        if (!isNaN(layerIndex)) {
+          child.userData.layerIndex = layerIndex;
+          
+          // Group segments by layer index
+          if (!layersByIndex[layerIndex]) {
+            layersByIndex[layerIndex] = [];
+          }
+          layersByIndex[layerIndex].push(child);
+        }
+      }
     }
   });
 
