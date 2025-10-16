@@ -25,7 +25,7 @@ resources/
 │   ├── cone/
 │   └── torus/
 ├── gcode/                          # G-code output samples (stored in Git LFS)
-│   └── infill/   # Infill pattern examples
+│   └── infill/  # Infill pattern examples
 └── generate-models.js
 ```
 
