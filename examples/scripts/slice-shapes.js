@@ -207,7 +207,7 @@ for (const pattern of infillPatterns) {
         const endTime = Date.now();
 
         // Generate output filename.
-        const filename = `1cm-${shape}_${pattern}-${density}%.gcode`;
+        const filename = `${shape}-${density}%.gcode`;
         const outputPath = path.join(patternDir, filename);
 
         // Save G-code to file.
