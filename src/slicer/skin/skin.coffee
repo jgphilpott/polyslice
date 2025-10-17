@@ -214,55 +214,55 @@ module.exports =
             # We should have exactly 2 intersection points.
             if intersections.length >= 2
 
-                # For zig-zag pattern, choose start/end to minimize travel distance.
-                # If this is not the first line, pick the point closest to the last end point.
-                if lastEndPoint?
+                # Clip the line segment to the actual infill boundary polygon.
+                # This ensures infill stays within the boundary even for circular/irregular shapes.
+                clippedSegments = helpers.clipLineToPolygon(intersections[0], intersections[1], infillBoundary)
 
-                    # Calculate distances from last end point to both intersections.
-                    dist0 = Math.sqrt((intersections[0].x - lastEndPoint.x) ** 2 + (intersections[0].y - lastEndPoint.y) ** 2)
-                    dist1 = Math.sqrt((intersections[1].x - lastEndPoint.x) ** 2 + (intersections[1].y - lastEndPoint.y) ** 2)
+                # Process each clipped segment (usually just one for convex shapes).
+                for segment in clippedSegments
 
-                    # Start from the closer point.
-                    if dist0 < dist1
+                    startPoint = segment.start
+                    endPoint = segment.end
 
-                        startPoint = intersections[0]
-                        endPoint = intersections[1]
+                    # For zig-zag pattern, choose start/end to minimize travel distance.
+                    # If this is not the first line, pick the point closest to the last end point.
+                    if lastEndPoint?
 
-                    else
+                        # Calculate distances from last end point to both endpoints.
+                        dist0 = Math.sqrt((startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2)
+                        dist1 = Math.sqrt((endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2)
 
-                        startPoint = intersections[1]
-                        endPoint = intersections[0]
+                        # Swap if starting from end is closer.
+                        if dist1 < dist0
 
-                else
+                            temp = startPoint
+                            startPoint = endPoint
+                            endPoint = temp
 
-                    # First line: use consistent ordering.
-                    startPoint = intersections[0]
-                    endPoint = intersections[1]
+                    # Move to start of line (travel move).
+                    offsetStartX = startPoint.x + centerOffsetX
+                    offsetStartY = startPoint.y + centerOffsetY
 
-                # Move to start of line (travel move).
-                offsetStartX = startPoint.x + centerOffsetX
-                offsetStartY = startPoint.y + centerOffsetY
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
 
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
+                    # Draw the diagonal line.
+                    dx = endPoint.x - startPoint.x
+                    dy = endPoint.y - startPoint.y
 
-                # Draw the diagonal line.
-                dx = endPoint.x - startPoint.x
-                dy = endPoint.y - startPoint.y
+                    distance = Math.sqrt(dx * dx + dy * dy)
 
-                distance = Math.sqrt(dx * dx + dy * dy)
+                    if distance > 0.001
 
-                if distance > 0.001
+                        extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                        slicer.cumulativeE += extrusionDelta
 
-                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                    slicer.cumulativeE += extrusionDelta
+                        offsetEndX = endPoint.x + centerOffsetX
+                        offsetEndY = endPoint.y + centerOffsetY
 
-                    offsetEndX = endPoint.x + centerOffsetX
-                    offsetEndY = endPoint.y + centerOffsetY
+                        slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
 
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
-
-                    # Track where this line ended for next iteration.
-                    lastEndPoint = endPoint
+                        # Track where this line ended for next iteration.
+                        lastEndPoint = endPoint
 
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.

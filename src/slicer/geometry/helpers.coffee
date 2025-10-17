@@ -260,6 +260,114 @@ module.exports =
 
         return { x: x, y: y }
 
+    # Clip a line segment to a polygon boundary using Sutherland-Hodgman algorithm.
+    # Returns an array of line segments that are inside the polygon.
+    # The input line is clipped against each edge of the polygon.
+    clipLineToPolygon: (lineStart, lineEnd, polygon) ->
+
+        return [] if not polygon or polygon.length < 3
+        return [] if not lineStart or not lineEnd
+
+        # Start with the full line segment as a list of segments to process.
+        segments = [{ start: lineStart, end: lineEnd }]
+
+        # Process each edge of the polygon.
+        for i in [0...polygon.length]
+
+            nextIdx = if i is polygon.length - 1 then 0 else i + 1
+
+            edgeStart = polygon[i]
+            edgeEnd = polygon[nextIdx]
+
+            # Edge vector.
+            edgeX = edgeEnd.x - edgeStart.x
+            edgeY = edgeEnd.y - edgeStart.y
+
+            # Inward normal (perpendicular to edge, pointing inside polygon).
+            # Assume CCW winding, so normal is (-edgeY, edgeX).
+            normalX = -edgeY
+            normalY = edgeX
+
+            # Clip all current segments against this edge.
+            newSegments = []
+
+            for segment in segments
+
+                segStart = segment.start
+                segEnd = segment.end
+
+                # Calculate which side of the edge each endpoint is on.
+                # Positive = inside, negative = outside.
+                startDist = (segStart.x - edgeStart.x) * normalX + (segStart.y - edgeStart.y) * normalY
+                endDist = (segEnd.x - edgeStart.x) * normalX + (segEnd.y - edgeStart.y) * normalY
+
+                # Both inside: keep the segment.
+                if startDist >= 0 and endDist >= 0
+
+                    newSegments.push(segment)
+
+                # Both outside: discard the segment.
+                else if startDist < 0 and endDist < 0
+
+                    continue
+
+                # One inside, one outside: clip the segment.
+                else
+
+                    # Find intersection with edge.
+                    intersection = @lineSegmentIntersection(segStart, segEnd, edgeStart, edgeEnd)
+
+                    if intersection
+
+                        if startDist >= 0
+
+                            # Start is inside, end is outside: keep start to intersection.
+                            newSegments.push({ start: segStart, end: intersection })
+
+                        else
+
+                            # Start is outside, end is inside: keep intersection to end.
+                            newSegments.push({ start: intersection, end: segEnd })
+
+            segments = newSegments
+
+        return segments
+
+    # Calculate intersection point of two line segments (with boundary checking).
+    # Returns the intersection point if it exists within both segments, null otherwise.
+    lineSegmentIntersection: (p1, p2, p3, p4) ->
+
+        x1 = p1.x
+        y1 = p1.y
+
+        x2 = p2.x
+        y2 = p2.y
+
+        x3 = p3.x
+        y3 = p3.y
+
+        x4 = p4.x
+        y4 = p4.y
+
+        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+
+        # Lines are parallel or coincident.
+        if Math.abs(denom) < 0.0001 then return null
+
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+        u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
+
+        # Check if intersection is within both segments.
+        if t >= 0 and t <= 1 and u >= 0 and u <= 1
+
+            # Calculate intersection point.
+            x = x1 + t * (x2 - x1)
+            y = y1 + t * (y2 - y1)
+
+            return { x: x, y: y }
+
+        return null
+
     # Calculate the bounding box of a path.
     calculatePathBounds: (path) ->
 
