@@ -218,7 +218,8 @@ module.exports =
             isAbsoluteTopOrBottom = false # Track if this is absolute top/bottom layer
 
             # Always generate skin for the absolute top and bottom layers.
-            if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+            # Use <= instead of < to ensure we get enough skin layers even if the first layer has no geometry.
+            if layerIndex < skinLayerCount + 1 or layerIndex >= totalLayers - skinLayerCount
 
                 needsSkin = true
                 skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
