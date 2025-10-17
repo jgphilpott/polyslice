@@ -260,18 +260,28 @@ module.exports =
 
         return { x: x, y: y }
 
-    # Clip a line segment to a polygon boundary using Sutherland-Hodgman algorithm.
+    # Clip a line segment to a polygon boundary.
     # Returns an array of line segments that are inside the polygon.
-    # The input line is clipped against each edge of the polygon.
+    # Uses the Liang-Barsky line clipping approach adapted for polygons.
     clipLineToPolygon: (lineStart, lineEnd, polygon) ->
 
         return [] if not polygon or polygon.length < 3
         return [] if not lineStart or not lineEnd
 
-        # Start with the full line segment as a list of segments to process.
-        segments = [{ start: lineStart, end: lineEnd }]
+        # Find all intersection points of the line with polygon edges.
+        intersections = []
 
-        # Process each edge of the polygon.
+        # Add the line endpoints with their inside/outside status.
+        lineStartInside = @pointInPolygon(lineStart, polygon)
+        lineEndInside = @pointInPolygon(lineEnd, polygon)
+
+        if lineStartInside
+            intersections.push({ point: lineStart, t: 0, isEndpoint: true })
+
+        if lineEndInside
+            intersections.push({ point: lineEnd, t: 1, isEndpoint: true })
+
+        # Find intersections with polygon edges.
         for i in [0...polygon.length]
 
             nextIdx = if i is polygon.length - 1 then 0 else i + 1
@@ -279,57 +289,56 @@ module.exports =
             edgeStart = polygon[i]
             edgeEnd = polygon[nextIdx]
 
-            # Edge vector.
-            edgeX = edgeEnd.x - edgeStart.x
-            edgeY = edgeEnd.y - edgeStart.y
+            intersection = @lineSegmentIntersection(lineStart, lineEnd, edgeStart, edgeEnd)
 
-            # Inward normal (perpendicular to edge, pointing inside polygon).
-            # Assume CCW winding, so normal is (-edgeY, edgeX).
-            normalX = -edgeY
-            normalY = edgeX
+            if intersection
 
-            # Clip all current segments against this edge.
-            newSegments = []
+                # Calculate parametric t value (0 to 1) along the line.
+                dx = lineEnd.x - lineStart.x
+                dy = lineEnd.y - lineStart.y
 
-            for segment in segments
-
-                segStart = segment.start
-                segEnd = segment.end
-
-                # Calculate which side of the edge each endpoint is on.
-                # Positive = inside, negative = outside.
-                startDist = (segStart.x - edgeStart.x) * normalX + (segStart.y - edgeStart.y) * normalY
-                endDist = (segEnd.x - edgeStart.x) * normalX + (segEnd.y - edgeStart.y) * normalY
-
-                # Both inside: keep the segment.
-                if startDist >= 0 and endDist >= 0
-
-                    newSegments.push(segment)
-
-                # Both outside: discard the segment.
-                else if startDist < 0 and endDist < 0
-
-                    continue
-
-                # One inside, one outside: clip the segment.
+                if Math.abs(dx) > Math.abs(dy)
+                    t = (intersection.x - lineStart.x) / dx
                 else
+                    t = (intersection.y - lineStart.y) / dy
 
-                    # Find intersection with edge.
-                    intersection = @lineSegmentIntersection(segStart, segEnd, edgeStart, edgeEnd)
+                # Only add if not already added as an endpoint (with small tolerance).
+                isNew = true
+                for existing in intersections
+                    if Math.abs(existing.t - t) < 0.0001
+                        isNew = false
+                        break
 
-                    if intersection
+                if isNew
+                    intersections.push({ point: intersection, t: t, isEndpoint: false })
 
-                        if startDist >= 0
+        # Return empty if no intersections found.
+        return [] if intersections.length < 2
 
-                            # Start is inside, end is outside: keep start to intersection.
-                            newSegments.push({ start: segStart, end: intersection })
+        # Sort intersections by parametric t value.
+        intersections.sort((a, b) -> a.t - b.t)
 
-                        else
+        # Build segments from pairs of intersections.
+        # Segments between consecutive intersections are inside if the midpoint is inside.
+        segments = []
 
-                            # Start is outside, end is inside: keep intersection to end.
-                            newSegments.push({ start: intersection, end: segEnd })
+        for i in [0...intersections.length - 1]
 
-            segments = newSegments
+            startIntersection = intersections[i]
+            endIntersection = intersections[i + 1]
+
+            # Calculate midpoint to test if this segment is inside.
+            midT = (startIntersection.t + endIntersection.t) / 2
+            midX = lineStart.x + midT * (lineEnd.x - lineStart.x)
+            midY = lineStart.y + midT * (lineEnd.y - lineStart.y)
+            midPoint = { x: midX, y: midY }
+
+            if @pointInPolygon(midPoint, polygon)
+
+                segments.push({
+                    start: startIntersection.point
+                    end: endIntersection.point
+                })
 
         return segments
 
