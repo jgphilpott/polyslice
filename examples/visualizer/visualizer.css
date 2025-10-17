@@ -66,7 +66,7 @@ body {
 #info {
   position: fixed;
   bottom: 20px;
-  right: 20px;
+  left: 20px;
   z-index: 100;
   background: rgba(0, 0, 0, 0.8);
   padding: 15px;
@@ -114,9 +114,9 @@ body {
   padding: 20px 15px;
   border-radius: 8px;
   display: none;
-  height: calc(100vh - 208px);
+  height: calc(100vh - 136px);
   min-height: 200px;
-  max-height: calc(100vh - 208px);
+  max-height: calc(100vh - 136px);
   width: 80px;
 }
 
@@ -200,7 +200,7 @@ body {
 
 .legend-container {
   position: fixed;
-  bottom: 130px;
+  bottom: 20px;
   right: 20px;
   z-index: 100;
   display: flex;

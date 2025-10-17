@@ -366,6 +366,7 @@ function setupLayerSlider() {
 
   // Show the slider.
   document.getElementById('layer-slider-container').classList.add('visible');
+  document.getElementById('info').style.left = '120px';
 
   // Setup slider ranges.
   layerSliderMin.min = 0;
