@@ -16,6 +16,7 @@ let layersByIndex = {}; // Map layer index to LineSegments
 let layerCount = 0; // Total number of actual layers from LAYER comments
 let layerSliderMin = null;
 let layerSliderMax = null;
+let isFirstUpload = true; // Track if this is the first G-code upload
 
 // Initialize the visualizer on page load.
 window.addEventListener('DOMContentLoaded', init);
@@ -365,6 +366,7 @@ function setupLayerSlider() {
 
   // Show the slider.
   document.getElementById('layer-slider-container').classList.add('visible');
+  document.getElementById('info').style.left = '120px';
 
   // Setup slider ranges.
   layerSliderMin.min = 0;
@@ -734,8 +736,11 @@ function loadGCode(content, filename) {
   // Update info panel.
   updateInfo(filename, gcodeObject);
 
-  // Center camera on G-code.
-  centerCamera(gcodeObject);
+  // Center camera on G-code only for the first upload.
+  if (isFirstUpload) {
+    centerCamera(gcodeObject);
+    isFirstUpload = false;
+  }
 }
 
 /**
@@ -826,6 +831,7 @@ function centerCamera(object) {
  * Reset view to initial state.
  */
 function resetView() {
+  // Reset camera position
   if (gcodeObject) {
     centerCamera(gcodeObject);
   } else {
@@ -833,6 +839,30 @@ function resetView() {
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();
+  }
+
+  // Reset all movement type checkboxes to checked
+  document.querySelectorAll('.legend-checkbox:not(.axis-checkbox)').forEach(checkbox => {
+    checkbox.checked = true;
+  });
+
+  // Reset all axis checkboxes to checked and update axis visibility
+  document.querySelectorAll('.axis-checkbox').forEach(checkbox => {
+    checkbox.checked = true;
+    const axis = checkbox.dataset.axis;
+    if (axesLines) {
+      const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+      axesLines[axisIndex].visible = true;
+    }
+  });
+
+  // Save the reset states to localStorage
+  saveCheckboxStates();
+  saveAxisCheckboxStates();
+
+  // Update layer visibility with all checkboxes checked
+  if (allLayers.length > 0) {
+    updateLayerVisibility();
   }
 }
 
