@@ -1,87 +1,7 @@
 # Hexagons infill pattern implementation for Polyslice.
 
 coders = require('../../gcode/coders')
-
-# Helper function to clip a line segment to a rectangular bounding box.
-# Uses Cohen-Sutherland line clipping algorithm.
-clipLineToBounds = (p1, p2, minX, maxX, minY, maxY) ->
-
-    # Compute outcodes for both endpoints.
-    INSIDE = 0  # 0000
-    LEFT = 1    # 0001
-    RIGHT = 2   # 0010
-    BOTTOM = 4  # 0100
-    TOP = 8     # 1000
-
-    computeOutcode = (x, y) ->
-
-        code = INSIDE
-
-        if x < minX then code |= LEFT
-        else if x > maxX then code |= RIGHT
-        if y < minY then code |= BOTTOM
-        else if y > maxY then code |= TOP
-
-        return code
-
-    x1 = p1.x
-    y1 = p1.y
-    x2 = p2.x
-    y2 = p2.y
-
-    outcode1 = computeOutcode(x1, y1)
-    outcode2 = computeOutcode(x2, y2)
-
-    while true
-
-        # Both endpoints inside - accept.
-        if (outcode1 | outcode2) is 0
-
-            return { p1: { x: x1, y: y1 }, p2: { x: x2, y: y2 } }
-
-        # Both endpoints outside same region - reject.
-        if (outcode1 & outcode2) != 0
-
-            return null
-
-        # At least one endpoint is outside - find intersection.
-        outcodeOut = if outcode1 != 0 then outcode1 else outcode2
-
-        # Find intersection point.
-        if (outcodeOut & TOP) != 0
-
-            x = x1 + (x2 - x1) * (maxY - y1) / (y2 - y1)
-            y = maxY
-
-        else if (outcodeOut & BOTTOM) != 0
-
-            x = x1 + (x2 - x1) * (minY - y1) / (y2 - y1)
-            y = minY
-
-        else if (outcodeOut & RIGHT) != 0
-
-            y = y1 + (y2 - y1) * (maxX - x1) / (x2 - x1)
-            x = maxX
-
-        else if (outcodeOut & LEFT) != 0
-
-            y = y1 + (y2 - y1) * (minX - x1) / (x2 - x1)
-            x = minX
-
-        # Replace point outside with intersection point.
-        if outcodeOut is outcode1
-
-            x1 = x
-            y1 = y
-
-            outcode1 = computeOutcode(x1, y1)
-
-        else
-
-            x2 = x
-            y2 = y
-
-            outcode2 = computeOutcode(x2, y2)
+helpers = require('../../geometry/helpers')
 
 module.exports =
 
@@ -207,15 +127,17 @@ module.exports =
                         v1 = vertices[i]
                         v2 = vertices[(i + 1) % 6]
 
-                        # Clip edge to bounding box first.
-                        clippedSegment = clipLineToBounds(v1, v2, minX, maxX, minY, maxY)
+                        # Clip edge to the actual infill boundary polygon.
+                        # This ensures infill stays within the boundary even for circular/irregular shapes.
+                        clippedSegments = helpers.clipLineToPolygon(v1, v2, infillBoundary)
 
-                        if clippedSegment?
+                        # Process each clipped segment (usually just one for convex shapes).
+                        for clippedSegment in clippedSegments
 
                             # Create edge key AFTER clipping (using clipped coordinates).
                             edgeKey = createEdgeKey(
-                                clippedSegment.p1.x, clippedSegment.p1.y,
-                                clippedSegment.p2.x, clippedSegment.p2.y
+                                clippedSegment.start.x, clippedSegment.start.y,
+                                clippedSegment.end.x, clippedSegment.end.y
                             )
 
                             # Only add edge if we haven't seen it before.
@@ -223,8 +145,8 @@ module.exports =
 
                                 # Store clipped edge segment.
                                 uniqueEdges[edgeKey] = {
-                                    start: { x: clippedSegment.p1.x, y: clippedSegment.p1.y }
-                                    end: { x: clippedSegment.p2.x, y: clippedSegment.p2.y }
+                                    start: { x: clippedSegment.start.x, y: clippedSegment.start.y }
+                                    end: { x: clippedSegment.end.x, y: clippedSegment.end.y }
                                 }
 
         # Convert unique edges map to array.

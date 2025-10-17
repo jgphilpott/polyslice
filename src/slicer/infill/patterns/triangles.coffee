@@ -1,6 +1,7 @@
 # Triangles infill pattern implementation for Polyslice.
 
 coders = require('../../gcode/coders')
+helpers = require('../../geometry/helpers')
 
 module.exports =
 
@@ -101,11 +102,17 @@ module.exports =
             # We should have exactly 2 intersection points.
             if intersections.length >= 2
 
-                # Store this line segment for later rendering.
-                allInfillLines.push({
-                    start: intersections[0]
-                    end: intersections[1]
-                })
+                # Clip the line segment to the actual infill boundary polygon.
+                # This ensures infill stays within the boundary even for circular/irregular shapes.
+                clippedSegments = helpers.clipLineToPolygon(intersections[0], intersections[1], infillBoundary)
+
+                # Store each clipped segment for later rendering.
+                for segment in clippedSegments
+
+                    allInfillLines.push({
+                        start: segment.start
+                        end: segment.end
+                    })
 
             # Move to next diagonal line.
             offset += offsetStep45
@@ -165,11 +172,17 @@ module.exports =
             # We should have exactly 2 intersection points.
             if intersections.length >= 2
 
-                # Store this line segment for later rendering.
-                allInfillLines.push({
-                    start: intersections[0]
-                    end: intersections[1]
-                })
+                # Clip the line segment to the actual infill boundary polygon.
+                # This ensures infill stays within the boundary even for circular/irregular shapes.
+                clippedSegments = helpers.clipLineToPolygon(intersections[0], intersections[1], infillBoundary)
+
+                # Store each clipped segment for later rendering.
+                for segment in clippedSegments
+
+                    allInfillLines.push({
+                        start: segment.start
+                        end: segment.end
+                    })
 
             # Move to next diagonal line.
             offset += offsetStep105
@@ -229,11 +242,17 @@ module.exports =
             # We should have exactly 2 intersection points.
             if intersections.length >= 2
 
-                # Store this line segment for later rendering.
-                allInfillLines.push({
-                    start: intersections[0]
-                    end: intersections[1]
-                })
+                # Clip the line segment to the actual infill boundary polygon.
+                # This ensures infill stays within the boundary even for circular/irregular shapes.
+                clippedSegments = helpers.clipLineToPolygon(intersections[0], intersections[1], infillBoundary)
+
+                # Store each clipped segment for later rendering.
+                for segment in clippedSegments
+
+                    allInfillLines.push({
+                        start: segment.start
+                        end: segment.end
+                    })
 
             # Move to next diagonal line.
             offset += offsetStep15
