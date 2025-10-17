@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en-US" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>G-code Visualizer - Layout Test</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        background-color: #1a1a1a;
+        color: #ffffff;
+        overflow: hidden;
+      }
+
+      #forkme {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 150px;
+        height: 150px;
+        z-index: 1000;
+        cursor: pointer;
+        background-color: orange;
+      }
+
+      #controls {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 20px;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 250px;
+      }
+
+      .icon-row {
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .icon-row img {
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        background-color: #666;
+        border-radius: 4px;
+      }
+
+      #info {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 8px;
+        min-width: 250px;
+        max-width: 350px;
+      }
+
+      #filename {
+        display: block;
+        font-weight: bold;
+        color: #4caf50;
+        margin-bottom: 5px;
+        word-wrap: break-word;
+      }
+
+      #stats {
+        display: block;
+        font-size: 12px;
+        color: #aaa;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
+
+      .legend-container {
+        position: fixed;
+        bottom: 130px;
+        right: 20px;
+        z-index: 100;
+        display: flex;
+        flex-direction: row;
+        gap: 15px;
+      }
+
+      #legend, #axes-legend {
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 8px;
+      }
+
+      #legend h3, #axes-legend h3 {
+        margin-bottom: 10px;
+        font-size: 14px;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+        font-size: 12px;
+      }
+
+      .legend-checkbox {
+        margin-right: 8px;
+        cursor: pointer;
+        width: 14px;
+        height: 14px;
+      }
+
+      .legend-color {
+        width: 30px;
+        height: 3px;
+        margin-right: 10px;
+        border-radius: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="forkme" title="Fork Me on GitHub"></div>
+
+    <div id="controls">
+      <div class="icon-row">
+        <img title="Help" />
+        <img title="Upload G-code" />
+        <img title="Reset View" />
+      </div>
+    </div>
+
+    <div id="info">
+      <span id="filename">example-file.gcode</span>
+      <span id="stats">Total segments: 1234
+Layers: 50
+Movement types detected:
+  WALL-OUTER: 100 sections
+  WALL-INNER: 80 sections
+  FILL: 60 sections</span>
+    </div>
+
+    <div class="legend-container">
+      <div id="legend">
+        <h3>Movement Types</h3>
+        <div class="legend-item">
+          <input type="checkbox" class="legend-checkbox" checked />
+          <div class="legend-color" style="background-color: #ff6600;"></div>
+          <span>Outer Wall</span>
+        </div>
+        <div class="legend-item">
+          <input type="checkbox" class="legend-checkbox" checked />
+          <div class="legend-color" style="background-color: #ff9933;"></div>
+          <span>Inner Wall</span>
+        </div>
+        <div class="legend-item">
+          <input type="checkbox" class="legend-checkbox" checked />
+          <div class="legend-color" style="background-color: #ffcc00;"></div>
+          <span>Skin (Top/Bottom)</span>
+        </div>
+        <div class="legend-item">
+          <input type="checkbox" class="legend-checkbox" checked />
+          <div class="legend-color" style="background-color: #00ccff;"></div>
+          <span>Infill</span>
+        </div>
+      </div>
+      <div id="axes-legend">
+        <h3>Axes</h3>
+        <div class="legend-item">
+          <input type="checkbox" class="legend-checkbox" checked />
+          <div class="legend-color" style="background-color: #ff0000;"></div>
+          <span>X Axis</span>
+        </div>
+        <div class="legend-item">
+          <input type="checkbox" class="legend-checkbox" checked />
+          <div class="legend-color" style="background-color: #00ff00;"></div>
+          <span>Y Axis</span>
+        </div>
+        <div class="legend-item">
+          <input type="checkbox" class="legend-checkbox" checked />
+          <div class="legend-color" style="background-color: #0000ff;"></div>
+          <span>Z Axis</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -16,6 +16,7 @@ let layersByIndex = {}; // Map layer index to LineSegments
 let layerCount = 0; // Total number of actual layers from LAYER comments
 let layerSliderMin = null;
 let layerSliderMax = null;
+let isFirstUpload = true; // Track if this is the first G-code upload
 
 // Initialize the visualizer on page load.
 window.addEventListener('DOMContentLoaded', init);
@@ -734,8 +735,11 @@ function loadGCode(content, filename) {
   // Update info panel.
   updateInfo(filename, gcodeObject);
 
-  // Center camera on G-code.
-  centerCamera(gcodeObject);
+  // Center camera on G-code only for the first upload.
+  if (isFirstUpload) {
+    centerCamera(gcodeObject);
+    isFirstUpload = false;
+  }
 }
 
 /**
