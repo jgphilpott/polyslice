@@ -196,6 +196,12 @@ for (const pattern of infillPatterns) {
     console.log(`\n  Shape: ${shape}`);
     console.log('  ' + '─'.repeat(66));
 
+    // Create output directory for this shape within the pattern directory.
+    const shapeDir = path.join(patternDir, shape);
+    if (!fs.existsSync(shapeDir)) {
+      fs.mkdirSync(shapeDir, { recursive: true });
+    }
+
     for (const density of densities) {
       try {
         // Create a fresh shape for each slice.
@@ -206,9 +212,9 @@ for (const pattern of infillPatterns) {
         const gcode = sliceShape(mesh, pattern, density);
         const endTime = Date.now();
 
-        // Generate output filename.
-        const filename = `${shape}-${density}%.gcode`;
-        const outputPath = path.join(patternDir, filename);
+        // Generate output filename with just density percentage.
+        const filename = `${density}%.gcode`;
+        const outputPath = path.join(shapeDir, filename);
 
         // Save G-code to file.
         fs.writeFileSync(outputPath, gcode);
@@ -221,7 +227,7 @@ for (const pattern of infillPatterns) {
 
         successCount++;
       } catch (error) {
-        console.error(`  ❌ Failed ${shape} ${pattern}-${density}%: ${error.message}`);
+        console.error(`  ❌ Failed ${density}%: ${error.message}`);
         failCount++;
       }
     }
@@ -240,7 +246,8 @@ if (failCount > 0) {
 }
 console.log(`⏱️  Total Time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
 console.log(`📁 Output Directory: ${baseOutputDir}`);
-console.log(`📂 Subdirectories: ${infillPatterns.map(p => `${p}/`).join(', ')}`);
+console.log(`📂 Directory Structure: pattern/shape/density%.gcode`);
+console.log(`📂 Example: ${infillPatterns[0]}/${shapes[0]}/${densities[5]}%.gcode`);
 
 if (successCount > 0) {
   console.log('\n✅ Batch slicing completed successfully!');
