@@ -262,7 +262,19 @@ module.exports =
 
     # Clip a line segment to a polygon boundary.
     # Returns an array of line segments that are inside the polygon.
-    # Uses the Liang-Barsky line clipping approach adapted for polygons.
+    #
+    # This function is critical for skin infill generation - it ensures that infill lines
+    # stay within circular and irregular boundary shapes, not just rectangular bounding boxes.
+    #
+    # Algorithm:
+    # 1. Find all intersection points between the line and polygon edges
+    # 2. Determine which line endpoints are inside the polygon
+    # 3. Sort all points by their parametric position along the line (t value 0-1)
+    # 4. Test midpoints between consecutive intersections to identify inside segments
+    # 5. Return only the portions of the line that lie within the polygon
+    #
+    # Note: This is NOT the Sutherland-Hodgman algorithm (which is for polygon clipping).
+    # This is specifically designed for line segment to polygon clipping.
     clipLineToPolygon: (lineStart, lineEnd, polygon) ->
 
         return [] if not polygon or polygon.length < 3
