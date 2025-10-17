@@ -498,3 +498,169 @@ describe 'Skin Generation', ->
 
             return # Explicitly return undefined for Jest.
 
+        test 'should clip skin infill to circular boundaries', ->
+
+            # Create a cylinder (circular cross-section).
+            geometry = new THREE.CylinderGeometry(5, 5, 10, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+
+            # Rotate to align with Z-axis.
+            mesh.rotation.x = Math.PI / 2
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.6) # 3 layers.
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Parse G-code to extract skin infill coordinates.
+            lines = result.split('\n')
+            inSkinInfill = false
+            skinInfillCoords = []
+            currentLayer = null
+
+            for line in lines
+
+                if line.includes('LAYER:')
+                    layerMatch = line.match(/LAYER: (\d+)/)
+                    currentLayer = if layerMatch then parseInt(layerMatch[1]) else null
+                    inSkinInfill = false
+
+                # Detect skin infill section (after skin wall).
+                if line.includes('Moving to skin infill line')
+                    inSkinInfill = true
+
+                # Exit skin infill when we hit another TYPE or next LAYER.
+                if (line.includes('; TYPE:') and not line.includes('SKIN')) or (line.includes('LAYER:') and currentLayer?)
+                    inSkinInfill = false
+
+                # Extract coordinates from skin infill G1 moves.
+                if inSkinInfill and line.includes('G1') and line.includes('E')
+
+                    xMatch = line.match(/X([\d.]+)/)
+                    yMatch = line.match(/Y([\d.]+)/)
+
+                    if xMatch and yMatch
+                        x = parseFloat(xMatch[1])
+                        y = parseFloat(yMatch[1])
+                        skinInfillCoords.push({ x: x, y: y, layer: currentLayer })
+
+            # Should have skin infill coordinates.
+            expect(skinInfillCoords.length).toBeGreaterThan(0)
+
+            # For a cylinder centered at (110, 110) with radius ~5,
+            # all skin infill coordinates should be within the circular boundary.
+            # The cylinder has outer radius 5, with 2 walls (0.8mm) and skin wall (0.4mm),
+            # leaving approximately 3.8mm radius for skin infill.
+            centerX = 110
+            centerY = 110
+            maxRadius = 5.0 # Outer radius.
+            minExpectedRadius = 2.0 # Should be well inside after walls.
+
+            for coord in skinInfillCoords
+
+                # Calculate distance from center.
+                dx = coord.x - centerX
+                dy = coord.y - centerY
+                distance = Math.sqrt(dx * dx + dy * dy)
+
+                # Skin infill should be inside the cylinder boundary.
+                # Allow small tolerance for numerical precision.
+                expect(distance).toBeLessThan(maxRadius + 0.5)
+
+                # Should also not be too close to center (there are walls).
+                expect(distance).toBeGreaterThan(minExpectedRadius)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should not extend skin infill beyond polygon boundaries', ->
+
+            # Create a sphere (complex curved surface).
+            geometry = new THREE.SphereGeometry(5, 32, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4) # 2 layers.
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Parse G-code to extract skin wall and infill coordinates.
+            lines = result.split('\n')
+            inSkinWall = false
+            inSkinInfill = false
+            skinWallCoords = []
+            skinInfillCoords = []
+            currentLayer = null
+
+            for line in lines
+
+                if line.includes('LAYER:')
+                    layerMatch = line.match(/LAYER: (\d+)/)
+                    currentLayer = if layerMatch then parseInt(layerMatch[1]) else null
+                    inSkinWall = false
+                    inSkinInfill = false
+
+                # Detect skin wall (right after TYPE: SKIN).
+                if line.includes('; TYPE: SKIN')
+                    inSkinWall = true
+                    inSkinInfill = false
+
+                # Skin infill starts after "Moving to skin infill line".
+                if line.includes('Moving to skin infill line')
+                    inSkinWall = false
+                    inSkinInfill = true
+
+                # Exit skin section.
+                if line.includes('; TYPE:') and not line.includes('SKIN')
+                    inSkinWall = false
+                    inSkinInfill = false
+
+                # Extract coordinates from G1 moves.
+                if (inSkinWall or inSkinInfill) and line.includes('G1')
+
+                    xMatch = line.match(/X([\d.]+)/)
+                    yMatch = line.match(/Y([\d.]+)/)
+
+                    if xMatch and yMatch and currentLayer is 1 # Only check first skin layer.
+                        x = parseFloat(xMatch[1])
+                        y = parseFloat(yMatch[1])
+
+                        if inSkinWall
+                            skinWallCoords.push({ x: x, y: y })
+
+                        if inSkinInfill
+                            skinInfillCoords.push({ x: x, y: y })
+
+            # Should have both wall and infill coordinates.
+            expect(skinWallCoords.length).toBeGreaterThan(0)
+            expect(skinInfillCoords.length).toBeGreaterThan(0)
+
+            # Calculate bounding box of skin wall.
+            wallMinX = Math.min(...skinWallCoords.map((c) -> c.x))
+            wallMaxX = Math.max(...skinWallCoords.map((c) -> c.x))
+            wallMinY = Math.min(...skinWallCoords.map((c) -> c.y))
+            wallMaxY = Math.max(...skinWallCoords.map((c) -> c.y))
+
+            # All skin infill points should be reasonably contained.
+            # The key regression test: infill should NOT extend far beyond the shape boundary.
+            # Allow generous margin since infill is inset from walls and may have diagonal lines.
+            margin = 2.0 # mm tolerance.
+
+            for coord in skinInfillCoords
+
+                expect(coord.x).toBeGreaterThanOrEqual(wallMinX - margin)
+                expect(coord.x).toBeLessThanOrEqual(wallMaxX + margin)
+                expect(coord.y).toBeGreaterThanOrEqual(wallMinY - margin)
+                expect(coord.y).toBeLessThanOrEqual(wallMaxY + margin)
+
+            return # Explicitly return undefined for Jest.
+

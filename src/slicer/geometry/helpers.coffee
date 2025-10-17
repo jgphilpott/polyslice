@@ -260,6 +260,135 @@ module.exports =
 
         return { x: x, y: y }
 
+    # Clip a line segment to a polygon boundary.
+    # Returns an array of line segments that are inside the polygon.
+    #
+    # This function is critical for skin infill generation - it ensures that infill lines
+    # stay within circular and irregular boundary shapes, not just rectangular bounding boxes.
+    #
+    # Algorithm:
+    # 1. Find all intersection points between the line and polygon edges
+    # 2. Determine which line endpoints are inside the polygon
+    # 3. Sort all points by their parametric position along the line (t value 0-1)
+    # 4. Test midpoints between consecutive intersections to identify inside segments
+    # 5. Return only the portions of the line that lie within the polygon
+    #
+    # Note: This is NOT the Sutherland-Hodgman algorithm (which is for polygon clipping).
+    # This is specifically designed for line segment to polygon clipping.
+    clipLineToPolygon: (lineStart, lineEnd, polygon) ->
+
+        return [] if not polygon or polygon.length < 3
+        return [] if not lineStart or not lineEnd
+
+        # Find all intersection points of the line with polygon edges.
+        intersections = []
+
+        # Add the line endpoints with their inside/outside status.
+        lineStartInside = @pointInPolygon(lineStart, polygon)
+        lineEndInside = @pointInPolygon(lineEnd, polygon)
+
+        if lineStartInside
+            intersections.push({ point: lineStart, t: 0, isEndpoint: true })
+
+        if lineEndInside
+            intersections.push({ point: lineEnd, t: 1, isEndpoint: true })
+
+        # Find intersections with polygon edges.
+        for i in [0...polygon.length]
+
+            nextIdx = if i is polygon.length - 1 then 0 else i + 1
+
+            edgeStart = polygon[i]
+            edgeEnd = polygon[nextIdx]
+
+            intersection = @lineSegmentIntersection(lineStart, lineEnd, edgeStart, edgeEnd)
+
+            if intersection
+
+                # Calculate parametric t value (0 to 1) along the line.
+                dx = lineEnd.x - lineStart.x
+                dy = lineEnd.y - lineStart.y
+
+                if Math.abs(dx) > Math.abs(dy)
+                    t = (intersection.x - lineStart.x) / dx
+                else
+                    t = (intersection.y - lineStart.y) / dy
+
+                # Only add if not already added as an endpoint (with small tolerance).
+                isNew = true
+                for existing in intersections
+                    if Math.abs(existing.t - t) < 0.0001
+                        isNew = false
+                        break
+
+                if isNew
+                    intersections.push({ point: intersection, t: t, isEndpoint: false })
+
+        # Return empty if no intersections found.
+        return [] if intersections.length < 2
+
+        # Sort intersections by parametric t value.
+        intersections.sort((a, b) -> a.t - b.t)
+
+        # Build segments from pairs of intersections.
+        # Segments between consecutive intersections are inside if the midpoint is inside.
+        segments = []
+
+        for i in [0...intersections.length - 1]
+
+            startIntersection = intersections[i]
+            endIntersection = intersections[i + 1]
+
+            # Calculate midpoint to test if this segment is inside.
+            midT = (startIntersection.t + endIntersection.t) / 2
+            midX = lineStart.x + midT * (lineEnd.x - lineStart.x)
+            midY = lineStart.y + midT * (lineEnd.y - lineStart.y)
+            midPoint = { x: midX, y: midY }
+
+            if @pointInPolygon(midPoint, polygon)
+
+                segments.push({
+                    start: startIntersection.point
+                    end: endIntersection.point
+                })
+
+        return segments
+
+    # Calculate intersection point of two line segments (with boundary checking).
+    # Returns the intersection point if it exists within both segments, null otherwise.
+    lineSegmentIntersection: (p1, p2, p3, p4) ->
+
+        x1 = p1.x
+        y1 = p1.y
+
+        x2 = p2.x
+        y2 = p2.y
+
+        x3 = p3.x
+        y3 = p3.y
+
+        x4 = p4.x
+        y4 = p4.y
+
+        denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+
+        # Lines are parallel or coincident.
+        if Math.abs(denom) < 0.0001 then return null
+
+        t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom
+        u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom
+
+        # Check if intersection is within both segments.
+        if t >= 0 and t <= 1 and u >= 0 and u <= 1
+
+            # Calculate intersection point.
+            x = x1 + t * (x2 - x1)
+            y = y1 + t * (y2 - y1)
+
+            return { x: x, y: y }
+
+        return null
+
     # Calculate the bounding box of a path.
     calculatePathBounds: (path) ->
 

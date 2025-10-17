@@ -459,3 +459,150 @@ describe 'Geometry Helpers', ->
                 # Check that exposed area has some points with X > 10.
                 hasRightSide = firstExposedArea.some (point) -> point.x > 10
                 expect(hasRightSide).toBe(true)
+
+    describe 'lineSegmentIntersection', ->
+
+        test 'should find intersection when segments cross', ->
+
+            p1 = { x: 0, y: 5 }
+            p2 = { x: 10, y: 5 }
+            p3 = { x: 5, y: 0 }
+            p4 = { x: 5, y: 10 }
+
+            result = helpers.lineSegmentIntersection(p1, p2, p3, p4)
+
+            expect(result).not.toBeNull()
+            expect(result.x).toBeCloseTo(5, 6)
+            expect(result.y).toBeCloseTo(5, 6)
+
+        test 'should return null when segments do not cross', ->
+
+            p1 = { x: 0, y: 0 }
+            p2 = { x: 10, y: 0 }
+            p3 = { x: 0, y: 5 }
+            p4 = { x: 10, y: 5 }
+
+            result = helpers.lineSegmentIntersection(p1, p2, p3, p4)
+
+            expect(result).toBeNull()
+
+        test 'should return null when segments are parallel', ->
+
+            p1 = { x: 0, y: 0 }
+            p2 = { x: 10, y: 0 }
+            p3 = { x: 0, y: 5 }
+            p4 = { x: 10, y: 5 }
+
+            result = helpers.lineSegmentIntersection(p1, p2, p3, p4)
+
+            expect(result).toBeNull()
+
+    describe 'clipLineToPolygon', ->
+
+        test 'should return full line when completely inside square', ->
+
+            lineStart = { x: 2, y: 5 }
+            lineEnd = { x: 8, y: 5 }
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            segments = helpers.clipLineToPolygon(lineStart, lineEnd, polygon)
+
+            expect(segments.length).toBe(1)
+            expect(segments[0].start.x).toBeCloseTo(2, 6)
+            expect(segments[0].start.y).toBeCloseTo(5, 6)
+            expect(segments[0].end.x).toBeCloseTo(8, 6)
+            expect(segments[0].end.y).toBeCloseTo(5, 6)
+
+        test 'should clip line that extends outside square', ->
+
+            lineStart = { x: -5, y: 5 }
+            lineEnd = { x: 15, y: 5 }
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            segments = helpers.clipLineToPolygon(lineStart, lineEnd, polygon)
+
+            expect(segments.length).toBe(1)
+            expect(segments[0].start.x).toBeCloseTo(0, 1)
+            expect(segments[0].start.y).toBeCloseTo(5, 1)
+            expect(segments[0].end.x).toBeCloseTo(10, 1)
+            expect(segments[0].end.y).toBeCloseTo(5, 1)
+
+        test 'should return empty array when line is completely outside', ->
+
+            lineStart = { x: 20, y: 5 }
+            lineEnd = { x: 25, y: 5 }
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            segments = helpers.clipLineToPolygon(lineStart, lineEnd, polygon)
+
+            expect(segments.length).toBe(0)
+
+        test 'should clip line to circular polygon approximation', ->
+
+            lineStart = { x: -10, y: 0 }
+            lineEnd = { x: 10, y: 0 }
+
+            # Octagon (approximation of circle with radius ~7).
+            polygon = [
+                { x: 7, y: 0 }
+                { x: 5, y: 5 }
+                { x: 0, y: 7 }
+                { x: -5, y: 5 }
+                { x: -7, y: 0 }
+                { x: -5, y: -5 }
+                { x: 0, y: -7 }
+                { x: 5, y: -5 }
+            ]
+
+            segments = helpers.clipLineToPolygon(lineStart, lineEnd, polygon)
+
+            # Should have one segment clipped to the octagon.
+            expect(segments.length).toBe(1)
+
+            # The clipped segment should be approximately from x=-7 to x=7.
+            expect(segments[0].start.x).toBeCloseTo(-7, 1)
+            expect(segments[0].end.x).toBeCloseTo(7, 1)
+            expect(segments[0].start.y).toBeCloseTo(0, 1)
+            expect(segments[0].end.y).toBeCloseTo(0, 1)
+
+        test 'should handle diagonal line across square', ->
+
+            lineStart = { x: -5, y: -5 }
+            lineEnd = { x: 15, y: 15 }
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            segments = helpers.clipLineToPolygon(lineStart, lineEnd, polygon)
+
+            expect(segments.length).toBe(1)
+            expect(segments[0].start.x).toBeCloseTo(0, 1)
+            expect(segments[0].start.y).toBeCloseTo(0, 1)
+            expect(segments[0].end.x).toBeCloseTo(10, 1)
+            expect(segments[0].end.y).toBeCloseTo(10, 1)
