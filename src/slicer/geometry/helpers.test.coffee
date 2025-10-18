@@ -100,20 +100,21 @@ describe 'Geometry Helpers', ->
         test 'should return empty array when path is too small for inset (cone tip issue)', ->
 
             # Create a small circular path that simulates near-cone-tip cross-section.
-            # Radius 0.2mm with 0.4mm nozzle - should be rejected.
+            # When radius is smaller than inset distance, path should be rejected.
             smallPath = []
-            radius = 0.2
+            pathRadius = 0.2 # mm
+            nozzleDiameter = 0.4 # mm
             segments = 8
 
             for i in [0...segments]
                 angle = (i / segments) * Math.PI * 2
                 smallPath.push({
-                    x: Math.cos(angle) * radius
-                    y: Math.sin(angle) * radius
+                    x: Math.cos(angle) * pathRadius
+                    y: Math.sin(angle) * pathRadius
                     z: 0
                 })
 
-            insetPath = helpers.createInsetPath(smallPath, 0.4)
+            insetPath = helpers.createInsetPath(smallPath, nozzleDiameter)
 
             # Path should be rejected (empty) because it's too small.
             # This prevents the "negative radius" issue with cone tips.
