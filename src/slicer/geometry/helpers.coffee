@@ -288,10 +288,10 @@ module.exports =
                 return []
 
             # Additional check: Ensure the inset path has enough area for meaningful geometry.
-            # The minimum viable area should be at least 2 * nozzle diameters in each dimension.
-            # This prevents generating paths where the area is approaching zero (cone tips, etc).
-            # Use a threshold of 1.5 * insetDistance to be more conservative.
-            minViableDimension = insetDistance * 1.5
+            # The minimum viable dimension should be very small - only reject truly degenerate paths.
+            # This prevents generating paths where the area is actually zero (single point).
+            # Use a threshold of 0.2 * insetDistance to allow small but valid geometry.
+            minViableDimension = insetDistance * 0.2
 
             if insetWidth < minViableDimension or insetHeight < minViableDimension
 
