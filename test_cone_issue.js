@@ -27,6 +27,18 @@ for (const radius of radii) {
     const originalPath = createSmallCircularPath(radius, 8);
     const insetPath = helpers.createInsetPath(originalPath, nozzleDiameter);
     
+    const expectedRadius = radius - nozzleDiameter;
+    
+    if (insetPath.length === 0) {
+        console.log(`Original radius: ${radius.toFixed(2)}, Expected inset: ${expectedRadius.toFixed(2)}, Actual inset: (empty), Points: 0`);
+        if (expectedRadius <= 0) {
+            console.log('  ✓ OK: Path correctly became degenerate when too small');
+        } else {
+            console.log('  ⚠️  WARNING: Path became degenerate but expected radius was positive');
+        }
+        continue;
+    }
+    
     // Calculate the "radius" of the inset path by measuring distance from origin
     let maxInsetRadius = 0;
     let minInsetRadius = Infinity;
@@ -38,17 +50,12 @@ for (const radius of radii) {
     }
     
     const avgInsetRadius = (maxInsetRadius + minInsetRadius) / 2;
-    const expectedRadius = radius - nozzleDiameter;
     
     console.log(`Original radius: ${radius.toFixed(2)}, Expected inset: ${expectedRadius.toFixed(2)}, Actual inset: ${avgInsetRadius.toFixed(2)}, Points: ${insetPath.length}`);
     
     // Check if inset is larger than original (this is the bug!)
     if (avgInsetRadius > radius) {
         console.log('  ⚠️  ERROR: Inset path is LARGER than original path!');
-    } else if (expectedRadius <= 0 && insetPath.length > 0) {
-        console.log('  ⚠️  WARNING: Expected degenerate path (radius would be negative) but got', insetPath.length, 'points');
-    } else if (expectedRadius > 0 && insetPath.length < 3) {
-        console.log('  ✓ OK: Path correctly became degenerate when too small');
     } else if (Math.abs(avgInsetRadius - expectedRadius) > 0.2) {
         console.log('  ⚠️  WARNING: Inset radius differs significantly from expected');
     } else {

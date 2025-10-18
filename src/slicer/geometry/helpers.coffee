@@ -230,6 +230,62 @@ module.exports =
                     z: origVertex.z
                 })
 
+        # Validate the inset path to detect when the area is too small.
+        # When a path becomes too small (e.g., near the tip of a cone), the inset calculation
+        # can produce invalid results where the inset path expands instead of contracts.
+        # This happens because offset line intersections can fall outside the original boundary
+        # when the inset distance is larger than the path's "radius".
+        #
+        # Detection strategy:
+        # Calculate bounding boxes for both paths and check if the inset is meaningfully smaller.
+        # If the inset bounding box is nearly the same size or larger, the path is too small.
+        if insetPath.length >= 3
+
+            # Calculate bounding boxes.
+            originalMinX = Infinity
+            originalMaxX = -Infinity
+            originalMinY = Infinity
+            originalMaxY = -Infinity
+
+            for point in simplifiedPath
+                originalMinX = Math.min(originalMinX, point.x)
+                originalMaxX = Math.max(originalMaxX, point.x)
+                originalMinY = Math.min(originalMinY, point.y)
+                originalMaxY = Math.max(originalMaxY, point.y)
+
+            originalWidth = originalMaxX - originalMinX
+            originalHeight = originalMaxY - originalMinY
+
+            insetMinX = Infinity
+            insetMaxX = -Infinity
+            insetMinY = Infinity
+            insetMaxY = -Infinity
+
+            for point in insetPath
+                insetMinX = Math.min(insetMinX, point.x)
+                insetMaxX = Math.max(insetMaxX, point.x)
+                insetMinY = Math.min(insetMinY, point.y)
+                insetMaxY = Math.max(insetMaxY, point.y)
+
+            insetWidth = insetMaxX - insetMinX
+            insetHeight = insetMaxY - insetMinY
+
+            # The inset path should be smaller in both dimensions.
+            # We expect the bounding box to shrink by approximately 2 * insetDistance (both sides).
+            # However, due to geometric variations (corners, few vertices, etc.), we use a lenient threshold.
+            # If the inset is not at least 10% smaller in both dimensions, reject it.
+            # This 10% threshold accounts for edge cases like sphere poles or cone tips.
+            expectedSizeReduction = insetDistance * 2 * 0.1
+
+            widthReduction = originalWidth - insetWidth
+            heightReduction = originalHeight - insetHeight
+
+            # Check if either dimension didn't shrink enough (or expanded).
+            if widthReduction < expectedSizeReduction or heightReduction < expectedSizeReduction
+
+                # Inset path is not sufficiently smaller than original - path is too small.
+                return []
+
         return insetPath
 
     # Calculate intersection point of two line segments.
