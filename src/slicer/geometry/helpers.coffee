@@ -237,8 +237,9 @@ module.exports =
         # when the inset distance is larger than the path's "radius".
         #
         # Detection strategy:
-        # Calculate bounding boxes for both paths and check if the inset is meaningfully smaller.
-        # If the inset bounding box is nearly the same size or larger, the path is too small.
+        # 1. Check if the inset path is meaningfully smaller than the original
+        # 2. Check if the remaining area is large enough for meaningful geometry
+        # 3. Reject paths that are too small or have insufficient area
         if insetPath.length >= 3
 
             # Calculate bounding boxes.
@@ -284,6 +285,17 @@ module.exports =
             if widthReduction < expectedSizeReduction or heightReduction < expectedSizeReduction
 
                 # Inset path is not sufficiently smaller than original - path is too small.
+                return []
+
+            # Additional check: Ensure the inset path has enough area for meaningful geometry.
+            # The minimum viable area should be at least 2 * nozzle diameters in each dimension.
+            # This prevents generating paths where the area is approaching zero (cone tips, etc).
+            # Use a threshold of 1.5 * insetDistance to be more conservative.
+            minViableDimension = insetDistance * 1.5
+
+            if insetWidth < minViableDimension or insetHeight < minViableDimension
+
+                # Inset path is too small - approaching a point or line.
                 return []
 
         return insetPath
