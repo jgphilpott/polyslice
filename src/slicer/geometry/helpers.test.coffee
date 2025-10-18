@@ -97,6 +97,28 @@ describe 'Geometry Helpers', ->
                 expect(point.y).toBeLessThan(10)
             undefined
 
+        test 'should return empty array when path is too small for inset (cone tip issue)', ->
+
+            # Create a small circular path that simulates near-cone-tip cross-section.
+            # Radius 0.2mm with 0.4mm nozzle - should be rejected.
+            smallPath = []
+            radius = 0.2
+            segments = 8
+
+            for i in [0...segments]
+                angle = (i / segments) * Math.PI * 2
+                smallPath.push({
+                    x: Math.cos(angle) * radius
+                    y: Math.sin(angle) * radius
+                    z: 0
+                })
+
+            insetPath = helpers.createInsetPath(smallPath, 0.4)
+
+            # Path should be rejected (empty) because it's too small.
+            # This prevents the "negative radius" issue with cone tips.
+            expect(insetPath.length).toBe(0)
+
         test 'should return empty array for path with less than 3 points', ->
 
             path = [
