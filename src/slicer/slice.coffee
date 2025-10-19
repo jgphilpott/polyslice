@@ -212,6 +212,10 @@ module.exports =
             # Track this position to minimize travel distance to infill/skin start.
             lastWallPoint = if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y } else null
 
+            # Determine a safe boundary for infill by insetting one nozzle width.
+            # If we cannot inset (no room inside the last wall), we should not generate infill.
+            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter)
+
             # Determine if this region needs skin and calculate exposed areas.
             needsSkin = false
             skinAreas = [] # Will store only the exposed portions of currentPath
@@ -349,8 +353,10 @@ module.exports =
 
                     # Mixed layers (partial exposure): infill first, then skin second.
                     # This way the skin (printed after) covers the infill pattern on exposed surfaces.
-                    if infillDensity > 0
+                    if infillDensity > 0 and infillBoundary.length >= 3
 
+                        # Use the original currentPath for infill to keep coverage consistent,
+                        # but require that an inset path exists as a guard to ensure there is room inside.
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
 
                     # Generate skin ONLY in the exposed areas.
@@ -361,6 +367,8 @@ module.exports =
             else
 
                 # No skin needed - generate normal sparse infill only.
-                if infillDensity > 0
+                if infillDensity > 0 and infillBoundary.length >= 3
 
+                    # Use the original currentPath for infill to keep coverage consistent,
+                    # but require that an inset path exists as a guard to ensure there is room inside.
                     infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)

@@ -161,6 +161,18 @@ module.exports =
 
         isCCW = signedArea > 0
 
+        # Precompute a simple centroid for inward direction checks.
+        centroidX = 0
+        centroidY = 0
+
+        for p in simplifiedPath
+
+            centroidX += p.x
+            centroidY += p.y
+
+        centroidX /= n
+        centroidY /= n
+
         # Create offset lines for each edge.
         offsetLines = []
 
@@ -192,6 +204,19 @@ module.exports =
 
                 normalX = edgeY
                 normalY = -edgeX
+
+            # Robust inward check: ensure the normal actually points inside the polygon.
+            # Test a midpoint nudged along the normal; if it's not inside, flip the normal.
+            midX = (p1.x + p2.x) / 2
+            midY = (p1.y + p2.y) / 2
+
+            testX = midX + normalX * (insetDistance * 0.5)
+            testY = midY + normalY * (insetDistance * 0.5)
+
+            unless @pointInPolygon({ x: testX, y: testY }, simplifiedPath)
+
+                normalX = -normalX
+                normalY = -normalY
 
             # Offset the edge.
             offset1X = p1.x + normalX * insetDistance
@@ -256,6 +281,16 @@ module.exports =
 
             originalWidth = originalMaxX - originalMinX
             originalHeight = originalMaxY - originalMinY
+
+            # If the original shape is too small to accommodate an inset of this distance
+            # (i.e., diameter/width less than approximately 2 * insetDistance), then
+            # there is no room for an inner wall. Use a small margin to avoid flicker
+            # across adjacent layers due to floating-point noise.
+            minRequiredDimension = 2 * insetDistance + insetDistance * 0.2
+
+            if originalWidth < minRequiredDimension or originalHeight < minRequiredDimension
+
+                return []
 
             insetMinX = Infinity
             insetMaxX = -Infinity
