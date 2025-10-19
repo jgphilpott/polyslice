@@ -596,3 +596,115 @@ describe 'Triangles Infill Generation', ->
             # At 90% density, we should have 24 infill lines for a 1cm cube.
             # Very tight line spacing results in dense infill coverage.
             expect(fillMoves).toBe(24)
+
+    describe 'Triangles Infill Clipping to Polygon Boundaries', ->
+
+        test 'should clip infill to circular boundary instead of bounding box', ->
+
+            # Create a cylinder (circular cross-section).
+            geometry = new THREE.CylinderGeometry(5, 5, 10, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('triangles')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Parse G-code to find infill coordinates for a middle layer.
+            lines = result.split('\n')
+            inFill = false
+            infillCoords = []
+            targetLayer = 10
+            currentLayer = null
+
+            for line in lines
+
+                if line.includes('LAYER:')
+                    layerMatch = line.match(/LAYER: (\d+)/)
+                    currentLayer = if layerMatch then parseInt(layerMatch[1]) else null
+
+                continue if currentLayer isnt targetLayer
+
+                if line.includes('; TYPE: FILL')
+                    inFill = true
+                    continue
+
+                if line.includes('; TYPE:') and not line.includes('FILL')
+                    inFill = false
+
+                if inFill and line.includes('G1') and line.includes('X') and line.includes('Y')
+
+                    xMatch = line.match(/X([\d.]+)/)
+                    yMatch = line.match(/Y([\d.]+)/)
+
+                    if xMatch and yMatch
+                        infillCoords.push({
+                            x: parseFloat(xMatch[1])
+                            y: parseFloat(yMatch[1])
+                        })
+
+                if line.includes("LAYER: #{targetLayer + 1}")
+                    break
+
+            # Verify we have infill coordinates.
+            expect(infillCoords.length).toBeGreaterThan(0)
+
+            # For a cylinder with radius 5mm, all infill points should be within
+            # the circular boundary (radius ~5mm).
+            # First calculate the actual center from the coordinates.
+            xs = infillCoords.map((c) -> c.x)
+            ys = infillCoords.map((c) -> c.y)
+            centerX = (Math.min(...xs) + Math.max(...xs)) / 2
+            centerY = (Math.min(...ys) + Math.max(...ys)) / 2
+
+            # Allow tolerance for numerical precision, nozzle width, and wall inset.
+            radius = 5
+            tolerance = 1.0
+
+            for coord in infillCoords
+
+                # Calculate distance from actual center.
+                dx = coord.x - centerX
+                dy = coord.y - centerY
+                distance = Math.sqrt(dx * dx + dy * dy)
+
+                # Distance should be less than radius + tolerance.
+                # This ensures infill doesn't extend to rectangular bounding box corners.
+                expect(distance).toBeLessThan(radius + tolerance)
+
+            return
+
+        test 'should generate triangles infill for cylinder at various densities', ->
+
+            # Create a cylinder.
+            geometry = new THREE.CylinderGeometry(5, 5, 10, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillPattern('triangles')
+            slicer.setVerbose(true)
+
+            # Test multiple densities.
+            densities = [10, 20, 50]
+
+            for density in densities
+
+                slicer.setInfillDensity(density)
+                result = slicer.slice(mesh)
+
+                # All densities should generate infill.
+                expect(result).toContain('; TYPE: FILL')
+
+            return
