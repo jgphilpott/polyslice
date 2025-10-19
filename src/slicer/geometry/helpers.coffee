@@ -161,6 +161,18 @@ module.exports =
 
         isCCW = signedArea > 0
 
+        # Precompute a simple centroid for inward direction checks.
+        centroidX = 0
+        centroidY = 0
+
+        for p in simplifiedPath
+
+            centroidX += p.x
+            centroidY += p.y
+
+        centroidX /= n
+        centroidY /= n
+
         # Create offset lines for each edge.
         offsetLines = []
 
@@ -192,6 +204,19 @@ module.exports =
 
                 normalX = edgeY
                 normalY = -edgeX
+
+            # Robust inward check: ensure the normal actually points inside the polygon.
+            # Test a midpoint nudged along the normal; if it's not inside, flip the normal.
+            midX = (p1.x + p2.x) / 2
+            midY = (p1.y + p2.y) / 2
+
+            testX = midX + normalX * (insetDistance * 0.5)
+            testY = midY + normalY * (insetDistance * 0.5)
+
+            unless @pointInPolygon({ x: testX, y: testY }, simplifiedPath)
+
+                normalX = -normalX
+                normalY = -normalY
 
             # Offset the edge.
             offset1X = p1.x + normalX * insetDistance
@@ -229,6 +254,84 @@ module.exports =
                     y: line2.p1.y
                     z: origVertex.z
                 })
+
+        # Validate the inset path to detect when the area is too small.
+        # When a path becomes too small (e.g., near the tip of a cone), the inset calculation
+        # can produce invalid results where the inset path expands instead of contracts.
+        # This happens because offset line intersections can fall outside the original boundary
+        # when the inset distance is larger than the path's "radius".
+        #
+        # Detection strategy:
+        # 1. Check if the inset path is meaningfully smaller than the original
+        # 2. Check if the remaining area is large enough for meaningful geometry
+        # 3. Reject paths that are too small or have insufficient area
+        if insetPath.length >= 3
+
+            # Calculate bounding boxes.
+            originalMinX = Infinity
+            originalMaxX = -Infinity
+            originalMinY = Infinity
+            originalMaxY = -Infinity
+
+            for point in simplifiedPath
+                originalMinX = Math.min(originalMinX, point.x)
+                originalMaxX = Math.max(originalMaxX, point.x)
+                originalMinY = Math.min(originalMinY, point.y)
+                originalMaxY = Math.max(originalMaxY, point.y)
+
+            originalWidth = originalMaxX - originalMinX
+            originalHeight = originalMaxY - originalMinY
+
+            # If the original shape is too small to accommodate an inset of this distance
+            # (i.e., diameter/width less than approximately 2 * insetDistance), then
+            # there is no room for an inner wall. Use a small margin to avoid flicker
+            # across adjacent layers due to floating-point noise.
+            minRequiredDimension = 2 * insetDistance + insetDistance * 0.2
+
+            if originalWidth < minRequiredDimension or originalHeight < minRequiredDimension
+
+                return []
+
+            insetMinX = Infinity
+            insetMaxX = -Infinity
+            insetMinY = Infinity
+            insetMaxY = -Infinity
+
+            for point in insetPath
+                insetMinX = Math.min(insetMinX, point.x)
+                insetMaxX = Math.max(insetMaxX, point.x)
+                insetMinY = Math.min(insetMinY, point.y)
+                insetMaxY = Math.max(insetMaxY, point.y)
+
+            insetWidth = insetMaxX - insetMinX
+            insetHeight = insetMaxY - insetMinY
+
+            # The inset path should be smaller in both dimensions.
+            # We expect the bounding box to shrink by approximately 2 * insetDistance (both sides).
+            # However, due to geometric variations (corners, few vertices, etc.), we use a lenient threshold.
+            # If the inset is not at least 10% smaller in both dimensions, reject it.
+            # This 10% threshold accounts for edge cases like sphere poles or cone tips.
+            expectedSizeReduction = insetDistance * 2 * 0.1
+
+            widthReduction = originalWidth - insetWidth
+            heightReduction = originalHeight - insetHeight
+
+            # Check if either dimension didn't shrink enough (or expanded).
+            if widthReduction < expectedSizeReduction or heightReduction < expectedSizeReduction
+
+                # Inset path is not sufficiently smaller than original - path is too small.
+                return []
+
+            # Additional check: Ensure the inset path has enough area for meaningful geometry.
+            # The minimum viable dimension should be very small - only reject truly degenerate paths.
+            # This prevents generating paths where the area is actually zero (single point).
+            # Use a threshold of 0.2 * insetDistance to allow small but valid geometry.
+            minViableDimension = insetDistance * 0.2
+
+            if insetWidth < minViableDimension or insetHeight < minViableDimension
+
+                # Inset path is too small - approaching a point or line.
+                return []
 
         return insetPath
 
