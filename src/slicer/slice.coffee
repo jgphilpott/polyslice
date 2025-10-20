@@ -239,9 +239,12 @@ module.exports =
             # Pass isHole parameter to ensure correct inset direction for holes.
             infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
 
-            # Skip infill and skin generation for holes (negative space).
-            # Holes should only have walls, no interior filling.
+            # For holes, generate skin infill (solid fill) without complex top/bottom detection.
+            # Holes should be filled solid between their walls, treating them like skin areas.
             if pathIsHole[pathIndex]
+                # Generate skin for the hole (skin walls + solid infill).
+                # Pass isHole parameter to ensure correct outward inset for skin walls.
+                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, pathIsHole[pathIndex])
                 continue
 
             # Determine if this region needs skin and calculate exposed areas.
