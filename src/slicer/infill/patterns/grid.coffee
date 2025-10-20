@@ -159,6 +159,46 @@ module.exports =
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2) # Account for 45-degree angle.
 
+        # Safety check: if no lines were generated but we have a valid boundary, 
+        # ensure at least the centerline is included. This handles edge cases where
+        # clipLineToPolygon fails due to floating-point precision or polygon orientation issues.
+        if allInfillLines.length is 0 and infillBoundary.length >= 3
+            
+            # Try to generate a simple centerline at 45°
+            centerlineIntersections = []
+            
+            # Line equation: y = x + centerOffset (passing through center)
+            offset = centerOffset
+            
+            # Check intersection with left edge (x = minX)
+            y = minX + offset
+            if y >= minY and y <= maxY
+                centerlineIntersections.push({ x: minX, y: y })
+            
+            # Check intersection with right edge (x = maxX)
+            y = maxX + offset
+            if y >= minY and y <= maxY
+                centerlineIntersections.push({ x: maxX, y: y })
+            
+            # Check intersection with bottom edge (y = minY)
+            x = minY - offset
+            if x >= minX and x <= maxX
+                centerlineIntersections.push({ x: x, y: minY })
+            
+            # Check intersection with top edge (y = maxY)
+            x = maxY - offset
+            if x >= minX and x <= maxX
+                centerlineIntersections.push({ x: x, y: maxY })
+            
+            # If we have at least 2 intersections with the bounding box, add this as a fallback line
+            if centerlineIntersections.length >= 2
+                
+                # Use the first and LAST intersection points to maximize distance across the boundary
+                allInfillLines.push({
+                    start: centerlineIntersections[0]
+                    end: centerlineIntersections[centerlineIntersections.length - 1]
+                })
+
         # Now render all collected lines in optimal order to minimize travel.
         # Start with the line closest to the last wall position.
         lastEndPoint = lastWallPoint
