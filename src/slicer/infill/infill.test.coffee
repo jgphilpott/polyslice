@@ -288,3 +288,100 @@ describe 'Infill Orchestration', ->
             density50 = (nozzleDiameter / (50 / 100.0)) * 2.0
 
             expect(density50).toBeLessThan(density20)
+
+    describe 'Infill Marker Consistency (Regression Test)', ->
+
+        test 'should not add TYPE: FILL marker when no infill lines are generated', ->
+
+            # Create a cone mesh (some upper layers have very small cross-sections).
+            geometry = new THREE.ConeGeometry(5, 10, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.rotation.x = Math.PI / 2
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Parse the gcode to check for empty TYPE: FILL sections.
+            lines = result.split('\n')
+            problemLayers = []
+
+            for i in [0...lines.length]
+
+                line = lines[i].trim()
+
+                if line.startsWith('M117 LAYER:')
+
+                    layerNum = parseInt(line.split(':')[1].trim())
+
+                    # Check for TYPE: FILL in this layer.
+                    for j in [i + 1...lines.length]
+
+                        nextLine = lines[j].trim()
+
+                        break if nextLine.startsWith('M117 LAYER:') # Next layer.
+
+                        if nextLine is '; TYPE: FILL'
+
+                            # Check if there's actual fill after this marker.
+                            hasActualFill = false
+
+                            for k in [j + 1...Math.min(j + 10, lines.length)]
+
+                                fillLine = lines[k].trim()
+
+                                break if fillLine.startsWith('M117 LAYER:')
+
+                                if fillLine.startsWith('G1 ') and fillLine.includes(' E')
+
+                                    hasActualFill = true
+
+                                    break
+
+                            if not hasActualFill then problemLayers.push(layerNum)
+
+                            break
+
+            # There should be NO layers with TYPE: FILL but no actual fill lines.
+            expect(problemLayers).toEqual([])
+
+        test 'should generate infill on layers with sufficient area', ->
+
+            # Create a cone mesh.
+            geometry = new THREE.ConeGeometry(5, 10, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.rotation.x = Math.PI / 2
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Count layers with infill.
+            lines = result.split('\n')
+            layersWithInfill = 0
+
+            for line in lines
+
+                if line.includes('; TYPE: FILL')
+
+                    layersWithInfill++
+
+            # A cone should have some layers with infill (not all, as upper layers are too small).
+            expect(layersWithInfill).toBeGreaterThan(0)
+            expect(layersWithInfill).toBeLessThan(50) # Not all 50 layers should have infill.
