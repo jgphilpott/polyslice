@@ -160,8 +160,30 @@ module.exports =
         # Calculate number of skin layers (top and bottom solid layers).
         skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
 
+        # Detect which paths are holes (contained within other paths).
+        # Holes need to be inset outward to shrink the hole, while outer boundaries inset inward.
+        pathIsHole = []
+
+        for i in [0...paths.length]
+
+            isHole = false
+
+            # Check if this path is contained within any other path.
+            for j in [0...paths.length]
+
+                continue if i is j
+
+                # Test if a sample point from path i is inside path j.
+                if paths[i].length > 0 and helpers.pointInPolygon(paths[i][0], paths[j])
+
+                    isHole = true
+
+                    break
+
+            pathIsHole.push(isHole)
+
         # Process each closed path (perimeter).
-        for path in paths
+        for path, pathIndex in paths
 
             # Skip degenerate paths.
             continue if path.length < 3
@@ -185,7 +207,7 @@ module.exports =
                 # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
 
-                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter)
+                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
 
                     # Stop if inset path becomes degenerate.
                     break if insetPath.length < 3

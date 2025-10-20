@@ -190,7 +190,7 @@ describe 'Geometry Helpers', ->
                 { x: 10, y: 0, z: 0 }
             ]
 
-            insetPath = helpers.createInsetPath(path, 1)
+            insetPath = helpers.createInsetPath(path, 1, true)  # isHole=true
 
             # Should have 4 points.
             expect(insetPath.length).toBe(4)
@@ -224,7 +224,7 @@ describe 'Geometry Helpers', ->
             ]
 
             # Inset outer loop (should shrink).
-            outerInset = helpers.createInsetPath(outerLoop, 1)
+            outerInset = helpers.createInsetPath(outerLoop, 1, false)  # isHole=false
             expect(outerInset.length).toBe(4)
 
             # Outer inset should be inside the original boundary.
@@ -235,7 +235,7 @@ describe 'Geometry Helpers', ->
                 expect(point.y).toBeLessThan(20)
 
             # Inset inner loop (hole should shrink by expanding boundary outward).
-            innerInset = helpers.createInsetPath(innerLoop, 1)
+            innerInset = helpers.createInsetPath(innerLoop, 1, true)  # isHole=true
             expect(innerInset.length).toBe(4)
 
             # Inner inset should be outside the original hole boundary.

@@ -99,7 +99,8 @@ module.exports =
 
     # Create an inset path (shrink inward by specified distance).
     # First simplifies path by merging near-collinear edges, then applies perpendicular offset.
-    createInsetPath: (path, insetDistance) ->
+    # If isHole is true, the path represents a hole and will be inset outward (shrinking the hole).
+    createInsetPath: (path, insetDistance, isHole = false) ->
 
         return [] if path.length < 3
 
@@ -205,13 +206,12 @@ module.exports =
                 normalX = edgeY
                 normalY = -edgeX
 
-            # For holes (CW winding), we want the inset to go OUTWARD from the hole.
-            # This shrinks the hole, which is the correct behavior for inner walls.
-            # For outer boundaries (CCW winding), we want the inset to go INWARD.
-            # 
-            # The robust inward check ensures the normal points in the desired direction:
-            # - For CCW paths: ensure normal points INSIDE the polygon (shrinks boundary)
-            # - For CW paths (holes): ensure normal points OUTSIDE the polygon (shrinks hole)
+            # For holes, we want the inset to go OUTWARD from the hole (shrinking the hole).
+            # For outer boundaries, we want the inset to go INWARD (shrinking the boundary).
+            #
+            # The robust direction check ensures the normal points in the desired direction:
+            # - For outer boundaries: normal should point INSIDE the polygon
+            # - For holes: normal should point OUTSIDE the polygon
             midX = (p1.x + p2.x) / 2
             midY = (p1.y + p2.y) / 2
 
@@ -220,9 +220,9 @@ module.exports =
 
             isTestPointInside = @pointInPolygon({ x: testX, y: testY }, simplifiedPath)
 
-            # For CCW (outer boundary): normal should point inside the polygon
-            # For CW (hole): normal should point outside the polygon (not inside)
-            shouldBeInside = isCCW
+            # For outer boundaries: normal should point inside (test point should be inside)
+            # For holes: normal should point outside (test point should NOT be inside)
+            shouldBeInside = not isHole
 
             if isTestPointInside isnt shouldBeInside
 
@@ -273,8 +273,8 @@ module.exports =
         # when the inset distance is larger than the path's "radius".
         #
         # Detection strategy:
-        # 1. For CCW paths (outer boundaries): Check if the inset path is meaningfully smaller
-        # 2. For CW paths (holes): Check if the inset path is meaningfully larger (hole shrinks)
+        # 1. For outer boundaries: Check if the inset path is meaningfully smaller
+        # 2. For holes: Check if the inset path is meaningfully larger (hole shrinks)
         # 3. Check if the remaining area is large enough for meaningful geometry
         # 4. Reject paths that are too small or have insufficient area
         if insetPath.length >= 3
@@ -318,9 +318,9 @@ module.exports =
             insetWidth = insetMaxX - insetMinX
             insetHeight = insetMaxY - insetMinY
 
-            # The validation differs based on path winding order:
-            # - CCW paths (outer boundaries): inset should be smaller (boundary contracts)
-            # - CW paths (holes): inset should be larger (hole boundary expands, shrinking the hole)
+            # The validation differs based on whether this is a hole or outer boundary:
+            # - Outer boundaries: inset should be smaller (boundary contracts)
+            # - Holes: inset should be larger (hole boundary expands, shrinking the hole)
             #
             # We expect the bounding box to change by approximately 2 * insetDistance (both sides).
             # However, due to geometric variations (corners, few vertices, etc.), we use a lenient threshold.
@@ -328,19 +328,7 @@ module.exports =
             # This 10% threshold accounts for edge cases like sphere poles or cone tips.
             expectedSizeChange = insetDistance * 2 * 0.1
 
-            if isCCW
-
-                # For outer boundaries, inset should make the path smaller.
-                widthReduction = originalWidth - insetWidth
-                heightReduction = originalHeight - insetHeight
-
-                # Check if either dimension didn't shrink enough (or expanded).
-                if widthReduction < expectedSizeChange or heightReduction < expectedSizeChange
-
-                    # Inset path is not sufficiently smaller than original - path is too small.
-                    return []
-
-            else
+            if isHole
 
                 # For holes, inset should make the path larger (hole shrinks).
                 widthIncrease = insetWidth - originalWidth
@@ -350,6 +338,18 @@ module.exports =
                 if widthIncrease < expectedSizeChange or heightIncrease < expectedSizeChange
 
                     # Inset path is not sufficiently larger than original - hole is too small.
+                    return []
+
+            else
+
+                # For outer boundaries, inset should make the path smaller.
+                widthReduction = originalWidth - insetWidth
+                heightReduction = originalHeight - insetHeight
+
+                # Check if either dimension didn't shrink enough (or expanded).
+                if widthReduction < expectedSizeChange or heightReduction < expectedSizeChange
+
+                    # Inset path is not sufficiently smaller than original - path is too small.
                     return []
 
             # Additional check: Ensure the inset path has enough area for meaningful geometry.
