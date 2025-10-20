@@ -6,7 +6,8 @@ helpers = require('../geometry/helpers')
 module.exports =
 
     # Generate G-code for skin (top/bottom solid infill).
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false) ->
+    # If generateInfill is false, only skin walls are generated (useful for holes).
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true) ->
 
         return if boundaryPath.length < 3
 
@@ -94,6 +95,9 @@ module.exports =
                 slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
 
         # Step 2: Generate diagonal skin infill at 45-degree angle.
+        # Skip infill generation if requested (e.g., for holes where we only want walls).
+        return unless generateInfill
+
         # Calculate bounding box with additional inset for gap from skin wall.
         infillGap = nozzleDiameter / 2  # Gap between skin wall and infill.
         infillInset = skinWallInset + infillGap  # Total: 1.5 * nozzleDiameter from boundary.
