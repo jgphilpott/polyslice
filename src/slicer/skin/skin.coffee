@@ -6,7 +6,8 @@ helpers = require('../geometry/helpers')
 module.exports =
 
     # Generate G-code for skin (top/bottom solid infill).
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null) ->
+    # If generateInfill is false, only skin walls are generated (useful for holes).
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true) ->
 
         return if boundaryPath.length < 3
 
@@ -17,8 +18,9 @@ module.exports =
 
         # Step 1: Generate skin wall (perimeter pass around skin boundary).
         # Create an inset of full nozzle diameter from the boundary path.
+        # Pass isHole parameter to ensure correct inset direction for holes.
         skinWallInset = nozzleDiameter
-        skinWallPath = helpers.createInsetPath(boundaryPath, skinWallInset)
+        skinWallPath = helpers.createInsetPath(boundaryPath, skinWallInset, isHole)
 
         if skinWallPath.length >= 3
 
@@ -93,12 +95,16 @@ module.exports =
                 slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
 
         # Step 2: Generate diagonal skin infill at 45-degree angle.
+        # Skip infill generation if requested (e.g., for holes where we only want walls).
+        return unless generateInfill
+
         # Calculate bounding box with additional inset for gap from skin wall.
         infillGap = nozzleDiameter / 2  # Gap between skin wall and infill.
         infillInset = skinWallInset + infillGap  # Total: 1.5 * nozzleDiameter from boundary.
 
         # Create inset boundary for infill area.
-        infillBoundary = helpers.createInsetPath(boundaryPath, infillInset)
+        # Pass isHole parameter to ensure correct inset direction for holes.
+        infillBoundary = helpers.createInsetPath(boundaryPath, infillInset, isHole)
 
         return if infillBoundary.length < 3
 

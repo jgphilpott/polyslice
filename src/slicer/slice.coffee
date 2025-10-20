@@ -160,8 +160,30 @@ module.exports =
         # Calculate number of skin layers (top and bottom solid layers).
         skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
 
+        # Detect which paths are holes (contained within other paths).
+        # Holes need to be inset outward to shrink the hole, while outer boundaries inset inward.
+        pathIsHole = []
+
+        for i in [0...paths.length]
+
+            isHole = false
+
+            # Check if this path is contained within any other path.
+            for j in [0...paths.length]
+
+                continue if i is j
+
+                # Test if a sample point from path i is inside path j.
+                if paths[i].length > 0 and helpers.pointInPolygon(paths[i][0], paths[j])
+
+                    isHole = true
+
+                    break
+
+            pathIsHole.push(isHole)
+
         # Process each closed path (perimeter).
-        for path in paths
+        for path, pathIndex in paths
 
             # Skip degenerate paths.
             continue if path.length < 3
@@ -185,7 +207,7 @@ module.exports =
                 # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
 
-                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter)
+                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
 
                     # Stop if inset path becomes degenerate.
                     break if insetPath.length < 3
@@ -214,7 +236,16 @@ module.exports =
 
             # Determine a safe boundary for infill by insetting one nozzle width.
             # If we cannot inset (no room inside the last wall), we should not generate infill.
-            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter)
+            # Pass isHole parameter to ensure correct inset direction for holes.
+            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
+
+            # For holes, generate skin walls only (no infill) to create proper boundaries.
+            # The outer boundary's skin infill will naturally avoid the hole area.
+            if pathIsHole[pathIndex]
+                # Generate skin wall for the hole (outward inset).
+                # Pass generateInfill=false to skip infill (only walls).
+                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, pathIsHole[pathIndex], false)
+                continue
 
             # Determine if this region needs skin and calculate exposed areas.
             needsSkin = false

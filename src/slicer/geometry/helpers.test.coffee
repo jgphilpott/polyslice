@@ -152,6 +152,99 @@ describe 'Geometry Helpers', ->
             # Check first point (should be more inset).
             expect(Math.abs(insetPath5[0].x)).toBeGreaterThan(Math.abs(insetPath2[0].x))
 
+        test 'should inset CCW paths inward (outer boundary)', ->
+
+            # Define a CCW square (outer boundary).
+            path = [
+                { x: 0, y: 0, z: 0 }
+                { x: 10, y: 0, z: 0 }
+                { x: 10, y: 10, z: 0 }
+                { x: 0, y: 10, z: 0 }
+            ]
+
+            insetPath = helpers.createInsetPath(path, 1)
+
+            # Should have 4 points.
+            expect(insetPath.length).toBe(4)
+
+            # Inset should be smaller (moved inward).
+            # All points should be within the original boundary.
+            for point in insetPath
+                expect(point.x).toBeGreaterThan(0)
+                expect(point.x).toBeLessThan(10)
+                expect(point.y).toBeGreaterThan(0)
+                expect(point.y).toBeLessThan(10)
+
+            # First point should be approximately at (1, 1).
+            expect(insetPath[0].x).toBeCloseTo(1, 1)
+            expect(insetPath[0].y).toBeCloseTo(1, 1)
+
+        test 'should inset CW paths outward (hole)', ->
+
+            # Define a CW square (hole in the middle of material).
+            # This represents a hole that should shrink when inset.
+            path = [
+                { x: 0, y: 0, z: 0 }
+                { x: 0, y: 10, z: 0 }
+                { x: 10, y: 10, z: 0 }
+                { x: 10, y: 0, z: 0 }
+            ]
+
+            insetPath = helpers.createInsetPath(path, 1, true)  # isHole=true
+
+            # Should have 4 points.
+            expect(insetPath.length).toBe(4)
+
+            # Inset should be larger (moved outward from hole).
+            # All points should be outside the original boundary.
+            for point in insetPath
+                # Points should be outside the 0-10 range (expanded).
+                isOutside = point.x < 0 or point.x > 10 or point.y < 0 or point.y > 10
+                expect(isOutside).toBe(true)
+
+            # First point should be approximately at (-1, -1) (outward from hole).
+            expect(insetPath[0].x).toBeCloseTo(-1, 1)
+            expect(insetPath[0].y).toBeCloseTo(-1, 1)
+
+        test 'should handle torus-like geometry with outer and inner loops', ->
+
+            # Simulate a torus cross-section: outer CCW loop and inner CW loop (hole).
+            outerLoop = [
+                { x: 0, y: 0, z: 0 }
+                { x: 20, y: 0, z: 0 }
+                { x: 20, y: 20, z: 0 }
+                { x: 0, y: 20, z: 0 }
+            ]
+
+            innerLoop = [
+                { x: 7, y: 7, z: 0 }
+                { x: 7, y: 13, z: 0 }
+                { x: 13, y: 13, z: 0 }
+                { x: 13, y: 7, z: 0 }
+            ]
+
+            # Inset outer loop (should shrink).
+            outerInset = helpers.createInsetPath(outerLoop, 1, false)  # isHole=false
+            expect(outerInset.length).toBe(4)
+
+            # Outer inset should be inside the original boundary.
+            for point in outerInset
+                expect(point.x).toBeGreaterThan(0)
+                expect(point.x).toBeLessThan(20)
+                expect(point.y).toBeGreaterThan(0)
+                expect(point.y).toBeLessThan(20)
+
+            # Inset inner loop (hole should shrink by expanding boundary outward).
+            innerInset = helpers.createInsetPath(innerLoop, 1, true)  # isHole=true
+            expect(innerInset.length).toBe(4)
+
+            # Inner inset should be outside the original hole boundary.
+            for point in innerInset
+                isOutside = point.x < 7 or point.x > 13 or point.y < 7 or point.y > 13
+                expect(isOutside).toBe(true)
+
+            return
+
     describe 'connectSegmentsToPaths', ->
 
         test 'should connect segments into a closed path', ->
