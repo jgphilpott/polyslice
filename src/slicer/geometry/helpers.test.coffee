@@ -179,8 +179,6 @@ describe 'Geometry Helpers', ->
             expect(insetPath[0].x).toBeCloseTo(1, 1)
             expect(insetPath[0].y).toBeCloseTo(1, 1)
 
-            undefined
-
         test 'should inset CW paths outward (hole)', ->
 
             # Define a CW square (hole in the middle of material).
@@ -207,8 +205,6 @@ describe 'Geometry Helpers', ->
             # First point should be approximately at (-1, -1) (outward from hole).
             expect(insetPath[0].x).toBeCloseTo(-1, 1)
             expect(insetPath[0].y).toBeCloseTo(-1, 1)
-
-            undefined
 
         test 'should handle torus-like geometry with outer and inner loops', ->
 
@@ -247,7 +243,7 @@ describe 'Geometry Helpers', ->
                 isOutside = point.x < 7 or point.x > 13 or point.y < 7 or point.y > 13
                 expect(isOutside).toBe(true)
 
-            undefined
+            return
 
     describe 'connectSegmentsToPaths', ->
 
