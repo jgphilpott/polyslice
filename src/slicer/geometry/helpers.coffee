@@ -205,15 +205,26 @@ module.exports =
                 normalX = edgeY
                 normalY = -edgeX
 
-            # Robust inward check: ensure the normal actually points inside the polygon.
-            # Test a midpoint nudged along the normal; if it's not inside, flip the normal.
+            # For holes (CW winding), we want the inset to go OUTWARD from the hole.
+            # This shrinks the hole, which is the correct behavior for inner walls.
+            # For outer boundaries (CCW winding), we want the inset to go INWARD.
+            # 
+            # The robust inward check ensures the normal points in the desired direction:
+            # - For CCW paths: ensure normal points INSIDE the polygon (shrinks boundary)
+            # - For CW paths (holes): ensure normal points OUTSIDE the polygon (shrinks hole)
             midX = (p1.x + p2.x) / 2
             midY = (p1.y + p2.y) / 2
 
             testX = midX + normalX * (insetDistance * 0.5)
             testY = midY + normalY * (insetDistance * 0.5)
 
-            unless @pointInPolygon({ x: testX, y: testY }, simplifiedPath)
+            isTestPointInside = @pointInPolygon({ x: testX, y: testY }, simplifiedPath)
+
+            # For CCW (outer boundary): normal should point inside the polygon
+            # For CW (hole): normal should point outside the polygon (not inside)
+            shouldBeInside = isCCW
+
+            if isTestPointInside isnt shouldBeInside
 
                 normalX = -normalX
                 normalY = -normalY
@@ -262,9 +273,10 @@ module.exports =
         # when the inset distance is larger than the path's "radius".
         #
         # Detection strategy:
-        # 1. Check if the inset path is meaningfully smaller than the original
-        # 2. Check if the remaining area is large enough for meaningful geometry
-        # 3. Reject paths that are too small or have insufficient area
+        # 1. For CCW paths (outer boundaries): Check if the inset path is meaningfully smaller
+        # 2. For CW paths (holes): Check if the inset path is meaningfully larger (hole shrinks)
+        # 3. Check if the remaining area is large enough for meaningful geometry
+        # 4. Reject paths that are too small or have insufficient area
         if insetPath.length >= 3
 
             # Calculate bounding boxes.
@@ -306,21 +318,39 @@ module.exports =
             insetWidth = insetMaxX - insetMinX
             insetHeight = insetMaxY - insetMinY
 
-            # The inset path should be smaller in both dimensions.
-            # We expect the bounding box to shrink by approximately 2 * insetDistance (both sides).
+            # The validation differs based on path winding order:
+            # - CCW paths (outer boundaries): inset should be smaller (boundary contracts)
+            # - CW paths (holes): inset should be larger (hole boundary expands, shrinking the hole)
+            #
+            # We expect the bounding box to change by approximately 2 * insetDistance (both sides).
             # However, due to geometric variations (corners, few vertices, etc.), we use a lenient threshold.
-            # If the inset is not at least 10% smaller in both dimensions, reject it.
+            # If the change is not at least 10% of expected, reject it.
             # This 10% threshold accounts for edge cases like sphere poles or cone tips.
-            expectedSizeReduction = insetDistance * 2 * 0.1
+            expectedSizeChange = insetDistance * 2 * 0.1
 
-            widthReduction = originalWidth - insetWidth
-            heightReduction = originalHeight - insetHeight
+            if isCCW
 
-            # Check if either dimension didn't shrink enough (or expanded).
-            if widthReduction < expectedSizeReduction or heightReduction < expectedSizeReduction
+                # For outer boundaries, inset should make the path smaller.
+                widthReduction = originalWidth - insetWidth
+                heightReduction = originalHeight - insetHeight
 
-                # Inset path is not sufficiently smaller than original - path is too small.
-                return []
+                # Check if either dimension didn't shrink enough (or expanded).
+                if widthReduction < expectedSizeChange or heightReduction < expectedSizeChange
+
+                    # Inset path is not sufficiently smaller than original - path is too small.
+                    return []
+
+            else
+
+                # For holes, inset should make the path larger (hole shrinks).
+                widthIncrease = insetWidth - originalWidth
+                heightIncrease = insetHeight - originalHeight
+
+                # Check if either dimension didn't grow enough (or shrank).
+                if widthIncrease < expectedSizeChange or heightIncrease < expectedSizeChange
+
+                    # Inset path is not sufficiently larger than original - hole is too small.
+                    return []
 
             # Additional check: Ensure the inset path has enough area for meaningful geometry.
             # The minimum viable dimension should be very small - only reject truly degenerate paths.
