@@ -236,7 +236,13 @@ module.exports =
 
             # Determine a safe boundary for infill by insetting one nozzle width.
             # If we cannot inset (no room inside the last wall), we should not generate infill.
-            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter)
+            # Pass isHole parameter to ensure correct inset direction for holes.
+            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
+
+            # Skip infill and skin generation for holes (negative space).
+            # Holes should only have walls, no interior filling.
+            if pathIsHole[pathIndex]
+                continue
 
             # Determine if this region needs skin and calculate exposed areas.
             needsSkin = false
