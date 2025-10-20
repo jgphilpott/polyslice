@@ -257,6 +257,112 @@ module.exports =
             # Move to next diagonal line.
             offset += offsetStep15
 
+        # Safety check: if no lines were generated but we have a valid boundary,
+        # ensure at least the centerlines are included for all three directions.
+        if allInfillLines.length is 0 and infillBoundary.length >= 3
+            
+            # Generate centerlines for all three triangle directions: 45°, 105°, -15°
+            
+            # 45° centerline: y = x + centerOffset
+            centerline45Intersections = []
+            offset = centerOffset
+            y = minX + offset
+            if y >= minY and y <= maxY
+                centerline45Intersections.push({ x: minX, y: y })
+            y = maxX + offset
+            if y >= minY and y <= maxY
+                centerline45Intersections.push({ x: maxX, y: y })
+            x = minY - offset
+            if x >= minX and x <= maxX
+                centerline45Intersections.push({ x: x, y: minY })
+            x = maxY - offset
+            if x >= minX and x <= maxX
+                centerline45Intersections.push({ x: x, y: maxY })
+            
+            if centerline45Intersections.length >= 2
+                bbStart = centerline45Intersections[0]
+                bbEnd = centerline45Intersections[centerline45Intersections.length - 1]
+                clippedSegments = helpers.clipLineToPolygon(bbStart, bbEnd, infillBoundary)
+                if clippedSegments.length > 0
+                    for segment in clippedSegments
+                        allInfillLines.push({ start: segment.start, end: segment.end })
+                else
+                    allInfillLines.push({ start: bbStart, end: bbEnd })
+            
+            # 105° centerline: y = tan(105°) * x + centerOffset
+            # tan(105°) ≈ -3.732 (but we need proper calculation)
+            angle105 = 105 * Math.PI / 180
+            slope105 = Math.tan(angle105)
+            centerline105Intersections = []
+            offset = centerOffset
+            
+            # For line y = slope*x + offset, find intersections with bounding box
+            # Left edge (x = minX): y = slope*minX + offset
+            y = slope105 * minX + offset
+            if y >= minY and y <= maxY
+                centerline105Intersections.push({ x: minX, y: y })
+            # Right edge (x = maxX): y = slope*maxX + offset
+            y = slope105 * maxX + offset
+            if y >= minY and y <= maxY
+                centerline105Intersections.push({ x: maxX, y: y })
+            # Bottom edge (y = minY): x = (minY - offset) / slope
+            if Math.abs(slope105) > 0.0001
+                x = (minY - offset) / slope105
+                if x >= minX and x <= maxX
+                    centerline105Intersections.push({ x: x, y: minY })
+            # Top edge (y = maxY): x = (maxY - offset) / slope
+            if Math.abs(slope105) > 0.0001
+                x = (maxY - offset) / slope105
+                if x >= minX and x <= maxX
+                    centerline105Intersections.push({ x: x, y: maxY })
+            
+            if centerline105Intersections.length >= 2
+                bbStart = centerline105Intersections[0]
+                bbEnd = centerline105Intersections[centerline105Intersections.length - 1]
+                clippedSegments = helpers.clipLineToPolygon(bbStart, bbEnd, infillBoundary)
+                if clippedSegments.length > 0
+                    for segment in clippedSegments
+                        allInfillLines.push({ start: segment.start, end: segment.end })
+                else
+                    allInfillLines.push({ start: bbStart, end: bbEnd })
+            
+            # -15° centerline: y = tan(-15°) * x + centerOffset
+            # tan(-15°) ≈ -0.268
+            angle_15 = -15 * Math.PI / 180
+            slope_15 = Math.tan(angle_15)
+            centerline_15Intersections = []
+            offset = centerOffset
+            
+            # For line y = slope*x + offset, find intersections with bounding box
+            # Left edge (x = minX): y = slope*minX + offset
+            y = slope_15 * minX + offset
+            if y >= minY and y <= maxY
+                centerline_15Intersections.push({ x: minX, y: y })
+            # Right edge (x = maxX): y = slope*maxX + offset
+            y = slope_15 * maxX + offset
+            if y >= minY and y <= maxY
+                centerline_15Intersections.push({ x: maxX, y: y })
+            # Bottom edge (y = minY): x = (minY - offset) / slope
+            if Math.abs(slope_15) > 0.0001
+                x = (minY - offset) / slope_15
+                if x >= minX and x <= maxX
+                    centerline_15Intersections.push({ x: x, y: minY })
+            # Top edge (y = maxY): x = (maxY - offset) / slope
+            if Math.abs(slope_15) > 0.0001
+                x = (maxY - offset) / slope_15
+                if x >= minX and x <= maxX
+                    centerline_15Intersections.push({ x: x, y: maxY })
+            
+            if centerline_15Intersections.length >= 2
+                bbStart = centerline_15Intersections[0]
+                bbEnd = centerline_15Intersections[centerline_15Intersections.length - 1]
+                clippedSegments = helpers.clipLineToPolygon(bbStart, bbEnd, infillBoundary)
+                if clippedSegments.length > 0
+                    for segment in clippedSegments
+                        allInfillLines.push({ start: segment.start, end: segment.end })
+                else
+                    allInfillLines.push({ start: bbStart, end: bbEnd })
+
         # Now render all collected lines in optimal order to minimize travel.
         # Start with the line closest to the last wall position.
         lastEndPoint = lastWallPoint
