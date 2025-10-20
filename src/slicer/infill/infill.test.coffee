@@ -291,14 +291,19 @@ describe 'Infill Orchestration', ->
 
     describe 'Infill Marker Consistency (Regression Test)', ->
 
-        test 'should not add TYPE: FILL marker when no infill lines are generated', ->
+        # Helper function to create a cone mesh for testing.
+        createConeMesh = ->
 
-            # Create a cone mesh (some upper layers have very small cross-sections).
             geometry = new THREE.ConeGeometry(5, 10, 32)
             mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
             mesh.rotation.x = Math.PI / 2
             mesh.position.set(0, 0, 5)
             mesh.updateMatrixWorld()
+
+            return mesh
+
+        # Helper function to configure slicer for cone testing.
+        configureSlicerForCone = (slicer) ->
 
             slicer.setNozzleDiameter(0.4)
             slicer.setLayerHeight(0.2)
@@ -308,10 +313,13 @@ describe 'Infill Orchestration', ->
             slicer.setInfillPattern('grid')
             slicer.setVerbose(true)
 
-            result = slicer.slice(mesh)
+        # Helper function to check for empty TYPE: FILL sections in G-code.
+        # Returns an array of layer numbers that have TYPE: FILL marker but no actual fill lines.
+        checkForEmptyFillSections = (gcode) ->
 
-            # Parse the gcode to check for empty TYPE: FILL sections.
-            lines = result.split('\n')
+            SEARCH_WINDOW_SIZE = 10 # Lines to search after TYPE: FILL marker.
+
+            lines = gcode.split('\n')
             problemLayers = []
 
             for i in [0...lines.length]
@@ -334,12 +342,13 @@ describe 'Infill Orchestration', ->
                             # Check if there's actual fill after this marker.
                             hasActualFill = false
 
-                            for k in [j + 1...Math.min(j + 10, lines.length)]
+                            for k in [j + 1...Math.min(j + SEARCH_WINDOW_SIZE, lines.length)]
 
                                 fillLine = lines[k].trim()
 
                                 break if fillLine.startsWith('M117 LAYER:')
 
+                                # Look for G1 commands with extrusion (E parameter).
                                 if fillLine.startsWith('G1 ') and fillLine.includes(' E')
 
                                     hasActualFill = true
@@ -350,25 +359,29 @@ describe 'Infill Orchestration', ->
 
                             break
 
+            return problemLayers
+
+        test 'should not add TYPE: FILL marker when no infill lines are generated', ->
+
+            # Create a cone mesh (some upper layers have very small cross-sections).
+            mesh = createConeMesh()
+
+            configureSlicerForCone(slicer)
+
+            result = slicer.slice(mesh)
+
+            # Check for empty TYPE: FILL sections.
+            problemLayers = checkForEmptyFillSections(result)
+
             # There should be NO layers with TYPE: FILL but no actual fill lines.
             expect(problemLayers).toEqual([])
 
         test 'should generate infill on layers with sufficient area', ->
 
             # Create a cone mesh.
-            geometry = new THREE.ConeGeometry(5, 10, 32)
-            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
-            mesh.rotation.x = Math.PI / 2
-            mesh.position.set(0, 0, 5)
-            mesh.updateMatrixWorld()
+            mesh = createConeMesh()
 
-            slicer.setNozzleDiameter(0.4)
-            slicer.setLayerHeight(0.2)
-            slicer.setShellWallThickness(0.8)
-            slicer.setShellSkinThickness(0.8)
-            slicer.setInfillDensity(20)
-            slicer.setInfillPattern('grid')
-            slicer.setVerbose(true)
+            configureSlicerForCone(slicer)
 
             result = slicer.slice(mesh)
 
@@ -382,6 +395,11 @@ describe 'Infill Orchestration', ->
 
                     layersWithInfill++
 
+            # Cone dimensions: height=10mm, layerHeight=0.2mm.
+            coneHeight = 10
+            layerHeight = 0.2
+            totalLayers = coneHeight / layerHeight # 50 layers.
+
             # A cone should have some layers with infill (not all, as upper layers are too small).
             expect(layersWithInfill).toBeGreaterThan(0)
-            expect(layersWithInfill).toBeLessThan(50) # Not all 50 layers should have infill.
+            expect(layersWithInfill).toBeLessThan(totalLayers)
