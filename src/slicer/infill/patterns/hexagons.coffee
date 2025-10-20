@@ -192,6 +192,11 @@ module.exports =
         drawnEdges = {}
         lastEndPoint = lastWallPoint
 
+        # Only add TYPE: FILL marker and generate G-code if we have infill lines.
+        return if allInfillLines.length is 0
+
+        if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
+
         while Object.keys(drawnEdges).length < allInfillLines.length
 
             # Find the nearest undrawn edge to current position.

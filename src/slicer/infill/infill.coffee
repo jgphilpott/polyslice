@@ -26,8 +26,6 @@ module.exports =
         # Other patterns (lines, cubic, gyroid, honeycomb) not yet implemented.
         return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons'
 
-        if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
-
         # Create inset boundary for infill area (half nozzle diameter gap from innermost wall).
         infillGap = nozzleDiameter / 2
         infillBoundary = helpers.createInsetPath(boundaryPath, infillGap)
