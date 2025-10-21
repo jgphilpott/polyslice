@@ -10,7 +10,8 @@ hexagonsPattern = require('./patterns/hexagons')
 module.exports =
 
     # Generate G-code for infill (interior fill with variable density).
-    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
+    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, holeInnerWalls = []) ->
 
         return if boundaryPath.length < 3
 
@@ -49,7 +50,7 @@ module.exports =
             # This gives 10% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 2.0
 
-            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
+            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWalls)
 
         else if infillPattern is 'triangles'
 
@@ -59,7 +60,7 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
+            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWalls)
 
         else if infillPattern is 'hexagons'
 
@@ -69,4 +70,4 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint)
+            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWalls)

@@ -6,7 +6,8 @@ helpers = require('../../geometry/helpers')
 module.exports =
 
     # Generate triangles pattern infill (tessellation at 0°, +60°, and -60°).
-    generateTrianglesInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
+    generateTrianglesInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -103,8 +104,9 @@ module.exports =
             if intersections.length >= 2
 
                 # Clip the line segment to the actual infill boundary polygon.
-                # This ensures infill stays within the boundary even for circular/irregular shapes.
-                clippedSegments = helpers.clipLineToPolygon(intersections[0], intersections[1], infillBoundary)
+                # Also exclude hole areas by clipping against hole inner walls.
+                # This ensures infill stays within the boundary and outside holes.
+                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeInnerWalls)
 
                 # Store each clipped segment for later rendering.
                 for segment in clippedSegments
@@ -173,8 +175,9 @@ module.exports =
             if intersections.length >= 2
 
                 # Clip the line segment to the actual infill boundary polygon.
-                # This ensures infill stays within the boundary even for circular/irregular shapes.
-                clippedSegments = helpers.clipLineToPolygon(intersections[0], intersections[1], infillBoundary)
+                # Also exclude hole areas by clipping against hole inner walls.
+                # This ensures infill stays within the boundary and outside holes.
+                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeInnerWalls)
 
                 # Store each clipped segment for later rendering.
                 for segment in clippedSegments
@@ -243,8 +246,9 @@ module.exports =
             if intersections.length >= 2
 
                 # Clip the line segment to the actual infill boundary polygon.
-                # This ensures infill stays within the boundary even for circular/irregular shapes.
-                clippedSegments = helpers.clipLineToPolygon(intersections[0], intersections[1], infillBoundary)
+                # Also exclude hole areas by clipping against hole inner walls.
+                # This ensures infill stays within the boundary and outside holes.
+                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeInnerWalls)
 
                 # Store each clipped segment for later rendering.
                 for segment in clippedSegments
