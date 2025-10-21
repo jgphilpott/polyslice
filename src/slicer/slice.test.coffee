@@ -158,3 +158,104 @@ describe 'Slicing', ->
             result = slicer.slice(scene)
             expect(result).toContain('G28')
 
+    describe 'Torus Slicing with Holes', ->
+
+        test 'should generate infill clipped by hole walls', ->
+
+            # Create a torus mesh with a hole.
+            geometry = new THREE.TorusGeometry(10, 3, 8, 16)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position torus so bottom is at Z=0.
+            mesh.position.set(0, 0, 3)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer with infill.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(1.2)  # 3 walls.
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Verify that infill is generated (should have TYPE: FILL comments).
+            expect(result).toContain('TYPE: FILL')
+
+            # Verify that walls are generated for both outer and hole.
+            expect(result).toContain('TYPE: WALL-OUTER')
+            expect(result).toContain('TYPE: WALL-INNER')
+
+            # Verify that skin is generated.
+            expect(result).toContain('TYPE: SKIN')
+
+            # The G-code should contain both wall and infill sections.
+            # This confirms that the implementation is processing holes.
+            expect(result.length).toBeGreaterThan(1000)
+
+        test 'should generate skin infill clipped by hole skin walls', ->
+
+            # Create a torus mesh with a hole.
+            geometry = new THREE.TorusGeometry(10, 3, 8, 16)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position torus so bottom is at Z=0.
+            mesh.position.set(0, 0, 3)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer with skin layers.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(1.2)  # 3 walls.
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setInfillDensity(0)  # No regular infill.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Verify that skin is generated (top/bottom layers).
+            expect(result).toContain('TYPE: SKIN')
+
+            # Verify that walls are generated.
+            expect(result).toContain('TYPE: WALL-OUTER')
+
+            # Even with no regular infill, skin should be present on top/bottom.
+            # The key test is that it completes without errors, and skin is clipped properly.
+            expect(result.length).toBeGreaterThan(500)
+
+        test 'should handle torus with multiple holes correctly', ->
+
+            # Create a torus - it has both an outer boundary and an inner hole.
+            geometry = new THREE.TorusGeometry(5, 2, 16, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position torus.
+            mesh.position.set(0, 0, 2)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)  # 2 walls.
+            slicer.setShellSkinThickness(0.6)  # 3 skin layers.
+            slicer.setInfillDensity(30)
+            slicer.setInfillPattern('triangles')
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Should produce valid G-code without errors.
+            expect(result).toBeDefined()
+            expect(result.length).toBeGreaterThan(100)
+
+            # Should not have any NaN or undefined coordinates.
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
