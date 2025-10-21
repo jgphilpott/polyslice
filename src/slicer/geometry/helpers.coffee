@@ -563,7 +563,21 @@ module.exports =
             # Add the final segments (after processing all holes) to the result.
             finalSegments.push(segmentsToProcess...)
 
-        return finalSegments
+        # Filter out degenerate segments (where start and end are too close).
+        minSegmentLength = 0.001
+        filteredSegments = []
+
+        for segment in finalSegments
+
+            dx = segment.end.x - segment.start.x
+            dy = segment.end.y - segment.start.y
+            length = Math.sqrt(dx * dx + dy * dy)
+
+            if length >= minSegmentLength
+
+                filteredSegments.push(segment)
+
+        return filteredSegments
 
     # Clip a line segment to a polygon boundary.
     # Returns an array of line segments that are inside the polygon.

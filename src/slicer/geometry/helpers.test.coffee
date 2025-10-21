@@ -722,3 +722,209 @@ describe 'Geometry Helpers', ->
             expect(segments[0].start.y).toBeCloseTo(0, 1)
             expect(segments[0].end.x).toBeCloseTo(10, 1)
             expect(segments[0].end.y).toBeCloseTo(10, 1)
+
+    describe 'clipLineWithHoles', ->
+
+        test 'should return full line when no holes provided', ->
+
+            lineStart = { x: 2, y: 5 }
+            lineEnd = { x: 8, y: 5 }
+
+            # Square polygon.
+            inclusionPolygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            segments = helpers.clipLineWithHoles(lineStart, lineEnd, inclusionPolygon, [])
+
+            expect(segments.length).toBe(1)
+            expect(segments[0].start.x).toBeCloseTo(2, 6)
+            expect(segments[0].start.y).toBeCloseTo(5, 6)
+            expect(segments[0].end.x).toBeCloseTo(8, 6)
+            expect(segments[0].end.y).toBeCloseTo(5, 6)
+
+        test 'should exclude segment completely inside hole', ->
+
+            lineStart = { x: 4.5, y: 5 }
+            lineEnd = { x: 5.5, y: 5 }
+
+            # Outer square 0-10.
+            inclusionPolygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Inner hole square 4-6.
+            holePolygon = [
+                { x: 4, y: 4 }
+                { x: 6, y: 4 }
+                { x: 6, y: 6 }
+                { x: 4, y: 6 }
+            ]
+
+            segments = helpers.clipLineWithHoles(lineStart, lineEnd, inclusionPolygon, [holePolygon])
+
+            # Line is completely inside hole, should be excluded.
+            expect(segments.length).toBe(0)
+
+        test 'should clip line that crosses through hole', ->
+
+            lineStart = { x: 2, y: 5 }
+            lineEnd = { x: 8, y: 5 }
+
+            # Outer square 0-10.
+            inclusionPolygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Inner hole square 4-6.
+            holePolygon = [
+                { x: 4, y: 4 }
+                { x: 6, y: 4 }
+                { x: 6, y: 6 }
+                { x: 4, y: 6 }
+            ]
+
+            segments = helpers.clipLineWithHoles(lineStart, lineEnd, inclusionPolygon, [holePolygon])
+
+            # Line should be split into two segments: (2,5)-(4,5) and (6,5)-(8,5).
+            expect(segments.length).toBe(2)
+
+            # First segment: left side of hole.
+            expect(segments[0].start.x).toBeCloseTo(2, 1)
+            expect(segments[0].start.y).toBeCloseTo(5, 1)
+            expect(segments[0].end.x).toBeCloseTo(4, 1)
+            expect(segments[0].end.y).toBeCloseTo(5, 1)
+
+            # Second segment: right side of hole.
+            expect(segments[1].start.x).toBeCloseTo(6, 1)
+            expect(segments[1].start.y).toBeCloseTo(5, 1)
+            expect(segments[1].end.x).toBeCloseTo(8, 1)
+            expect(segments[1].end.y).toBeCloseTo(5, 1)
+
+        test 'should handle multiple holes', ->
+
+            lineStart = { x: 1, y: 5 }
+            lineEnd = { x: 9, y: 5 }
+
+            # Outer square 0-10.
+            inclusionPolygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # First hole at x=2-3.
+            hole1 = [
+                { x: 2, y: 4 }
+                { x: 3, y: 4 }
+                { x: 3, y: 6 }
+                { x: 2, y: 6 }
+            ]
+
+            # Second hole at x=7-8.
+            hole2 = [
+                { x: 7, y: 4 }
+                { x: 8, y: 4 }
+                { x: 8, y: 6 }
+                { x: 7, y: 6 }
+            ]
+
+            segments = helpers.clipLineWithHoles(lineStart, lineEnd, inclusionPolygon, [hole1, hole2])
+
+            # Line should be split into three segments: (1,5)-(2,5), (3,5)-(7,5), and (8,5)-(9,5).
+            expect(segments.length).toBe(3)
+
+            # First segment: before first hole.
+            expect(segments[0].start.x).toBeCloseTo(1, 1)
+            expect(segments[0].end.x).toBeCloseTo(2, 1)
+
+            # Second segment: between holes.
+            expect(segments[1].start.x).toBeCloseTo(3, 1)
+            expect(segments[1].end.x).toBeCloseTo(7, 1)
+
+            # Third segment: after second hole.
+            expect(segments[2].start.x).toBeCloseTo(8, 1)
+            expect(segments[2].end.x).toBeCloseTo(9, 1)
+
+        test 'should handle line that does not intersect hole', ->
+
+            lineStart = { x: 2, y: 2 }
+            lineEnd = { x: 8, y: 2 }
+
+            # Outer square 0-10.
+            inclusionPolygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Hole at different Y position.
+            holePolygon = [
+                { x: 4, y: 6 }
+                { x: 6, y: 6 }
+                { x: 6, y: 8 }
+                { x: 4, y: 8 }
+            ]
+
+            segments = helpers.clipLineWithHoles(lineStart, lineEnd, inclusionPolygon, [holePolygon])
+
+            # Line does not intersect hole, should remain intact.
+            expect(segments.length).toBe(1)
+            expect(segments[0].start.x).toBeCloseTo(2, 1)
+            expect(segments[0].start.y).toBeCloseTo(2, 1)
+            expect(segments[0].end.x).toBeCloseTo(8, 1)
+            expect(segments[0].end.y).toBeCloseTo(2, 1)
+
+        test 'should handle circular hole with torus-like geometry', ->
+
+            lineStart = { x: -10, y: 0 }
+            lineEnd = { x: 10, y: 0 }
+
+            # Outer octagon (approximate circle, radius ~7).
+            inclusionPolygon = [
+                { x: 7, y: 0 }
+                { x: 5, y: 5 }
+                { x: 0, y: 7 }
+                { x: -5, y: 5 }
+                { x: -7, y: 0 }
+                { x: -5, y: -5 }
+                { x: 0, y: -7 }
+                { x: 5, y: -5 }
+            ]
+
+            # Inner octagon hole (approximate circle, radius ~3).
+            holePolygon = [
+                { x: 3, y: 0 }
+                { x: 2, y: 2 }
+                { x: 0, y: 3 }
+                { x: -2, y: 2 }
+                { x: -3, y: 0 }
+                { x: -2, y: -2 }
+                { x: 0, y: -3 }
+                { x: 2, y: -2 }
+            ]
+
+            segments = helpers.clipLineWithHoles(lineStart, lineEnd, inclusionPolygon, [holePolygon])
+
+            # Line should be split into two segments: left side and right side of the hole.
+            # Expected: approximately (-7,0) to (-3,0) and (3,0) to (7,0).
+            expect(segments.length).toBe(2)
+
+            # First segment: left side.
+            expect(segments[0].start.x).toBeCloseTo(-7, 1)
+            expect(segments[0].end.x).toBeCloseTo(-3, 1)
+
+            # Second segment: right side.
+            expect(segments[1].start.x).toBeCloseTo(3, 1)
+            expect(segments[1].end.x).toBeCloseTo(7, 1)
