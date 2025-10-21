@@ -182,6 +182,11 @@ module.exports =
 
             pathIsHole.push(isHole)
 
+        # Collect hole boundaries for infill clipping.
+        # These will be used to exclude infill from hole areas.
+        holeInnerWalls = []  # Inner wall paths of holes (for regular infill clipping).
+        holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
+
         # Process each closed path (perimeter).
         for path, pathIndex in paths
 
@@ -214,6 +219,11 @@ module.exports =
 
                     currentPath = insetPath
 
+            # Store the innermost wall path for holes (for infill clipping).
+            if pathIsHole[pathIndex] and currentPath.length >= 3
+
+                holeInnerWalls.push(currentPath)
+
             # After walls, determine if skin or infill should be generated for THIS specific region.
             #
             # Professional slicer skin detection strategy:
@@ -240,11 +250,22 @@ module.exports =
             infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
 
             # For holes, generate skin walls only (no infill) to create proper boundaries.
-            # The outer boundary's skin infill will naturally avoid the hole area.
+            # Calculate and store the hole's skin wall boundary for clipping outer boundary infill.
             if pathIsHole[pathIndex]
+
+                # Calculate the skin wall path for this hole.
+                # This is an inset of full nozzle diameter from the innermost wall.
+                skinWallInset = nozzleDiameter
+                skinWallPath = helpers.createInsetPath(currentPath, skinWallInset, pathIsHole[pathIndex])
+
+                if skinWallPath.length >= 3
+
+                    holeSkinWalls.push(skinWallPath)
+
                 # Generate skin wall for the hole (outward inset).
                 # Pass generateInfill=false to skip infill (only walls).
                 skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, pathIsHole[pathIndex], false)
+
                 continue
 
             # Determine if this region needs skin and calculate exposed areas.
@@ -376,9 +397,10 @@ module.exports =
 
                     # Absolute top/bottom layers: ONLY skin (no infill).
                     # This ensures clean top and bottom surfaces without visible infill pattern.
+                    # Pass hole skin walls for clipping.
                     for skinArea in skinAreas
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls)
 
                 else
 
@@ -388,12 +410,14 @@ module.exports =
 
                         # Use the original currentPath for infill to keep coverage consistent,
                         # but require that an inset path exists as a guard to ensure there is room inside.
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                        # Pass hole inner walls for clipping.
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls)
 
                     # Generate skin ONLY in the exposed areas.
+                    # Pass hole skin walls for clipping.
                     for skinArea in skinAreas
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls)
 
             else
 
@@ -402,4 +426,5 @@ module.exports =
 
                     # Use the original currentPath for infill to keep coverage consistent,
                     # but require that an inset path exists as a guard to ensure there is room inside.
-                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint)
+                    # Pass hole inner walls for clipping.
+                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls)

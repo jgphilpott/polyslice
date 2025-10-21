@@ -393,6 +393,178 @@ module.exports =
 
         return { x: x, y: y }
 
+    # Clip a line segment to an inclusion polygon while excluding holes.
+    # Returns an array of line segments that are inside the inclusion polygon but outside all hole polygons.
+    #
+    # This function extends clipLineToPolygon to support hole exclusion.
+    # It first clips to the inclusion boundary, then removes segments that fall within holes.
+    #
+    # Parameters:
+    # - lineStart: Start point of the line
+    # - lineEnd: End point of the line
+    # - inclusionPolygon: The polygon to clip to (infill boundary)
+    # - exclusionPolygons: Array of hole polygons to exclude from the result
+    clipLineWithHoles: (lineStart, lineEnd, inclusionPolygon, exclusionPolygons = []) ->
+
+        # First clip to the inclusion boundary.
+        segments = @clipLineToPolygon(lineStart, lineEnd, inclusionPolygon)
+
+        return segments if exclusionPolygons.length is 0
+
+        # For each segment clipped to the inclusion boundary, further clip against holes.
+        finalSegments = []
+
+        for segment in segments
+
+            # Start with the segment from the inclusion clipping.
+            segmentsToProcess = [segment]
+
+            # Process each hole (exclusion polygon).
+            for holePolygon in exclusionPolygons
+
+                newSegmentsToProcess = []
+
+                # For each segment, remove the parts that fall inside the hole.
+                for segmentToClip in segmentsToProcess
+
+                    # Check if segment endpoints are inside the hole.
+                    startInHole = @pointInPolygon(segmentToClip.start, holePolygon)
+                    endInHole = @pointInPolygon(segmentToClip.end, holePolygon)
+
+                    # If both endpoints are inside the hole, the entire segment is excluded.
+                    if startInHole and endInHole
+                        continue
+
+                    # If neither endpoint is in the hole, check for intersections.
+                    if not startInHole and not endInHole
+
+                        # Find intersections with the hole boundary.
+                        intersections = []
+
+                        for i in [0...holePolygon.length]
+
+                            nextIdx = if i is holePolygon.length - 1 then 0 else i + 1
+
+                            edgeStart = holePolygon[i]
+                            edgeEnd = holePolygon[nextIdx]
+
+                            intersection = @lineSegmentIntersection(segmentToClip.start, segmentToClip.end, edgeStart, edgeEnd)
+
+                            if intersection
+
+                                # Calculate parametric t value along the segment.
+                                dx = segmentToClip.end.x - segmentToClip.start.x
+                                dy = segmentToClip.end.y - segmentToClip.start.y
+
+                                if Math.abs(dx) > Math.abs(dy)
+                                    t = (intersection.x - segmentToClip.start.x) / dx
+                                else
+                                    t = (intersection.y - segmentToClip.start.y) / dy
+
+                                intersections.push({ point: intersection, t: t })
+
+                        # If there are no intersections, the segment doesn't cross the hole - keep it.
+                        if intersections.length is 0
+
+                            newSegmentsToProcess.push(segmentToClip)
+
+                        else
+
+                            # Sort intersections by t value.
+                            intersections.sort((a, b) -> a.t - b.t)
+
+                            # Build segments from non-hole portions.
+                            # Start from segment start.
+                            prevT = 0
+                            prevPoint = segmentToClip.start
+
+                            for intersection in intersections
+
+                                # Calculate midpoint between previous point and intersection.
+                                midT = (prevT + intersection.t) / 2
+                                midX = segmentToClip.start.x + midT * (segmentToClip.end.x - segmentToClip.start.x)
+                                midY = segmentToClip.start.y + midT * (segmentToClip.end.y - segmentToClip.start.y)
+
+                                # If midpoint is NOT in the hole, keep this segment.
+                                if not @pointInPolygon({ x: midX, y: midY }, holePolygon)
+
+                                    newSegmentsToProcess.push({
+                                        start: prevPoint
+                                        end: intersection.point
+                                    })
+
+                                prevT = intersection.t
+                                prevPoint = intersection.point
+
+                            # Check the final segment from last intersection to end.
+                            midT = (prevT + 1) / 2
+                            midX = segmentToClip.start.x + midT * (segmentToClip.end.x - segmentToClip.start.x)
+                            midY = segmentToClip.start.y + midT * (segmentToClip.end.y - segmentToClip.start.y)
+
+                            if not @pointInPolygon({ x: midX, y: midY }, holePolygon)
+
+                                newSegmentsToProcess.push({
+                                    start: prevPoint
+                                    end: segmentToClip.end
+                                })
+
+                    else
+
+                        # One endpoint is in the hole, one is not - need to find intersection.
+                        intersections = []
+
+                        for i in [0...holePolygon.length]
+
+                            nextIdx = if i is holePolygon.length - 1 then 0 else i + 1
+
+                            edgeStart = holePolygon[i]
+                            edgeEnd = holePolygon[nextIdx]
+
+                            intersection = @lineSegmentIntersection(segmentToClip.start, segmentToClip.end, edgeStart, edgeEnd)
+
+                            if intersection
+
+                                # Calculate parametric t value along the segment.
+                                dx = segmentToClip.end.x - segmentToClip.start.x
+                                dy = segmentToClip.end.y - segmentToClip.start.y
+
+                                if Math.abs(dx) > Math.abs(dy)
+                                    t = (intersection.x - segmentToClip.start.x) / dx
+                                else
+                                    t = (intersection.y - segmentToClip.start.y) / dy
+
+                                intersections.push({ point: intersection, t: t })
+
+                        if intersections.length > 0
+
+                            # Sort and take the closest intersection.
+                            intersections.sort((a, b) -> a.t - b.t)
+
+                            # Keep the segment that's outside the hole.
+                            if startInHole
+
+                                # Start is in hole, end is out - keep from first intersection to end.
+                                newSegmentsToProcess.push({
+                                    start: intersections[0].point
+                                    end: segmentToClip.end
+                                })
+
+                            else
+
+                                # Start is out, end is in hole - keep from start to first intersection.
+                                newSegmentsToProcess.push({
+                                    start: segmentToClip.start
+                                    end: intersections[0].point
+                                })
+
+                # Update segments to process with the new clipped segments.
+                segmentsToProcess = newSegmentsToProcess
+
+            # Add the final segments (after processing all holes) to the result.
+            finalSegments.push(segmentsToProcess...)
+
+        return finalSegments
+
     # Clip a line segment to a polygon boundary.
     # Returns an array of line segments that are inside the polygon.
     #

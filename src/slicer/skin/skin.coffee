@@ -7,7 +7,8 @@ module.exports =
 
     # Generate G-code for skin (top/bottom solid infill).
     # If generateInfill is false, only skin walls are generated (useful for holes).
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true) ->
+    # holeSkinWalls: Array of hole skin wall paths to exclude from skin infill.
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = []) ->
 
         return if boundaryPath.length < 3
 
@@ -221,8 +222,9 @@ module.exports =
             if intersections.length >= 2
 
                 # Clip the line segment to the actual infill boundary polygon.
-                # This ensures infill stays within the boundary even for circular/irregular shapes.
-                clippedSegments = helpers.clipLineToPolygon(intersections[0], intersections[1], infillBoundary)
+                # Also exclude hole areas by clipping against hole skin walls.
+                # This ensures skin infill stays within the boundary and outside holes.
+                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeSkinWalls)
 
                 # Process each clipped segment (usually just one for convex shapes).
                 for segment in clippedSegments

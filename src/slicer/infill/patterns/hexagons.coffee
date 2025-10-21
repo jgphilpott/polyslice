@@ -6,7 +6,8 @@ helpers = require('../../geometry/helpers')
 module.exports =
 
     # Generate hexagons pattern infill (honeycomb tessellation).
-    generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
+    generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -128,8 +129,9 @@ module.exports =
                         v2 = vertices[(i + 1) % 6]
 
                         # Clip edge to the actual infill boundary polygon.
-                        # This ensures infill stays within the boundary even for circular/irregular shapes.
-                        clippedSegments = helpers.clipLineToPolygon(v1, v2, infillBoundary)
+                        # Also exclude hole areas by clipping against hole inner walls.
+                        # This ensures infill stays within the boundary and outside holes.
+                        clippedSegments = helpers.clipLineWithHoles(v1, v2, infillBoundary, holeInnerWalls)
 
                         # Process each clipped segment (usually just one for convex shapes).
                         for clippedSegment in clippedSegments
