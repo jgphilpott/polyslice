@@ -182,16 +182,20 @@ module.exports =
 
             pathIsHole.push(isHole)
 
-        # Collect hole boundaries for infill clipping.
-        # These will be used to exclude infill from hole areas.
+        # Phase 1: Generate walls and collect hole boundaries.
+        # We must complete this phase BEFORE generating infill, so that hole boundaries
+        # are available when processing outer boundaries.
         holeInnerWalls = []  # Inner wall paths of holes (for regular infill clipping).
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
+        innermostWalls = []  # Store innermost wall for each path.
 
-        # Process each closed path (perimeter).
+        # Process each closed path to generate walls.
         for path, pathIndex in paths
 
             # Skip degenerate paths.
-            continue if path.length < 3
+            if path.length < 3
+                innermostWalls.push(null)
+                continue
 
             currentPath = path
 
@@ -219,39 +223,16 @@ module.exports =
 
                     currentPath = insetPath
 
+            # Store the innermost wall path.
+            innermostWalls.push(currentPath)
+
             # Store the innermost wall path for holes (for infill clipping).
             if pathIsHole[pathIndex] and currentPath.length >= 3
 
                 holeInnerWalls.push(currentPath)
 
-            # After walls, determine if skin or infill should be generated for THIS specific region.
-            #
-            # Professional slicer skin detection strategy:
-            # 1. Identify "exposed surfaces" - regions where there's minimal coverage from adjacent layer
-            # 2. For TOP surfaces (not covered from above): generate skin on the exposed layer AND
-            #    skinLayerCount-1 layers immediately BELOW it
-            # 3. For BOTTOM surfaces (not covered from below): generate skin on the exposed layer AND
-            #    skinLayerCount-1 layers immediately ABOVE it
-            #
-            # Example: If layer 150 is a top surface (not covered by 151) and skinLayerCount=4:
-            #   - Layers 147, 148, 149, 150 all get skin (4 total layers)
-            #
-            # Implementation:
-            # - Check if any layer within skinLayerCount distance is an exposed surface
-            # - If yes, this layer gets skin
-
-            # The innermost wall ends at its first point (closed loop).
-            # Track this position to minimize travel distance to infill/skin start.
-            lastWallPoint = if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y } else null
-
-            # Determine a safe boundary for infill by insetting one nozzle width.
-            # If we cannot inset (no room inside the last wall), we should not generate infill.
-            # Pass isHole parameter to ensure correct inset direction for holes.
-            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
-
-            # For holes, generate skin walls only (no infill) to create proper boundaries.
-            # Calculate and store the hole's skin wall boundary for clipping outer boundary infill.
-            if pathIsHole[pathIndex]
+            # For holes, calculate and store the skin wall boundary.
+            if pathIsHole[pathIndex] and currentPath.length >= 3
 
                 # Calculate the skin wall path for this hole.
                 # This is an inset of full nozzle diameter from the innermost wall.
@@ -264,9 +245,32 @@ module.exports =
 
                 # Generate skin wall for the hole (outward inset).
                 # Pass generateInfill=false to skip infill (only walls).
-                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, pathIsHole[pathIndex], false)
+                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, null, pathIsHole[pathIndex], false)
 
-                continue
+        # Phase 2: Generate infill and skin.
+        # Now that all hole boundaries have been collected, we can generate infill
+        # for outer boundaries with proper hole exclusion.
+        for path, pathIndex in paths
+
+            # Skip degenerate paths and holes (holes already processed in phase 1).
+            continue if path.length < 3 or pathIsHole[pathIndex]
+
+            currentPath = innermostWalls[pathIndex]
+
+            # Skip if no innermost wall was generated.
+            continue if not currentPath or currentPath.length < 3
+
+            # Skip if no innermost wall was generated.
+            continue if not currentPath or currentPath.length < 3
+
+            # The innermost wall ends at its first point (closed loop).
+            # Track this position to minimize travel distance to infill/skin start.
+            lastWallPoint = if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y } else null
+
+            # Determine a safe boundary for infill by insetting one nozzle width.
+            # If we cannot inset (no room inside the last wall), we should not generate infill.
+            # Pass isHole parameter to ensure correct inset direction for holes.
+            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
 
             # Determine if this region needs skin and calculate exposed areas.
             needsSkin = false
