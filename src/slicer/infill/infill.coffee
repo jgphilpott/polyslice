@@ -35,6 +35,22 @@ module.exports =
 
         return if infillBoundary.length < 3
 
+        # Create inset versions of hole inner walls to maintain the same gap.
+        # For holes, we want to shrink them (outset from the hole's perspective) by the same infill gap.
+        # This ensures infill maintains a consistent gap from all walls, including hole walls.
+        holeInnerWallsWithGap = []
+
+        for holeWall in holeInnerWalls
+
+            if holeWall.length >= 3
+
+                # Create outset path for the hole (isHole=true means it will shrink the hole).
+                holeWallWithGap = helpers.createInsetPath(holeWall, infillGap, true)
+
+                if holeWallWithGap.length >= 3
+
+                    holeInnerWallsWithGap.push(holeWallWithGap)
+
         # Calculate line spacing based on infill density.
         # Different patterns require different spacing multipliers:
         # - Grid (2 directions): multiply by 2
@@ -50,7 +66,7 @@ module.exports =
             # This gives 10% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 2.0
 
-            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWalls)
+            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)
 
         else if infillPattern is 'triangles'
 
@@ -60,7 +76,7 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWalls)
+            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)
 
         else if infillPattern is 'hexagons'
 
@@ -70,4 +86,4 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWalls)
+            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)

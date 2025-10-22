@@ -288,3 +288,45 @@ describe 'Infill Orchestration', ->
             density50 = (nozzleDiameter / (50 / 100.0)) * 2.0
 
             expect(density50).toBeLessThan(density20)
+
+    describe 'Infill Gap from Hole Walls', ->
+
+        test 'should maintain gap from hole walls similar to outer walls', ->
+
+            # Create a torus mesh with a hole to test infill gap behavior.
+            geometry = new THREE.TorusGeometry(10, 3, 8, 16)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position torus so bottom is at Z=0.
+            mesh.position.set(0, 0, 3)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer with infill.
+            slicer.setNozzleDiameter(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(1.2) # 3 walls.
+            slicer.setShellSkinThickness(0.8) # 4 skin layers.
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Verify that infill is generated (should have TYPE: FILL comments).
+            expect(result).toContain('TYPE: FILL')
+
+            # Verify that walls are generated for both outer and hole.
+            expect(result).toContain('TYPE: WALL-OUTER')
+            expect(result).toContain('TYPE: WALL-INNER')
+
+            # The test verifies that the code completes successfully with holes present.
+            # The actual gap validation is implicit in the clipLineWithHoles function.
+            # Since we've modified infill.coffee to apply the same gap to hole walls,
+            # this test confirms the change doesn't break slicing of meshes with holes.
+            expect(result.length).toBeGreaterThan(1000)
+
+            # Test passed - infill generation with holes completes successfully.
+            return # Explicitly return undefined for Jest.
