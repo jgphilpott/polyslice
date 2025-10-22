@@ -632,7 +632,7 @@ describe 'Skin Generation', ->
                     xMatch = line.match(/X([\d.]+)/)
                     yMatch = line.match(/Y([\d.]+)/)
 
-                    if xMatch and yMatch and currentLayer is 3 # Check layer 3 (bottom skin layer with adequate room).
+                    if xMatch and yMatch and currentLayer is 2 # Check layer 2 (bottom skin layer).
                         x = parseFloat(xMatch[1])
                         y = parseFloat(yMatch[1])
 
