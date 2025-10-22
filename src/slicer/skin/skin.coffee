@@ -109,6 +109,22 @@ module.exports =
 
         return if infillBoundary.length < 3
 
+        # Create inset versions of hole skin walls to maintain the same gap.
+        # For holes, we want to shrink them (outset from the hole's perspective) by the same infill gap.
+        # This ensures skin infill maintains a consistent gap from all walls, including hole skin walls.
+        holeSkinWallsWithGap = []
+
+        for holeSkinWall in holeSkinWalls
+
+            if holeSkinWall.length >= 3
+
+                # Create outset path for the hole (isHole=true means it will shrink the hole).
+                holeSkinWallWithGap = helpers.createInsetPath(holeSkinWall, infillGap, true)
+
+                if holeSkinWallWithGap.length >= 3
+
+                    holeSkinWallsWithGap.push(holeSkinWallWithGap)
+
         # Calculate bounding box of infill area.
         minX = Infinity
         maxX = -Infinity
@@ -222,9 +238,9 @@ module.exports =
             if intersections.length >= 2
 
                 # Clip the line segment to the actual infill boundary polygon.
-                # Also exclude hole areas by clipping against hole skin walls.
-                # This ensures skin infill stays within the boundary and outside holes.
-                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeSkinWalls)
+                # Also exclude hole areas by clipping against hole skin walls with gap.
+                # This ensures skin infill stays within the boundary and outside holes with proper clearance.
+                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeSkinWallsWithGap)
 
                 # Process each clipped segment (usually just one for convex shapes).
                 for segment in clippedSegments
