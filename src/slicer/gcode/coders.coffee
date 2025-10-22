@@ -755,12 +755,12 @@ module.exports =
         # Switch to relative positioning for safe moves.
         gcode += module.exports.codePositioningMode(slicer, false).replace(slicer.newline, (if verbose then "; Relative Positioning" + slicer.newline else slicer.newline))
 
-        # Retract and raise Z.
-        gcode += module.exports.codeLinearMovement(slicer, null, null, 10, -2, 2400).replace(slicer.newline, (if verbose then "; Retract and Raise Z" + slicer.newline else slicer.newline))
-
         if wipeNozzle # Wipe out (optional based on setting).
 
             gcode += module.exports.codeLinearMovement(slicer, 5, 5, null, null, 3000).replace(slicer.newline, (if verbose then "; Wipe Nozzle" + slicer.newline else slicer.newline))
+
+        # Retract and raise Z.
+        gcode += module.exports.codeLinearMovement(slicer, null, null, 10, -2, 2400).replace(slicer.newline, (if verbose then "; Retract and Raise Z" + slicer.newline else slicer.newline))
 
         # Switch back to absolute positioning.
         gcode += module.exports.codePositioningMode(slicer, true).replace(slicer.newline, (if verbose then "; Absolute Positioning" + slicer.newline else slicer.newline))
