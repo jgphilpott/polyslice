@@ -7,7 +7,6 @@ const { Polyslice, Printer, Filament } = require('../../src/index');
 const THREE = require('three');
 const path = require('path');
 const fs = require('fs');
-const { meta } = require('eslint-plugin-jest');
 
 console.log('Polyslice Shape Slicing Example');
 console.log('================================\n');
@@ -180,6 +179,7 @@ function sliceShape(mesh, pattern, density) {
     infillDensity: density,
     bedTemperature: 0,
     layerHeight: 0.2,
+    wipeNozzle: false,
     testStrip: true,
     metadata: false,
     verbose: true
