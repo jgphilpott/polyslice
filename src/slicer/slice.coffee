@@ -62,8 +62,16 @@ module.exports =
 
         layerHeight = slicer.getLayerHeight()
 
-        # Use Polytree to slice the mesh into layers.
-        allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, minZ, maxZ)
+        # Add small epsilon offset to layer height to avoid slicing exactly at geometric boundaries.
+        # This prevents issues with shapes like torus where slicing at exact boundary planes
+        # can cause Polytree to miss entire regions (e.g., the outer ring at center plane).
+        # Using a very small epsilon (0.0000001mm) that's negligible for printing but sufficient
+        # to nudge slice planes away from exact geometric boundaries.
+        SLICE_EPSILON = 0.0000001
+        adjustedLayerHeight = layerHeight + SLICE_EPSILON
+
+        # Use Polytree to slice the mesh into layers with adjusted layer height.
+        allLayers = Polytree.sliceIntoLayers(mesh, adjustedLayerHeight, minZ, maxZ)
 
         # Calculate center offset to position on build plate.
         buildPlateWidth = slicer.getBuildPlateWidth()

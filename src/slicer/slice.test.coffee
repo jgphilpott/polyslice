@@ -259,3 +259,78 @@ describe 'Slicing', ->
             expect(result).not.toContain('NaN')
             expect(result).not.toContain('undefined')
 
+    describe 'Torus Slicing Regression', ->
+
+        test 'should correctly slice torus at center plane (issue fix)', ->
+
+            # This test verifies the fix for the torus slicing bug where layer 10
+            # (at the center plane Z=2.0mm) was only printing the inner hole instead
+            # of both the outer ring and inner hole.
+            #
+            # Root cause: Polytree was slicing exactly at Z=2.0, which is a geometric
+            # boundary for the torus, causing it to miss the outer ring.
+            #
+            # Fix: Added small epsilon offset to layer height to avoid hitting exact
+            # geometric boundaries.
+
+            # Create torus with same parameters as resources (radius=5mm, tube=2mm).
+            geometry = new THREE.TorusGeometry(5, 2, 16, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position torus so bottom is at Z=0 (center at Z=2mm).
+            mesh.position.set(0, 0, 2)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer with same settings as resources.
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(50)
+            slicer.setVerbose(true)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Find Layer 10 content (the problematic center layer at Z≈2.0mm).
+            lines = result.split('\n')
+            layer10Start = -1
+            layer11Start = -1
+
+            for line, i in lines
+                if line.includes('LAYER: 10')
+                    layer10Start = i
+                if line.includes('LAYER: 11')
+                    layer11Start = i
+                    break
+
+            # Verify Layer 10 was generated.
+            expect(layer10Start).toBeGreaterThanOrEqual(0)
+            expect(layer11Start).toBeGreaterThan(layer10Start)
+
+            # Extract Layer 10 content.
+            layer10Content = lines.slice(layer10Start, layer11Start).join('\n')
+
+            # Count WALL-OUTER occurrences (should be 2: outer ring + inner hole).
+            wallOuterCount = (layer10Content.match(/; TYPE: WALL-OUTER/g) or []).length
+
+            # Verify we have 2 wall regions (not just 1).
+            expect(wallOuterCount).toBeGreaterThanOrEqual(2)
+
+            # Extract X coordinates to verify we're printing the full torus.
+            xCoords = []
+            for line in lines.slice(layer10Start, layer11Start)
+                match = line.match(/G1 X([\d.]+) Y[\d.]+/)
+                if match
+                    xCoords.push(parseFloat(match[1]))
+
+            # Calculate width of printed area.
+            if xCoords.length > 0
+                minX = Math.min(...xCoords)
+                maxX = Math.max(...xCoords)
+                width = maxX - minX
+
+                # For a torus with radius=5mm and tube=2mm, the outer diameter should be
+                # approximately 14mm (2 * (radius + tube) = 2 * 7 = 14mm).
+                # At Z=2mm (center plane), we should be printing close to this width.
+                # A width < 10mm would indicate only the hole is being printed.
+                expect(width).toBeGreaterThan(10)
+
