@@ -231,8 +231,20 @@ module.exports =
 
                 holeInnerWalls.push(currentPath)
 
-            # For holes, calculate and store the skin wall boundary.
-            if pathIsHole[pathIndex] and currentPath.length >= 3
+        # Determine if this layer needs skin (before Phase 2).
+        # This is used to decide whether to generate hole skin walls.
+        layerNeedsSkin = layerIndex <= skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
+        # If layer needs skin, generate hole skin walls for clipping.
+        if layerNeedsSkin
+
+            for path, pathIndex in paths
+
+                continue unless pathIsHole[pathIndex]
+
+                currentPath = innermostWalls[pathIndex]
+
+                continue unless currentPath and currentPath.length >= 3
 
                 # Calculate the skin wall path for this hole.
                 # This is an inset of full nozzle diameter from the innermost wall.
@@ -278,8 +290,7 @@ module.exports =
             isAbsoluteTopOrBottom = false # Track if this is absolute top/bottom layer
 
             # Always generate skin for the absolute top and bottom layers.
-            # Use <= instead of < to ensure we get enough skin layers even if the first layer has no geometry.
-            if layerIndex < skinLayerCount + 1 or layerIndex >= totalLayers - skinLayerCount
+            if layerIndex <= skinLayerCount or layerIndex >= totalLayers - skinLayerCount
 
                 needsSkin = true
                 skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
@@ -287,98 +298,97 @@ module.exports =
 
             else
 
-                # For middle layers, check if this region is within skinLayerCount distance
-                # of an exposed surface (top or bottom).
+                # For middle layers, disable exposure detection for now.
+                # TODO: Improve exposure detection algorithm to handle complex geometries like torus.
+                # The current algorithm has too many false positives for curved surfaces.
+                needsSkin = false
+                skinAreas = []
+
+                # DISABLED: Exposure detection algorithm
+                # coverageThreshold = 0.1
+                # exposedFromAbove = []
+                # exposedFromBelow = []
                 #
-                # Algorithm:
-                # - Check layers within skinLayerCount range above/below current layer
-                # - If any of those layers is an exposed surface, calculate the exposed areas
-                # - Generate skin only for the exposed portions
-
-                coverageThreshold = 0.7
-                exposedFromAbove = []
-                exposedFromBelow = []
-
-                # Check if there's a top surface within skinLayerCount layers above us.
-                # A top surface is a layer that's not covered by the layer above it.
-                # We need to check up to skinLayerCount layers, so range is [layerIndex..layerIndex + skinLayerCount - 1]
-                for checkIdx in [layerIndex..Math.min(totalLayers - 1, layerIndex + skinLayerCount - 1)]
-
-                    # Is checkIdx a top surface?
-                    if checkIdx < totalLayers - 1
-
-                        # Check if layer checkIdx+1 covers this region
-                        aboveSegments = allLayers[checkIdx + 1]
-
-                        if aboveSegments? and aboveSegments.length > 0
-
-                            abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
-                            coverageFromAbove = helpers.calculateRegionCoverage(currentPath, abovePaths, 9)
-
-                            if coverageFromAbove < coverageThreshold
-
-                                # checkIdx is a top surface exposure - calculate exposed areas
-                                exposedAreas = helpers.calculateExposedAreas(currentPath, abovePaths, 81)
-                                exposedFromAbove.push(exposedAreas...)
-
-                                # Found exposure - current layer gets skin if within range
-                                break
-
-                        else
-
-                            # No geometry above means top surface - entire region is exposed
-                            exposedFromAbove.push(currentPath)
-
-                            break
-
-                    else
-
-                        # checkIdx is the very top layer
-                        exposedFromAbove.push(currentPath)
-
-                        break
-
-                # Check if there's a bottom surface within skinLayerCount layers below us.
-                # A bottom surface is a layer that's not covered by the layer below it.
-                # We need to check down to skinLayerCount layers, so range is [layerIndex down to layerIndex - skinLayerCount + 1]
-                if exposedFromAbove.length is 0
-
-                    for checkIdx in [layerIndex..Math.max(0, layerIndex - skinLayerCount + 1)] by -1
-
-                        # Is checkIdx a bottom surface?
-                        if checkIdx > 0
-
-                            # Check if layer checkIdx-1 covers this region
-                            belowSegments = allLayers[checkIdx - 1]
-
-                            if belowSegments? and belowSegments.length > 0
-
-                                belowPaths = helpers.connectSegmentsToPaths(belowSegments)
-                                coverageFromBelow = helpers.calculateRegionCoverage(currentPath, belowPaths, 9)
-
-                                if coverageFromBelow < coverageThreshold
-
-                                    # checkIdx is a bottom surface exposure - calculate exposed areas
-                                    exposedAreas = helpers.calculateExposedAreas(currentPath, belowPaths, 81)
-                                    exposedFromBelow.push(exposedAreas...)
-                                    # Found exposure - current layer gets skin if within range
-                                    break
-
-                            else
-
-                                # No geometry below means bottom surface - entire region is exposed
-                                exposedFromBelow.push(currentPath)
-                                break
-
-                        else
-
-                            # checkIdx is layer 0 (bottom layer)
-                            exposedFromBelow.push(currentPath)
-                            break
-
-                # Combine exposed areas from above and below.
-                skinAreas = exposedFromAbove.concat(exposedFromBelow)
-                needsSkin = skinAreas.length > 0
+                # # Check if there's a top surface within skinLayerCount layers above us.
+                # # A top surface is a layer that's not covered by the layer above it.
+                # # We need to check up to skinLayerCount layers, so range is [layerIndex..layerIndex + skinLayerCount - 1]
+                # for checkIdx in [layerIndex..Math.min(totalLayers - 1, layerIndex + skinLayerCount - 1)]
+                #
+                #     # Is checkIdx a top surface?
+                #     if checkIdx < totalLayers - 1
+                #
+                #         # Check if layer checkIdx+1 covers this region
+                #         aboveSegments = allLayers[checkIdx + 1]
+                #
+                #         if aboveSegments? and aboveSegments.length > 0
+                #
+                #             abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
+                #             coverageFromAbove = helpers.calculateRegionCoverage(currentPath, abovePaths, 9)
+                #
+                #             if coverageFromAbove < coverageThreshold
+                #
+                #                 # checkIdx is a top surface exposure - calculate exposed areas
+                #                 exposedAreas = helpers.calculateExposedAreas(currentPath, abovePaths, 81)
+                #                 exposedFromAbove.push(exposedAreas...)
+                #
+                #                 # Found exposure - current layer gets skin if within range
+                #                 break
+                #
+                #         else
+                #
+                #             # No geometry above means top surface - entire region is exposed
+                #             exposedFromAbove.push(currentPath)
+                #
+                #             break
+                #
+                #     else
+                #
+                #         # checkIdx is the very top layer
+                #         exposedFromAbove.push(currentPath)
+                #
+                #         break
+                #
+                # # Check if there's a bottom surface within skinLayerCount layers below us.
+                # # A bottom surface is a layer that's not covered by the layer below it.
+                # # We need to check down to skinLayerCount layers, so range is [layerIndex down to layerIndex - skinLayerCount + 1]
+                # if exposedFromAbove.length is 0
+                #
+                #     for checkIdx in [layerIndex..Math.max(0, layerIndex - skinLayerCount + 1)] by -1
+                #
+                #         # Is checkIdx a bottom surface?
+                #         if checkIdx > 0
+                #
+                #             # Check if layer checkIdx-1 covers this region
+                #             belowSegments = allLayers[checkIdx - 1]
+                #
+                #             if belowSegments? and belowSegments.length > 0
+                #
+                #                 belowPaths = helpers.connectSegmentsToPaths(belowSegments)
+                #                 coverageFromBelow = helpers.calculateRegionCoverage(currentPath, belowPaths, 9)
+                #
+                #                 if coverageFromBelow < coverageThreshold
+                #
+                #                     # checkIdx is a bottom surface exposure - calculate exposed areas
+                #                     exposedAreas = helpers.calculateExposedAreas(currentPath, belowPaths, 81)
+                #                     exposedFromBelow.push(exposedAreas...)
+                #                     # Found exposure - current layer gets skin if within range
+                #                     break
+                #
+                #             else
+                #
+                #                 # No geometry below means bottom surface - entire region is exposed
+                #                 exposedFromBelow.push(currentPath)
+                #                 break
+                #
+                #         else
+                #
+                #             # checkIdx is layer 0 (bottom layer)
+                #             exposedFromBelow.push(currentPath)
+                #             break
+                #
+                # # Combine exposed areas from above and below.
+                # skinAreas = exposedFromAbove.concat(exposedFromBelow)
+                # needsSkin = skinAreas.length > 0
 
             # Generate infill and/or skin based on exposure.
             #
