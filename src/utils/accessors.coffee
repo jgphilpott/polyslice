@@ -468,7 +468,7 @@ module.exports =
 
         return slicer
 
-    setWipeNozzle: (slicer, wipeNozzle = false) ->
+    setWipeNozzle: (slicer, wipeNozzle = true) ->
 
         slicer.wipeNozzle = Boolean wipeNozzle
 

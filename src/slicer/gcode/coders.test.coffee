@@ -212,6 +212,7 @@ describe 'G-code Generation (Coders)', ->
 
             expect(result).toContain('M107') # Turn off fan.
             expect(result).toContain('G91') # Relative positioning.
+            expect(result).toContain('G0 X5 Y5') # Wipe move (default is now true).
             expect(result).toContain('E-2') # Retract.
             expect(result).toContain('G1 Z10') # Raise nozzle.
             expect(result).toContain('G90') # Absolute positioning.
@@ -238,6 +239,14 @@ describe 'G-code Generation (Coders)', ->
             result = slicer.codePostPrint()
 
             expect(result).toContain('G0 X5 Y5') # Wipe move.
+
+            # Verify wipe comes before retract and raise Z.
+            wipeIndex = result.indexOf('G0 X5 Y5')
+            retractIndex = result.indexOf('G1 Z10 E-2')
+
+            expect(wipeIndex).toBeGreaterThan(-1)
+            expect(retractIndex).toBeGreaterThan(-1)
+            expect(wipeIndex).toBeLessThan(retractIndex) # Wipe should come before retract/raise.
 
         test 'should generate post-print without wipe nozzle', ->
 
