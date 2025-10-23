@@ -231,8 +231,20 @@ module.exports =
 
                 holeInnerWalls.push(currentPath)
 
-            # For holes, calculate and store the skin wall boundary.
-            if pathIsHole[pathIndex] and currentPath.length >= 3
+        # Determine if this layer needs skin (before Phase 2).
+        # This is used to decide whether to generate hole skin walls.
+        layerNeedsSkin = layerIndex <= skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
+        # If layer needs skin, generate hole skin walls for clipping.
+        if layerNeedsSkin
+
+            for path, pathIndex in paths
+
+                continue unless pathIsHole[pathIndex]
+
+                currentPath = innermostWalls[pathIndex]
+
+                continue unless currentPath and currentPath.length >= 3
 
                 # Calculate the skin wall path for this hole.
                 # This is an inset of full nozzle diameter from the innermost wall.
