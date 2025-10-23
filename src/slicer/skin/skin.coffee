@@ -15,8 +15,7 @@ module.exports =
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
 
-        # Only add TYPE: SKIN marker if actually generating skin infill (not just walls for holes).
-        if verbose and generateInfill then slicer.gcode += "; TYPE: SKIN" + slicer.newline
+        if verbose then slicer.gcode += "; TYPE: SKIN" + slicer.newline
 
         # Step 1: Generate skin wall (perimeter pass around skin boundary).
         # Create an inset of full nozzle diameter from the boundary path.
