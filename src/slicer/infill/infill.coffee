@@ -27,13 +27,39 @@ module.exports =
         # Other patterns (lines, cubic, gyroid, honeycomb) not yet implemented.
         return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons'
 
-        if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
-
         # Create inset boundary for infill area (half nozzle diameter gap from innermost wall).
         infillGap = nozzleDiameter / 2
         infillBoundary = helpers.createInsetPath(boundaryPath, infillGap)
 
-        return if infillBoundary.length < 3
+        # Debug logging for layer 17 (Z around 3.4).
+        if z >= 3.35 and z <= 3.45
+            console.log("[LAYER 17 DEBUG] boundaryPath.length=#{boundaryPath.length}, infillBoundary.length=#{infillBoundary.length}")
+            
+            # Calculate bounding box of infill boundary.
+            minX = Infinity
+            maxX = -Infinity
+            minY = Infinity
+            maxY = -Infinity
+            
+            for point in infillBoundary
+                if point.x < minX then minX = point.x
+                if point.x > maxX then maxX = point.x
+                if point.y < minY then minY = point.y
+                if point.y > maxY then maxY = point.y
+            
+            width = maxX - minX
+            height = maxY - minY
+            
+            console.log("[LAYER 17 DEBUG] Infill boundary width=#{width.toFixed(3)}, height=#{height.toFixed(3)}")
+            console.log("[LAYER 17 DEBUG] First 3 points:", JSON.stringify(infillBoundary.slice(0, 3)))
+
+        # If infill boundary is too small (empty or invalid), skip infill generation entirely.
+        # This prevents printing "; TYPE: FILL" markers without any actual infill lines.
+        if infillBoundary.length < 3
+            console.log("[DEBUG] Skipping infill at Z=#{z}, infillBoundary.length=#{infillBoundary.length}") if process?.env?.DEBUG
+            return
+
+        if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
 
         # Create inset versions of hole inner walls to maintain the same gap.
         # For holes, we want to shrink them (outset from the hole's perspective) by the same infill gap.
