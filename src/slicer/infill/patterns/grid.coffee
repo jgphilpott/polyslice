@@ -102,6 +102,7 @@ module.exports =
 
                         dx = intersection.x - existing.x
                         dy = intersection.y - existing.y
+
                         distSq = dx * dx + dy * dy
 
                         if distSq < epsilon * epsilon
@@ -188,6 +189,7 @@ module.exports =
 
                         dx = intersection.x - existing.x
                         dy = intersection.y - existing.y
+
                         distSq = dx * dx + dy * dy
 
                         if distSq < epsilon * epsilon
