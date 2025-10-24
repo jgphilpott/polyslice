@@ -1203,3 +1203,38 @@ module.exports =
             stack.push({ i: i, j: j - 1 })
 
         return region
+
+    # Deduplicate a list of intersection points.
+    # When diagonal lines pass through bounding box corners, the same point
+    # can be detected as an intersection with multiple edges.
+    # This function removes duplicate points within a small epsilon tolerance.
+    #
+    # @param intersections Array of points with {x, y} coordinates
+    # @param epsilon Tolerance for considering points as duplicates (default: 0.001mm)
+    # @return Array of unique intersection points
+    deduplicateIntersections: (intersections, epsilon = 0.001) ->
+
+        return [] if not intersections or intersections.length is 0
+
+        uniqueIntersections = []
+
+        for intersection in intersections
+
+            isDuplicate = false
+
+            for existing in uniqueIntersections
+
+                dx = intersection.x - existing.x
+                dy = intersection.y - existing.y
+                distSq = dx * dx + dy * dy
+
+                if distSq < epsilon * epsilon
+
+                    isDuplicate = true
+                    break
+
+            if not isDuplicate
+
+                uniqueIntersections.push(intersection)
+
+        return uniqueIntersections

@@ -101,20 +101,28 @@ module.exports =
                 intersections.push({ x: x, y: maxY })
 
             # We should have exactly 2 intersection points.
+            # However, when a line passes through a corner, we might get duplicate points.
+            # Deduplicate by checking if points are too close (within a small epsilon).
             if intersections.length >= 2
 
-                # Clip the line segment to the actual infill boundary polygon.
-                # Also exclude hole areas by clipping against hole inner walls.
-                # This ensures infill stays within the boundary and outside holes.
-                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeInnerWalls)
+                # Remove duplicate points using the helper function.
+                uniqueIntersections = helpers.deduplicateIntersections(intersections)
 
-                # Store each clipped segment for later rendering.
-                for segment in clippedSegments
+                # Only proceed if we have exactly 2 distinct intersection points.
+                if uniqueIntersections.length is 2
 
-                    allInfillLines.push({
-                        start: segment.start
-                        end: segment.end
-                    })
+                    # Clip the line segment to the actual infill boundary polygon.
+                    # Also exclude hole areas by clipping against hole inner walls.
+                    # This ensures infill stays within the boundary and outside holes.
+                    clippedSegments = helpers.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
+
+                    # Store each clipped segment for later rendering.
+                    for segment in clippedSegments
+
+                        allInfillLines.push({
+                            start: segment.start
+                            end: segment.end
+                        })
 
             # Move to next diagonal line.
             offset += offsetStep45
@@ -172,20 +180,28 @@ module.exports =
                 intersections.push({ x: x, y: maxY })
 
             # We should have exactly 2 intersection points.
+            # However, when a line passes through a corner, we might get duplicate points.
+            # Deduplicate by checking if points are too close (within a small epsilon).
             if intersections.length >= 2
 
-                # Clip the line segment to the actual infill boundary polygon.
-                # Also exclude hole areas by clipping against hole inner walls.
-                # This ensures infill stays within the boundary and outside holes.
-                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeInnerWalls)
+                # Remove duplicate points using the helper function.
+                uniqueIntersections = helpers.deduplicateIntersections(intersections)
 
-                # Store each clipped segment for later rendering.
-                for segment in clippedSegments
+                # Only proceed if we have exactly 2 distinct intersection points.
+                if uniqueIntersections.length is 2
 
-                    allInfillLines.push({
-                        start: segment.start
-                        end: segment.end
-                    })
+                    # Clip the line segment to the actual infill boundary polygon.
+                    # Also exclude hole areas by clipping against hole inner walls.
+                    # This ensures infill stays within the boundary and outside holes.
+                    clippedSegments = helpers.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
+
+                    # Store each clipped segment for later rendering.
+                    for segment in clippedSegments
+
+                        allInfillLines.push({
+                            start: segment.start
+                            end: segment.end
+                        })
 
             # Move to next diagonal line.
             offset += offsetStep105
@@ -243,20 +259,28 @@ module.exports =
                 intersections.push({ x: x, y: maxY })
 
             # We should have exactly 2 intersection points.
+            # However, when a line passes through a corner, we might get duplicate points.
+            # Deduplicate by checking if points are too close (within a small epsilon).
             if intersections.length >= 2
 
-                # Clip the line segment to the actual infill boundary polygon.
-                # Also exclude hole areas by clipping against hole inner walls.
-                # This ensures infill stays within the boundary and outside holes.
-                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeInnerWalls)
+                # Remove duplicate points using the helper function.
+                uniqueIntersections = helpers.deduplicateIntersections(intersections)
 
-                # Store each clipped segment for later rendering.
-                for segment in clippedSegments
+                # Only proceed if we have exactly 2 distinct intersection points.
+                if uniqueIntersections.length is 2
 
-                    allInfillLines.push({
-                        start: segment.start
-                        end: segment.end
-                    })
+                    # Clip the line segment to the actual infill boundary polygon.
+                    # Also exclude hole areas by clipping against hole inner walls.
+                    # This ensures infill stays within the boundary and outside holes.
+                    clippedSegments = helpers.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
+
+                    # Store each clipped segment for later rendering.
+                    for segment in clippedSegments
+
+                        allInfillLines.push({
+                            start: segment.start
+                            end: segment.end
+                        })
 
             # Move to next diagonal line.
             offset += offsetStep15

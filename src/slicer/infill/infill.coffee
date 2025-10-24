@@ -27,13 +27,15 @@ module.exports =
         # Other patterns (lines, cubic, gyroid, honeycomb) not yet implemented.
         return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons'
 
-        if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
-
         # Create inset boundary for infill area (half nozzle diameter gap from innermost wall).
         infillGap = nozzleDiameter / 2
         infillBoundary = helpers.createInsetPath(boundaryPath, infillGap)
 
+        # If infill boundary is too small (empty or invalid), skip infill generation entirely.
+        # This prevents printing "; TYPE: FILL" markers without any actual infill lines.
         return if infillBoundary.length < 3
+
+        if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
 
         # Create inset versions of hole inner walls to maintain the same gap.
         # For holes, we want to shrink them (outset from the hole's perspective) by the same infill gap.

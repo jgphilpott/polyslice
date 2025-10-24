@@ -928,3 +928,112 @@ describe 'Geometry Helpers', ->
             # Second segment: right side.
             expect(segments[1].start.x).toBeCloseTo(3, 1)
             expect(segments[1].end.x).toBeCloseTo(7, 1)
+
+describe 'deduplicateIntersections', ->
+
+    test 'should remove duplicate points within epsilon tolerance', ->
+
+        # Create intersections with duplicates (e.g., line through bounding box corner).
+        intersections = [
+            { x: -2.496, y: -2.496 }  # Left edge intersection
+            { x: -2.496, y: -2.496 }  # Bottom edge intersection (duplicate!)
+            { x: 2.496, y: 2.496 }    # Top-right intersection
+        ]
+
+        unique = helpers.deduplicateIntersections(intersections)
+
+        # Should have only 2 unique points.
+        expect(unique.length).toBe(2)
+        expect(unique[0].x).toBeCloseTo(-2.496, 3)
+        expect(unique[0].y).toBeCloseTo(-2.496, 3)
+        expect(unique[1].x).toBeCloseTo(2.496, 3)
+        expect(unique[1].y).toBeCloseTo(2.496, 3)
+
+    test 'should keep all points when no duplicates exist', ->
+
+        intersections = [
+            { x: 0, y: 0 }
+            { x: 1, y: 1 }
+            { x: 2, y: 2 }
+        ]
+
+        unique = helpers.deduplicateIntersections(intersections)
+
+        # All points should be kept.
+        expect(unique.length).toBe(3)
+
+    test 'should handle empty array', ->
+
+        unique = helpers.deduplicateIntersections([])
+
+        expect(unique.length).toBe(0)
+
+    test 'should handle null/undefined input', ->
+
+        expect(helpers.deduplicateIntersections(null).length).toBe(0)
+        expect(helpers.deduplicateIntersections(undefined).length).toBe(0)
+
+    test 'should handle single point', ->
+
+        intersections = [{ x: 1, y: 2 }]
+
+        unique = helpers.deduplicateIntersections(intersections)
+
+        expect(unique.length).toBe(1)
+        expect(unique[0].x).toBe(1)
+        expect(unique[0].y).toBe(2)
+
+    test 'should use custom epsilon tolerance', ->
+
+        # Two points very close but within different tolerance levels.
+        intersections = [
+            { x: 0, y: 0 }
+            { x: 0.0005, y: 0.0005 }  # 0.707mm away
+        ]
+
+        # With default epsilon (0.001mm), these should be considered duplicates.
+        uniqueDefault = helpers.deduplicateIntersections(intersections)
+        expect(uniqueDefault.length).toBe(1)
+
+        # With larger epsilon (0.002mm), still duplicates.
+        uniqueLarger = helpers.deduplicateIntersections(intersections, 0.002)
+        expect(uniqueLarger.length).toBe(1)
+
+        # With very small epsilon (0.0001mm), these should be different points.
+        uniqueSmaller = helpers.deduplicateIntersections(intersections, 0.0001)
+        expect(uniqueSmaller.length).toBe(2)
+
+    test 'should handle multiple duplicates of same point', ->
+
+        intersections = [
+            { x: 1, y: 1 }
+            { x: 1.0001, y: 1.0001 }  # Very close to first
+            { x: 1.00005, y: 1.00005 }  # Also very close to first
+            { x: 5, y: 5 }
+        ]
+
+        unique = helpers.deduplicateIntersections(intersections)
+
+        # Should keep only the first occurrence of each unique point.
+        expect(unique.length).toBe(2)
+        expect(unique[0].x).toBeCloseTo(1, 3)
+        expect(unique[0].y).toBeCloseTo(1, 3)
+        expect(unique[1].x).toBeCloseTo(5, 3)
+        expect(unique[1].y).toBeCloseTo(5, 3)
+
+    test 'should preserve order of first occurrence', ->
+
+        intersections = [
+            { x: 3, y: 3 }
+            { x: 1, y: 1 }
+            { x: 1.0001, y: 1.0001 }  # Duplicate of second
+            { x: 2, y: 2 }
+        ]
+
+        unique = helpers.deduplicateIntersections(intersections)
+
+        # Should have 3 unique points in order: (3,3), (1,1), (2,2).
+        expect(unique.length).toBe(3)
+        expect(unique[0].x).toBeCloseTo(3, 3)
+        expect(unique[1].x).toBeCloseTo(1, 3)
+        expect(unique[2].x).toBeCloseTo(2, 3)
