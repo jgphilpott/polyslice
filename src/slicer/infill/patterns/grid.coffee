@@ -90,29 +90,8 @@ module.exports =
             # Deduplicate by checking if points are too close (within a small epsilon).
             if intersections.length >= 2
 
-                # Remove duplicate points (those within 0.001mm of each other).
-                uniqueIntersections = []
-                epsilon = 0.001
-
-                for intersection in intersections
-
-                    isDuplicate = false
-
-                    for existing in uniqueIntersections
-
-                        dx = intersection.x - existing.x
-                        dy = intersection.y - existing.y
-
-                        distSq = dx * dx + dy * dy
-
-                        if distSq < epsilon * epsilon
-
-                            isDuplicate = true
-                            break
-
-                    if not isDuplicate
-
-                        uniqueIntersections.push(intersection)
+                # Remove duplicate points using the helper function.
+                uniqueIntersections = helpers.deduplicateIntersections(intersections)
 
                 # Only proceed if we have exactly 2 distinct intersection points.
                 if uniqueIntersections.length is 2
@@ -177,29 +156,8 @@ module.exports =
             # Deduplicate by checking if points are too close (within a small epsilon).
             if intersections.length >= 2
 
-                # Remove duplicate points (those within 0.001mm of each other).
-                uniqueIntersections = []
-                epsilon = 0.001
-
-                for intersection in intersections
-
-                    isDuplicate = false
-
-                    for existing in uniqueIntersections
-
-                        dx = intersection.x - existing.x
-                        dy = intersection.y - existing.y
-
-                        distSq = dx * dx + dy * dy
-
-                        if distSq < epsilon * epsilon
-
-                            isDuplicate = true
-                            break
-
-                    if not isDuplicate
-
-                        uniqueIntersections.push(intersection)
+                # Remove duplicate points using the helper function.
+                uniqueIntersections = helpers.deduplicateIntersections(intersections)
 
                 # Only proceed if we have exactly 2 distinct intersection points.
                 if uniqueIntersections.length is 2
