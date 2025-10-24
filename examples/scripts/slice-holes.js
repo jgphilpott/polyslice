@@ -41,7 +41,7 @@ if (!fs.existsSync(outputDir)) {
  * @param {number} gridSize - Size of the hole grid (e.g., 2 for 2x2, 3 for 3x3).
  * @returns {THREE.Mesh} The sheet mesh with holes positioned at the build plate.
  */
-function createSheetWithHoles(width = 50, height = 50, thickness = 2, holeRadius = 3, gridSize = 1) {
+function createSheetWithHoles(width = 50, height = 50, thickness = 5, holeRadius = 3, gridSize = 1) {
   // Create the base sheet geometry.
   const sheetGeometry = new THREE.BoxGeometry(width, height, thickness);
 
@@ -115,7 +115,6 @@ function sliceAndSave(mesh, filename) {
     infillDensity: 20,
     bedTemperature: 0,
     layerHeight: 0.2,
-    wipeNozzle: false,
     testStrip: false,
     metadata: true,
     verbose: true
@@ -158,7 +157,7 @@ function formatBytes(bytes) {
 const gridSizes = [1, 2, 3, 4, 5];
 const sheetWidth = 50;
 const sheetHeight = 50;
-const sheetThickness = 2;
+const sheetThickness = 5;
 const holeRadius = 3;
 
 console.log('Sheet Configuration:');
