@@ -207,8 +207,9 @@ module.exports =
 
             # Create initial offset for the outer wall by half nozzle diameter.
             # This ensures the print matches the design dimensions exactly.
-            # For outer boundaries: inset by half nozzle (shrinks the boundary).
-            # For holes: outset by half nozzle (shrinks the hole, making it smaller).
+            # For outer boundaries: inset by half nozzle (shrinks the boundary inward).
+            # For holes: outset by half nozzle (enlarges the hole path outward).
+            # Material deposits inward 0.2mm for holes, resulting in correct final size.
             outerWallOffset = nozzleDiameter / 2
             currentPath = helpers.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
 
