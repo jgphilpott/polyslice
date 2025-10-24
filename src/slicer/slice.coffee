@@ -205,7 +205,17 @@ module.exports =
                 innermostWalls.push(null)
                 continue
 
-            currentPath = path
+            # Create initial offset for the outer wall by half nozzle diameter.
+            # This ensures the print matches the design dimensions exactly.
+            # For outer boundaries: inset by half nozzle (shrinks the boundary).
+            # For holes: outset by half nozzle (shrinks the hole, making it smaller).
+            outerWallOffset = nozzleDiameter / 2
+            currentPath = helpers.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
+
+            # If the offset path is degenerate, skip this path entirely.
+            if currentPath.length < 3
+                innermostWalls.push(null)
+                continue
 
             # Generate walls from outer to inner.
             for wallIndex in [0...wallCount]
