@@ -86,20 +86,48 @@ module.exports =
                 intersections.push({ x: x, y: maxY })
 
             # We should have exactly 2 intersection points.
+            # However, when a line passes through a corner, we might get duplicate points.
+            # Deduplicate by checking if points are too close (within a small epsilon).
             if intersections.length >= 2
 
-                # Clip the line segment to the actual infill boundary polygon.
-                # Also exclude hole areas by clipping against hole inner walls.
-                # This ensures infill stays within the boundary and outside holes.
-                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeInnerWalls)
+                # Remove duplicate points (those within 0.001mm of each other).
+                uniqueIntersections = []
+                epsilon = 0.001
 
-                # Store each clipped segment for later rendering.
-                for segment in clippedSegments
+                for intersection in intersections
 
-                    allInfillLines.push({
-                        start: segment.start
-                        end: segment.end
-                    })
+                    isDuplicate = false
+
+                    for existing in uniqueIntersections
+
+                        dx = intersection.x - existing.x
+                        dy = intersection.y - existing.y
+                        distSq = dx * dx + dy * dy
+
+                        if distSq < epsilon * epsilon
+
+                            isDuplicate = true
+                            break
+
+                    if not isDuplicate
+
+                        uniqueIntersections.push(intersection)
+
+                # Only proceed if we have exactly 2 distinct intersection points.
+                if uniqueIntersections.length is 2
+
+                    # Clip the line segment to the actual infill boundary polygon.
+                    # Also exclude hole areas by clipping against hole inner walls.
+                    # This ensures infill stays within the boundary and outside holes.
+                    clippedSegments = helpers.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
+
+                    # Store each clipped segment for later rendering.
+                    for segment in clippedSegments
+
+                        allInfillLines.push({
+                            start: segment.start
+                            end: segment.end
+                        })
 
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2) # Account for 45-degree angle.
@@ -144,20 +172,48 @@ module.exports =
                 intersections.push({ x: x, y: maxY })
 
             # We should have exactly 2 intersection points.
+            # However, when a line passes through a corner, we might get duplicate points.
+            # Deduplicate by checking if points are too close (within a small epsilon).
             if intersections.length >= 2
 
-                # Clip the line segment to the actual infill boundary polygon.
-                # Also exclude hole areas by clipping against hole inner walls.
-                # This ensures infill stays within the boundary and outside holes.
-                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeInnerWalls)
+                # Remove duplicate points (those within 0.001mm of each other).
+                uniqueIntersections = []
+                epsilon = 0.001
 
-                # Store each clipped segment for later rendering.
-                for segment in clippedSegments
+                for intersection in intersections
 
-                    allInfillLines.push({
-                        start: segment.start
-                        end: segment.end
-                    })
+                    isDuplicate = false
+
+                    for existing in uniqueIntersections
+
+                        dx = intersection.x - existing.x
+                        dy = intersection.y - existing.y
+                        distSq = dx * dx + dy * dy
+
+                        if distSq < epsilon * epsilon
+
+                            isDuplicate = true
+                            break
+
+                    if not isDuplicate
+
+                        uniqueIntersections.push(intersection)
+
+                # Only proceed if we have exactly 2 distinct intersection points.
+                if uniqueIntersections.length is 2
+
+                    # Clip the line segment to the actual infill boundary polygon.
+                    # Also exclude hole areas by clipping against hole inner walls.
+                    # This ensures infill stays within the boundary and outside holes.
+                    clippedSegments = helpers.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
+
+                    # Store each clipped segment for later rendering.
+                    for segment in clippedSegments
+
+                        allInfillLines.push({
+                            start: segment.start
+                            end: segment.end
+                        })
 
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2) # Account for 45-degree angle.
