@@ -44,7 +44,6 @@ if (!fs.existsSync(outputDir)) {
 function createSheetWithHoles(width = 50, height = 50, thickness = 2, holeRadius = 3, gridSize = 1) {
   // Create the base sheet geometry.
   const sheetGeometry = new THREE.BoxGeometry(width, height, thickness);
-  const sheetMesh = new THREE.Mesh(sheetGeometry);
 
   // Convert sheet to CSG brush.
   const sheetBrush = new Brush(sheetGeometry);
@@ -165,7 +164,7 @@ const holeRadius = 3;
 console.log('Sheet Configuration:');
 console.log(`- Dimensions: ${sheetWidth}mm x ${sheetHeight}mm x ${sheetThickness}mm`);
 console.log(`- Hole Radius: ${holeRadius}mm`);
-console.log(`- Grid Sizes: ${gridSizes.join('x, ')}x`);
+console.log(`- Grid Sizes: ${gridSizes.map(size => `${size}x${size}`).join(', ')}`);
 console.log(`- Output Directory: ${outputDir}\n`);
 
 console.log('Starting hole slicing...\n');
