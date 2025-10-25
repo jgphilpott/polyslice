@@ -383,8 +383,9 @@ function setupLayerSlider() {
     return;
   }
 
-  // Show the slider.
+  // Show the sliders.
   document.getElementById('layer-slider-container').classList.add('visible');
+  document.getElementById('info').style.bottom = '110px';
   document.getElementById('info').style.left = '120px';
 
   // Setup slider ranges.
@@ -515,29 +516,29 @@ function updateMoveVisibility() {
   // Process all segments
   allLayers.forEach(segment => {
     const segmentLayerIndex = segment.userData.layerIndex;
-    
+
     // Check layer visibility
     const layerVisible = segmentLayerIndex === undefined
       ? true
       : (segmentLayerIndex >= minLayer && segmentLayerIndex < maxLayer);
 
     // Check type visibility
-    const typeEnabled = enabledTypes.has(segment.userData.type) || 
+    const typeEnabled = enabledTypes.has(segment.userData.type) ||
                        enabledTypes.has(segment.material.name);
 
     // For the top layer, apply move slider
     if (segmentLayerIndex === topLayerIndex && segment.userData.segmentCount) {
       const totalSegments = segment.userData.segmentCount;
       const visibleSegments = Math.ceil((totalSegments * movePercentage) / 100);
-      
+
       // Use drawRange to control how many segments are drawn
       // Each segment uses 2 vertices
       const drawCount = visibleSegments * 2;
-      
+
       if (segment.geometry.drawRange) {
         segment.geometry.setDrawRange(0, drawCount);
       }
-      
+
       segment.visible = layerVisible && typeEnabled && (visibleSegments > 0);
     } else {
       // Reset draw range for non-top layers

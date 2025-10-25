@@ -31,14 +31,14 @@ body {
   position: fixed;
   top: 20px;
   left: 20px;
+  gap: 20px;
   z-index: 100;
   background: rgba(0, 0, 0, 0.8);
   padding: 20px;
   border-radius: 8px;
+  border: 1px solid #ffffff42;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-width: 250px;
 }
 
 #controls img {
@@ -71,6 +71,7 @@ body {
   background: rgba(0, 0, 0, 0.8);
   padding: 15px;
   border-radius: 8px;
+  border: 1px solid #ffffff42;
   min-width: 250px;
   max-width: 350px;
 }
@@ -113,6 +114,7 @@ body {
   background: rgba(0, 0, 0, 0.8);
   padding: 20px 15px;
   border-radius: 8px;
+  border: 1px solid #ffffff42;
   display: none;
   height: calc(100vh - 136px);
   min-height: 200px;
@@ -201,19 +203,17 @@ body {
 #move-slider-container {
   position: fixed;
   bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 120px;
   z-index: 100;
   background: rgba(0, 0, 0, 0.8);
   padding: 15px 20px;
   border-radius: 8px;
+  border: 1px solid #ffffff42;
   display: none;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  min-width: 300px;
-  max-width: 600px;
-  width: 50%;
+  width: calc(100% - 515px);
 }
 
 #move-slider-container.visible {
@@ -268,6 +268,7 @@ body {
   background: rgba(0, 0, 0, 0.8);
   padding: 15px;
   border-radius: 8px;
+  border: 1px solid #ffffff42;
 }
 
 #legend h3,
@@ -305,7 +306,6 @@ body {
     top: 10px;
     left: 10px;
     padding: 10px;
-    min-width: 200px;
   }
 
   #forkme {
