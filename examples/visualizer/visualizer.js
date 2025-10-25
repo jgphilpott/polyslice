@@ -16,6 +16,7 @@ let layersByIndex = {}; // Map layer index to LineSegments
 let layerCount = 0; // Total number of actual layers from LAYER comments
 let layerSliderMin = null;
 let layerSliderMax = null;
+let moveSlider = null;
 let isFirstUpload = true; // Track if this is the first G-code upload
 
 // Initialize the visualizer on page load.
@@ -69,6 +70,9 @@ function init() {
 
   // Add layer slider.
   createLayerSlider();
+
+  // Add move slider.
+  createMoveSlider();
 
   // Set up event listeners.
   setupEventListeners();
@@ -354,6 +358,21 @@ function createLayerSlider() {
 }
 
 /**
+ * Create the horizontal move slider at the bottom of the page.
+ */
+function createMoveSlider() {
+  const sliderHTML = `
+        <div id="move-slider-container">
+            <div id="move-info">Move Progress: 0%</div>
+            <input type="range" id="move-slider" min="0" max="100" value="100">
+        </div>
+    `;
+
+  document.body.insertAdjacentHTML('beforeend', sliderHTML);
+  moveSlider = document.getElementById('move-slider');
+}
+
+/**
  * Setup layer slider after G-code is loaded.
  */
 function setupLayerSlider() {
@@ -385,6 +404,29 @@ function setupLayerSlider() {
 
   // Update initial display.
   updateLayerVisibility();
+}
+
+/**
+ * Setup move slider after G-code is loaded.
+ */
+function setupMoveSlider() {
+  if (layerCount === 0) {
+    document.getElementById('move-slider-container').classList.remove('visible');
+    return;
+  }
+
+  // Show the slider.
+  document.getElementById('move-slider-container').classList.add('visible');
+
+  // Reset slider to full (100%).
+  moveSlider.value = 100;
+
+  // Remove existing listener and add new one.
+  moveSlider.removeEventListener('input', updateMoveVisibility);
+  moveSlider.addEventListener('input', updateMoveVisibility);
+
+  // Update initial display.
+  updateMoveVisibility();
 }
 
 /**
@@ -436,6 +478,75 @@ function updateLayerVisibility() {
       ? 'All Layers'
       : `<p>Layers ${minLayer} - ${maxLayer - 1}</p><p>(${maxLayer - minLayer} / ${layerCount})</p>`;
   document.getElementById('layer-info').innerHTML = infoText;
+
+  // Update move slider when layer visibility changes.
+  updateMoveVisibility();
+}
+
+/**
+ * Update move visibility based on horizontal slider value.
+ * Only affects the topmost visible layer.
+ */
+function updateMoveVisibility() {
+  const movePercentage = parseInt(moveSlider.value);
+
+  // Update info text.
+  document.getElementById('move-info').textContent = `Move Progress: ${movePercentage}%`;
+
+  // Find the topmost visible layer.
+  let minLayer = parseInt(layerSliderMin.value);
+  let maxLayer = parseInt(layerSliderMax.value);
+
+  // Ensure min is not greater than max
+  if (minLayer > maxLayer) {
+    const temp = minLayer;
+    minLayer = maxLayer;
+    maxLayer = temp;
+  }
+
+  const topLayerIndex = maxLayer - 1; // The topmost visible layer (0-indexed)
+
+  // Get currently enabled movement types from checkboxes.
+  const enabledTypes = new Set();
+  document.querySelectorAll('.legend-checkbox:checked').forEach(checkbox => {
+    enabledTypes.add(checkbox.dataset.type);
+  });
+
+  // Process all segments
+  allLayers.forEach(segment => {
+    const segmentLayerIndex = segment.userData.layerIndex;
+    
+    // Check layer visibility
+    const layerVisible = segmentLayerIndex === undefined
+      ? true
+      : (segmentLayerIndex >= minLayer && segmentLayerIndex < maxLayer);
+
+    // Check type visibility
+    const typeEnabled = enabledTypes.has(segment.userData.type) || 
+                       enabledTypes.has(segment.material.name);
+
+    // For the top layer, apply move slider
+    if (segmentLayerIndex === topLayerIndex && segment.userData.segmentCount) {
+      const totalSegments = segment.userData.segmentCount;
+      const visibleSegments = Math.ceil((totalSegments * movePercentage) / 100);
+      
+      // Use drawRange to control how many segments are drawn
+      // Each segment uses 2 vertices
+      const drawCount = visibleSegments * 2;
+      
+      if (segment.geometry.drawRange) {
+        segment.geometry.setDrawRange(0, drawCount);
+      }
+      
+      segment.visible = layerVisible && typeEnabled && (visibleSegments > 0);
+    } else {
+      // Reset draw range for non-top layers
+      if (segment.geometry.drawRange && segment.userData.fullVertexCount) {
+        segment.geometry.setDrawRange(0, segment.userData.fullVertexCount);
+      }
+      segment.visible = layerVisible && typeEnabled;
+    }
+  });
 }
 
 /**
@@ -732,6 +843,9 @@ function loadGCode(content, filename) {
 
   // Setup layer slider.
   setupLayerSlider();
+
+  // Setup move slider.
+  setupMoveSlider();
 
   // Update info panel.
   updateInfo(filename, gcodeObject);

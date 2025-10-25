@@ -293,6 +293,9 @@ class GCodeLoaderExtended extends Loader {
         extruding ? extrudingMaterial : pathMaterial
       );
       segments.name = 'layer' + i;
+      segments.userData.layerIndex = i;
+      segments.userData.segmentCount = vertex.length / 6;
+      segments.userData.fullVertexCount = vertex.length;
       object.add(segments);
     }
 
@@ -323,6 +326,13 @@ class GCodeLoaderExtended extends Loader {
           const segments = new LineSegments(geometry, material);
           segments.name = 'layer' + layerIndex;
           segments.userData.type = type;
+          segments.userData.layerIndex = layerIndex;
+          
+          // Store segment count for move slider functionality
+          // Each line segment uses 2 vertices, so total segments = vertices / 6
+          segments.userData.segmentCount = vertices.length / 6;
+          segments.userData.fullVertexCount = vertices.length;
+          
           object.add(segments);
         }
       });
