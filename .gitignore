@@ -47,3 +47,4 @@ marlin
 
 # Example Output Files
 examples/output/
+test-optimization.js
