@@ -1037,3 +1037,129 @@ describe 'deduplicateIntersections', ->
         expect(unique[0].x).toBeCloseTo(3, 3)
         expect(unique[1].x).toBeCloseTo(1, 3)
         expect(unique[2].x).toBeCloseTo(2, 3)
+
+describe 'Travel Path Optimization', ->
+
+    describe 'travelPathCrossesHoles', ->
+
+        test 'should detect when travel path crosses a hole boundary', ->
+
+            # Create a square hole.
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            # Travel from outside to outside, crossing the hole.
+            startPoint = { x: 30, y: 50 }
+            endPoint = { x: 70, y: 50 }
+
+            result = helpers.travelPathCrossesHoles(startPoint, endPoint, [hole])
+
+            expect(result).toBe(true)
+
+        test 'should return false when travel path does not cross hole', ->
+
+            # Create a square hole.
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            # Travel path that goes around the hole.
+            startPoint = { x: 30, y: 30 }
+            endPoint = { x: 70, y: 30 }
+
+            result = helpers.travelPathCrossesHoles(startPoint, endPoint, [hole])
+
+            expect(result).toBe(false)
+
+        test 'should detect when start point is inside hole', ->
+
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            # Start inside hole, end outside.
+            startPoint = { x: 50, y: 50 }
+            endPoint = { x: 70, y: 70 }
+
+            result = helpers.travelPathCrossesHoles(startPoint, endPoint, [hole])
+
+            expect(result).toBe(true)
+
+        test 'should return false when no holes provided', ->
+
+            startPoint = { x: 10, y: 10 }
+            endPoint = { x: 90, y: 90 }
+
+            result = helpers.travelPathCrossesHoles(startPoint, endPoint, [])
+
+            expect(result).toBe(false)
+
+    describe 'groupInfillLinesByRegion', ->
+
+        test 'should return all lines in one region when no holes', ->
+
+            lines = [
+                { start: { x: 0, y: 0 }, end: { x: 10, y: 10 } }
+                { start: { x: 0, y: 10 }, end: { x: 10, y: 0 } }
+                { start: { x: 5, y: 0 }, end: { x: 5, y: 10 } }
+            ]
+
+            regions = helpers.groupInfillLinesByRegion(lines, [])
+
+            expect(regions.length).toBe(1)
+            expect(regions[0].length).toBe(3)
+
+        test 'should split lines into multiple regions when holes separate them', ->
+
+            # Two lines on opposite sides of a hole.
+            lines = [
+                { start: { x: 10, y: 50 }, end: { x: 30, y: 50 } }  # Left of hole
+                { start: { x: 70, y: 50 }, end: { x: 90, y: 50 } }  # Right of hole
+            ]
+
+            # Hole in the middle.
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            regions = helpers.groupInfillLinesByRegion(lines, [hole])
+
+            # Should create 2 separate regions.
+            expect(regions.length).toBe(2)
+            expect(regions[0].length).toBe(1)
+            expect(regions[1].length).toBe(1)
+
+        test 'should group lines in same region even with complex paths', ->
+
+            # Multiple lines on the left side of a hole - should be in same region.
+            lines = [
+                { start: { x: 10, y: 30 }, end: { x: 30, y: 30 } }
+                { start: { x: 10, y: 50 }, end: { x: 30, y: 50 } }
+                { start: { x: 10, y: 70 }, end: { x: 30, y: 70 } }
+            ]
+
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            regions = helpers.groupInfillLinesByRegion(lines, [hole])
+
+            # All lines should be in one region since they can reach each other without crossing the hole.
+            expect(regions.length).toBe(1)
+            expect(regions[0].length).toBe(3)

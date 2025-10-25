@@ -196,10 +196,12 @@ module.exports =
 
         while Object.keys(drawnEdges).length < allInfillLines.length
 
-            # Find the nearest undrawn edge to current position.
+            # Find the nearest undrawn edge to current position, preferring edges that
+            # can be reached without crossing holes.
             minDistSq = Infinity
             bestIdx = -1
             bestFlipped = false
+            bestCrossesHole = true  # Track if best candidate crosses a hole.
 
             for edge, idx in allInfillLines
 
@@ -212,17 +214,59 @@ module.exports =
                     distSq0 = (edge.start.x - lastEndPoint.x) ** 2 + (edge.start.y - lastEndPoint.y) ** 2
                     distSq1 = (edge.end.x - lastEndPoint.x) ** 2 + (edge.end.y - lastEndPoint.y) ** 2
 
+                    # Check if travel to this edge would cross holes.
+                    crossesHole0 = helpers.travelPathCrossesHoles(lastEndPoint, edge.start, holeInnerWalls)
+                    crossesHole1 = helpers.travelPathCrossesHoles(lastEndPoint, edge.end, holeInnerWalls)
+
+                    # Prefer edges that don't cross holes. If both best and current cross holes
+                    # (or both don't), then choose based on distance.
                     if distSq0 < minDistSq
 
-                        minDistSq = distSq0
-                        bestIdx = idx
-                        bestFlipped = false
+                        # Check if this is better than current best.
+                        if not bestCrossesHole and crossesHole0
+
+                            # Current best doesn't cross hole, this does - skip.
+                            continue
+
+                        else if bestCrossesHole and not crossesHole0
+
+                            # Current best crosses hole, this doesn't - use this.
+                            minDistSq = distSq0
+                            bestIdx = idx
+                            bestFlipped = false
+                            bestCrossesHole = crossesHole0
+
+                        else
+
+                            # Both cross or both don't cross - just use distance.
+                            minDistSq = distSq0
+                            bestIdx = idx
+                            bestFlipped = false
+                            bestCrossesHole = crossesHole0
 
                     if distSq1 < minDistSq
 
-                        minDistSq = distSq1
-                        bestIdx = idx
-                        bestFlipped = true
+                        # Check if this is better than current best.
+                        if not bestCrossesHole and crossesHole1
+
+                            # Current best doesn't cross hole, this does - skip.
+                            continue
+
+                        else if bestCrossesHole and not crossesHole1
+
+                            # Current best crosses hole, this doesn't - use this.
+                            minDistSq = distSq1
+                            bestIdx = idx
+                            bestFlipped = true
+                            bestCrossesHole = crossesHole1
+
+                        else
+
+                            # Both cross or both don't cross - just use distance.
+                            minDistSq = distSq1
+                            bestIdx = idx
+                            bestFlipped = true
+                            bestCrossesHole = crossesHole1
 
                 else
 

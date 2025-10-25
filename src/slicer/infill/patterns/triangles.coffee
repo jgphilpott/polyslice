@@ -285,77 +285,88 @@ module.exports =
             # Move to next diagonal line.
             offset += offsetStep15
 
+        # Group infill lines by region to minimize travel across holes.
+        # This prevents spider web artifacts when printing shapes with holes.
+        regions = helpers.groupInfillLinesByRegion(allInfillLines, holeInnerWalls)
+
         # Now render all collected lines in optimal order to minimize travel.
+        # Process one complete region at a time to avoid crossing holes.
         # Start with the line closest to the last wall position.
         lastEndPoint = lastWallPoint
 
-        while allInfillLines.length > 0
+        for region in regions
 
-            # Find the line with an endpoint closest to current position.
-            minDistSq = Infinity
-            bestLineIdx = 0
-            bestFlipped = false
+            # Find the region with a line closest to the current position.
+            # This could be optimized further by selecting the best region to process next,
+            # but for now we process regions in the order they were discovered.
 
-            for line, idx in allInfillLines
+            while region.length > 0
 
-                # Check distance to both endpoints of this line.
-                if lastEndPoint?
+                # Find the line with an endpoint closest to current position.
+                minDistSq = Infinity
+                bestLineIdx = 0
+                bestFlipped = false
 
-                    distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
-                    distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
+                for line, idx in region
 
-                    if distSq0 < minDistSq
+                    # Check distance to both endpoints of this line.
+                    if lastEndPoint?
 
-                        minDistSq = distSq0
-                        bestLineIdx = idx
-                        bestFlipped = false # Start from line.start
+                        distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
+                        distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
 
-                    if distSq1 < minDistSq
+                        if distSq0 < minDistSq
 
-                        minDistSq = distSq1
-                        bestLineIdx = idx
-                        bestFlipped = true # Start from line.end (flip the line)
+                            minDistSq = distSq0
+                            bestLineIdx = idx
+                            bestFlipped = false # Start from line.start
+
+                        if distSq1 < minDistSq
+
+                            minDistSq = distSq1
+                            bestLineIdx = idx
+                            bestFlipped = true # Start from line.end (flip the line)
+
+                    else
+
+                        break # No last position, just use first line.
+
+                # Get the best line and remove it from the list.
+                bestLine = region[bestLineIdx]
+                region.splice(bestLineIdx, 1)
+
+                # Determine start and end based on whether we need to flip.
+                if bestFlipped
+
+                    startPoint = bestLine.end
+                    endPoint = bestLine.start
 
                 else
 
-                    break # No last position, just use first line.
+                    startPoint = bestLine.start
+                    endPoint = bestLine.end
 
-            # Get the best line and remove it from the list.
-            bestLine = allInfillLines[bestLineIdx]
-            allInfillLines.splice(bestLineIdx, 1)
+                # Move to start of line (travel move).
+                offsetStartX = startPoint.x + centerOffsetX
+                offsetStartY = startPoint.y + centerOffsetY
 
-            # Determine start and end based on whether we need to flip.
-            if bestFlipped
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
-                startPoint = bestLine.end
-                endPoint = bestLine.start
+                # Draw the diagonal line.
+                dx = endPoint.x - startPoint.x
+                dy = endPoint.y - startPoint.y
 
-            else
+                distance = Math.sqrt(dx * dx + dy * dy)
 
-                startPoint = bestLine.start
-                endPoint = bestLine.end
+                if distance > 0.001
 
-            # Move to start of line (travel move).
-            offsetStartX = startPoint.x + centerOffsetX
-            offsetStartY = startPoint.y + centerOffsetY
+                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    slicer.cumulativeE += extrusionDelta
 
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+                    offsetEndX = endPoint.x + centerOffsetX
+                    offsetEndY = endPoint.y + centerOffsetY
 
-            # Draw the diagonal line.
-            dx = endPoint.x - startPoint.x
-            dy = endPoint.y - startPoint.y
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
 
-            distance = Math.sqrt(dx * dx + dy * dy)
-
-            if distance > 0.001
-
-                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                slicer.cumulativeE += extrusionDelta
-
-                offsetEndX = endPoint.x + centerOffsetX
-                offsetEndY = endPoint.y + centerOffsetY
-
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
-
-                # Track where this line ended for next iteration.
-                lastEndPoint = endPoint
+                    # Track where this line ended for next iteration.
+                    lastEndPoint = endPoint

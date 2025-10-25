@@ -1238,3 +1238,119 @@ module.exports =
                 uniqueIntersections.push(intersection)
 
         return uniqueIntersections
+
+    # Check if a travel path between two points crosses through any holes.
+    # Returns true if the path intersects with any hole boundary (enters or crosses the hole).
+    travelPathCrossesHoles: (startPoint, endPoint, holePolygons = []) ->
+
+        return false if holePolygons.length is 0
+        return false if not startPoint or not endPoint
+
+        # Check if travel path intersects with any hole boundary.
+        for holePolygon in holePolygons
+
+            continue if holePolygon.length < 3
+
+            # Check if either endpoint is inside the hole.
+            startInHole = @pointInPolygon(startPoint, holePolygon)
+            endInHole = @pointInPolygon(endPoint, holePolygon)
+
+            # If either endpoint is inside a hole, this path crosses it.
+            if startInHole or endInHole
+
+                return true
+
+            # Check if the travel path intersects with any edge of the hole.
+            for i in [0...holePolygon.length]
+
+                nextIdx = if i is holePolygon.length - 1 then 0 else i + 1
+
+                edgeStart = holePolygon[i]
+                edgeEnd = holePolygon[nextIdx]
+
+                intersection = @lineSegmentIntersection(startPoint, endPoint, edgeStart, edgeEnd)
+
+                if intersection
+
+                    return true
+
+        return false
+
+    # Group infill line segments into connected regions that can be traversed without crossing holes.
+    # This enables printing all lines in one region before moving to another, minimizing spider web artifacts.
+    groupInfillLinesByRegion: (allInfillLines, holePolygons = []) ->
+
+        return [allInfillLines] if allInfillLines.length is 0 or holePolygons.length is 0
+
+        # Each region is a list of line indices that can be reached without crossing holes.
+        regions = []
+        assignedToRegion = new Set()
+
+        # Start with each unassigned line and build a region from it.
+        for startIdx in [0...allInfillLines.length]
+
+            continue if assignedToRegion.has(startIdx)
+
+            # Start a new region with this line.
+            currentRegion = [startIdx]
+            assignedToRegion.add(startIdx)
+
+            # Iteratively add lines that can be reached from any line in the current region
+            # without crossing holes.
+            changed = true
+
+            while changed
+
+                changed = false
+
+                # Try to add each unassigned line to the current region.
+                for candidateIdx in [0...allInfillLines.length]
+
+                    continue if assignedToRegion.has(candidateIdx)
+
+                    candidateLine = allInfillLines[candidateIdx]
+
+                    # Check if this candidate can be reached from any line in the current region.
+                    canReach = false
+
+                    for regionLineIdx in currentRegion
+
+                        regionLine = allInfillLines[regionLineIdx]
+
+                        # Try all four possible endpoint combinations.
+                        # We want to check if we can travel from any endpoint of a region line
+                        # to any endpoint of the candidate line without crossing holes.
+                        combinations = [
+                            { from: regionLine.start, to: candidateLine.start }
+                            { from: regionLine.start, to: candidateLine.end }
+                            { from: regionLine.end, to: candidateLine.start }
+                            { from: regionLine.end, to: candidateLine.end }
+                        ]
+
+                        for combo in combinations
+
+                            if not @travelPathCrossesHoles(combo.from, combo.to, holePolygons)
+
+                                canReach = true
+                                break
+
+                        if canReach
+
+                            break
+
+                    if canReach
+
+                        currentRegion.push(candidateIdx)
+                        assignedToRegion.add(candidateIdx)
+                        changed = true
+
+            # Store this region (convert indices to actual lines).
+            regionLines = []
+
+            for idx in currentRegion
+
+                regionLines.push(allInfillLines[idx])
+
+            regions.push(regionLines)
+
+        return regions
