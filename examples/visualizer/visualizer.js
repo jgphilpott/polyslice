@@ -513,6 +513,23 @@ function updateMoveVisibility() {
     enabledTypes.add(checkbox.dataset.type);
   });
 
+  // For chronological segments, we need to calculate the total segment count
+  // across all type sections in the top layer
+  let totalChronologicalSegments = 0;
+  const topLayerChronologicalSegments = [];
+  
+  allLayers.forEach(segment => {
+    if (segment.userData.chronological && segment.userData.layerIndex === topLayerIndex) {
+      topLayerChronologicalSegments.push(segment);
+      if (segment.userData.chronologicalEnd !== undefined) {
+        totalChronologicalSegments = Math.max(totalChronologicalSegments, segment.userData.chronologicalEnd);
+      }
+    }
+  });
+
+  // Calculate the chronological cutoff point based on slider percentage
+  const visibleChronologicalCount = Math.ceil((totalChronologicalSegments * movePercentage) / 100);
+
   // Process all segments
   allLayers.forEach(segment => {
     const segmentLayerIndex = segment.userData.layerIndex;
@@ -522,44 +539,42 @@ function updateMoveVisibility() {
       ? true
       : (segmentLayerIndex >= minLayer && segmentLayerIndex < maxLayer);
 
-    // For chronological segments (new approach)
+    // Check type visibility
+    const typeEnabled = enabledTypes.has(segment.userData.type) ||
+                       enabledTypes.has(segment.material.name);
+
+    // For chronological segments on the top layer
     if (segment.userData.chronological && segmentLayerIndex === topLayerIndex) {
-      const totalSegments = segment.userData.segmentCount;
-      const visibleSegments = Math.ceil((totalSegments * movePercentage) / 100);
-
-      // Calculate draw count (2 vertices per segment)
-      const drawCount = visibleSegments * 2;
-
-      // Set draw range to show moves chronologically
-      if (segment.geometry.drawRange) {
-        segment.geometry.setDrawRange(0, drawCount);
-      }
-
-      // For chronological segments, we always show them if layer is visible
-      // Type filtering is handled by showing/hiding specific vertex ranges
-      // For now, show the segment if ANY enabled type exists in the ranges
-      let hasEnabledType = false;
-      if (segment.userData.typeRanges) {
-        for (const range of segment.userData.typeRanges) {
-          if (enabledTypes.has(range.type)) {
-            hasEnabledType = true;
-            break;
-          }
+      const start = segment.userData.chronologicalStart || 0;
+      const end = segment.userData.chronologicalEnd || 0;
+      
+      // Determine how much of this segment should be visible based on chronological position
+      if (visibleChronologicalCount <= start) {
+        // This entire segment is beyond the visible range
+        segment.visible = false;
+      } else if (visibleChronologicalCount >= end) {
+        // This entire segment is within the visible range
+        segment.visible = layerVisible && typeEnabled;
+        // Reset draw range to show full segment
+        if (segment.geometry.drawRange && segment.userData.fullVertexCount) {
+          segment.geometry.setDrawRange(0, segment.userData.fullVertexCount);
         }
       } else {
-        hasEnabledType = true; // Show if no type info
+        // Partial visibility - calculate how many segments to show
+        const visibleInThisSegment = visibleChronologicalCount - start;
+        const drawCount = visibleInThisSegment * 2; // 2 vertices per segment
+        
+        if (segment.geometry.drawRange) {
+          segment.geometry.setDrawRange(0, drawCount);
+        }
+        
+        segment.visible = layerVisible && typeEnabled && (visibleInThisSegment > 0);
       }
-
-      segment.visible = layerVisible && hasEnabledType && (visibleSegments > 0);
     }
     // For non-chronological segments or non-top layers
-    else {
-      // Check type visibility (old approach for backward compatibility)
-      const typeEnabled = enabledTypes.has(segment.userData.type) ||
-                         enabledTypes.has(segment.material.name);
-
-      // For the top layer with old grouped-by-type approach
-      if (segmentLayerIndex === topLayerIndex && segment.userData.segmentCount && !segment.userData.chronological) {
+    else if (!segment.userData.chronological) {
+      // Old grouped-by-type approach for backward compatibility
+      if (segmentLayerIndex === topLayerIndex && segment.userData.segmentCount) {
         const totalSegments = segment.userData.segmentCount;
         const visibleSegments = Math.ceil((totalSegments * movePercentage) / 100);
 
@@ -578,6 +593,12 @@ function updateMoveVisibility() {
         }
         segment.visible = layerVisible && typeEnabled;
       }
+    } else {
+      // Chronological segments on non-top layers - show/hide based on type only
+      if (segment.geometry.drawRange && segment.userData.fullVertexCount) {
+        segment.geometry.setDrawRange(0, segment.userData.fullVertexCount);
+      }
+      segment.visible = layerVisible && typeEnabled;
     }
   });
 }

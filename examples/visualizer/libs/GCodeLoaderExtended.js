@@ -340,63 +340,59 @@ class GCodeLoaderExtended extends Loader {
 
     // Add segments in chronological order (for move slider chronological playback)
     function addSegmentsChronological(layer, layerIndex) {
-      // Build chronological vertex array with type information
-      const vertices = [];
-      const typeRanges = []; // Track [startIndex, endIndex, type] for each contiguous type section
+      // Group segments into contiguous type sections while preserving order
+      const typeSections = [];
+      let currentSection = null;
+      let chronologicalIndex = 0;
       
-      let currentType = null;
-      let currentRangeStart = 0;
-      
-      layer.segments.forEach((seg, index) => {
+      layer.segments.forEach((seg) => {
         const type = seg.type;
         
-        // If type changed, record the previous range
-        if (currentType !== null && currentType !== type) {
-          typeRanges.push({
-            start: currentRangeStart,
-            end: vertices.length / 3, // Convert vertex index to actual index
-            type: currentType
-          });
-          currentRangeStart = vertices.length / 3;
+        // If type changed or this is the first segment, start a new section
+        if (!currentSection || currentSection.type !== type) {
+          if (currentSection) {
+            typeSections.push(currentSection);
+          }
+          currentSection = {
+            type: type,
+            vertices: [],
+            startIndex: chronologicalIndex
+          };
         }
         
-        currentType = type;
-        
         // Add segment vertices
-        vertices.push(seg.p1.x, seg.p1.y, seg.p1.z);
-        vertices.push(seg.p2.x, seg.p2.y, seg.p2.z);
+        currentSection.vertices.push(seg.p1.x, seg.p1.y, seg.p1.z);
+        currentSection.vertices.push(seg.p2.x, seg.p2.y, seg.p2.z);
+        chronologicalIndex++;
       });
       
-      // Record final range
-      if (currentType !== null) {
-        typeRanges.push({
-          start: currentRangeStart,
-          end: vertices.length / 3,
-          type: currentType
-        });
+      // Add final section
+      if (currentSection) {
+        typeSections.push(currentSection);
       }
       
-      if (vertices.length > 0) {
+      // Create separate LineSegments for each type section to preserve colors
+      typeSections.forEach((section) => {
         const geometry = new BufferGeometry();
-        geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
+        geometry.setAttribute('position', new Float32BufferAttribute(section.vertices, 3));
         
-        // Use a default material - visibility will be controlled per-type
-        const material = materials.extruded;
+        // Use specific material for the type
+        const material = materials[section.type] || materials.extruded;
         
         const segments = new LineSegments(geometry, material);
         segments.name = 'layer' + layerIndex;
+        segments.userData.type = section.type;
         segments.userData.layerIndex = layerIndex;
         segments.userData.chronological = true; // Mark as chronological
         
-        // Store segment count for move slider functionality
-        segments.userData.segmentCount = vertices.length / 6;
-        segments.userData.fullVertexCount = vertices.length;
-        
-        // Store type ranges for filtering
-        segments.userData.typeRanges = typeRanges;
+        // Store segment count and chronological position
+        segments.userData.segmentCount = section.vertices.length / 6;
+        segments.userData.fullVertexCount = section.vertices.length;
+        segments.userData.chronologicalStart = section.startIndex;
+        segments.userData.chronologicalEnd = section.startIndex + segments.userData.segmentCount;
         
         object.add(segments);
-      }
+      });
     }
 
     const object = new Group();
