@@ -72,15 +72,12 @@ body {
   padding: 15px;
   border-radius: 8px;
   border: 1px solid #ffffff42;
-  min-width: 250px;
-  max-width: 350px;
 }
 
 #filename {
   display: block;
   font-weight: bold;
   color: #4caf50;
-  margin-bottom: 5px;
   word-wrap: break-word;
 }
 
@@ -90,6 +87,7 @@ body {
   color: #aaa;
   line-height: 1.5;
   white-space: pre-wrap;
+  margin-top: 5px;
 }
 
 /* Canvas container */
