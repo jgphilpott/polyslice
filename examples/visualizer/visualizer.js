@@ -16,6 +16,7 @@ let layersByIndex = {}; // Map layer index to LineSegments
 let layerCount = 0; // Total number of actual layers from LAYER comments
 let layerSliderMin = null;
 let layerSliderMax = null;
+let moveSlider = null;
 let isFirstUpload = true; // Track if this is the first G-code upload
 
 // Initialize the visualizer on page load.
@@ -69,6 +70,9 @@ function init() {
 
   // Add layer slider.
   createLayerSlider();
+
+  // Add move slider.
+  createMoveSlider();
 
   // Set up event listeners.
   setupEventListeners();
@@ -141,6 +145,24 @@ function createAxes() {
 function createLegend() {
   const legendHTML = `
         <div class="legend-container">
+            <div id="axes-legend">
+                <h3>Axes</h3>
+                <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
+                    <div class="legend-color" style="background-color: #ff0000;"></div>
+                    <span>X Axis</span>
+                </div>
+                <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
+                    <div class="legend-color" style="background-color: #00ff00;"></div>
+                    <span>Y Axis</span>
+                </div>
+                <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
+                    <div class="legend-color" style="background-color: #0000ff;"></div>
+                    <span>Z Axis</span>
+                </div>
+            </div>
             <div id="legend">
                 <h3>Movement Types</h3>
                 <div class="legend-item">
@@ -182,24 +204,6 @@ function createLegend() {
                     <input type="checkbox" class="legend-checkbox" data-type="extruded" checked />
                     <div class="legend-color" style="background-color: #00ff00;"></div>
                     <span>Other Extrusion</span>
-                </div>
-            </div>
-            <div id="axes-legend">
-                <h3>Axes</h3>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
-                    <div class="legend-color" style="background-color: #ff0000;"></div>
-                    <span>X Axis</span>
-                </div>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
-                    <div class="legend-color" style="background-color: #00ff00;"></div>
-                    <span>Y Axis</span>
-                </div>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
-                    <div class="legend-color" style="background-color: #0000ff;"></div>
-                    <span>Z Axis</span>
                 </div>
             </div>
         </div>
@@ -354,6 +358,21 @@ function createLayerSlider() {
 }
 
 /**
+ * Create the horizontal move slider at the bottom of the page.
+ */
+function createMoveSlider() {
+  const sliderHTML = `
+        <div id="move-slider-container">
+            <div id="move-info">Move Progress: 0%</div>
+            <input type="range" id="move-slider" min="0" max="100" value="100">
+        </div>
+    `;
+
+  document.body.insertAdjacentHTML('beforeend', sliderHTML);
+  moveSlider = document.getElementById('move-slider');
+}
+
+/**
  * Setup layer slider after G-code is loaded.
  */
 function setupLayerSlider() {
@@ -364,8 +383,9 @@ function setupLayerSlider() {
     return;
   }
 
-  // Show the slider.
+  // Show the sliders.
   document.getElementById('layer-slider-container').classList.add('visible');
+  document.getElementById('info').style.bottom = '110px';
   document.getElementById('info').style.left = '120px';
 
   // Setup slider ranges.
@@ -385,6 +405,29 @@ function setupLayerSlider() {
 
   // Update initial display.
   updateLayerVisibility();
+}
+
+/**
+ * Setup move slider after G-code is loaded.
+ */
+function setupMoveSlider() {
+  if (layerCount === 0) {
+    document.getElementById('move-slider-container').classList.remove('visible');
+    return;
+  }
+
+  // Show the slider.
+  document.getElementById('move-slider-container').classList.add('visible');
+
+  // Reset slider to full (100%).
+  moveSlider.value = 100;
+
+  // Remove existing listener and add new one.
+  moveSlider.removeEventListener('input', updateMoveVisibility);
+  moveSlider.addEventListener('input', updateMoveVisibility);
+
+  // Update initial display.
+  updateMoveVisibility();
 }
 
 /**
@@ -436,6 +479,128 @@ function updateLayerVisibility() {
       ? 'All Layers'
       : `<p>Layers ${minLayer} - ${maxLayer - 1}</p><p>(${maxLayer - minLayer} / ${layerCount})</p>`;
   document.getElementById('layer-info').innerHTML = infoText;
+
+  // Update move slider when layer visibility changes.
+  updateMoveVisibility();
+}
+
+/**
+ * Update move visibility based on horizontal slider value.
+ * Only affects the topmost visible layer.
+ */
+function updateMoveVisibility() {
+  const movePercentage = parseInt(moveSlider.value);
+
+  // Update info text.
+  document.getElementById('move-info').textContent = `Move Progress: ${movePercentage}%`;
+
+  // Find the topmost visible layer.
+  let minLayer = parseInt(layerSliderMin.value);
+  let maxLayer = parseInt(layerSliderMax.value);
+
+  // Ensure min is not greater than max
+  if (minLayer > maxLayer) {
+    const temp = minLayer;
+    minLayer = maxLayer;
+    maxLayer = temp;
+  }
+
+  const topLayerIndex = maxLayer - 1; // The topmost visible layer (0-indexed)
+
+  // Get currently enabled movement types from checkboxes.
+  const enabledTypes = new Set();
+  document.querySelectorAll('.legend-checkbox:checked').forEach(checkbox => {
+    enabledTypes.add(checkbox.dataset.type);
+  });
+
+  // For chronological segments, we need to calculate the total segment count
+  // across all type sections in the top layer
+  let totalChronologicalSegments = 0;
+  const topLayerChronologicalSegments = [];
+  
+  allLayers.forEach(segment => {
+    if (segment.userData.chronological && segment.userData.layerIndex === topLayerIndex) {
+      topLayerChronologicalSegments.push(segment);
+      if (segment.userData.chronologicalEnd !== undefined) {
+        totalChronologicalSegments = Math.max(totalChronologicalSegments, segment.userData.chronologicalEnd);
+      }
+    }
+  });
+
+  // Calculate the chronological cutoff point based on slider percentage
+  const visibleChronologicalCount = Math.ceil((totalChronologicalSegments * movePercentage) / 100);
+
+  // Process all segments
+  allLayers.forEach(segment => {
+    const segmentLayerIndex = segment.userData.layerIndex;
+
+    // Check layer visibility
+    const layerVisible = segmentLayerIndex === undefined
+      ? true
+      : (segmentLayerIndex >= minLayer && segmentLayerIndex < maxLayer);
+
+    // Check type visibility
+    const typeEnabled = enabledTypes.has(segment.userData.type) ||
+                       enabledTypes.has(segment.material.name);
+
+    // For chronological segments on the top layer
+    if (segment.userData.chronological && segmentLayerIndex === topLayerIndex) {
+      const start = segment.userData.chronologicalStart || 0;
+      const end = segment.userData.chronologicalEnd || 0;
+      
+      // Determine how much of this segment should be visible based on chronological position
+      if (visibleChronologicalCount <= start) {
+        // This entire segment is beyond the visible range
+        segment.visible = false;
+      } else if (visibleChronologicalCount >= end) {
+        // This entire segment is within the visible range
+        segment.visible = layerVisible && typeEnabled;
+        // Reset draw range to show full segment
+        if (segment.geometry.drawRange && segment.userData.fullVertexCount) {
+          segment.geometry.setDrawRange(0, segment.userData.fullVertexCount);
+        }
+      } else {
+        // Partial visibility - calculate how many segments to show
+        const visibleInThisSegment = visibleChronologicalCount - start;
+        const drawCount = visibleInThisSegment * 2; // 2 vertices per segment
+        
+        if (segment.geometry.drawRange) {
+          segment.geometry.setDrawRange(0, drawCount);
+        }
+        
+        segment.visible = layerVisible && typeEnabled && (visibleInThisSegment > 0);
+      }
+    }
+    // For non-chronological segments or non-top layers
+    else if (!segment.userData.chronological) {
+      // Old grouped-by-type approach for backward compatibility
+      if (segmentLayerIndex === topLayerIndex && segment.userData.segmentCount) {
+        const totalSegments = segment.userData.segmentCount;
+        const visibleSegments = Math.ceil((totalSegments * movePercentage) / 100);
+
+        // Use drawRange to control how many segments are drawn
+        const drawCount = visibleSegments * 2;
+
+        if (segment.geometry.drawRange) {
+          segment.geometry.setDrawRange(0, drawCount);
+        }
+
+        segment.visible = layerVisible && typeEnabled && (visibleSegments > 0);
+      } else {
+        // Reset draw range for non-top layers
+        if (segment.geometry.drawRange && segment.userData.fullVertexCount) {
+          segment.geometry.setDrawRange(0, segment.userData.fullVertexCount);
+        }
+        segment.visible = layerVisible && typeEnabled;
+      }
+    } else {
+      // Chronological segments on non-top layers - show/hide based on type only
+      if (segment.geometry.drawRange && segment.userData.fullVertexCount) {
+        segment.geometry.setDrawRange(0, segment.userData.fullVertexCount);
+      }
+      segment.visible = layerVisible && typeEnabled;
+    }
+  });
 }
 
 /**
@@ -733,6 +898,9 @@ function loadGCode(content, filename) {
   // Setup layer slider.
   setupLayerSlider();
 
+  // Setup move slider.
+  setupMoveSlider();
+
   // Update info panel.
   updateInfo(filename, gcodeObject);
 
@@ -855,6 +1023,17 @@ function resetView() {
       axesLines[axisIndex].visible = true;
     }
   });
+
+  // Reset layer sliders to show all layers
+  if (layerSliderMin && layerSliderMax && layerCount > 0) {
+    layerSliderMin.value = 0;
+    layerSliderMax.value = layerCount;
+  }
+
+  // Reset move slider to 100%
+  if (moveSlider) {
+    moveSlider.value = 100;
+  }
 
   // Save the reset states to localStorage
   saveCheckboxStates();

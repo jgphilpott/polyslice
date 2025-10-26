@@ -293,6 +293,9 @@ class GCodeLoaderExtended extends Loader {
         extruding ? extrudingMaterial : pathMaterial
       );
       segments.name = 'layer' + i;
+      segments.userData.layerIndex = i;
+      segments.userData.segmentCount = vertex.length / 6;
+      segments.userData.fullVertexCount = vertex.length;
       object.add(segments);
     }
 
@@ -323,8 +326,72 @@ class GCodeLoaderExtended extends Loader {
           const segments = new LineSegments(geometry, material);
           segments.name = 'layer' + layerIndex;
           segments.userData.type = type;
+          segments.userData.layerIndex = layerIndex;
+          
+          // Store segment count for move slider functionality
+          // Each line segment uses 2 vertices, so total segments = vertices / 6
+          segments.userData.segmentCount = vertices.length / 6;
+          segments.userData.fullVertexCount = vertices.length;
+          
           object.add(segments);
         }
+      });
+    }
+
+    // Add segments in chronological order (for move slider chronological playback)
+    function addSegmentsChronological(layer, layerIndex) {
+      // Group segments into contiguous type sections while preserving order
+      const typeSections = [];
+      let currentSection = null;
+      let chronologicalIndex = 0;
+      
+      layer.segments.forEach((seg) => {
+        const type = seg.type;
+        
+        // If type changed or this is the first segment, start a new section
+        if (!currentSection || currentSection.type !== type) {
+          if (currentSection) {
+            typeSections.push(currentSection);
+          }
+          currentSection = {
+            type: type,
+            vertices: [],
+            startIndex: chronologicalIndex
+          };
+        }
+        
+        // Add segment vertices
+        currentSection.vertices.push(seg.p1.x, seg.p1.y, seg.p1.z);
+        currentSection.vertices.push(seg.p2.x, seg.p2.y, seg.p2.z);
+        chronologicalIndex++;
+      });
+      
+      // Add final section
+      if (currentSection) {
+        typeSections.push(currentSection);
+      }
+      
+      // Create separate LineSegments for each type section to preserve colors
+      typeSections.forEach((section) => {
+        const geometry = new BufferGeometry();
+        geometry.setAttribute('position', new Float32BufferAttribute(section.vertices, 3));
+        
+        // Use specific material for the type
+        const material = materials[section.type] || materials.extruded;
+        
+        const segments = new LineSegments(geometry, material);
+        segments.name = 'layer' + layerIndex;
+        segments.userData.type = section.type;
+        segments.userData.layerIndex = layerIndex;
+        segments.userData.chronological = true; // Mark as chronological
+        
+        // Store segment count and chronological position
+        segments.userData.segmentCount = section.vertices.length / 6;
+        segments.userData.fullVertexCount = section.vertices.length;
+        segments.userData.chronologicalStart = section.startIndex;
+        segments.userData.chronologicalEnd = section.startIndex + segments.userData.segmentCount;
+        
+        object.add(segments);
       });
     }
 
@@ -335,10 +402,10 @@ class GCodeLoaderExtended extends Loader {
     const hasTypeComments = Object.keys(metadata.moveTypes).length > 0;
 
     if (hasTypeComments && this.splitLayer) {
-      // Split by layer and color by type
+      // Split by layer with chronological order (for move slider)
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
-        addSegmentsByType(layer, i);
+        addSegmentsChronological(layer, i);
       }
     } else if (hasTypeComments && !this.splitLayer) {
       // All layers combined but colored by type
