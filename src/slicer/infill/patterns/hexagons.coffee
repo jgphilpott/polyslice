@@ -6,8 +6,9 @@ helpers = require('../../geometry/helpers')
 module.exports =
 
     # Generate hexagons pattern infill (honeycomb tessellation).
-    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
-    generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = []) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill (for clipping).
+    # holeOuterWalls: Array of hole outer wall paths to avoid in travel (for travel optimization).
+    generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -215,8 +216,9 @@ module.exports =
                     distSq1 = (edge.end.x - lastEndPoint.x) ** 2 + (edge.end.y - lastEndPoint.y) ** 2
 
                     # Check if travel to this edge would cross holes.
-                    crossesHole0 = helpers.travelPathCrossesHoles(lastEndPoint, edge.start, holeInnerWalls)
-                    crossesHole1 = helpers.travelPathCrossesHoles(lastEndPoint, edge.end, holeInnerWalls)
+                    # Use hole outer walls which represent the complete boundary of holes.
+                    crossesHole0 = helpers.travelPathCrossesHoles(lastEndPoint, edge.start, holeOuterWalls)
+                    crossesHole1 = helpers.travelPathCrossesHoles(lastEndPoint, edge.end, holeOuterWalls)
 
                     # Prefer edges that don't cross holes. If both best and current cross holes
                     # (or both don't), then choose based on distance.

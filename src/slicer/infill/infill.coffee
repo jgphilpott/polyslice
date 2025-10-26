@@ -10,8 +10,9 @@ hexagonsPattern = require('./patterns/hexagons')
 module.exports =
 
     # Generate G-code for infill (interior fill with variable density).
-    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
-    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, holeInnerWalls = []) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill (for clipping).
+    # holeOuterWalls: Array of hole outer wall paths to avoid in travel (for travel optimization).
+    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         return if boundaryPath.length < 3
 
@@ -53,6 +54,28 @@ module.exports =
 
                     holeInnerWallsWithGap.push(holeWallWithGap)
 
+        # For travel path optimization, use an even smaller hole boundary.
+        # This ensures infill line endpoints (which are AT the clipping boundary)
+        # are detected as OUTSIDE the travel detection boundary, so lines on the same
+        # side of a hole can be grouped together.
+        # Shrink the hole by an additional half nozzle diameter for travel detection.
+        holeInnerWallsForTravel = []
+
+        for holeWall in holeInnerWallsWithGap
+
+            if holeWall.length >= 3
+
+                # Shrink the hole boundary even more for travel detection.
+                # Use isHole=false to inset (shrink) the hole.
+                travelHoleWall = helpers.createInsetPath(holeWall, nozzleDiameter / 2, false)
+
+                if travelHoleWall.length >= 3
+
+                    holeInnerWallsForTravel.push(travelHoleWall)
+
+        # Use the smaller hole boundaries for travel path optimization.
+        holeOuterWallsForTravel = holeInnerWallsForTravel
+
         # Calculate line spacing based on infill density.
         # Different patterns require different spacing multipliers:
         # - Grid (2 directions): multiply by 2
@@ -68,7 +91,7 @@ module.exports =
             # This gives 10% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 2.0
 
-            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)
+            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWallsForTravel)
 
         else if infillPattern is 'triangles'
 
@@ -78,7 +101,7 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)
+            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWallsForTravel)
 
         else if infillPattern is 'hexagons'
 
@@ -88,4 +111,4 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)
+            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWallsForTravel)

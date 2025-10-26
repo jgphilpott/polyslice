@@ -6,8 +6,9 @@ helpers = require('../../geometry/helpers')
 module.exports =
 
     # Generate triangles pattern infill (tessellation at 0°, +60°, and -60°).
-    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
-    generateTrianglesInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = []) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill (for clipping).
+    # holeOuterWalls: Array of hole outer wall paths to avoid in travel (for travel optimization).
+    generateTrianglesInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -287,7 +288,8 @@ module.exports =
 
         # Group infill lines by region to minimize travel across holes.
         # This prevents spider web artifacts when printing shapes with holes.
-        regions = helpers.groupInfillLinesByRegion(allInfillLines, holeInnerWalls)
+        # Use hole outer walls to represent the complete boundary of holes.
+        regions = helpers.groupInfillLinesByRegion(allInfillLines, holeOuterWalls)
 
         # Now render all collected lines in optimal order to minimize travel.
         # Process one complete region at a time to avoid crossing holes.

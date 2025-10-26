@@ -194,6 +194,7 @@ module.exports =
         # We must complete this phase BEFORE generating infill, so that hole boundaries
         # are available when processing outer boundaries.
         holeInnerWalls = []  # Inner wall paths of holes (for regular infill clipping).
+        holeOuterWalls = []  # Outer wall paths of holes (for travel path optimization).
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
         innermostWalls = []  # Store innermost wall for each path.
 
@@ -217,6 +218,12 @@ module.exports =
 
                 innermostWalls.push(null)
                 continue
+
+            # Store the outermost wall path for holes (used for travel path optimization).
+            # This represents the outer boundary of the hole, including all wall material.
+            if pathIsHole[pathIndex]
+
+                holeOuterWalls.push(currentPath)
 
             # Generate walls from outer to inner.
             for wallIndex in [0...wallCount]
@@ -443,8 +450,8 @@ module.exports =
 
                         # Use the original currentPath for infill to keep coverage consistent,
                         # but require that an inset path exists as a guard to ensure there is room inside.
-                        # Pass hole inner walls for clipping.
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls)
+                        # Pass hole inner walls for clipping and hole outer walls for travel optimization.
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
 
                     # Generate skin ONLY in the exposed areas.
                     # Pass hole skin walls for clipping.
@@ -459,5 +466,5 @@ module.exports =
 
                     # Use the original currentPath for infill to keep coverage consistent,
                     # but require that an inset path exists as a guard to ensure there is room inside.
-                    # Pass hole inner walls for clipping.
-                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls)
+                    # Pass hole inner walls for clipping and hole outer walls for travel optimization.
+                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
