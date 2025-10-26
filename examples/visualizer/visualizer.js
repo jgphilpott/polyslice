@@ -145,6 +145,24 @@ function createAxes() {
 function createLegend() {
   const legendHTML = `
         <div class="legend-container">
+            <div id="axes-legend">
+                <h3>Axes</h3>
+                <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
+                    <div class="legend-color" style="background-color: #ff0000;"></div>
+                    <span>X Axis</span>
+                </div>
+                <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
+                    <div class="legend-color" style="background-color: #00ff00;"></div>
+                    <span>Y Axis</span>
+                </div>
+                <div class="legend-item">
+                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
+                    <div class="legend-color" style="background-color: #0000ff;"></div>
+                    <span>Z Axis</span>
+                </div>
+            </div>
             <div id="legend">
                 <h3>Movement Types</h3>
                 <div class="legend-item">
@@ -186,24 +204,6 @@ function createLegend() {
                     <input type="checkbox" class="legend-checkbox" data-type="extruded" checked />
                     <div class="legend-color" style="background-color: #00ff00;"></div>
                     <span>Other Extrusion</span>
-                </div>
-            </div>
-            <div id="axes-legend">
-                <h3>Axes</h3>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
-                    <div class="legend-color" style="background-color: #ff0000;"></div>
-                    <span>X Axis</span>
-                </div>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
-                    <div class="legend-color" style="background-color: #00ff00;"></div>
-                    <span>Y Axis</span>
-                </div>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
-                    <div class="legend-color" style="background-color: #0000ff;"></div>
-                    <span>Z Axis</span>
                 </div>
             </div>
         </div>
@@ -526,15 +526,15 @@ function updateMoveVisibility() {
     if (segment.userData.chronological && segmentLayerIndex === topLayerIndex) {
       const totalSegments = segment.userData.segmentCount;
       const visibleSegments = Math.ceil((totalSegments * movePercentage) / 100);
-      
+
       // Calculate draw count (2 vertices per segment)
       const drawCount = visibleSegments * 2;
-      
+
       // Set draw range to show moves chronologically
       if (segment.geometry.drawRange) {
         segment.geometry.setDrawRange(0, drawCount);
       }
-      
+
       // For chronological segments, we always show them if layer is visible
       // Type filtering is handled by showing/hiding specific vertex ranges
       // For now, show the segment if ANY enabled type exists in the ranges
@@ -549,7 +549,7 @@ function updateMoveVisibility() {
       } else {
         hasEnabledType = true; // Show if no type info
       }
-      
+
       segment.visible = layerVisible && hasEnabledType && (visibleSegments > 0);
     }
     // For non-chronological segments or non-top layers
