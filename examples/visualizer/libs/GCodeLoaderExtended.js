@@ -338,6 +338,67 @@ class GCodeLoaderExtended extends Loader {
       });
     }
 
+    // Add segments in chronological order (for move slider chronological playback)
+    function addSegmentsChronological(layer, layerIndex) {
+      // Build chronological vertex array with type information
+      const vertices = [];
+      const typeRanges = []; // Track [startIndex, endIndex, type] for each contiguous type section
+      
+      let currentType = null;
+      let currentRangeStart = 0;
+      
+      layer.segments.forEach((seg, index) => {
+        const type = seg.type;
+        
+        // If type changed, record the previous range
+        if (currentType !== null && currentType !== type) {
+          typeRanges.push({
+            start: currentRangeStart,
+            end: vertices.length / 3, // Convert vertex index to actual index
+            type: currentType
+          });
+          currentRangeStart = vertices.length / 3;
+        }
+        
+        currentType = type;
+        
+        // Add segment vertices
+        vertices.push(seg.p1.x, seg.p1.y, seg.p1.z);
+        vertices.push(seg.p2.x, seg.p2.y, seg.p2.z);
+      });
+      
+      // Record final range
+      if (currentType !== null) {
+        typeRanges.push({
+          start: currentRangeStart,
+          end: vertices.length / 3,
+          type: currentType
+        });
+      }
+      
+      if (vertices.length > 0) {
+        const geometry = new BufferGeometry();
+        geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
+        
+        // Use a default material - visibility will be controlled per-type
+        const material = materials.extruded;
+        
+        const segments = new LineSegments(geometry, material);
+        segments.name = 'layer' + layerIndex;
+        segments.userData.layerIndex = layerIndex;
+        segments.userData.chronological = true; // Mark as chronological
+        
+        // Store segment count for move slider functionality
+        segments.userData.segmentCount = vertices.length / 6;
+        segments.userData.fullVertexCount = vertices.length;
+        
+        // Store type ranges for filtering
+        segments.userData.typeRanges = typeRanges;
+        
+        object.add(segments);
+      }
+    }
+
     const object = new Group();
     object.name = 'gcode';
 
@@ -345,10 +406,10 @@ class GCodeLoaderExtended extends Loader {
     const hasTypeComments = Object.keys(metadata.moveTypes).length > 0;
 
     if (hasTypeComments && this.splitLayer) {
-      // Split by layer and color by type
+      // Split by layer with chronological order (for move slider)
       for (let i = 0; i < layers.length; i++) {
         const layer = layers[i];
-        addSegmentsByType(layer, i);
+        addSegmentsChronological(layer, i);
       }
     } else if (hasTypeComments && !this.splitLayer) {
       // All layers combined but colored by type
