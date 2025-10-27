@@ -38,43 +38,14 @@ module.exports =
 
         if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
 
-        # Create inset versions of hole inner walls to maintain the same gap.
-        # For holes, we want to shrink them (outset from the hole's perspective) by the same infill gap.
-        # This ensures infill maintains a consistent gap from all walls, including hole walls.
-        holeInnerWallsWithGap = []
+        # Create hole boundaries for clipping WITHOUT adding a gap.
+        # For holes, we want infill to stay completely out of the hole area,
+        # not just maintain a gap from the innermost wall.
+        # The outer wall already includes the necessary clearance.
+        holeOuterWallsWithGap = holeOuterWalls
 
-        for holeWall in holeInnerWalls
-
-            if holeWall.length >= 3
-
-                # Create outset path for the hole (isHole=true means it will shrink the hole).
-                holeWallWithGap = helpers.createInsetPath(holeWall, infillGap, true)
-
-                if holeWallWithGap.length >= 3
-
-                    holeInnerWallsWithGap.push(holeWallWithGap)
-
-        # For travel path optimization, use an even smaller hole boundary.
-        # This ensures infill line endpoints (which are AT the clipping boundary)
-        # are detected as OUTSIDE the travel detection boundary, so lines on the same
-        # side of a hole can be grouped together.
-        # Shrink the hole by an additional half nozzle diameter for travel detection.
-        holeInnerWallsForTravel = []
-
-        for holeWall in holeInnerWallsWithGap
-
-            if holeWall.length >= 3
-
-                # Shrink the hole boundary even more for travel detection.
-                # Use isHole=false to inset (shrink) the hole.
-                travelHoleWall = helpers.createInsetPath(holeWall, nozzleDiameter / 2, false)
-
-                if travelHoleWall.length >= 3
-
-                    holeInnerWallsForTravel.push(travelHoleWall)
-
-        # Use the smaller hole boundaries for travel path optimization.
-        holeOuterWallsForTravel = holeInnerWallsForTravel
+        # For travel path optimization, use the same boundaries.
+        holeOuterWallsForTravel = holeOuterWalls
 
         # Calculate line spacing based on infill density.
         # Different patterns require different spacing multipliers:
@@ -91,7 +62,7 @@ module.exports =
             # This gives 10% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 2.0
 
-            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWallsForTravel)
+            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeOuterWallsWithGap, holeOuterWallsForTravel)
 
         else if infillPattern is 'triangles'
 
@@ -101,7 +72,7 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWallsForTravel)
+            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeOuterWallsWithGap, holeOuterWallsForTravel)
 
         else if infillPattern is 'hexagons'
 
@@ -111,4 +82,4 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWallsForTravel)
+            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeOuterWallsWithGap, holeOuterWallsForTravel)
