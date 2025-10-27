@@ -283,7 +283,7 @@ module.exports =
 
                 # Generate skin wall for the hole (outward inset).
                 # Pass generateInfill=false to skip infill (only walls).
-                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, null, pathIsHole[pathIndex], false)
+                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, null, pathIsHole[pathIndex], false, [], holeOuterWalls)
 
         # Phase 2: Generate infill and skin.
         # Now that all hole boundaries have been collected, we can generate infill
@@ -437,10 +437,10 @@ module.exports =
 
                     # Absolute top/bottom layers: ONLY skin (no infill).
                     # This ensures clean top and bottom surfaces without visible infill pattern.
-                    # Pass hole skin walls for clipping.
+                    # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
                 else
 
@@ -454,10 +454,10 @@ module.exports =
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
 
                     # Generate skin ONLY in the exposed areas.
-                    # Pass hole skin walls for clipping.
+                    # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
             else
 
