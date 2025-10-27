@@ -38,14 +38,21 @@ module.exports =
 
         if verbose then slicer.gcode += "; TYPE: FILL" + slicer.newline
 
-        # Create hole boundaries for clipping WITHOUT adding a gap.
-        # For holes, we want infill to stay completely out of the hole area,
-        # not just maintain a gap from the innermost wall.
-        # The outer wall already includes the necessary clearance.
-        holeOuterWallsWithGap = holeOuterWalls
+        # Create inset versions of hole inner walls to maintain the same gap.
+        # For holes, we want to shrink them (outset from the hole's perspective) by the same infill gap.
+        # This ensures infill maintains a consistent gap from all walls, including hole walls.
+        holeInnerWallsWithGap = []
 
-        # For travel path optimization, use the same boundaries.
-        holeOuterWallsForTravel = holeOuterWalls
+        for holeWall in holeInnerWalls
+
+            if holeWall.length >= 3
+
+                # Create outset path for the hole (isHole=true means it will shrink the hole).
+                holeWallWithGap = helpers.createInsetPath(holeWall, infillGap, true)
+
+                if holeWallWithGap.length >= 3
+
+                    holeInnerWallsWithGap.push(holeWallWithGap)
 
         # Calculate line spacing based on infill density.
         # Different patterns require different spacing multipliers:
@@ -62,7 +69,7 @@ module.exports =
             # This gives 10% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 2.0
 
-            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeOuterWallsWithGap, holeOuterWallsForTravel)
+            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
         else if infillPattern is 'triangles'
 
@@ -72,7 +79,7 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeOuterWallsWithGap, holeOuterWallsForTravel)
+            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
         else if infillPattern is 'hexagons'
 
@@ -82,4 +89,4 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeOuterWallsWithGap, holeOuterWallsForTravel)
+            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)

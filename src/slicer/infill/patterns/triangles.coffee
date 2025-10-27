@@ -286,96 +286,85 @@ module.exports =
             # Move to next diagonal line.
             offset += offsetStep15
 
-        # Group infill lines by region to minimize travel across holes.
-        # This prevents spider web artifacts when printing shapes with holes.
-        # Use hole outer walls to represent the complete boundary of holes.
-        regions = helpers.groupInfillLinesByRegion(allInfillLines, holeOuterWalls)
-
         # Now render all collected lines in optimal order to minimize travel.
-        # Process one complete region at a time to avoid crossing holes.
+        # Use nearest-neighbor selection with combing to avoid crossing holes.
         # Start with the line closest to the last wall position.
         lastEndPoint = lastWallPoint
 
-        for region in regions
+        while allInfillLines.length > 0
 
-            # Find the region with a line closest to the current position.
-            # This could be optimized further by selecting the best region to process next,
-            # but for now we process regions in the order they were discovered.
+            # Find the line with an endpoint closest to current position.
+            minDistSq = Infinity
+            bestLineIdx = 0
+            bestFlipped = false
 
-            while region.length > 0
+            for line, idx in allInfillLines
 
-                # Find the line with an endpoint closest to current position.
-                minDistSq = Infinity
-                bestLineIdx = 0
-                bestFlipped = false
+                # Check distance to both endpoints of this line.
+                if lastEndPoint?
 
-                for line, idx in region
+                    distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
+                    distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
 
-                    # Check distance to both endpoints of this line.
-                    if lastEndPoint?
+                    if distSq0 < minDistSq
 
-                        distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
-                        distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
+                        minDistSq = distSq0
+                        bestLineIdx = idx
+                        bestFlipped = false # Start from line.start
 
-                        if distSq0 < minDistSq
+                    if distSq1 < minDistSq
 
-                            minDistSq = distSq0
-                            bestLineIdx = idx
-                            bestFlipped = false # Start from line.start
-
-                        if distSq1 < minDistSq
-
-                            minDistSq = distSq1
-                            bestLineIdx = idx
-                            bestFlipped = true # Start from line.end (flip the line)
-
-                    else
-
-                        break # No last position, just use first line.
-
-                # Get the best line and remove it from the list.
-                bestLine = region[bestLineIdx]
-                region.splice(bestLineIdx, 1)
-
-                # Determine start and end based on whether we need to flip.
-                if bestFlipped
-
-                    startPoint = bestLine.end
-                    endPoint = bestLine.start
+                        minDistSq = distSq1
+                        bestLineIdx = idx
+                        bestFlipped = true # Start from line.end (flip the line)
 
                 else
 
-                    startPoint = bestLine.start
-                    endPoint = bestLine.end
+                    break # No last position, just use first line.
 
-                # Move to start of line (travel move with combing).
-                # Find a path that avoids crossing holes.
-                combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
+            # Get the best line and remove it from the list.
+            bestLine = allInfillLines[bestLineIdx]
+            allInfillLines.splice(bestLineIdx, 1)
+
+            # Determine start and end based on whether we need to flip.
+            if bestFlipped
+
+                startPoint = bestLine.end
+                endPoint = bestLine.start
+
+            else
+
+                startPoint = bestLine.start
+                endPoint = bestLine.end
+
+            # Move to start of line (travel move with combing).
+            # Find a path that avoids crossing holes.
+            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
+            
+            # Generate travel moves for each segment of the combing path
+            for i in [0...combingPath.length - 1]
                 
-                # Generate travel moves for each segment of the combing path
-                for i in [0...combingPath.length - 1]
-                    
-                    waypoint = combingPath[i + 1]
-                    offsetWaypointX = waypoint.x + centerOffsetX
-                    offsetWaypointY = waypoint.y + centerOffsetY
-                    
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+                waypoint = combingPath[i + 1]
+                offsetWaypointX = waypoint.x + centerOffsetX
+                offsetWaypointY = waypoint.y + centerOffsetY
+                
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
-                # Draw the diagonal line.
-                dx = endPoint.x - startPoint.x
-                dy = endPoint.y - startPoint.y
+            # Draw the diagonal line.
+            dx = endPoint.x - startPoint.x
+            dy = endPoint.y - startPoint.y
 
-                distance = Math.sqrt(dx * dx + dy * dy)
+            distance = Math.sqrt(dx * dx + dy * dy)
 
-                if distance > 0.001
+            if distance > 0.001
 
-                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                    slicer.cumulativeE += extrusionDelta
+                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                slicer.cumulativeE += extrusionDelta
 
-                    offsetEndX = endPoint.x + centerOffsetX
-                    offsetEndY = endPoint.y + centerOffsetY
+                offsetEndX = endPoint.x + centerOffsetX
+                offsetEndY = endPoint.y + centerOffsetY
 
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
 
-                    # Track where this line ended for next iteration.
-                    lastEndPoint = endPoint
+                # Track where this line ended for next iteration.
+                lastEndPoint = endPoint
