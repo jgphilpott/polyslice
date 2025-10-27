@@ -1246,12 +1246,15 @@ module.exports =
         return false if holePolygons.length is 0
         return false if not startPoint or not endPoint
 
+        # Small margin to account for paths that graze the hole boundary
+        margin = 0.5  # 0.5mm margin
+
         # Check if travel path intersects with any hole boundary.
         for holePolygon in holePolygons
 
             continue if holePolygon.length < 3
 
-            # Check if either endpoint is inside the hole.
+            # Check if either endpoint is inside the hole (with margin).
             startInHole = @pointInPolygon(startPoint, holePolygon)
             endInHole = @pointInPolygon(endPoint, holePolygon)
 
@@ -1272,6 +1275,41 @@ module.exports =
 
                 if intersection
 
+                    return true
+            
+            # Check if the path passes too close to the hole center.
+            # Calculate approximate hole center (average of all points).
+            centerX = 0
+            centerY = 0
+            for point in holePolygon
+                centerX += point.x
+                centerY += point.y
+            centerX /= holePolygon.length
+            centerY /= holePolygon.length
+            
+            # Calculate approximate hole radius (average distance from center).
+            totalDist = 0
+            for point in holePolygon
+                dx = point.x - centerX
+                dy = point.y - centerY
+                totalDist += Math.sqrt(dx * dx + dy * dy)
+            avgRadius = totalDist / holePolygon.length
+            
+            # Calculate closest distance from path to hole center.
+            # Use formula for distance from point to line segment.
+            dx = endPoint.x - startPoint.x
+            dy = endPoint.y - startPoint.y
+            lengthSq = dx * dx + dy * dy
+            
+            if lengthSq > 0.001
+                # Parameter t for closest point on line segment
+                t = Math.max(0, Math.min(1, ((centerX - startPoint.x) * dx + (centerY - startPoint.y) * dy) / lengthSq))
+                closestX = startPoint.x + t * dx
+                closestY = startPoint.y + t * dy
+                distToCenter = Math.sqrt((closestX - centerX) ** 2 + (closestY - centerY) ** 2)
+                
+                # If path comes within the hole radius + margin, consider it crossing
+                if distToCenter < avgRadius + margin
                     return true
 
         return false
@@ -1354,3 +1392,63 @@ module.exports =
             regions.push(regionLines)
 
         return regions
+
+    # Find a travel path that avoids crossing holes.
+    # If the direct path crosses a hole, route around it.
+    # Returns an array of waypoints from start to end.
+    findCombingPath: (start, end, holePolygons = [], boundary = null) ->
+
+        # If no holes or the direct path doesn't cross any holes, return direct path.
+        if holePolygons.length is 0
+            return [start, end]
+        
+        crosses = @travelPathCrossesHoles(start, end, holePolygons)
+        
+        if not crosses
+            return [start, end]
+
+        # Simple combing: try to route around holes by going perpendicular to the direct path.
+        # For each hole that the direct path crosses, find waypoints that go around it.
+        dx = end.x - start.x
+        dy = end.y - start.y
+        
+        # Calculate perpendicular direction
+        perpX = -dy
+        perpY = dx
+        perpLen = Math.sqrt(perpX * perpX + perpY * perpY)
+        
+        if perpLen < 0.001
+            return [start, end]
+        
+        # Normalize perpendicular vector
+        perpX /= perpLen
+        perpY /= perpLen
+        
+        # Try waypoints offset perpendicular to the direct path
+        # Try both sides and use the one that works
+        for offsetDist in [2, 5, 10, 20] # Try increasingly larger offsets
+            
+            for direction in [1, -1] # Try both perpendicular directions
+                
+                offsetX = perpX * offsetDist * direction
+                offsetY = perpY * offsetDist * direction
+                
+                # Try waypoint at midpoint
+                midX = (start.x + end.x) / 2 + offsetX
+                midY = (start.y + end.y) / 2 + offsetY
+                waypoint = { x: midX, y: midY }
+                
+                # Check if boundary is provided and waypoint is outside
+                if boundary?
+                    if not @pointInPolygon(waypoint, boundary)
+                        continue
+                
+                # Check if this route avoids all holes
+                leg1Clear = not @travelPathCrossesHoles(start, waypoint, holePolygons)
+                leg2Clear = not @travelPathCrossesHoles(waypoint, end, holePolygons)
+                
+                if leg1Clear and leg2Clear
+                    return [start, waypoint, end]
+        
+        # If no combing path found, return direct path as fallback
+        return [start, end]

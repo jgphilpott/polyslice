@@ -323,11 +323,18 @@ module.exports =
 
                 if segIdx is 0
 
-                    # First segment: travel move to start.
-                    offsetStartX = segment.start.x + centerOffsetX
-                    offsetStartY = segment.start.y + centerOffsetY
-
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+                    # First segment: travel move to start with combing.
+                    # Find a path that avoids crossing holes.
+                    combingPath = helpers.findCombingPath(lastEndPoint or segment.start, segment.start, holeOuterWalls, infillBoundary)
+                    
+                    # Generate travel moves for each segment of the combing path
+                    for i in [0...combingPath.length - 1]
+                        
+                        waypoint = combingPath[i + 1]
+                        offsetWaypointX = waypoint.x + centerOffsetX
+                        offsetWaypointY = waypoint.y + centerOffsetY
+                        
+                        slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
                 # Draw extrusion move.
                 dx = segment.end.x - segment.start.x
