@@ -1393,9 +1393,9 @@ module.exports =
 
         return regions
 
-    # Find a travel path that avoids crossing holes.
-    # If the direct path crosses a hole, route around it.
+    # Find a travel path that avoids crossing holes using tangential routing.
     # Returns an array of waypoints from start to end.
+    # For cases where start/end are near hole boundaries, routes around the perimeter.
     findCombingPath: (start, end, holePolygons = [], boundary = null) ->
 
         # If no holes or the direct path doesn't cross any holes, return direct path.
@@ -1407,48 +1407,111 @@ module.exports =
         if not crosses
             return [start, end]
 
-        # Simple combing: try to route around holes by going perpendicular to the direct path.
-        # For each hole that the direct path crosses, find waypoints that go around it.
+        # Simple strategy: If direct path crosses hole, try moving perpendicular first
+        # This works better when start/end points are near hole boundaries
+        
         dx = end.x - start.x
         dy = end.y - start.y
+        pathLength = Math.sqrt(dx * dx + dy * dy)
         
-        # Calculate perpendicular direction
-        perpX = -dy
-        perpY = dx
-        perpLen = Math.sqrt(perpX * perpX + perpY * perpY)
-        
-        if perpLen < 0.001
+        if pathLength < 0.001
             return [start, end]
         
-        # Normalize perpendicular vector
-        perpX /= perpLen
-        perpY /= perpLen
+        # Calculate perpendicular directions
+        perpX1 = -dy / pathLength
+        perpY1 = dx / pathLength
+        perpX2 = dy / pathLength
+        perpY2 = -dx / pathLength
         
-        # Try waypoints offset perpendicular to the direct path
-        # Try both sides and use the one that works
-        for offsetDist in [2, 5, 10, 20] # Try increasingly larger offsets
+        # Try waypoints at increasing perpendicular offsets
+        for offset in [3, 5, 8, 12, 18]
             
-            for direction in [1, -1] # Try both perpendicular directions
+            # Try both perpendicular directions
+            for [perpX, perpY] in [[perpX1, perpY1], [perpX2, perpY2]]
                 
-                offsetX = perpX * offsetDist * direction
-                offsetY = perpY * offsetDist * direction
+                # Place waypoint perpendicular to midpoint
+                midX = (start.x + end.x) / 2
+                midY = (start.y + end.y) / 2
+                waypointX = midX + perpX * offset
+                waypointY = midY + perpY * offset
                 
-                # Try waypoint at midpoint
-                midX = (start.x + end.x) / 2 + offsetX
-                midY = (start.y + end.y) / 2 + offsetY
-                waypoint = { x: midX, y: midY }
+                waypoint = { x: waypointX, y: waypointY }
                 
-                # Check if boundary is provided and waypoint is outside
-                if boundary?
-                    if not @pointInPolygon(waypoint, boundary)
-                        continue
+                # Check if waypoint is in boundary
+                if boundary? and not @pointInPolygon(waypoint, boundary)
+                    continue
                 
-                # Check if this route avoids all holes
-                leg1Clear = not @travelPathCrossesHoles(start, waypoint, holePolygons)
-                leg2Clear = not @travelPathCrossesHoles(waypoint, end, holePolygons)
+                # Check if both legs avoid holes (check distance to hole center, not polygon crossing)
+                leg1Clear = true
+                leg2Clear = true
+                
+                for hole in holePolygons
+                    # Calculate hole center and radius
+                    centerX = 0
+                    centerY = 0
+                    for point in hole
+                        centerX += point.x
+                        centerY += point.y
+                    centerX /= hole.length
+                    centerY /= hole.length
+                    
+                    maxRadius = 0
+                    for point in hole
+                        dx = point.x - centerX
+                        dy = point.y - centerY
+                        dist = Math.sqrt(dx * dx + dy * dy)
+                        maxRadius = Math.max(maxRadius, dist)
+                    
+                    # Check if leg 1 comes too close to hole center
+                    distToHole1 = @distanceFromPointToLineSegment(centerX, centerY, start, waypoint)
+                    if distToHole1 < maxRadius - 0.5  # Allow some tolerance
+                        leg1Clear = false
+                    
+                    # Check if leg 2 comes too close to hole center
+                    distToHole2 = @distanceFromPointToLineSegment(centerX, centerY, waypoint, end)
+                    if distToHole2 < maxRadius - 0.5  # Allow some tolerance
+                        leg2Clear = false
                 
                 if leg1Clear and leg2Clear
                     return [start, waypoint, end]
         
-        # If no combing path found, return direct path as fallback
+        # Fallback to direct path
         return [start, end]
+    
+    # Helper: Calculate distance from a point to a line segment
+    distanceFromPointToLineSegment: (px, py, segStart, segEnd) ->
+        dx = segEnd.x - segStart.x
+        dy = segEnd.y - segStart.y
+        lengthSq = dx * dx + dy * dy
+        
+        if lengthSq < 0.001
+            # Degenerate segment, return distance to start point
+            return Math.sqrt((px - segStart.x) ** 2 + (py - segStart.y) ** 2)
+        
+        # Calculate parameter t for closest point on line segment
+        t = Math.max(0, Math.min(1, ((px - segStart.x) * dx + (py - segStart.y) * dy) / lengthSq))
+        
+        # Calculate closest point
+        closestX = segStart.x + t * dx
+        closestY = segStart.y + t * dy
+        
+        # Return distance
+        return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2)
+    
+    # Helper: Check if a line segment crosses a polygon
+    lineSegmentCrossesPolygon: (start, end, polygon) ->
+        
+        # Check if either endpoint is inside
+        if @pointInPolygon(start, polygon) or @pointInPolygon(end, polygon)
+            return true
+        
+        # Check if line intersects any edge
+        for i in [0...polygon.length]
+            nextIdx = if i is polygon.length - 1 then 0 else i + 1
+            edgeStart = polygon[i]
+            edgeEnd = polygon[nextIdx]
+            
+            if @lineSegmentIntersection(start, end, edgeStart, edgeEnd)
+                return true
+        
+        return false
