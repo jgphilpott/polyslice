@@ -6,8 +6,9 @@ helpers = require('../../geometry/helpers')
 module.exports =
 
     # Generate hexagons pattern infill (honeycomb tessellation).
-    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
-    generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = []) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill (for clipping).
+    # holeOuterWalls: Array of hole outer wall paths to avoid in travel (for travel optimization).
+    generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -196,10 +197,12 @@ module.exports =
 
         while Object.keys(drawnEdges).length < allInfillLines.length
 
-            # Find the nearest undrawn edge to current position.
+            # Find the nearest undrawn edge to current position, preferring edges that
+            # can be reached without crossing holes.
             minDistSq = Infinity
             bestIdx = -1
             bestFlipped = false
+            bestCrossesHole = true  # Track if best candidate crosses a hole.
 
             for edge, idx in allInfillLines
 
@@ -212,17 +215,60 @@ module.exports =
                     distSq0 = (edge.start.x - lastEndPoint.x) ** 2 + (edge.start.y - lastEndPoint.y) ** 2
                     distSq1 = (edge.end.x - lastEndPoint.x) ** 2 + (edge.end.y - lastEndPoint.y) ** 2
 
+                    # Check if travel to this edge would cross holes.
+                    # Use hole outer walls which represent the complete boundary of holes.
+                    crossesHole0 = helpers.travelPathCrossesHoles(lastEndPoint, edge.start, holeOuterWalls)
+                    crossesHole1 = helpers.travelPathCrossesHoles(lastEndPoint, edge.end, holeOuterWalls)
+
+                    # Prefer edges that don't cross holes. If both best and current cross holes
+                    # (or both don't), then choose based on distance.
                     if distSq0 < minDistSq
 
-                        minDistSq = distSq0
-                        bestIdx = idx
-                        bestFlipped = false
+                        # Check if this is better than current best.
+                        if not bestCrossesHole and crossesHole0
+
+                            # Current best doesn't cross hole, this does - skip.
+                            continue
+
+                        else if bestCrossesHole and not crossesHole0
+
+                            # Current best crosses hole, this doesn't - use this.
+                            minDistSq = distSq0
+                            bestIdx = idx
+                            bestFlipped = false
+                            bestCrossesHole = crossesHole0
+
+                        else
+
+                            # Both cross or both don't cross - just use distance.
+                            minDistSq = distSq0
+                            bestIdx = idx
+                            bestFlipped = false
+                            bestCrossesHole = crossesHole0
 
                     if distSq1 < minDistSq
 
-                        minDistSq = distSq1
-                        bestIdx = idx
-                        bestFlipped = true
+                        # Check if this is better than current best.
+                        if not bestCrossesHole and crossesHole1
+
+                            # Current best doesn't cross hole, this does - skip.
+                            continue
+
+                        else if bestCrossesHole and not crossesHole1
+
+                            # Current best crosses hole, this doesn't - use this.
+                            minDistSq = distSq1
+                            bestIdx = idx
+                            bestFlipped = true
+                            bestCrossesHole = crossesHole1
+
+                        else
+
+                            # Both cross or both don't cross - just use distance.
+                            minDistSq = distSq1
+                            bestIdx = idx
+                            bestFlipped = true
+                            bestCrossesHole = crossesHole1
 
                 else
 
@@ -277,11 +323,18 @@ module.exports =
 
                 if segIdx is 0
 
-                    # First segment: travel move to start.
-                    offsetStartX = segment.start.x + centerOffsetX
-                    offsetStartY = segment.start.y + centerOffsetY
-
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+                    # First segment: travel move to start with combing.
+                    # Find a path that avoids crossing holes.
+                    combingPath = helpers.findCombingPath(lastEndPoint or segment.start, segment.start, holeOuterWalls, infillBoundary)
+                    
+                    # Generate travel moves for each segment of the combing path
+                    for i in [0...combingPath.length - 1]
+                        
+                        waypoint = combingPath[i + 1]
+                        offsetWaypointX = waypoint.x + centerOffsetX
+                        offsetWaypointY = waypoint.y + centerOffsetY
+                        
+                        slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
                 # Draw extrusion move.
                 dx = segment.end.x - segment.start.x

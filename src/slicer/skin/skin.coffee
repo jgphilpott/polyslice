@@ -8,7 +8,8 @@ module.exports =
     # Generate G-code for skin (top/bottom solid infill).
     # If generateInfill is false, only skin walls are generated (useful for holes).
     # holeSkinWalls: Array of hole skin wall paths to exclude from skin infill.
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = []) ->
+    # holeOuterWalls: Array of hole outer wall paths for travel path optimization (avoiding holes).
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = [], holeOuterWalls = []) ->
 
         return if boundaryPath.length < 3
 
@@ -263,11 +264,18 @@ module.exports =
                             startPoint = endPoint
                             endPoint = temp
 
-                    # Move to start of line (travel move).
-                    offsetStartX = startPoint.x + centerOffsetX
-                    offsetStartY = startPoint.y + centerOffsetY
-
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
+                    # Move to start of line (travel move with combing).
+                    # Find a path that avoids crossing holes.
+                    combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
+                    
+                    # Generate travel moves for each segment of the combing path.
+                    for i in [0...combingPath.length - 1]
+                        
+                        waypoint = combingPath[i + 1]
+                        offsetWaypointX = waypoint.x + centerOffsetX
+                        offsetWaypointY = waypoint.y + centerOffsetY
+                        
+                        slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
 
                     # Draw the diagonal line.
                     dx = endPoint.x - startPoint.x

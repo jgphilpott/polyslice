@@ -194,6 +194,7 @@ module.exports =
         # We must complete this phase BEFORE generating infill, so that hole boundaries
         # are available when processing outer boundaries.
         holeInnerWalls = []  # Inner wall paths of holes (for regular infill clipping).
+        holeOuterWalls = []  # Outer wall paths of holes (for travel path optimization).
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
         innermostWalls = []  # Store innermost wall for each path.
 
@@ -217,6 +218,12 @@ module.exports =
 
                 innermostWalls.push(null)
                 continue
+
+            # Store the outermost wall path for holes (used for travel path optimization).
+            # This represents the outer boundary of the hole, including all wall material.
+            if pathIsHole[pathIndex]
+
+                holeOuterWalls.push(currentPath)
 
             # Generate walls from outer to inner.
             for wallIndex in [0...wallCount]
@@ -276,7 +283,7 @@ module.exports =
 
                 # Generate skin wall for the hole (outward inset).
                 # Pass generateInfill=false to skip infill (only walls).
-                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, null, pathIsHole[pathIndex], false)
+                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, null, pathIsHole[pathIndex], false, [], holeOuterWalls)
 
         # Phase 2: Generate infill and skin.
         # Now that all hole boundaries have been collected, we can generate infill
@@ -430,10 +437,10 @@ module.exports =
 
                     # Absolute top/bottom layers: ONLY skin (no infill).
                     # This ensures clean top and bottom surfaces without visible infill pattern.
-                    # Pass hole skin walls for clipping.
+                    # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
                 else
 
@@ -443,14 +450,14 @@ module.exports =
 
                         # Use the original currentPath for infill to keep coverage consistent,
                         # but require that an inset path exists as a guard to ensure there is room inside.
-                        # Pass hole inner walls for clipping.
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls)
+                        # Pass hole inner walls for clipping and hole outer walls for travel optimization.
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
 
                     # Generate skin ONLY in the exposed areas.
-                    # Pass hole skin walls for clipping.
+                    # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
             else
 
@@ -459,5 +466,5 @@ module.exports =
 
                     # Use the original currentPath for infill to keep coverage consistent,
                     # but require that an inset path exists as a guard to ensure there is room inside.
-                    # Pass hole inner walls for clipping.
-                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls)
+                    # Pass hole inner walls for clipping and hole outer walls for travel optimization.
+                    infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)

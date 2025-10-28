@@ -1037,3 +1037,324 @@ describe 'deduplicateIntersections', ->
         expect(unique[0].x).toBeCloseTo(3, 3)
         expect(unique[1].x).toBeCloseTo(1, 3)
         expect(unique[2].x).toBeCloseTo(2, 3)
+
+describe 'Travel Path Optimization', ->
+
+    describe 'travelPathCrossesHoles', ->
+
+        test 'should detect when travel path crosses a hole boundary', ->
+
+            # Create a square hole.
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            # Travel from outside to outside, crossing the hole.
+            startPoint = { x: 30, y: 50 }
+            endPoint = { x: 70, y: 50 }
+
+            result = helpers.travelPathCrossesHoles(startPoint, endPoint, [hole])
+
+            expect(result).toBe(true)
+
+        test 'should return false when travel path does not cross hole', ->
+
+            # Create a square hole.
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            # Travel path that goes around the hole.
+            startPoint = { x: 30, y: 30 }
+            endPoint = { x: 70, y: 30 }
+
+            result = helpers.travelPathCrossesHoles(startPoint, endPoint, [hole])
+
+            expect(result).toBe(false)
+
+        test 'should detect when start point is inside hole', ->
+
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            # Start inside hole, end outside.
+            startPoint = { x: 50, y: 50 }
+            endPoint = { x: 70, y: 70 }
+
+            result = helpers.travelPathCrossesHoles(startPoint, endPoint, [hole])
+
+            expect(result).toBe(true)
+
+        test 'should return false when no holes provided', ->
+
+            startPoint = { x: 10, y: 10 }
+            endPoint = { x: 90, y: 90 }
+
+            result = helpers.travelPathCrossesHoles(startPoint, endPoint, [])
+
+            expect(result).toBe(false)
+
+    describe 'findCombingPath', ->
+
+        test 'should return direct path when no holes exist', ->
+
+            start = { x: 0, y: 0 }
+            end = { x: 100, y: 100 }
+
+            path = helpers.findCombingPath(start, end, [])
+
+            expect(path).toHaveLength(2)
+            expect(path[0]).toEqual(start)
+            expect(path[1]).toEqual(end)
+
+        test 'should return direct path when path does not cross holes', ->
+
+            hole = [
+                { x: 40, y: 40 }
+                { x: 60, y: 40 }
+                { x: 60, y: 60 }
+                { x: 40, y: 60 }
+            ]
+
+            # Path goes around the hole, not through it.
+            start = { x: 0, y: 0 }
+            end = { x: 30, y: 30 }
+
+            path = helpers.findCombingPath(start, end, [hole])
+
+            expect(path).toHaveLength(2)
+            expect(path[0]).toEqual(start)
+            expect(path[1]).toEqual(end)
+
+        test 'should return waypoint path when direct path crosses hole', ->
+
+            # Create a circular hole centered at (50, 50).
+            hole = []
+            centerX = 50
+            centerY = 50
+            radius = 10
+            numPoints = 16
+
+            for i in [0...numPoints]
+                angle = (i / numPoints) * 2 * Math.PI
+                hole.push({
+                    x: centerX + radius * Math.cos(angle)
+                    y: centerY + radius * Math.sin(angle)
+                })
+
+            # Travel path that would cross through the hole center.
+            start = { x: 30, y: 50 }
+            end = { x: 70, y: 50 }
+
+            path = helpers.findCombingPath(start, end, [hole])
+
+            # Should have 3 points (start, waypoint, end) since it needs to route around.
+            expect(path.length).toBeGreaterThan(2)
+            expect(path[0]).toEqual(start)
+            expect(path[path.length - 1]).toEqual(end)
+
+            # The waypoint should be perpendicular to the direct path.
+            if path.length is 3
+                waypoint = path[1]
+                # Since start and end are horizontal (y=50), waypoint should be above or below.
+                expect(waypoint.y).not.toBe(50)
+                # Waypoint x should be around the midpoint.
+                expect(waypoint.x).toBeGreaterThan(40)
+                expect(waypoint.x).toBeLessThan(60)
+
+        test 'should handle multiple holes and find valid waypoint', ->
+
+            # Create two holes that block the direct path.
+            hole1 = [
+                { x: 30, y: 40 }
+                { x: 40, y: 40 }
+                { x: 40, y: 60 }
+                { x: 30, y: 60 }
+            ]
+
+            hole2 = [
+                { x: 60, y: 40 }
+                { x: 70, y: 40 }
+                { x: 70, y: 60 }
+                { x: 60, y: 60 }
+            ]
+
+            # Travel from left to right, crosses both holes.
+            start = { x: 20, y: 50 }
+            end = { x: 80, y: 50 }
+
+            path = helpers.findCombingPath(start, end, [hole1, hole2])
+
+            # Should route around the holes (or return direct path as fallback).
+            expect(path.length).toBeGreaterThanOrEqual(2)
+            expect(path[0]).toEqual(start)
+            expect(path[path.length - 1]).toEqual(end)
+
+        test 'should respect boundary when provided', ->
+
+            hole = [
+                { x: 48, y: 48 }
+                { x: 52, y: 48 }
+                { x: 52, y: 52 }
+                { x: 48, y: 52 }
+            ]
+
+            # Small boundary that constrains waypoint placement.
+            boundary = [
+                { x: 0, y: 0 }
+                { x: 100, y: 0 }
+                { x: 100, y: 60 }
+                { x: 0, y: 60 }
+            ]
+
+            start = { x: 40, y: 50 }
+            end = { x: 60, y: 50 }
+
+            path = helpers.findCombingPath(start, end, [hole], boundary)
+
+            # Should find a path (may be direct or with waypoint).
+            expect(path.length).toBeGreaterThanOrEqual(2)
+            expect(path[0]).toEqual(start)
+            expect(path[path.length - 1]).toEqual(end)
+
+            # If waypoint exists, verify all points are either start/end or within boundary.
+            if path.length > 2
+                waypoint = path[1]
+                # Waypoint should be within boundary (start and end are given as within).
+                isInBoundary = helpers.pointInPolygon(waypoint, boundary)
+                expect(isInBoundary).toBe(true)
+
+        test 'should fall back to direct path when no valid waypoint found', ->
+
+            # Create a large hole that might block all waypoint attempts.
+            hole = []
+            centerX = 50
+            centerY = 50
+            radius = 40  # Large radius.
+            numPoints = 16
+
+            for i in [0...numPoints]
+                angle = (i / numPoints) * 2 * Math.PI
+                hole.push({
+                    x: centerX + radius * Math.cos(angle)
+                    y: centerY + radius * Math.sin(angle)
+                })
+
+            # Travel endpoints very close to hole center.
+            start = { x: 45, y: 50 }
+            end = { x: 55, y: 50 }
+
+            path = helpers.findCombingPath(start, end, [hole])
+
+            # Should return some path (might be direct if no valid waypoint).
+            expect(path.length).toBeGreaterThanOrEqual(2)
+            expect(path[0]).toEqual(start)
+            expect(path[path.length - 1]).toEqual(end)
+
+    describe 'distanceFromPointToLineSegment', ->
+
+        test 'should calculate distance from point to line segment', ->
+
+            # Horizontal line segment from (0, 0) to (10, 0).
+            segStart = { x: 0, y: 0 }
+            segEnd = { x: 10, y: 0 }
+
+            # Point above the line at (5, 5).
+            px = 5
+            py = 5
+
+            distance = helpers.distanceFromPointToLineSegment(px, py, segStart, segEnd)
+
+            expect(distance).toBeCloseTo(5, 1)
+
+        test 'should handle point closest to segment endpoint', ->
+
+            segStart = { x: 0, y: 0 }
+            segEnd = { x: 10, y: 0 }
+
+            # Point beyond the end.
+            px = 15
+            py = 5
+
+            distance = helpers.distanceFromPointToLineSegment(px, py, segStart, segEnd)
+
+            # Distance to endpoint (10, 0).
+            expected = Math.sqrt((15 - 10) ** 2 + (5 - 0) ** 2)
+
+            expect(distance).toBeCloseTo(expected, 1)
+
+        test 'should handle degenerate segment (zero length)', ->
+
+            segStart = { x: 5, y: 5 }
+            segEnd = { x: 5, y: 5 }
+
+            px = 10
+            py = 10
+
+            distance = helpers.distanceFromPointToLineSegment(px, py, segStart, segEnd)
+
+            # Distance to the point (5, 5).
+            expected = Math.sqrt((10 - 5) ** 2 + (10 - 5) ** 2)
+
+            expect(distance).toBeCloseTo(expected, 1)
+
+    describe 'lineSegmentCrossesPolygon', ->
+
+        test 'should detect when line segment crosses polygon boundary', ->
+
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            start = { x: -5, y: 5 }
+            end = { x: 15, y: 5 }
+
+            result = helpers.lineSegmentCrossesPolygon(start, end, polygon)
+
+            expect(result).toBe(true)
+
+        test 'should detect when start point is inside polygon', ->
+
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            start = { x: 5, y: 5 }
+            end = { x: 15, y: 15 }
+
+            result = helpers.lineSegmentCrossesPolygon(start, end, polygon)
+
+            expect(result).toBe(true)
+
+        test 'should return false when line does not cross polygon', ->
+
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            start = { x: -5, y: -5 }
+            end = { x: -5, y: 15 }
+
+            result = helpers.lineSegmentCrossesPolygon(start, end, polygon)
+
+            expect(result).toBe(false)
+

@@ -6,8 +6,9 @@ helpers = require('../../geometry/helpers')
 module.exports =
 
     # Generate grid pattern infill (crosshatch at +45° and -45°).
-    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
-    generateGridInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = []) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill (for clipping).
+    # holeOuterWalls: Array of hole outer wall paths to avoid in travel (for travel optimization).
+    generateGridInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -179,6 +180,7 @@ module.exports =
             offset += lineSpacing * Math.sqrt(2) # Account for 45-degree angle.
 
         # Now render all collected lines in optimal order to minimize travel.
+        # Use nearest-neighbor selection with combing to avoid crossing holes.
         # Start with the line closest to the last wall position.
         lastEndPoint = lastWallPoint
 
@@ -228,11 +230,18 @@ module.exports =
                 startPoint = bestLine.start
                 endPoint = bestLine.end
 
-            # Move to start of line (travel move).
-            offsetStartX = startPoint.x + centerOffsetX
-            offsetStartY = startPoint.y + centerOffsetY
-
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
+            # Move to start of line (travel move with combing).
+            # Find a path that avoids crossing holes.
+            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
+            
+            # Generate travel moves for each segment of the combing path
+            for i in [0...combingPath.length - 1]
+                
+                waypoint = combingPath[i + 1]
+                offsetWaypointX = waypoint.x + centerOffsetX
+                offsetWaypointY = waypoint.y + centerOffsetY
+                
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
             # Draw the diagonal line.
             dx = endPoint.x - startPoint.x

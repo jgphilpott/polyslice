@@ -10,8 +10,9 @@ hexagonsPattern = require('./patterns/hexagons')
 module.exports =
 
     # Generate G-code for infill (interior fill with variable density).
-    # holeInnerWalls: Array of hole inner wall paths to exclude from infill.
-    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, holeInnerWalls = []) ->
+    # holeInnerWalls: Array of hole inner wall paths to exclude from infill (for clipping).
+    # holeOuterWalls: Array of hole outer wall paths to avoid in travel (for travel optimization).
+    generateInfillGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         return if boundaryPath.length < 3
 
@@ -68,7 +69,7 @@ module.exports =
             # This gives 10% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 2.0
 
-            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)
+            gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
         else if infillPattern is 'triangles'
 
@@ -78,7 +79,7 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)
+            trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
         else if infillPattern is 'hexagons'
 
@@ -88,4 +89,4 @@ module.exports =
             # This gives ~6.67% in each direction, totaling 20% combined.
             lineSpacing = baseSpacing * 3.0
 
-            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap)
+            hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
