@@ -32,6 +32,10 @@ if (!fs.existsSync(outputDir)) {
   console.log(`Created output directory: ${outputDir}\n`);
 }
 
+// STL export toggle and output folder (uses same output dir by default).
+const exportSTL = true;
+const meshesDir = outputDir; // write STL next to G-code (same filenames, .stl)
+
 /**
  * Create a thin sheet (box) with holes punched in it using CSG.
  * @param {number} width - Width of the sheet in millimeters.
@@ -95,6 +99,37 @@ function createSheetWithHoles(width = 50, height = 50, thickness = 5, holeRadius
   finalMesh.updateMatrixWorld();
 
   return finalMesh;
+}
+
+/**
+ * Export a mesh as an STL file (binary) using three's STLExporter (dynamic import for Node CJS).
+ * @param {THREE.Mesh|THREE.Object3D} object - The mesh/object to export.
+ * @param {string} outPath - Output file path ending with .stl
+ * @returns {Promise<string>} - Resolves with the written path
+ */
+async function exportMeshAsSTL(object, outPath) {
+  // Dynamic import because three's examples are ESM-only.
+  const mod = await import('three/examples/jsm/exporters/STLExporter.js');
+  const STLExporter = mod.STLExporter || mod.default?.STLExporter || mod.default;
+
+  const exporter = new STLExporter();
+  const data = exporter.parse(object, { binary: true });
+
+  // The exporter may return a DataView, ArrayBuffer, or string.
+  let nodeBuffer;
+  if (typeof data === 'string') {
+    nodeBuffer = Buffer.from(data, 'utf8');
+  } else if (ArrayBuffer.isView(data)) {
+    // DataView or typed array
+    nodeBuffer = Buffer.from(data.buffer, data.byteOffset || 0, data.byteLength);
+  } else if (data instanceof ArrayBuffer) {
+    nodeBuffer = Buffer.from(data);
+  } else {
+    throw new Error('Unexpected STLExporter output type');
+  }
+
+  fs.writeFileSync(outPath, nodeBuffer);
+  return outPath;
 }
 
 /**
@@ -169,55 +204,66 @@ console.log(`- Output Directory: ${outputDir}\n`);
 console.log('Starting hole slicing...\n');
 console.log('='.repeat(90));
 
-const totalStartTime = Date.now();
-const results = [];
+(async () => {
+  const totalStartTime = Date.now();
+  const results = [];
 
-for (const gridSize of gridSizes) {
-  const totalHoles = gridSize * gridSize;
-  const filename = `sheet-${gridSize}x${gridSize}-holes.gcode`;
+  for (const gridSize of gridSizes) {
+    const totalHoles = gridSize * gridSize;
+    const baseName = `sheet-${gridSize}x${gridSize}-holes`;
+    const gcodeFilename = `${baseName}.gcode`;
+    const stlFilename = `${baseName}.stl`;
 
-  console.log(`\nProcessing ${gridSize}x${gridSize} grid (${totalHoles} hole${totalHoles > 1 ? 's' : ''})...`);
+    console.log(`\nProcessing ${gridSize}x${gridSize} grid (${totalHoles} hole${totalHoles > 1 ? 's' : ''})...`);
 
-  try {
-    // Create sheet with holes.
-    const mesh = createSheetWithHoles(sheetWidth, sheetHeight, sheetThickness, holeRadius, gridSize);
+    try {
+      // Create sheet with holes.
+      const mesh = createSheetWithHoles(sheetWidth, sheetHeight, sheetThickness, holeRadius, gridSize);
 
-    // Slice and save.
-    const stats = sliceAndSave(mesh, filename);
+      // Optionally export STL before slicing.
+      if (exportSTL) {
+        const stlPath = path.join(meshesDir, stlFilename);
+        await exportMeshAsSTL(mesh, stlPath);
+        console.log(`🧊 STL saved: ${stlFilename}`);
+      }
 
-    console.log(`✅ ${filename.padEnd(35)} | ${stats.time.toString().padStart(5)}ms | ${stats.lines.toString().padStart(6)} lines | ${stats.layers.toString().padStart(3)} layers | ${formatBytes(stats.size)}`);
+      // Slice and save.
+      const stats = sliceAndSave(mesh, gcodeFilename);
 
-    results.push({
-      gridSize,
-      totalHoles,
-      filename,
-      ...stats
-    });
-  } catch (error) {
-    console.error(`❌ Failed to process ${gridSize}x${gridSize} grid: ${error.message}`);
-    console.error(error.stack);
+      console.log(`✅ ${gcodeFilename.padEnd(35)} | ${stats.time.toString().padStart(5)}ms | ${stats.lines.toString().padStart(6)} lines | ${stats.layers.toString().padStart(3)} layers | ${formatBytes(stats.size)}`);
+
+      results.push({
+        gridSize,
+        totalHoles,
+        filename: gcodeFilename,
+        ...stats
+      });
+    } catch (error) {
+      console.error(`❌ Failed to process ${gridSize}x${gridSize} grid: ${error.message}`);
+      console.error(error.stack);
+    }
   }
-}
 
-const totalEndTime = Date.now();
-const totalTime = totalEndTime - totalStartTime;
+  const totalEndTime = Date.now();
+  const totalTime = totalEndTime - totalStartTime;
 
-console.log('\n' + '='.repeat(90));
-console.log('Hole Slicing Complete');
-console.log('='.repeat(90));
-console.log(`✅ Successfully generated ${results.length}/${gridSizes.length} files`);
-console.log(`⏱️  Total Time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
-console.log(`📁 Output Directory: ${outputDir}`);
+  console.log('\n' + '='.repeat(90));
+  console.log('Hole Slicing Complete');
+  console.log('='.repeat(90));
+  console.log(`✅ Successfully generated ${results.length}/${gridSizes.length} files`);
+  console.log(`⏱️  Total Time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
+  console.log(`📁 Output Directory: ${outputDir}`);
 
-if (results.length > 0) {
-  console.log('\nGenerated Files:');
-  results.forEach(result => {
-    console.log(`  - ${result.filename}: ${result.totalHoles} hole${result.totalHoles > 1 ? 's' : ''}, ${result.layers} layers, ${formatBytes(result.size)}`);
-  });
+  if (results.length > 0) {
+    console.log('\nGenerated Files:');
+    results.forEach(result => {
+      console.log(`  - ${result.filename}: ${result.totalHoles} hole${result.totalHoles > 1 ? 's' : ''}, ${result.layers} layers, ${formatBytes(result.size)}`);
+    });
 
-  console.log('\n✅ Hole slicing completed successfully!');
-  console.log('\nGenerated G-code files can be used with:');
-  console.log('- 3D printer or simulator');
-  console.log('- G-code visualizer (examples/visualizer/)');
-  console.log('- Analysis and testing of hole slicing capabilities');
-}
+    console.log('\n✅ Hole slicing completed successfully!');
+    console.log('\nGenerated G-code files can be used with:');
+    console.log('- 3D printer or simulator');
+    console.log('- G-code visualizer (examples/visualizer/)');
+    console.log('- Analysis and testing of hole slicing capabilities');
+  }
+})();
