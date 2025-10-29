@@ -199,8 +199,9 @@ module.exports =
             offset = minY - maxX - diagonalSpan
             maxOffset = maxY - minX
 
-        # Track last position for efficient zig-zag (minimize travel distance).
-        lastEndPoint = null
+        # Collect all skin infill line segments first for region-based ordering.
+        # This allows us to group segments by side of holes and minimize travel.
+        allSkinLines = []
 
         while offset < maxOffset
 
@@ -271,58 +272,94 @@ module.exports =
                 # This ensures skin infill stays within the boundary and outside holes with proper clearance.
                 clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeSkinWallsWithGap)
 
-                # Process each clipped segment (usually just one for convex shapes).
+                # Store each clipped segment for later rendering.
                 for segment in clippedSegments
 
-                    startPoint = segment.start
-                    endPoint = segment.end
-
-                    # For zig-zag pattern, choose start/end to minimize travel distance.
-                    # If this is not the first line, pick the point closest to the last end point.
-                    if lastEndPoint?
-
-                        # Calculate distances from last end point to both endpoints.
-                        dist0 = Math.sqrt((startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2)
-                        dist1 = Math.sqrt((endPoint.x - lastEndPoint.x) ** 2 + (endPoint.y - lastEndPoint.y) ** 2)
-
-                        # Swap if starting from end is closer.
-                        if dist1 < dist0
-
-                            temp = startPoint
-                            startPoint = endPoint
-                            endPoint = temp
-
-                    # Move to start of line (travel move with combing).
-                    # Find a path that avoids crossing holes.
-                    combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
-                    
-                    # Generate travel moves for each segment of the combing path.
-                    for i in [0...combingPath.length - 1]
-                        
-                        waypoint = combingPath[i + 1]
-                        offsetWaypointX = waypoint.x + centerOffsetX
-                        offsetWaypointY = waypoint.y + centerOffsetY
-                        
-                        slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
-
-                    # Draw the diagonal line.
-                    dx = endPoint.x - startPoint.x
-                    dy = endPoint.y - startPoint.y
-
-                    distance = Math.sqrt(dx * dx + dy * dy)
-
-                    if distance > 0.001
-
-                        extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                        slicer.cumulativeE += extrusionDelta
-
-                        offsetEndX = endPoint.x + centerOffsetX
-                        offsetEndY = endPoint.y + centerOffsetY
-
-                        slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
-
-                        # Track where this line ended for next iteration.
-                        lastEndPoint = endPoint
+                    allSkinLines.push({
+                        start: segment.start
+                        end: segment.end
+                    })
 
             # Move to next diagonal line.
             offset += lineSpacing * Math.sqrt(2)  # Account for 45-degree angle.
+
+        # Now render all collected lines in optimal order to minimize travel.
+        # Use nearest-neighbor selection with combing to avoid crossing holes.
+        # This groups segments naturally by region (e.g., sides of a hole).
+        lastEndPoint = null
+
+        while allSkinLines.length > 0
+
+            # Find the line with an endpoint closest to current position.
+            minDistSq = Infinity
+            bestLineIdx = 0
+            bestFlipped = false
+
+            # If no last position, start with the first line.
+            # Otherwise, find the line with endpoint closest to current position.
+            if lastEndPoint?
+
+                for line, idx in allSkinLines
+
+                    # Check distance to both endpoints of this line.
+                    distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
+                    distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
+
+                    if distSq0 < minDistSq
+
+                        minDistSq = distSq0
+                        bestLineIdx = idx
+                        bestFlipped = false # Start from line.start
+
+                    if distSq1 < minDistSq
+
+                        minDistSq = distSq1
+                        bestLineIdx = idx
+                        bestFlipped = true # Start from line.end (flip the line)
+
+            # Get the best line and remove it from the list.
+            bestLine = allSkinLines[bestLineIdx]
+            allSkinLines.splice(bestLineIdx, 1)
+
+            # Determine start and end based on whether we need to flip.
+            if bestFlipped
+
+                startPoint = bestLine.end
+                endPoint = bestLine.start
+
+            else
+
+                startPoint = bestLine.start
+                endPoint = bestLine.end
+
+            # Move to start of line (travel move with combing).
+            # Find a path that avoids crossing holes.
+            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
+            
+            # Generate travel moves for each segment of the combing path.
+            for i in [0...combingPath.length - 1]
+                
+                waypoint = combingPath[i + 1]
+                offsetWaypointX = waypoint.x + centerOffsetX
+                offsetWaypointY = waypoint.y + centerOffsetY
+                
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
+
+            # Draw the diagonal line.
+            dx = endPoint.x - startPoint.x
+            dy = endPoint.y - startPoint.y
+
+            distance = Math.sqrt(dx * dx + dy * dy)
+
+            if distance > 0.001
+
+                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                slicer.cumulativeE += extrusionDelta
+
+                offsetEndX = endPoint.x + centerOffsetX
+                offsetEndY = endPoint.y + centerOffsetY
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
+
+                # Track where this line ended for next iteration.
+                lastEndPoint = endPoint
