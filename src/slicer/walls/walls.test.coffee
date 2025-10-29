@@ -373,6 +373,31 @@ describe 'Wall Generation', ->
 
     describe 'Travel Path Combing', ->
 
+        # Helper function to count combing paths in G-code.
+        # A combing path is detected as 2+ consecutive G0 travel moves.
+        countCombingPaths = (gcode) ->
+
+            lines = gcode.split('\n')
+            consecutiveG0Count = 0
+            combingPathsFound = 0
+
+            for line in lines
+
+                if line.includes('G0') and line.includes('F7200')
+
+                    consecutiveG0Count++
+
+                else
+
+                    if consecutiveG0Count >= 2
+
+                        # Found a combing path with multiple segments.
+                        combingPathsFound++
+
+                    consecutiveG0Count = 0
+
+            return combingPathsFound
+
         test 'should use combing paths when traveling between hole walls', ->
 
             # Create a simple mesh with a hole using CSG-like approach.
@@ -415,29 +440,8 @@ describe 'Wall Generation', ->
 
             result = slicer.slice(mesh)
 
-            # Parse G-code to find multi-segment travel moves (combing paths).
-            lines = result.split('\n')
-
-            # Look for consecutive G0 travel moves (indicates combing path with waypoints).
-            consecutiveG0Count = 0
-            maxConsecutiveG0 = 0
-            combingPathsFound = 0
-
-            for line in lines
-
-                if line.includes('G0') and line.includes('F7200')
-
-                    consecutiveG0Count++
-
-                else
-
-                    if consecutiveG0Count >= 2
-
-                        # Found a combing path with multiple segments.
-                        combingPathsFound++
-
-                    maxConsecutiveG0 = Math.max(maxConsecutiveG0, consecutiveG0Count)
-                    consecutiveG0Count = 0
+            # Count combing paths in the generated G-code.
+            combingPathsFound = countCombingPaths(result)
 
             # With holes, we should find at least one multi-segment combing path.
             # This indicates the slicer is routing around holes rather than crossing them.
@@ -492,24 +496,8 @@ describe 'Wall Generation', ->
 
             result = slicer.slice(mesh)
 
-            # Count multi-segment travel moves.
-            lines = result.split('\n')
-            consecutiveG0Count = 0
-            combingPathsFound = 0
-
-            for line in lines
-
-                if line.includes('G0') and line.includes('F7200')
-
-                    consecutiveG0Count++
-
-                else
-
-                    if consecutiveG0Count >= 2
-
-                        combingPathsFound++
-
-                    consecutiveG0Count = 0
+            # Count combing paths in the generated G-code.
+            combingPathsFound = countCombingPaths(result)
 
             # With multiple holes, we should find multiple combing paths.
             # The more holes, the more likely we need combing to avoid them.
