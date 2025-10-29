@@ -197,6 +197,12 @@ module.exports =
         holeOuterWalls = []  # Outer wall paths of holes (for travel path optimization).
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
         innermostWalls = []  # Store innermost wall for each path.
+        
+        # Track last end point for travel path combing between walls.
+        lastWallEndPoint = null
+        
+        # Track outer boundary path for travel path combing.
+        outerBoundaryPath = null
 
         # Process each closed path to generate walls.
         for path, pathIndex in paths
@@ -224,6 +230,12 @@ module.exports =
             if pathIsHole[pathIndex]
 
                 holeOuterWalls.push(currentPath)
+                
+            else
+                
+                # This is the outer boundary - store it for travel path combing.
+                # Use the original path (before inset) as the boundary for combing.
+                outerBoundaryPath = path
 
             # Generate walls from outer to inner.
             for wallIndex in [0...wallCount]
@@ -236,8 +248,9 @@ module.exports =
                 else
                     wallType = "WALL-INNER"
 
-                # Generate this wall.
-                wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType)
+                # Generate this wall with combing path support.
+                # Pass the accumulated hole outer walls and boundary for combing.
+                lastWallEndPoint = wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType, lastWallEndPoint, holeOuterWalls, outerBoundaryPath)
 
                 # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
