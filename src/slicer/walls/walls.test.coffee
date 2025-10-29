@@ -370,3 +370,135 @@ describe 'Wall Generation', ->
             # Should have both outer and inner walls.
             expect(result).toContain('WALL-OUTER')
             expect(result).toContain('WALL-INNER')
+
+    describe 'Travel Path Combing', ->
+
+        # Helper function to count combing paths in G-code.
+        # A combing path is detected as 2+ consecutive G0 travel moves.
+        countCombingPaths = (gcode) ->
+
+            lines = gcode.split('\n')
+            consecutiveG0Count = 0
+            combingPathsFound = 0
+
+            for line in lines
+
+                if line.includes('G0') and line.includes('F7200')
+
+                    consecutiveG0Count++
+
+                else
+
+                    if consecutiveG0Count >= 2
+
+                        # Found a combing path with multiple segments.
+                        combingPathsFound++
+
+                    consecutiveG0Count = 0
+
+            return combingPathsFound
+
+        test 'should use combing paths when traveling between hole walls', ->
+
+            # Create a simple mesh with a hole using CSG-like approach.
+            # For testing, we'll create a thin box with a cylinder subtracted.
+            Brush = null
+            Evaluator = null
+            SUBTRACTION = null
+
+            try
+                { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
+            catch error
+                console.warn('three-bvh-csg not available, skipping combing test')
+                return
+
+            # Create a sheet (box).
+            sheetGeometry = new THREE.BoxGeometry(50, 50, 2)
+            sheetBrush = new Brush(sheetGeometry)
+            sheetBrush.updateMatrixWorld()
+
+            # Create a hole (cylinder).
+            holeGeometry = new THREE.CylinderGeometry(3, 3, 4, 32)
+            holeBrush = new Brush(holeGeometry)
+            holeBrush.rotation.x = Math.PI / 2
+            holeBrush.position.set(0, 0, 0)
+            holeBrush.updateMatrixWorld()
+
+            # Subtract hole from sheet.
+            csgEvaluator = new Evaluator()
+            resultBrush = csgEvaluator.evaluate(sheetBrush, holeBrush, SUBTRACTION)
+
+            # Create final mesh.
+            mesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 1)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8) # 2 walls
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Count combing paths in the generated G-code.
+            combingPathsFound = countCombingPaths(result)
+
+            # With holes, we should find at least one multi-segment combing path.
+            # This indicates the slicer is routing around holes rather than crossing them.
+            expect(combingPathsFound).toBeGreaterThan(0)
+
+        test 'should generate combing paths for multiple holes', ->
+
+            # Create a mesh with multiple holes.
+            Brush = null
+            Evaluator = null
+            SUBTRACTION = null
+
+            try
+                { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
+            catch error
+                console.warn('three-bvh-csg not available, skipping combing test')
+                return
+
+            # Create a sheet (box).
+            sheetGeometry = new THREE.BoxGeometry(50, 50, 2)
+            sheetBrush = new Brush(sheetGeometry)
+            sheetBrush.updateMatrixWorld()
+
+            csgEvaluator = new Evaluator()
+            resultBrush = sheetBrush
+
+            # Create 4 holes in a 2x2 grid.
+            for row in [0...2]
+
+                for col in [0...2]
+
+                    x = -12.5 + col * 25
+                    y = -12.5 + row * 25
+
+                    holeGeometry = new THREE.CylinderGeometry(3, 3, 4, 32)
+                    holeBrush = new Brush(holeGeometry)
+                    holeBrush.rotation.x = Math.PI / 2
+                    holeBrush.position.set(x, y, 0)
+                    holeBrush.updateMatrixWorld()
+
+                    resultBrush = csgEvaluator.evaluate(resultBrush, holeBrush, SUBTRACTION)
+
+            # Create final mesh.
+            mesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 1)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8) # 2 walls
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Count combing paths in the generated G-code.
+            combingPathsFound = countCombingPaths(result)
+
+            # With multiple holes, we should find multiple combing paths.
+            # The more holes, the more likely we need combing to avoid them.
+            expect(combingPathsFound).toBeGreaterThan(2)

@@ -197,6 +197,36 @@ module.exports =
         holeOuterWalls = []  # Outer wall paths of holes (for travel path optimization).
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
         innermostWalls = []  # Store innermost wall for each path.
+        
+        # Track last end point for travel path combing BETWEEN different paths/features.
+        lastPathEndPoint = null
+        
+        # Track outer boundary path for travel path combing.
+        outerBoundaryPath = null
+
+        # Pre-pass: Collect all hole outer walls BEFORE generating any walls.
+        # This ensures complete hole information is available for combing path calculation.
+        pathToHoleIndex = {}  # Map path index to index in holeOuterWalls array
+        
+        for path, pathIndex in paths
+            
+            # Skip degenerate paths.
+            continue if path.length < 3
+            
+            # Create initial offset for the outer wall by half nozzle diameter.
+            outerWallOffset = nozzleDiameter / 2
+            currentPath = helpers.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
+            
+            # Skip if offset path is degenerate.
+            continue if currentPath.length < 3
+            
+            # Store hole outer walls for combing path avoidance.
+            if pathIsHole[pathIndex]
+                pathToHoleIndex[pathIndex] = holeOuterWalls.length
+                holeOuterWalls.push(currentPath)
+            else
+                # Store outer boundary for combing constraint.
+                outerBoundaryPath = path
 
         # Process each closed path to generate walls.
         for path, pathIndex in paths
@@ -219,13 +249,9 @@ module.exports =
                 innermostWalls.push(null)
                 continue
 
-            # Store the outermost wall path for holes (used for travel path optimization).
-            # This represents the outer boundary of the hole, including all wall material.
-            if pathIsHole[pathIndex]
-
-                holeOuterWalls.push(currentPath)
-
             # Generate walls from outer to inner.
+            # Use lastPathEndPoint for combing to the first wall of this path.
+            # Within the path, walls connect directly without combing (they're concentric).
             for wallIndex in [0...wallCount]
 
                 # Determine wall type for TYPE annotation.
@@ -236,8 +262,26 @@ module.exports =
                 else
                     wallType = "WALL-INNER"
 
-                # Generate this wall.
-                wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType)
+                # Only use combing for the FIRST wall of this path (to travel from previous path).
+                # For subsequent walls within the same path, pass null to prevent combing.
+                combingStartPoint = if wallIndex is 0 then lastPathEndPoint else null
+                
+                # For combing, exclude the current hole (if this is a hole).
+                # When traveling TO this hole, we shouldn't check collision with the hole itself.
+                if pathIsHole[pathIndex] and pathToHoleIndex[pathIndex]?
+                    currentHoleIdx = pathToHoleIndex[pathIndex]
+                    combingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                else
+                    combingHoleWalls = holeOuterWalls
+                
+                # Generate this wall with combing path support.
+                # Pass the hole outer walls list (excluding current hole) and boundary for combing.
+                wallEndPoint = wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType, combingStartPoint, combingHoleWalls, outerBoundaryPath)
+                
+                # Update lastPathEndPoint to track the actual nozzle position.
+                # We update it for every wall, so after all walls are done, it represents
+                # the end position of the innermost wall, which is where the nozzle actually is.
+                lastPathEndPoint = wallEndPoint
 
                 # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
@@ -263,7 +307,10 @@ module.exports =
 
         # If layer needs skin, generate hole skin walls for clipping.
         if layerNeedsSkin
-
+            
+            # Track position for combing between hole skin walls.
+            lastHoleSkinEndPoint = lastPathEndPoint  # Start from where regular walls ended
+            
             for path, pathIndex in paths
 
                 continue unless pathIsHole[pathIndex]
@@ -281,9 +328,21 @@ module.exports =
 
                     holeSkinWalls.push(skinWallPath)
 
+                # For combing, exclude the current hole (destination).
+                # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
+                if pathToHoleIndex[pathIndex]?
+                    currentHoleIdx = pathToHoleIndex[pathIndex]
+                    skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                else
+                    skinCombingHoleWalls = holeOuterWalls
+
                 # Generate skin wall for the hole (outward inset).
                 # Pass generateInfill=false to skip infill (only walls).
-                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, null, pathIsHole[pathIndex], false, [], holeOuterWalls)
+                # Pass lastHoleSkinEndPoint for combing between hole skin walls.
+                skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastHoleSkinEndPoint, pathIsHole[pathIndex], false, [], skinCombingHoleWalls)
+                
+                # Update position tracker for next hole skin wall.
+                lastHoleSkinEndPoint = skinEndPoint if skinEndPoint?
 
         # Phase 2: Generate infill and skin.
         # Now that all hole boundaries have been collected, we can generate infill
@@ -302,8 +361,9 @@ module.exports =
             continue if not currentPath or currentPath.length < 3
 
             # The innermost wall ends at its first point (closed loop).
-            # Track this position to minimize travel distance to infill/skin start.
-            lastWallPoint = if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y } else null
+            # Use lastPathEndPoint from wall generation to minimize travel distance and enable combing.
+            # If lastPathEndPoint is null (first path), fall back to innermost wall first point.
+            lastWallPoint = lastPathEndPoint or (if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y, z: z } else null)
 
             # Determine a safe boundary for infill by insetting one nozzle width.
             # If we cannot inset (no room inside the last wall), we should not generate infill.
