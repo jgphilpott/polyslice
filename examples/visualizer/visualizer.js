@@ -517,7 +517,7 @@ function updateMoveVisibility() {
   // across all type sections in the top layer
   let totalChronologicalSegments = 0;
   const topLayerChronologicalSegments = [];
-  
+
   allLayers.forEach(segment => {
     if (segment.userData.chronological && segment.userData.layerIndex === topLayerIndex) {
       topLayerChronologicalSegments.push(segment);
@@ -529,6 +529,10 @@ function updateMoveVisibility() {
 
   // Calculate the chronological cutoff point based on slider percentage
   const visibleChronologicalCount = Math.ceil((totalChronologicalSegments * movePercentage) / 100);
+
+  // Track current segment mapping for logging
+  let lastVisibleLine = null;
+  let lastVisibleCmd = null;
 
   // Process all segments
   allLayers.forEach(segment => {
@@ -547,7 +551,7 @@ function updateMoveVisibility() {
     if (segment.userData.chronological && segmentLayerIndex === topLayerIndex) {
       const start = segment.userData.chronologicalStart || 0;
       const end = segment.userData.chronologicalEnd || 0;
-      
+
       // Determine how much of this segment should be visible based on chronological position
       if (visibleChronologicalCount <= start) {
         // This entire segment is beyond the visible range
@@ -559,16 +563,31 @@ function updateMoveVisibility() {
         if (segment.geometry.drawRange && segment.userData.fullVertexCount) {
           segment.geometry.setDrawRange(0, segment.userData.fullVertexCount);
         }
+        // Update last visible mapping to final command of this section
+        if (segment.userData.sourceLines && segment.userData.sourceCmds) {
+          const idx = segment.userData.sourceLines.length - 1;
+          if (idx >= 0) {
+            lastVisibleLine = segment.userData.sourceLines[idx];
+            lastVisibleCmd = segment.userData.sourceCmds[idx];
+          }
+        }
       } else {
         // Partial visibility - calculate how many segments to show
         const visibleInThisSegment = visibleChronologicalCount - start;
         const drawCount = visibleInThisSegment * 2; // 2 vertices per segment
-        
+
         if (segment.geometry.drawRange) {
           segment.geometry.setDrawRange(0, drawCount);
         }
-        
+
         segment.visible = layerVisible && typeEnabled && (visibleInThisSegment > 0);
+
+        // Update last visible mapping to the partial index within this section
+        if (segment.userData.sourceLines && segment.userData.sourceCmds) {
+          const idx = Math.max(0, Math.min(segment.userData.sourceLines.length - 1, visibleInThisSegment - 1));
+          lastVisibleLine = segment.userData.sourceLines[idx];
+          lastVisibleCmd = segment.userData.sourceCmds[idx];
+        }
       }
     }
     // For non-chronological segments or non-top layers
@@ -601,6 +620,22 @@ function updateMoveVisibility() {
       segment.visible = layerVisible && typeEnabled;
     }
   });
+
+  // Log current G-code position if available
+  if (topLayerIndex >= 0) {
+    if (lastVisibleLine != null && lastVisibleCmd != null) {
+      console.log(`G-code line ${lastVisibleLine + 1}: ${lastVisibleCmd}`);
+    } else {
+      // As a fallback, try to log layer start line from metadata
+      if (gcodeObject && gcodeObject.userData && gcodeObject.userData.metadata) {
+        const meta = gcodeObject.userData.metadata;
+        const layerStart = meta.layerComments ? meta.layerComments[topLayerIndex] : undefined;
+        if (typeof layerStart === 'number') {
+          console.log(`Layer ${topLayerIndex} (starts at G-code line ${layerStart + 1})`);
+        }
+      }
+    }
+  }
 }
 
 /**

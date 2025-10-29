@@ -115,7 +115,7 @@ class GCodeLoaderExtended extends Loader {
     const pathMaterial = materials.path;
     const extrudingMaterial = materials.extruded;
 
-    function newLayer(line) {
+  function newLayer(line) {
       currentLayer = {
         vertex: [],
         pathVertex: [],
@@ -125,8 +125,8 @@ class GCodeLoaderExtended extends Loader {
       layers.push(currentLayer);
     }
 
-    //Create line segment between p1 and p2
-    function addSegment(p1, p2) {
+  // Create line segment between p1 and p2
+  function addSegment(p1, p2) {
       if (currentLayer === undefined) {
         newLayer(p1);
       }
@@ -142,7 +142,9 @@ class GCodeLoaderExtended extends Loader {
         p1: { x: p1.x, y: p1.y, z: p1.z },
         p2: { x: p2.x, y: p2.y, z: p2.z },
         type: segmentType,
-        extruding: state.extruding
+        extruding: state.extruding,
+        line: state._lastSourceLine ?? null,
+        cmd: state._lastSourceCmd ?? null
       });
 
       // Also maintain legacy vertex arrays for backward compatibility
@@ -171,10 +173,15 @@ class GCodeLoaderExtended extends Loader {
       layerCount: 0,
     };
 
-    const lines = data.split('\n');
+  const lines = data.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
+
       const rawLine = lines[i];
+
+      // Track last source for mapping
+      state._lastSourceLine = i;
+      state._lastSourceCmd = rawLine;
 
       // Extract comment if present
       let comment = null;
@@ -327,12 +334,12 @@ class GCodeLoaderExtended extends Loader {
           segments.name = 'layer' + layerIndex;
           segments.userData.type = type;
           segments.userData.layerIndex = layerIndex;
-          
+
           // Store segment count for move slider functionality
           // Each line segment uses 2 vertices, so total segments = vertices / 6
           segments.userData.segmentCount = vertices.length / 6;
           segments.userData.fullVertexCount = vertices.length;
-          
+
           object.add(segments);
         }
       });
@@ -344,10 +351,10 @@ class GCodeLoaderExtended extends Loader {
       const typeSections = [];
       let currentSection = null;
       let chronologicalIndex = 0;
-      
+
       layer.segments.forEach((seg) => {
         const type = seg.type;
-        
+
         // If type changed or this is the first segment, start a new section
         if (!currentSection || currentSection.type !== type) {
           if (currentSection) {
@@ -356,41 +363,49 @@ class GCodeLoaderExtended extends Loader {
           currentSection = {
             type: type,
             vertices: [],
-            startIndex: chronologicalIndex
+            startIndex: chronologicalIndex,
+            sourceLines: [],
+            sourceCmds: []
           };
         }
-        
+
         // Add segment vertices
         currentSection.vertices.push(seg.p1.x, seg.p1.y, seg.p1.z);
         currentSection.vertices.push(seg.p2.x, seg.p2.y, seg.p2.z);
+        // Track source mapping per segment in order
+        currentSection.sourceLines.push(seg.line);
+        currentSection.sourceCmds.push(seg.cmd);
         chronologicalIndex++;
       });
-      
+
       // Add final section
       if (currentSection) {
         typeSections.push(currentSection);
       }
-      
+
       // Create separate LineSegments for each type section to preserve colors
       typeSections.forEach((section) => {
         const geometry = new BufferGeometry();
         geometry.setAttribute('position', new Float32BufferAttribute(section.vertices, 3));
-        
+
         // Use specific material for the type
         const material = materials[section.type] || materials.extruded;
-        
+
         const segments = new LineSegments(geometry, material);
         segments.name = 'layer' + layerIndex;
         segments.userData.type = section.type;
         segments.userData.layerIndex = layerIndex;
         segments.userData.chronological = true; // Mark as chronological
-        
+
         // Store segment count and chronological position
         segments.userData.segmentCount = section.vertices.length / 6;
         segments.userData.fullVertexCount = section.vertices.length;
         segments.userData.chronologicalStart = section.startIndex;
         segments.userData.chronologicalEnd = section.startIndex + segments.userData.segmentCount;
-        
+        // Store source mapping arrays aligned to chronological index within this section
+        segments.userData.sourceLines = section.sourceLines;
+        segments.userData.sourceCmds = section.sourceCmds;
+
         object.add(segments);
       });
     }
