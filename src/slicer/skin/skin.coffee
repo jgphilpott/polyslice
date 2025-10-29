@@ -47,14 +47,42 @@ module.exports =
 
             # Move to start of skin wall.
             firstPoint = skinWallPath[0]
+            targetPoint = { x: firstPoint.x, y: firstPoint.y, z: z }
 
-            offsetX = firstPoint.x + centerOffsetX
-            offsetY = firstPoint.y + centerOffsetY
+            # Use combing if we have a last wall point and holes to avoid.
+            if lastWallPoint? and holeOuterWalls.length > 0
 
-            travelSpeedMmMin = slicer.getTravelSpeed() * 60
+                # Find combing path that avoids crossing holes.
+                # Pass boundaryPath as the boundary constraint.
+                combingPath = helpers.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath)
+
+                # Generate travel moves for each segment of the combing path.
+                travelSpeedMmMin = slicer.getTravelSpeed() * 60
+
+                for i in [0...combingPath.length - 1]
+
+                    waypoint = combingPath[i + 1]
+
+                    offsetX = waypoint.x + centerOffsetX
+                    offsetY = waypoint.y + centerOffsetY
+
+                    # Add descriptive comment for travel move if verbose (only on first segment).
+                    if i is 0 and verbose
+                        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, "; Moving to skin wall" + slicer.newline)
+                    else
+                        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+
+            else
+
+                # No combing needed - use direct travel move.
+                offsetX = firstPoint.x + centerOffsetX
+                offsetY = firstPoint.y + centerOffsetY
+
+                travelSpeedMmMin = slicer.getTravelSpeed() * 60
+
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin wall" + slicer.newline else slicer.newline))
+
             perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
-
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin wall" + slicer.newline else slicer.newline))
 
             # Draw skin wall perimeter.
             for pointIndex in [1...skinWallPath.length]
