@@ -716,3 +716,96 @@ describe 'Skin Generation', ->
             # Test passed - skin infill generation with holes completes successfully.
             return # Explicitly return undefined for Jest.
 
+        test 'should group skin infill segments by region when holes present', ->
+
+            # Create a torus mesh with a hole to test region grouping behavior.
+            geometry = new THREE.TorusGeometry(10, 3, 8, 16)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position torus so bottom is at Z=0.
+            mesh.position.set(0, 0, 3)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer with skin layers.
+            slicer.setNozzleDiameter(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(1.2) # 3 walls.
+            slicer.setShellSkinThickness(0.8) # 4 skin layers.
+            slicer.setInfillDensity(20) # Some infill.
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Parse G-code to find skin infill segments.
+            lines = result.split('\n')
+            skinSegments = []
+            inSkin = false
+            lastX = null
+            lastY = null
+
+            for line in lines
+
+                if line.includes('TYPE: SKIN')
+                    inSkin = true
+                    lastX = null
+                    lastY = null
+                    continue
+
+                if line.includes('TYPE:') and not line.includes('TYPE: SKIN')
+                    inSkin = false
+                    continue
+
+                if inSkin and line.includes('G1') and line.includes('E')
+
+                    # Extract X and Y coordinates.
+                    xMatch = line.match(/X(-?\d+\.?\d*)/)
+                    yMatch = line.match(/Y(-?\d+\.?\d*)/)
+
+                    if xMatch and yMatch and lastX? and lastY?
+
+                        currentX = parseFloat(xMatch[1])
+                        currentY = parseFloat(yMatch[1])
+
+                        # Calculate travel distance from last position.
+                        dx = currentX - lastX
+                        dy = currentY - lastY
+                        travelDist = Math.sqrt(dx * dx + dy * dy)
+
+                        skinSegments.push({
+                            fromX: lastX
+                            fromY: lastY
+                            toX: currentX
+                            toY: currentY
+                            travelDist: travelDist
+                        })
+
+                        lastX = currentX
+                        lastY = currentY
+
+                    else if xMatch and yMatch
+
+                        lastX = parseFloat(xMatch[1])
+                        lastY = parseFloat(yMatch[1])
+
+            # Verify we collected segments.
+            expect(skinSegments.length).toBeGreaterThan(0)
+
+            # With region grouping, segments on the same side of a hole should be closer together.
+            # Calculate average travel distance - it should be reasonable (not jumping across holes constantly).
+            totalTravel = 0
+
+            for segment in skinSegments
+                totalTravel += segment.travelDist
+
+            avgTravel = totalTravel / skinSegments.length
+
+            # Average travel should be less than 5mm (reasonable for grouped segments).
+            # Without region grouping, this would be much higher as we jump across holes.
+            expect(avgTravel).toBeLessThan(5)
+
+            return # Explicitly return undefined for Jest.
+
