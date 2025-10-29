@@ -199,11 +199,34 @@ module.exports =
         innermostWalls = []  # Store innermost wall for each path.
         
         # Track last end point for travel path combing BETWEEN different paths/features.
-        # This is reset at the start of each path to prevent combing within the same feature.
         lastPathEndPoint = null
         
         # Track outer boundary path for travel path combing.
         outerBoundaryPath = null
+
+        # Pre-pass: Collect all hole outer walls BEFORE generating any walls.
+        # This ensures complete hole information is available for combing path calculation.
+        pathToHoleIndex = {}  # Map path index to index in holeOuterWalls array
+        
+        for path, pathIndex in paths
+            
+            # Skip degenerate paths.
+            continue if path.length < 3
+            
+            # Create initial offset for the outer wall by half nozzle diameter.
+            outerWallOffset = nozzleDiameter / 2
+            currentPath = helpers.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
+            
+            # Skip if offset path is degenerate.
+            continue if currentPath.length < 3
+            
+            # Store hole outer walls for combing path avoidance.
+            if pathIsHole[pathIndex]
+                pathToHoleIndex[pathIndex] = holeOuterWalls.length
+                holeOuterWalls.push(currentPath)
+            else
+                # Store outer boundary for combing constraint.
+                outerBoundaryPath = path
 
         # Process each closed path to generate walls.
         for path, pathIndex in paths
@@ -226,15 +249,6 @@ module.exports =
                 innermostWalls.push(null)
                 continue
 
-            # Store the outermost wall path for holes (used for travel path optimization).
-            # This is now done AFTER generating the first wall (see inside the loop below).
-            # For the outer boundary, store it now for combing.
-            if not pathIsHole[pathIndex]
-                
-                # This is the outer boundary - store it for travel path combing.
-                # Use the original path (before inset) as the boundary for combing.
-                outerBoundaryPath = path
-
             # Generate walls from outer to inner.
             # Use lastPathEndPoint for combing to the first wall of this path.
             # Within the path, walls connect directly without combing (they're concentric).
@@ -252,15 +266,17 @@ module.exports =
                 # For subsequent walls within the same path, pass null to prevent combing.
                 combingStartPoint = if wallIndex is 0 then lastPathEndPoint else null
                 
-                # Generate this wall with combing path support.
-                # Pass the accumulated hole outer walls and boundary for combing.
-                wallEndPoint = wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType, combingStartPoint, holeOuterWalls, outerBoundaryPath)
+                # For combing, exclude the current hole (if this is a hole).
+                # When traveling TO this hole, we shouldn't check collision with the hole itself.
+                if pathIsHole[pathIndex] and pathToHoleIndex[pathIndex]?
+                    currentHoleIdx = pathToHoleIndex[pathIndex]
+                    combingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                else
+                    combingHoleWalls = holeOuterWalls
                 
-                # After generating the FIRST wall of a hole, add this hole to holeOuterWalls.
-                # This way, subsequent paths can avoid this hole, but when traveling TO this hole,
-                # we don't check collision with itself.
-                if wallIndex is 0 and pathIsHole[pathIndex] and currentPath.length >= 3
-                    holeOuterWalls.push(currentPath)
+                # Generate this wall with combing path support.
+                # Pass the hole outer walls list (excluding current hole) and boundary for combing.
+                wallEndPoint = wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType, combingStartPoint, combingHoleWalls, outerBoundaryPath)
                 
                 # Update lastPathEndPoint to track the actual nozzle position.
                 # We update it for every wall, so after all walls are done, it represents
