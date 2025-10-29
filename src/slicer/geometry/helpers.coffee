@@ -1347,7 +1347,7 @@ module.exports =
         perpY2 = -dx / pathLength
         
         # Try waypoints at increasing perpendicular offsets
-        for offset in [3, 5, 8, 12, 18]
+        for offset in [3, 5, 8, 12, 18, 25, 35]
             
             # Try both perpendicular directions
             for [perpX, perpY] in [[perpX1, perpY1], [perpX2, perpY2]]
