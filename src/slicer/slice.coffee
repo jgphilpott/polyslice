@@ -307,7 +307,10 @@ module.exports =
 
         # If layer needs skin, generate hole skin walls for clipping.
         if layerNeedsSkin
-
+            
+            # Track position for combing between hole skin walls.
+            lastHoleSkinEndPoint = lastPathEndPoint  # Start from where regular walls ended
+            
             for path, pathIndex in paths
 
                 continue unless pathIsHole[pathIndex]
@@ -325,9 +328,21 @@ module.exports =
 
                     holeSkinWalls.push(skinWallPath)
 
+                # For combing, exclude the current hole (destination).
+                # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
+                if pathToHoleIndex[pathIndex]?
+                    currentHoleIdx = pathToHoleIndex[pathIndex]
+                    skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                else
+                    skinCombingHoleWalls = holeOuterWalls
+
                 # Generate skin wall for the hole (outward inset).
                 # Pass generateInfill=false to skip infill (only walls).
-                skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, null, pathIsHole[pathIndex], false, [], holeOuterWalls)
+                # Pass lastHoleSkinEndPoint for combing between hole skin walls.
+                skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastHoleSkinEndPoint, pathIsHole[pathIndex], false, [], skinCombingHoleWalls)
+                
+                # Update position tracker for next hole skin wall.
+                lastHoleSkinEndPoint = skinEndPoint if skinEndPoint?
 
         # Phase 2: Generate infill and skin.
         # Now that all hole boundaries have been collected, we can generate infill

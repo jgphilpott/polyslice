@@ -363,3 +363,14 @@ module.exports =
 
                 # Track where this line ended for next iteration.
                 lastEndPoint = endPoint
+        
+        # Return the last endpoint for combing path tracking.
+        # If we generated infill, return the last infill line endpoint.
+        # If we only generated skin wall, return the skin wall start/end point.
+        # If nothing was generated, return null.
+        if lastEndPoint?
+            return lastEndPoint
+        else if skinWallPath? and skinWallPath.length > 0
+            return { x: skinWallPath[0].x, y: skinWallPath[0].y, z: z }
+        else
+            return null
