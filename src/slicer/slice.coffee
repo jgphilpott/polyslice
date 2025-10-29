@@ -227,12 +227,9 @@ module.exports =
                 continue
 
             # Store the outermost wall path for holes (used for travel path optimization).
-            # This represents the outer boundary of the hole, including all wall material.
-            if pathIsHole[pathIndex]
-
-                holeOuterWalls.push(currentPath)
-                
-            else
+            # This is now done AFTER generating the first wall (see inside the loop below).
+            # For the outer boundary, store it now for combing.
+            if not pathIsHole[pathIndex]
                 
                 # This is the outer boundary - store it for travel path combing.
                 # Use the original path (before inset) as the boundary for combing.
@@ -259,9 +256,16 @@ module.exports =
                 # Pass the accumulated hole outer walls and boundary for combing.
                 wallEndPoint = wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType, combingStartPoint, holeOuterWalls, outerBoundaryPath)
                 
-                # Update lastPathEndPoint after the first wall so it can be used for the next path.
-                if wallIndex is 0
-                    lastPathEndPoint = wallEndPoint
+                # After generating the FIRST wall of a hole, add this hole to holeOuterWalls.
+                # This way, subsequent paths can avoid this hole, but when traveling TO this hole,
+                # we don't check collision with itself.
+                if wallIndex is 0 and pathIsHole[pathIndex] and currentPath.length >= 3
+                    holeOuterWalls.push(currentPath)
+                
+                # Update lastPathEndPoint to track the actual nozzle position.
+                # We update it for every wall, so after all walls are done, it represents
+                # the end position of the innermost wall, which is where the nozzle actually is.
+                lastPathEndPoint = wallEndPoint
 
                 # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
