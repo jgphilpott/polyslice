@@ -267,11 +267,13 @@ module.exports =
             bestLineIdx = 0
             bestFlipped = false
 
-            for line, idx in allSkinLines
+            # If no last position, start with the first line.
+            # Otherwise, find the line with endpoint closest to current position.
+            if lastEndPoint?
 
-                # Check distance to both endpoints of this line.
-                if lastEndPoint?
+                for line, idx in allSkinLines
 
+                    # Check distance to both endpoints of this line.
                     distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
                     distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
 
@@ -286,10 +288,6 @@ module.exports =
                         minDistSq = distSq1
                         bestLineIdx = idx
                         bestFlipped = true # Start from line.end (flip the line)
-
-                else
-
-                    break # No last position, just use first line.
 
             # Get the best line and remove it from the list.
             bestLine = allSkinLines[bestLineIdx]
