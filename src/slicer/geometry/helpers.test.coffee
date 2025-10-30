@@ -1391,6 +1391,81 @@ describe 'Travel Path Optimization', ->
             expect(path[0]).toEqual(start)
             expect(path[path.length - 1]).toEqual(end)
 
+        test 'should use combing when traveling between layers (different Z)', ->
+
+            # Create a hole that blocks the direct path.
+            hole = []
+            centerX = 50
+            centerY = 50
+            radius = 10
+            numPoints = 16
+
+            for i in [0...numPoints]
+                angle = (i / numPoints) * 2 * Math.PI
+                hole.push({
+                    x: centerX + radius * Math.cos(angle)
+                    y: centerY + radius * Math.sin(angle)
+                })
+
+            # Start at one layer, end at another layer (different Z).
+            # The direct path would cross through the hole.
+            start = { x: 30, y: 50, z: 0.2 }
+            end = { x: 70, y: 50, z: 0.4 }
+
+            boundary = [
+                { x: 0, y: 0 }
+                { x: 100, y: 0 }
+                { x: 100, y: 100 }
+                { x: 0, y: 100 }
+            ]
+
+            path = helpers.findCombingPath(start, end, [hole], boundary, 0.4)
+
+            # Should find a path that avoids the hole.
+            # With different Z coordinates, the destination hole should NOT be excluded.
+            expect(path.length).toBeGreaterThan(2)
+            expect(path[0]).toEqual(start)
+            expect(path[path.length - 1]).toEqual(end)
+
+            # Verify the path avoids crossing directly through the hole center.
+            # At minimum, there should be waypoints that route around.
+
+        test 'should handle combing from last position on same layer', ->
+
+            # Scenario: traveling on the same layer, destination is a hole.
+            # The hole should be excluded from collision detection.
+            hole = []
+            centerX = 50
+            centerY = 50
+            radius = 5
+            numPoints = 16
+
+            for i in [0...numPoints]
+                angle = (i / numPoints) * 2 * Math.PI
+                hole.push({
+                    x: centerX + radius * Math.cos(angle)
+                    y: centerY + radius * Math.sin(angle)
+                })
+
+            # Both points on same layer, traveling TO the hole boundary.
+            start = { x: 30, y: 50, z: 0.2 }
+            end = { x: 45, y: 50, z: 0.2 }  # Same Z
+
+            boundary = [
+                { x: 0, y: 0 }
+                { x: 100, y: 0 }
+                { x: 100, y: 100 }
+                { x: 0, y: 100 }
+            ]
+
+            path = helpers.findCombingPath(start, end, [hole], boundary, 0.4)
+
+            # Should return a path (may be direct if no collision detected,
+            # or with waypoints if needed based on the algorithm's perception).
+            expect(path.length).toBeGreaterThanOrEqual(2)
+            expect(path[0]).toEqual(start)
+            expect(path[path.length - 1]).toEqual(end)
+
     describe 'distanceFromPointToLineSegment', ->
 
         test 'should calculate distance from point to line segment', ->
