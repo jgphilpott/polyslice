@@ -1303,22 +1303,9 @@ describe 'Travel Path Optimization', ->
             expect(path[0]).toEqual(start)
             expect(path[path.length - 1]).toEqual(end)
 
-            # Verify no segment of the path crosses any hole.
-            # Note: Due to back-off strategy, some segments may touch hole boundaries,
-            # but the overall path successfully navigates around holes.
-            allSegmentsClear = true
-            
-            for i in [0...path.length - 1]
-                
-                segStart = path[i]
-                segEnd = path[i + 1]
-                
-                for hole in [hole1, hole2, hole3]
-                    crosses = helpers.travelPathCrossesHoles(segStart, segEnd, [hole])
-                    # Allow some crossings since back-off may cause temporary boundary touches.
-            
             # Main assertion: path was found with multiple waypoints.
-            expect(allSegmentsClear).toBe(true)
+            # The A* algorithm should successfully navigate around holes.
+            expect(path.length).toBeGreaterThan(2)
 
         test 'should apply back-off strategy for points near hole boundaries', ->
 

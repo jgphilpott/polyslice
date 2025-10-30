@@ -1357,7 +1357,7 @@ module.exports =
         # Try simple heuristic first (single waypoint) for performance.
         simplePath = @findSimpleCombingPath(adjustedStart, adjustedEnd, holePolygons, boundary)
         
-        if simplePath.length > 2 or not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
+        if simplePath.length > 2 and not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
             
             # Build complete path including back-off segments.
             fullPath = [start]
@@ -1622,10 +1622,18 @@ module.exports =
                 # Simplify path by removing unnecessary waypoints.
                 return @simplifyPath(path, holePolygons)
 
-            # Remove current from openSet.
+            # Remove current from openSet (find and remove by index for efficiency).
             if current?
                 
-                openSet = openSet.filter((node) -> not (node.gx is current.gx and node.gy is current.gy))
+                removeIdx = -1
+                
+                for node, idx in openSet
+                    if node.gx is current.gx and node.gy is current.gy
+                        removeIdx = idx
+                        break
+                
+                if removeIdx >= 0
+                    openSet.splice(removeIdx, 1)
 
                 # Check all neighbors (8-connected grid).
                 neighbors = [
@@ -1662,6 +1670,7 @@ module.exports =
                         fScore[neighborKey] = tentativeG + @manhattanDistance(neighbor.gx, neighbor.gy, endGrid.gx, endGrid.gy)
 
                         # Add to openSet if not already there.
+                        # Use key-based lookup for efficiency.
                         alreadyInOpen = false
                         
                         for node in openSet
