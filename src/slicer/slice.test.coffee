@@ -334,3 +334,110 @@ describe 'Slicing', ->
                 # A width < 10mm would indicate only the hole is being printed.
                 expect(width).toBeGreaterThan(10)
 
+    describe 'Sphere Slicing at Equator', ->
+
+        # Regression test for issue where slicing at the exact equator of a sphere
+        # would result in only half the geometry being captured (semi-circle instead of full circle).
+        # This occurred when slice planes aligned exactly with geometric boundaries where many
+        # vertices exist at the same Z coordinate.
+        test 'should generate full circle at sphere equator (not semi-circle)', ->
+
+            # Create a sphere with radius 5mm positioned so bottom is at Z=0.
+            geometry = new THREE.SphereGeometry(5, 32, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position sphere so bottom is at Z=0 (center at Z=5).
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(30)
+            slicer.setVerbose(true)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Extract layer 25 (which should be at the equator, Z ≈ 5mm).
+            lines = result.split('\n')
+            inLayer25 = false
+            layer25Coords = []
+
+            for line in lines
+
+                if line.includes('M117 LAYER: 25')
+                    inLayer25 = true
+
+                else if inLayer25 and line.includes('M117 LAYER: 26')
+                    break
+
+                # Extract X,Y coordinates from extrusion moves.
+                if inLayer25 and line.startsWith('G1') and line.includes('E')
+
+                    xMatch = line.match(/X([\d.-]+)/)
+                    yMatch = line.match(/Y([\d.-]+)/)
+
+                    if xMatch and yMatch
+                        layer25Coords.push({
+                            x: parseFloat(xMatch[1])
+                            y: parseFloat(yMatch[1])
+                        })
+
+            # Should have captured a significant number of points.
+            expect(layer25Coords.length).toBeGreaterThan(100)
+
+            # Calculate X and Y ranges.
+            xVals = layer25Coords.map((c) -> c.x)
+            yVals = layer25Coords.map((c) -> c.y)
+
+            xMin = Math.min(...xVals)
+            xMax = Math.max(...xVals)
+            yMin = Math.min(...yVals)
+            yMax = Math.max(...yVals)
+
+            xSpan = xMax - xMin
+            ySpan = yMax - yMin
+
+            # For a full circle at the equator, X and Y spans should be similar.
+            # A semi-circle would have significantly different spans (e.g., 5mm vs 9mm).
+            # Allow 15% tolerance for discretization effects.
+            spanDifference = Math.abs(xSpan - ySpan)
+            averageSpan = (xSpan + ySpan) / 2
+            tolerancePercent = spanDifference / averageSpan
+
+            expect(tolerancePercent).toBeLessThan(0.15) # Within 15% tolerance.
+
+            # Check quadrant balance to ensure we have geometry from all sides.
+            centerX = (xMin + xMax) / 2
+            centerY = (yMin + yMax) / 2
+
+            quadrants = [0, 0, 0, 0] # Q1, Q2, Q3, Q4
+
+            for coord in layer25Coords
+
+                relX = coord.x - centerX
+                relY = coord.y - centerY
+
+                if relX >= 0 and relY >= 0
+                    quadrants[0]++
+                else if relX < 0 and relY >= 0
+                    quadrants[1]++
+                else if relX < 0 and relY < 0
+                    quadrants[2]++
+                else
+                    quadrants[3]++
+
+            # All quadrants should have reasonable representation.
+            # Minimum quadrant should have at least 60% of maximum quadrant.
+            minQuadrant = Math.min(...quadrants)
+            maxQuadrant = Math.max(...quadrants)
+            balanceRatio = minQuadrant / maxQuadrant
+
+            expect(balanceRatio).toBeGreaterThan(0.6) # Reasonable balance.
+
+            return # Explicitly return undefined for Jest.
+
