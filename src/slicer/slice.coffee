@@ -63,9 +63,12 @@ module.exports =
         layerHeight = slicer.getLayerHeight()
 
         # Add small epsilon offset to starting Z position to avoid slicing exactly at geometric boundaries.
-        # This prevents issues with shapes like sphere where slicing at exact boundary planes
-        # can cause Polytree to miss entire regions (e.g., slicing at the equator where many vertices
-        # exist exactly at Z=0 can result in only half the geometry being captured).
+        # This prevents issues with shapes like sphere and torus where slicing at exact boundary planes
+        # can cause Polytree to miss entire regions:
+        # - Sphere: Slicing at the equator (Z=5 for radius 5) where many vertices exist at Z=0
+        #   can result in only half the geometry being captured (semi-circle instead of full circle).
+        # - Torus: Slicing at the center plane (Z=2 for tube radius 2) can miss the outer ring,
+        #   printing only the inner hole.
         # Using a small epsilon (0.01mm = 10 microns) that's negligible for printing but sufficient
         # to nudge all slice planes away from exact geometric boundaries.
         SLICE_EPSILON = 0.01
