@@ -278,8 +278,8 @@ describe 'Skin Generation', ->
 
             # Should have 2 bottom layers with skin (0.4mm / 0.2mm = 2).
             expect(bottomSkinLayers.length).toBe(2)
+            expect(bottomSkinLayers).toContain(0)
             expect(bottomSkinLayers).toContain(1)
-            expect(bottomSkinLayers).toContain(2)
 
         test 'should update top skin layers when shellSkinThickness changes', ->
 
@@ -640,7 +640,7 @@ describe 'Skin Generation', ->
                     xMatch = line.match(/X([\d.]+)/)
                     yMatch = line.match(/Y([\d.]+)/)
 
-                    if xMatch and yMatch and currentLayer is 2 # Check layer 2 (bottom skin layer).
+                    if xMatch and yMatch and currentLayer is 1 # Check layer 1 (bottom skin layer).
                         x = parseFloat(xMatch[1])
                         y = parseFloat(yMatch[1])
 
