@@ -62,16 +62,20 @@ module.exports =
 
         layerHeight = slicer.getLayerHeight()
 
-        # Add small epsilon offset to layer height to avoid slicing exactly at geometric boundaries.
-        # This prevents issues with shapes like torus where slicing at exact boundary planes
-        # can cause Polytree to miss entire regions (e.g., the outer ring at center plane).
-        # Using a very small epsilon (0.00000001mm) that's negligible for printing but sufficient
-        # to nudge slice planes away from exact geometric boundaries.
-        SLICE_EPSILON = 0.00000001
-        adjustedLayerHeight = layerHeight + SLICE_EPSILON
+        # Add small epsilon offset to starting Z position to avoid slicing exactly at geometric boundaries.
+        # This prevents issues with shapes like sphere and torus where slicing at exact boundary planes
+        # can cause Polytree to miss entire regions:
+        # - Sphere: Slicing at the equator (Z=5 for radius 5) where many vertices exist at Z=0
+        #   can result in only half the geometry being captured (semi-circle instead of full circle).
+        # - Torus: Slicing at the center plane (Z=2 for tube radius 2) can miss the outer ring,
+        #   printing only the inner hole.
+        # Using a small epsilon (0.01mm = 10 microns) that's negligible for printing but sufficient
+        # to nudge all slice planes away from exact geometric boundaries.
+        SLICE_EPSILON = 0.01
+        adjustedMinZ = minZ + SLICE_EPSILON
 
-        # Use Polytree to slice the mesh into layers with adjusted layer height.
-        allLayers = Polytree.sliceIntoLayers(mesh, adjustedLayerHeight, minZ, maxZ)
+        # Use Polytree to slice the mesh into layers with adjusted starting position.
+        allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
 
         # Calculate center offset to position on build plate.
         buildPlateWidth = slicer.getBuildPlateWidth()
@@ -100,7 +104,7 @@ module.exports =
         for layerIndex in [0...totalLayers]
 
             layerSegments = allLayers[layerIndex]
-            currentZ = minZ + layerIndex * layerHeight
+            currentZ = adjustedMinZ + layerIndex * layerHeight
 
             # Convert Polytree line segments to closed paths.
             layerPaths = helpers.connectSegmentsToPaths(layerSegments)
@@ -315,7 +319,7 @@ module.exports =
 
         # Determine if this layer needs skin (before Phase 2).
         # This is used to decide whether to generate hole skin walls.
-        layerNeedsSkin = layerIndex <= skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
 
         # If layer needs skin, generate hole skin walls for clipping.
         if layerNeedsSkin
@@ -388,7 +392,7 @@ module.exports =
             isAbsoluteTopOrBottom = false # Track if this is absolute top/bottom layer
 
             # Always generate skin for the absolute top and bottom layers.
-            if layerIndex <= skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+            if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
 
                 needsSkin = true
                 skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
