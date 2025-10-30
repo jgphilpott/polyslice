@@ -286,7 +286,9 @@ module.exports =
         # Now render all collected lines in optimal order to minimize travel.
         # Use nearest-neighbor selection with combing to avoid crossing holes.
         # This groups segments naturally by region (e.g., sides of a hole).
-        lastEndPoint = null
+        # Initialize lastEndPoint with the end position of the skin wall.
+        # The skin wall loop closes back to firstPoint, so that's where we are now.
+        lastEndPoint = if skinWallPath.length >= 3 then { x: skinWallPath[0].x, y: skinWallPath[0].y, z: z } else null
 
         while allSkinLines.length > 0
 
