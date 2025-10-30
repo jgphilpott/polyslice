@@ -342,13 +342,21 @@ describe 'Slicing', ->
         # vertices exist at the same Z coordinate.
         test 'should generate full circle at sphere equator (not semi-circle)', ->
 
+            # Test parameters.
+            SPHERE_RADIUS = 5 # mm
+            SPHERE_WIDTH_SEGMENTS = 32
+            SPHERE_HEIGHT_SEGMENTS = 32
+            MIN_EXPECTED_POINTS = 100 # Points at equator for full circle.
+            MAX_SPAN_TOLERANCE = 0.15 # 15% tolerance for X/Y span difference.
+            MIN_QUADRANT_BALANCE = 0.6 # Minimum balance ratio between quadrants.
+
             # Create a sphere with radius 5mm positioned so bottom is at Z=0.
-            geometry = new THREE.SphereGeometry(5, 32, 32)
+            geometry = new THREE.SphereGeometry(SPHERE_RADIUS, SPHERE_WIDTH_SEGMENTS, SPHERE_HEIGHT_SEGMENTS)
             material = new THREE.MeshBasicMaterial()
             mesh = new THREE.Mesh(geometry, material)
 
-            # Position sphere so bottom is at Z=0 (center at Z=5).
-            mesh.position.set(0, 0, 5)
+            # Position sphere so bottom is at Z=0 (center at Z=SPHERE_RADIUS).
+            mesh.position.set(0, 0, SPHERE_RADIUS)
             mesh.updateMatrixWorld()
 
             # Configure slicer.
@@ -388,7 +396,7 @@ describe 'Slicing', ->
                         })
 
             # Should have captured a significant number of points.
-            expect(layer25Coords.length).toBeGreaterThan(100)
+            expect(layer25Coords.length).toBeGreaterThan(MIN_EXPECTED_POINTS)
 
             # Calculate X and Y ranges.
             xVals = layer25Coords.map((c) -> c.x)
@@ -404,12 +412,11 @@ describe 'Slicing', ->
 
             # For a full circle at the equator, X and Y spans should be similar.
             # A semi-circle would have significantly different spans (e.g., 5mm vs 9mm).
-            # Allow 15% tolerance for discretization effects.
             spanDifference = Math.abs(xSpan - ySpan)
             averageSpan = (xSpan + ySpan) / 2
             tolerancePercent = spanDifference / averageSpan
 
-            expect(tolerancePercent).toBeLessThan(0.15) # Within 15% tolerance.
+            expect(tolerancePercent).toBeLessThan(MAX_SPAN_TOLERANCE)
 
             # Check quadrant balance to ensure we have geometry from all sides.
             centerX = (xMin + xMax) / 2
@@ -432,12 +439,12 @@ describe 'Slicing', ->
                     quadrants[3]++
 
             # All quadrants should have reasonable representation.
-            # Minimum quadrant should have at least 60% of maximum quadrant.
+            # Minimum quadrant should have at least MIN_QUADRANT_BALANCE of maximum quadrant.
             minQuadrant = Math.min(...quadrants)
             maxQuadrant = Math.max(...quadrants)
             balanceRatio = minQuadrant / maxQuadrant
 
-            expect(balanceRatio).toBeGreaterThan(0.6) # Reasonable balance.
+            expect(balanceRatio).toBeGreaterThan(MIN_QUADRANT_BALANCE)
 
             return # Explicitly return undefined for Jest.
 
