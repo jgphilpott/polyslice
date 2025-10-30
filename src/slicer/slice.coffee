@@ -93,6 +93,9 @@ module.exports =
 
         # Process each layer.
         totalLayers = allLayers.length
+        
+        # Track last position across layers for combing between layers.
+        slicer.lastLayerEndPoint = null
 
         for layerIndex in [0...totalLayers]
 
@@ -199,7 +202,8 @@ module.exports =
         innermostWalls = []  # Store innermost wall for each path.
         
         # Track last end point for travel path combing BETWEEN different paths/features.
-        lastPathEndPoint = null
+        # Initialize with position from previous layer if available.
+        lastPathEndPoint = slicer.lastLayerEndPoint
         
         # Track outer boundary path for travel path combing.
         outerBoundaryPath = null
@@ -266,9 +270,17 @@ module.exports =
                 # For subsequent walls within the same path, pass null to prevent combing.
                 combingStartPoint = if wallIndex is 0 then lastPathEndPoint else null
                 
-                # For combing, exclude the current hole (if this is a hole).
-                # When traveling TO this hole, we shouldn't check collision with the hole itself.
-                if pathIsHole[pathIndex] and pathToHoleIndex[pathIndex]?
+                # For combing, exclude the current hole (if this is a hole) ONLY if we're traveling
+                # from the same layer (i.e., lastPathEndPoint has the same Z coordinate).
+                # When traveling from a different layer, include all holes in collision detection.
+                excludeDestinationHole = false
+                
+                if pathIsHole[pathIndex] and pathToHoleIndex[pathIndex]? and lastPathEndPoint?
+                    # Only exclude if we're on the same layer.
+                    if lastPathEndPoint.z is z
+                        excludeDestinationHole = true
+                
+                if excludeDestinationHole
                     currentHoleIdx = pathToHoleIndex[pathIndex]
                     combingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
                 else
@@ -528,3 +540,29 @@ module.exports =
                     # but require that an inset path exists as a guard to ensure there is room inside.
                     # Pass hole inner walls for clipping and hole outer walls for travel optimization.
                     infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
+        
+        # Save the last position from this layer for combing to the next layer.
+        # Parse the last G0/G1 command from the generated G-code to get the actual end position.
+        # This accounts for infill and skin moves that happen after wall generation.
+        lastGCodeLines = slicer.gcode.split(slicer.newline)
+        
+        for i in [lastGCodeLines.length - 1..0] by -1
+            
+            line = lastGCodeLines[i].trim()
+            
+            # Look for G0 or G1 commands with X and Y coordinates.
+            if line.match(/^G[01]\s/)
+                
+                xMatch = line.match(/X([-\d.]+)/)
+                yMatch = line.match(/Y([-\d.]+)/)
+                
+                if xMatch and yMatch
+                    
+                    # Found the last position - store it without center offset.
+                    slicer.lastLayerEndPoint = {
+                        x: parseFloat(xMatch[1]) - centerOffsetX
+                        y: parseFloat(yMatch[1]) - centerOffsetY
+                        z: z
+                    }
+                    
+                    break
