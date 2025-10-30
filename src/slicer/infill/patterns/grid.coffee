@@ -232,7 +232,7 @@ module.exports =
 
             # Move to start of line (travel move with combing).
             # Find a path that avoids crossing holes.
-            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
+            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
             
             # Generate travel moves for each segment of the combing path
             for i in [0...combingPath.length - 1]

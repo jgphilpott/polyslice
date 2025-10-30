@@ -54,7 +54,7 @@ module.exports =
 
                 # Find combing path that avoids crossing holes.
                 # Pass boundaryPath as the boundary constraint.
-                combingPath = helpers.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath)
+                combingPath = helpers.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath, nozzleDiameter)
 
                 # Generate travel moves for each segment of the combing path.
                 travelSpeedMmMin = slicer.getTravelSpeed() * 60
@@ -286,7 +286,9 @@ module.exports =
         # Now render all collected lines in optimal order to minimize travel.
         # Use nearest-neighbor selection with combing to avoid crossing holes.
         # This groups segments naturally by region (e.g., sides of a hole).
-        lastEndPoint = null
+        # Initialize lastEndPoint with the end position of the skin wall.
+        # The skin wall loop closes back to firstPoint, so that's where we are now.
+        lastEndPoint = if skinWallPath.length >= 3 then { x: skinWallPath[0].x, y: skinWallPath[0].y, z: z } else null
 
         while allSkinLines.length > 0
 
@@ -334,7 +336,7 @@ module.exports =
 
             # Move to start of line (travel move with combing).
             # Find a path that avoids crossing holes.
-            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
+            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
             
             # Generate travel moves for each segment of the combing path.
             for i in [0...combingPath.length - 1]

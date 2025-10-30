@@ -325,7 +325,7 @@ module.exports =
 
                     # First segment: travel move to start with combing.
                     # Find a path that avoids crossing holes.
-                    combingPath = helpers.findCombingPath(lastEndPoint or segment.start, segment.start, holeOuterWalls, infillBoundary)
+                    combingPath = helpers.findCombingPath(lastEndPoint or segment.start, segment.start, holeOuterWalls, infillBoundary, nozzleDiameter)
                     
                     # Generate travel moves for each segment of the combing path
                     for i in [0...combingPath.length - 1]
