@@ -1316,90 +1316,405 @@ module.exports =
 
     # Group infill line segments into connected regions that can be traversed without crossing holes.
     # This enables printing all lines in one region before moving to another, minimizing spider web artifacts.
-    # Find a travel path that avoids crossing holes using tangential routing.
+    # Find a travel path that avoids crossing holes using A* pathfinding.
     # Returns an array of waypoints from start to end.
-    # For cases where start/end are near hole boundaries, routes around the perimeter.
-    findCombingPath: (start, end, holePolygons = [], boundary = null) ->
+    # Uses grid-based A* search to find optimal multi-waypoint paths around holes.
+    findCombingPath: (start, end, holePolygons = [], boundary = null, nozzleDiameter = 0.4) ->
 
-        # If no holes or the direct path doesn't cross any holes, return direct path.
+        # If no holes, return direct path.
         if holePolygons.length is 0
             return [start, end]
-        
+
+        # Check if direct path crosses holes.
         crosses = @travelPathCrossesHoles(start, end, holePolygons)
-        
+
         if not crosses
             return [start, end]
 
-        # Simple strategy: If direct path crosses hole, try moving perpendicular first
-        # This works better when start/end points are near hole boundaries
+        # Apply back-off strategy if start/end points are too close to hole boundaries.
+        # This widens the range of potential path angles.
+        backOffDistance = nozzleDiameter * 1.0  # Back off by 1x nozzle diameter.
+        adjustedStart = @backOffFromHoles(start, holePolygons, backOffDistance, boundary)
+        adjustedEnd = @backOffFromHoles(end, holePolygons, backOffDistance, boundary)
+
+        # If back-off created a valid direct path, use it.
+        if not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
+            
+            # Build path: original start -> adjusted start -> adjusted end -> original end
+            path = [start]
+            
+            if not @pointsEqual(start, adjustedStart, 0.001)
+                path.push(adjustedStart)
+            
+            if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
+                path.push(adjustedEnd)
+            
+            if not @pointsEqual(adjustedEnd, end, 0.001)
+                path.push(end)
+            
+            return path
+
+        # Try simple heuristic first (single waypoint) for performance.
+        simplePath = @findSimpleCombingPath(adjustedStart, adjustedEnd, holePolygons, boundary)
         
+        if simplePath.length > 2 or not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
+            
+            # Build complete path including back-off segments.
+            fullPath = [start]
+            
+            if not @pointsEqual(start, adjustedStart, 0.001)
+                fullPath.push(adjustedStart)
+            
+            # Add simple path waypoints (excluding start/end which are adjustedStart/adjustedEnd).
+            for waypoint, i in simplePath when i > 0 and i < simplePath.length - 1
+                fullPath.push(waypoint)
+            
+            if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
+                fullPath.push(adjustedEnd)
+            
+            if not @pointsEqual(adjustedEnd, end, 0.001)
+                fullPath.push(end)
+            
+            return fullPath
+
+        # Simple heuristic failed - use A* pathfinding for complex scenarios.
+        astarPath = @findAStarCombingPath(adjustedStart, adjustedEnd, holePolygons, boundary)
+
+        # Build complete path with back-off segments.
+        fullPath = [start]
+
+        if not @pointsEqual(start, adjustedStart, 0.001)
+            fullPath.push(adjustedStart)
+
+        # Add A* waypoints (excluding start/end which are adjustedStart/adjustedEnd).
+        for waypoint, i in astarPath when i > 0 and i < astarPath.length - 1
+            fullPath.push(waypoint)
+
+        if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
+            fullPath.push(adjustedEnd)
+
+        if not @pointsEqual(adjustedEnd, end, 0.001)
+            fullPath.push(end)
+
+        return fullPath
+
+    # Back off from nearby hole boundaries to widen pathfinding options.
+    # Returns a new point that is farther from holes, or original point if no better position found.
+    backOffFromHoles: (point, holePolygons, backOffDistance, boundary) ->
+
+        # Check if point is close to any hole boundary.
+        closestHole = null
+        closestDistance = Infinity
+
+        for hole in holePolygons
+            
+            # Calculate hole center.
+            centerX = 0
+            centerY = 0
+            
+            for p in hole
+                centerX += p.x
+                centerY += p.y
+            
+            centerX /= hole.length
+            centerY /= hole.length
+
+            # Calculate distance to hole center.
+            dx = point.x - centerX
+            dy = point.y - centerY
+            distToCenter = Math.sqrt(dx * dx + dy * dy)
+
+            # Calculate approximate hole radius.
+            maxRadius = 0
+            
+            for p in hole
+                pDx = p.x - centerX
+                pDy = p.y - centerY
+                dist = Math.sqrt(pDx * pDx + pDy * pDy)
+                maxRadius = Math.max(maxRadius, dist)
+
+            # Distance to hole boundary.
+            distToBoundary = distToCenter - maxRadius
+
+            if distToBoundary < closestDistance
+                closestDistance = distToBoundary
+                closestHole = { center: { x: centerX, y: centerY }, radius: maxRadius }
+
+        # If not close to any hole (more than 2x backOffDistance away), no need to back off.
+        if closestDistance > backOffDistance * 2
+            return point
+
+        # Back off directly away from closest hole center.
+        if closestHole?
+            
+            dx = point.x - closestHole.center.x
+            dy = point.y - closestHole.center.y
+            dist = Math.sqrt(dx * dx + dy * dy)
+
+            if dist > 0.001
+                
+                # Normalize direction away from hole.
+                dirX = dx / dist
+                dirY = dy / dist
+
+                # Calculate new position.
+                newX = point.x + dirX * backOffDistance
+                newY = point.y + dirY * backOffDistance
+                newPoint = { x: newX, y: newY }
+
+                # Verify new point is within boundary and not inside any hole.
+                if boundary? and not @pointInPolygon(newPoint, boundary)
+                    return point
+
+                for hole in holePolygons
+                    if @pointInPolygon(newPoint, hole)
+                        return point
+
+                return newPoint
+
+        return point
+
+    # Simple heuristic pathfinding (single waypoint perpendicular to midpoint).
+    # This is the original algorithm, kept for performance on simple cases.
+    findSimpleCombingPath: (start, end, holePolygons, boundary) ->
+
         dx = end.x - start.x
         dy = end.y - start.y
         pathLength = Math.sqrt(dx * dx + dy * dy)
-        
+
         if pathLength < 0.001
             return [start, end]
-        
-        # Calculate perpendicular directions
+
+        # Calculate perpendicular directions.
         perpX1 = -dy / pathLength
         perpY1 = dx / pathLength
         perpX2 = dy / pathLength
         perpY2 = -dx / pathLength
-        
-        # Try waypoints at increasing perpendicular offsets
+
+        # Try waypoints at increasing perpendicular offsets.
         for offset in [3, 5, 8, 12, 18, 25, 35]
-            
-            # Try both perpendicular directions
+
+            # Try both perpendicular directions.
             for [perpX, perpY] in [[perpX1, perpY1], [perpX2, perpY2]]
-                
-                # Place waypoint perpendicular to midpoint
+
+                # Place waypoint perpendicular to midpoint.
                 midX = (start.x + end.x) / 2
                 midY = (start.y + end.y) / 2
                 waypointX = midX + perpX * offset
                 waypointY = midY + perpY * offset
-                
+
                 waypoint = { x: waypointX, y: waypointY }
-                
-                # Check if waypoint is in boundary
+
+                # Check if waypoint is in boundary.
                 if boundary? and not @pointInPolygon(waypoint, boundary)
                     continue
-                
-                # Check if both legs avoid holes (check distance to hole center, not polygon crossing)
-                leg1Clear = true
-                leg2Clear = true
-                
-                for hole in holePolygons
-                    # Calculate hole center and radius
-                    centerX = 0
-                    centerY = 0
-                    for point in hole
-                        centerX += point.x
-                        centerY += point.y
-                    centerX /= hole.length
-                    centerY /= hole.length
-                    
-                    maxRadius = 0
-                    for point in hole
-                        dx = point.x - centerX
-                        dy = point.y - centerY
-                        dist = Math.sqrt(dx * dx + dy * dy)
-                        maxRadius = Math.max(maxRadius, dist)
-                    
-                    # Check if leg 1 comes too close to hole center
-                    distToHole1 = @distanceFromPointToLineSegment(centerX, centerY, start, waypoint)
-                    if distToHole1 < maxRadius - 0.5  # Allow some tolerance
-                        leg1Clear = false
-                    
-                    # Check if leg 2 comes too close to hole center
-                    distToHole2 = @distanceFromPointToLineSegment(centerX, centerY, waypoint, end)
-                    if distToHole2 < maxRadius - 0.5  # Allow some tolerance
-                        leg2Clear = false
-                
+
+                # Check if both legs avoid holes.
+                leg1Clear = not @travelPathCrossesHoles(start, waypoint, holePolygons)
+                leg2Clear = not @travelPathCrossesHoles(waypoint, end, holePolygons)
+
                 if leg1Clear and leg2Clear
                     return [start, waypoint, end]
-        
-        # Fallback to direct path
+
+        # No valid single waypoint found.
         return [start, end]
+
+    # A* pathfinding to find multi-waypoint path around holes.
+    # Uses grid-based search to navigate complex hole configurations.
+    findAStarCombingPath: (start, end, holePolygons, boundary) ->
+
+        # Define grid resolution (larger cell = faster but less precise).
+        gridSize = 2.0  # 2mm grid cells
+
+        # Calculate bounds for the search space.
+        minX = Math.min(start.x, end.x) - 20
+        maxX = Math.max(start.x, end.x) + 20
+        minY = Math.min(start.y, end.y) - 20
+        maxY = Math.max(start.y, end.y) + 20
+
+        # Constrain to boundary if provided.
+        if boundary?
+            
+            for p in boundary
+                minX = Math.min(minX, p.x)
+                maxX = Math.max(maxX, p.x)
+                minY = Math.min(minY, p.y)
+                maxY = Math.max(maxY, p.y)
+
+        # Convert points to grid coordinates.
+        pointToGrid = (p) =>
+            gx: Math.floor((p.x - minX) / gridSize)
+            gy: Math.floor((p.y - minY) / gridSize)
+
+        gridToPoint = (gx, gy) =>
+            x: minX + (gx + 0.5) * gridSize
+            y: minY + (gy + 0.5) * gridSize
+
+        # Check if grid cell is valid (within boundary and not in hole).
+        isValidCell = (gx, gy) =>
+            
+            point = gridToPoint(gx, gy)
+
+            # Check boundary constraint.
+            if boundary? and not @pointInPolygon(point, boundary)
+                return false
+
+            # Check hole constraints.
+            for hole in holePolygons
+                if @pointInPolygon(point, hole)
+                    return false
+
+            return true
+
+        startGrid = pointToGrid(start)
+        endGrid = pointToGrid(end)
+
+        # A* data structures.
+        openSet = [startGrid]
+        cameFrom = {}
+        gScore = {}
+        fScore = {}
+
+        makeKey = (gx, gy) -> "#{gx},#{gy}"
+
+        startKey = makeKey(startGrid.gx, startGrid.gy)
+        gScore[startKey] = 0
+        fScore[startKey] = @manhattanDistance(startGrid.gx, startGrid.gy, endGrid.gx, endGrid.gy)
+
+        # A* search loop.
+        maxIterations = 2000  # Prevent infinite loops.
+        iterations = 0
+
+        while openSet.length > 0 and iterations < maxIterations
+            
+            iterations++
+
+            # Find node in openSet with lowest fScore.
+            current = null
+            lowestF = Infinity
+            
+            for node in openSet
+                
+                key = makeKey(node.gx, node.gy)
+                
+                if fScore[key]? and fScore[key] < lowestF
+                    lowestF = fScore[key]
+                    current = node
+
+            # If we reached the end, reconstruct path.
+            if current? and current.gx is endGrid.gx and current.gy is endGrid.gy
+                
+                # Reconstruct path from cameFrom.
+                path = []
+                currentKey = makeKey(current.gx, current.gy)
+                
+                while cameFrom[currentKey]?
+                    
+                    path.unshift(gridToPoint(current.gx, current.gy))
+                    prev = cameFrom[currentKey]
+                    current = prev
+                    currentKey = makeKey(current.gx, current.gy)
+
+                # Add start and end points.
+                path.unshift(start)
+                path.push(end)
+
+                # Simplify path by removing unnecessary waypoints.
+                return @simplifyPath(path, holePolygons)
+
+            # Remove current from openSet.
+            if current?
+                
+                openSet = openSet.filter((node) -> not (node.gx is current.gx and node.gy is current.gy))
+
+                # Check all neighbors (8-connected grid).
+                neighbors = [
+                    { gx: current.gx - 1, gy: current.gy }
+                    { gx: current.gx + 1, gy: current.gy }
+                    { gx: current.gx, gy: current.gy - 1 }
+                    { gx: current.gx, gy: current.gy + 1 }
+                    { gx: current.gx - 1, gy: current.gy - 1 }
+                    { gx: current.gx + 1, gy: current.gy - 1 }
+                    { gx: current.gx - 1, gy: current.gy + 1 }
+                    { gx: current.gx + 1, gy: current.gy + 1 }
+                ]
+
+                for neighbor in neighbors
+                    
+                    # Skip invalid cells.
+                    continue unless isValidCell(neighbor.gx, neighbor.gy)
+
+                    # Calculate tentative gScore.
+                    neighborKey = makeKey(neighbor.gx, neighbor.gy)
+                    currentKey = makeKey(current.gx, current.gy)
+                    
+                    # Diagonal moves cost more (sqrt(2) ≈ 1.414).
+                    isDiagonal = (neighbor.gx isnt current.gx) and (neighbor.gy isnt current.gy)
+                    moveCost = if isDiagonal then 1.414 else 1.0
+                    
+                    tentativeG = (gScore[currentKey] or 0) + moveCost
+
+                    if not gScore[neighborKey]? or tentativeG < gScore[neighborKey]
+                        
+                        # This path to neighbor is better.
+                        cameFrom[neighborKey] = current
+                        gScore[neighborKey] = tentativeG
+                        fScore[neighborKey] = tentativeG + @manhattanDistance(neighbor.gx, neighbor.gy, endGrid.gx, endGrid.gy)
+
+                        # Add to openSet if not already there.
+                        alreadyInOpen = false
+                        
+                        for node in openSet
+                            if node.gx is neighbor.gx and node.gy is neighbor.gy
+                                alreadyInOpen = true
+                                break
+
+                        if not alreadyInOpen
+                            openSet.push(neighbor)
+
+        # A* failed to find path - fall back to direct path.
+        return [start, end]
+
+    # Manhattan distance heuristic for A*.
+    manhattanDistance: (x1, y1, x2, y2) ->
+        Math.abs(x2 - x1) + Math.abs(y2 - y1)
+
+    # Simplify path by removing waypoints that don't change direction significantly.
+    # This reduces unnecessary waypoints while maintaining obstacle avoidance.
+    simplifyPath: (path, holePolygons) ->
+
+        return path if path.length <= 2
+
+        simplified = [path[0]]
+
+        for i in [1...path.length - 1]
+            
+            prev = simplified[simplified.length - 1]
+            current = path[i]
+            next = path[i + 1]
+
+            # Check if we can skip current waypoint (direct path from prev to next).
+            if not @travelPathCrossesHoles(prev, next, holePolygons)
+                
+                # We can skip this waypoint - path from prev to next is clear.
+                continue
+            
+            else
+                
+                # Need to keep this waypoint.
+                simplified.push(current)
+
+        simplified.push(path[path.length - 1])
+
+        return simplified
+
+    # Check if two points are equal within tolerance.
+    pointsEqual: (p1, p2, epsilon) ->
+        
+        dx = p1.x - p2.x
+        dy = p1.y - p2.y
+        
+        return Math.sqrt(dx * dx + dy * dy) < epsilon
     
     # Helper: Calculate distance from a point to a line segment
     distanceFromPointToLineSegment: (px, py, segStart, segEnd) ->

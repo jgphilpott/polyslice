@@ -54,7 +54,7 @@ module.exports =
 
                 # Find combing path that avoids crossing holes.
                 # Pass boundaryPath as the boundary constraint.
-                combingPath = helpers.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath)
+                combingPath = helpers.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath, nozzleDiameter)
 
                 # Generate travel moves for each segment of the combing path.
                 travelSpeedMmMin = slicer.getTravelSpeed() * 60
@@ -334,7 +334,7 @@ module.exports =
 
             # Move to start of line (travel move with combing).
             # Find a path that avoids crossing holes.
-            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary)
+            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
             
             # Generate travel moves for each segment of the combing path.
             for i in [0...combingPath.length - 1]

@@ -32,7 +32,8 @@ module.exports =
         if lastEndPoint? and holeOuterWalls.length > 0
 
             # Find combing path that avoids crossing holes.
-            combingPath = helpers.findCombingPath(lastEndPoint, targetPoint, holeOuterWalls, boundary)
+            nozzleDiameter = slicer.getNozzleDiameter()
+            combingPath = helpers.findCombingPath(lastEndPoint, targetPoint, holeOuterWalls, boundary, nozzleDiameter)
 
             # Generate travel moves for each segment of the combing path.
             # Convert speed from mm/s to mm/min for G-code.
