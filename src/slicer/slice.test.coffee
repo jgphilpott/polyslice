@@ -744,3 +744,87 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+    describe 'Wall Spacing Validation', ->
+
+        test 'should suppress inner and skin walls when spacing is insufficient', ->
+
+            # Create a torus with narrow spacing on early layers.
+            # Torus with radius=5mm, tube=2mm creates narrow gaps on first layers.
+            geometry = new THREE.TorusGeometry(5, 2, 16, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 2)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer for spacing validation.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)  # 2 walls (outer + inner).
+            slicer.setShellSkinThickness(0.8)  # Enable skin.
+            slicer.setInfillDensity(10)
+            slicer.setVerbose(true)
+
+            # Slice the mesh.
+            gcode = slicer.slice(mesh)
+
+            # Parse gcode to analyze layers.
+            lines = gcode.split('\n')
+
+            # Helper to count markers in a layer.
+            countMarkersInLayer = (layerNum, marker) ->
+                
+                layerStart = -1
+                layerEnd = -1
+
+                for i in [0...lines.length]
+                    
+                    if lines[i].includes("LAYER: #{layerNum}")
+                        layerStart = i
+                    else if layerStart >= 0 and lines[i].includes("LAYER: #{layerNum + 1}")
+                        layerEnd = i
+                        break
+
+                return 0 if layerStart < 0
+
+                layerEnd = lines.length if layerEnd < 0
+
+                count = 0
+                
+                for i in [layerStart...layerEnd]
+                    count++ if lines[i].includes(marker)
+
+                return count
+
+            # Layer 0: Should have only outer walls (no inner, skin, or infill).
+            # Spacing between paths is ~0.3mm < 0.4mm nozzle diameter.
+            layer0Outer = countMarkersInLayer(0, 'TYPE: WALL-OUTER')
+            layer0Inner = countMarkersInLayer(0, 'TYPE: WALL-INNER')
+            layer0Skin = countMarkersInLayer(0, 'TYPE: SKIN')
+            layer0Fill = countMarkersInLayer(0, 'TYPE: FILL')
+
+            expect(layer0Outer).toBeGreaterThan(0)  # Should have outer walls.
+            expect(layer0Inner).toBe(0)  # No inner walls (insufficient spacing).
+            expect(layer0Skin).toBe(0)  # No skin (insufficient spacing).
+            expect(layer0Fill).toBe(0)  # No infill (suppressed with skin).
+
+            # Layer 1: Should have outer + inner walls, but no skin or infill.
+            # Spacing between innermost walls is ~0.495mm < 0.8mm (2× nozzle diameter).
+            layer1Outer = countMarkersInLayer(1, 'TYPE: WALL-OUTER')
+            layer1Inner = countMarkersInLayer(1, 'TYPE: WALL-INNER')
+            layer1Skin = countMarkersInLayer(1, 'TYPE: SKIN')
+            layer1Fill = countMarkersInLayer(1, 'TYPE: FILL')
+
+            expect(layer1Outer).toBeGreaterThan(0)  # Should have outer walls.
+            expect(layer1Inner).toBeGreaterThan(0)  # Should have inner walls (sufficient spacing).
+            expect(layer1Skin).toBe(0)  # No skin (innermost wall spacing < 0.8mm).
+            expect(layer1Fill).toBe(0)  # No infill (suppressed with skin).
+
+            # Layer 2+: Should have all features (sufficient spacing).
+            layer2Outer = countMarkersInLayer(2, 'TYPE: WALL-OUTER')
+            layer2Inner = countMarkersInLayer(2, 'TYPE: WALL-INNER')
+            layer2Skin = countMarkersInLayer(2, 'TYPE: SKIN')
+
+            expect(layer2Outer).toBeGreaterThan(0)  # Should have outer walls.
+            expect(layer2Inner).toBeGreaterThan(0)  # Should have inner walls.
+            expect(layer2Skin).toBeGreaterThan(0)  # Should have skin (sufficient spacing).
+
+            return # Explicitly return undefined for Jest.
+
