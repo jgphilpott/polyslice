@@ -176,17 +176,16 @@ module.exports =
 
         edgeLengthStdDev = Math.sqrt(edgeLengthVariance)
 
-        # Calculate max angle change using a loop to avoid stack overflow with spread operator.
-        maxAngleChange = 0
-
-        for angleChange in angleChanges
-            if angleChange > maxAngleChange
-                maxAngleChange = angleChange
+        # Calculate max angle change.
+        # Note: Spread operator is safe for typical path sizes (32-256 points).
+        maxAngleChange = if angleChanges.length > 0 then Math.max(angleChanges...) else 0
 
         # Determine if this is a smooth curve based on:
         # 1. Uniform edge lengths (low standard deviation relative to average)
         # 2. Many small edges (indicating tessellation of a curve)
         # 3. Gradual angle changes (no sharp corners)
+        # Note: edgeLengths.length counts only non-degenerate edges (length > EPSILON),
+        # which is appropriate since degenerate edges don't contribute to curve detection.
         isSmoothCurve = false
 
         if edgeLengths.length > MIN_CURVE_POINTS
