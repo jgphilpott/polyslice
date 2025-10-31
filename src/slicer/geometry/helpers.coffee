@@ -104,6 +104,15 @@ module.exports =
 
         return [] if path.length < 3
 
+        # Constants for path analysis and simplification.
+        EPSILON = 0.0001 # Tolerance for degenerate edges and zero-length vectors.
+        MIN_CURVE_POINTS = 8 # Minimum points required to be considered a curve.
+        MAX_CV_FOR_UNIFORM = 0.3 # Maximum coefficient of variation for uniform edge lengths.
+        MAX_GRADUAL_ANGLE = 0.2 # Maximum angle change (radians, ~11.5 degrees) for gradual curves.
+        MAX_CV_FALLBACK = 1 # Fallback CV when avgEdgeLength is zero (indicates non-uniform path).
+        SMOOTH_CURVE_THRESHOLD = 0.01 # Angle threshold (~0.57 degrees) for smooth curves.
+        ANGULAR_SHAPE_THRESHOLD = 0.05 # Angle threshold (~2.9 degrees) for angular shapes.
+
         # Step 1: Detect path characteristics to determine appropriate simplification strategy.
         # Calculate average edge length and angle variation to distinguish between smooth curves
         # (like circles from sphere slicing) and angular shapes (like cubes).
@@ -126,7 +135,7 @@ module.exports =
             edgeY = p3.y - p2.y
             edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY)
 
-            if edgeLength > 0.0001
+            if edgeLength > EPSILON
                 edgeLengths.push(edgeLength)
                 totalEdgeLength += edgeLength
 
@@ -139,7 +148,7 @@ module.exports =
             len1 = Math.sqrt(v1x * v1x + v1y * v1y)
             len2 = Math.sqrt(v2x * v2x + v2y * v2y)
 
-            if len1 > 0.0001 and len2 > 0.0001
+            if len1 > EPSILON and len2 > EPSILON
 
                 # Normalize vectors.
                 v1x /= len1
@@ -167,8 +176,12 @@ module.exports =
 
         edgeLengthStdDev = Math.sqrt(edgeLengthVariance)
 
-        # Calculate max angle change.
-        maxAngleChange = if angleChanges.length > 0 then Math.max(angleChanges...) else 0
+        # Calculate max angle change using a loop to avoid stack overflow with spread operator.
+        maxAngleChange = 0
+
+        for angleChange in angleChanges
+            if angleChange > maxAngleChange
+                maxAngleChange = angleChange
 
         # Determine if this is a smooth curve based on:
         # 1. Uniform edge lengths (low standard deviation relative to average)
@@ -176,15 +189,16 @@ module.exports =
         # 3. Gradual angle changes (no sharp corners)
         isSmoothCurve = false
 
-        if edgeLengths.length > 8 # Must have enough points to be a curve
+        if edgeLengths.length > MIN_CURVE_POINTS
 
             # Check edge length uniformity (coefficient of variation < 0.3).
-            edgeLengthCV = if avgEdgeLength > 0 then edgeLengthStdDev / avgEdgeLength else 1
+            # Fallback to MAX_CV_FALLBACK when avgEdgeLength is zero to indicate non-uniform path.
+            edgeLengthCV = if avgEdgeLength > 0 then edgeLengthStdDev / avgEdgeLength else MAX_CV_FALLBACK
 
-            # Check if max angle change is gradual (< 0.2 radians = ~11.5 degrees).
-            hasGradualAngles = maxAngleChange < 0.2
+            # Check if max angle change is gradual.
+            hasGradualAngles = maxAngleChange < MAX_GRADUAL_ANGLE
 
-            if edgeLengthCV < 0.3 and hasGradualAngles
+            if edgeLengthCV < MAX_CV_FOR_UNIFORM and hasGradualAngles
                 isSmoothCurve = true
 
         # Step 2: Simplify the path by detecting significant corners only.
@@ -193,9 +207,9 @@ module.exports =
         simplifiedPath = []
 
         if isSmoothCurve
-            angleThreshold = 0.01 # ~0.57 degrees for smooth curves like circles
+            angleThreshold = SMOOTH_CURVE_THRESHOLD
         else
-            angleThreshold = 0.05 # ~2.9 degrees for angular shapes like cubes
+            angleThreshold = ANGULAR_SHAPE_THRESHOLD
 
         for i in [0...n]
 
@@ -216,7 +230,7 @@ module.exports =
             len2 = Math.sqrt(v2x * v2x + v2y * v2y)
 
             # Skip if either edge is degenerate.
-            if len1 < 0.0001 or len2 < 0.0001 then continue
+            if len1 < EPSILON or len2 < EPSILON then continue
 
             # Normalize vectors.
             v1x /= len1
