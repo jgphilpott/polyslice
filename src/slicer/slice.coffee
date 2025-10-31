@@ -523,10 +523,14 @@ module.exports =
                 # Calculate minimum distance between these two innermost walls.
                 minDistance = helpers.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
                 
-                # If the gap between innermost walls is less than one nozzle diameter,
+                # For skin walls to fit, we need space for BOTH skin walls (one from each path).
+                # Each skin wall requires one nozzle diameter, so total threshold is 2 * nozzle diameter.
+                # This prevents skin walls from overlapping when both paths try to generate them.
+                skinWallThreshold = nozzleDiameter * 2
+                
+                # If the gap between innermost walls is less than two nozzle diameters,
                 # mark both paths as having insufficient spacing for skin walls.
-                # Skin walls are generated after inner walls, so they need clearance from innermost walls.
-                if minDistance < nozzleDiameter
+                if minDistance < skinWallThreshold
                     pathsWithInsufficientSpacingForSkinWalls[pathIndex1] = true
                     pathsWithInsufficientSpacingForSkinWalls[pathIndex2] = true
         
