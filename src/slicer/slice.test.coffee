@@ -448,3 +448,297 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+    describe 'Wall Print Order with Holes', ->
+
+        test 'should print outer boundary walls before hole walls', ->
+
+            # This test uses three-bvh-csg to create a sheet with holes.
+            # Import CSG dependencies.
+            { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
+
+            # Create a sheet with holes using CSG operations.
+            sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
+            sheetBrush = new Brush(sheetGeometry)
+            sheetBrush.updateMatrixWorld()
+
+            csgEvaluator = new Evaluator()
+
+            # Create 2x2 grid of holes.
+            gridSize = 2
+            spacing = 50 / (gridSize + 1)
+            offsetX = -50 / 2 + spacing
+            offsetY = -50 / 2 + spacing
+            holeRadius = 3
+
+            resultBrush = sheetBrush
+
+            for row in [0...gridSize]
+
+                for col in [0...gridSize]
+
+                    # Calculate hole position.
+                    holeX = offsetX + col * spacing
+                    holeY = offsetY + row * spacing
+
+                    # Create cylinder for hole.
+                    holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, 10, 32)
+                    holeMesh = new Brush(holeGeometry)
+
+                    holeMesh.rotation.x = Math.PI / 2
+                    holeMesh.position.set(holeX, holeY, 0)
+                    holeMesh.updateMatrixWorld()
+
+                    # Subtract hole from sheet.
+                    resultBrush = csgEvaluator.evaluate(resultBrush, holeMesh, SUBTRACTION)
+
+            # Create final mesh.
+            finalMesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
+            finalMesh.position.set(0, 0, 2.5)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setShellWallThickness(0.8)
+
+            # Slice the mesh.
+            gcode = slicer.slice(finalMesh)
+
+            # Find a layer with both outer and hole walls.
+            # Extract lines for a middle layer (e.g., layer 5).
+            lines = gcode.split('\n')
+
+            layerStartIndex = -1
+            layerEndIndex = -1
+
+            for lineIndex in [0...lines.length]
+
+                line = lines[lineIndex]
+
+                if line.includes('LAYER: 5')
+                    layerStartIndex = lineIndex
+                else if layerStartIndex >= 0 and line.includes('LAYER: 6')
+                    layerEndIndex = lineIndex
+                    break
+
+            # Default to end of file if no next layer found.
+            if layerStartIndex >= 0 and layerEndIndex < 0
+                layerEndIndex = lines.length
+
+            # Extract layer lines.
+            layerLines = lines.slice(layerStartIndex, layerEndIndex)
+
+            # Extract wall type markers (WALL-OUTER, WALL-INNER).
+            wallTypeIndices = []
+
+            for lineIndex in [0...layerLines.length]
+
+                line = layerLines[lineIndex]
+
+                if line.includes('TYPE: WALL-OUTER') or line.includes('TYPE: WALL-INNER')
+                    wallTypeIndices.push(lineIndex)
+
+            # We expect at least 2 walls for outer boundary (OUTER + INNER).
+            # And at least 2 walls per hole (OUTER + INNER) * 4 holes = 8.
+            # Total: at least 10 wall type markers.
+            expect(wallTypeIndices.length).toBeGreaterThanOrEqual(10)
+
+            # Check that the first wall type markers are for outer boundary.
+            # The outer boundary should be printed first, before any holes.
+            # We can identify outer boundary walls by checking the order.
+            # The first 2 wall types should be for the outer boundary (OUTER + INNER).
+            # After that, we should see hole walls.
+
+            # Extract coordinates from wall moves to identify outer vs hole walls.
+            # Outer boundary walls will have coordinates near the edges (~85-135 range).
+            # Hole walls will have coordinates clustered near hole centers.
+
+            wallCoordinates = []
+
+            for lineIndex in [0...layerLines.length]
+
+                line = layerLines[lineIndex]
+
+                if line.includes('TYPE: WALL-')
+
+                    # Look at the next few lines to find actual G1 moves with coordinates.
+                    for nextLineOffset in [1..5]
+
+                        if lineIndex + nextLineOffset < layerLines.length
+
+                            nextLine = layerLines[lineIndex + nextLineOffset]
+
+                            if nextLine.match(/^G[01]\s/)
+
+                                xMatch = nextLine.match(/X([-\d.]+)/)
+                                yMatch = nextLine.match(/Y([-\d.]+)/)
+
+                                if xMatch and yMatch
+
+                                    wallCoordinates.push({
+                                        x: parseFloat(xMatch[1])
+                                        y: parseFloat(yMatch[1])
+                                        type: if line.includes('WALL-OUTER') then 'OUTER' else 'INNER'
+                                    })
+
+                                    break
+
+            # The first 2 walls should be outer boundary (near edges, far from center).
+            # Derive build plate center from slicer configuration.
+            centerX = slicer.getBuildPlateWidth() / 2
+            centerY = slicer.getBuildPlateLength() / 2
+
+            # Distance threshold to distinguish outer boundary from holes.
+            # For a 50mm sheet centered on build plate:
+            # - Outer boundary edges are ~25mm from center
+            # - Hole centers are ~8-16mm from center (for 2x2 grid with 3mm radius holes)
+            # Using 20mm as threshold provides good separation.
+            OUTER_BOUNDARY_MIN_DISTANCE = 20
+
+            expect(wallCoordinates.length).toBeGreaterThanOrEqual(10)
+
+            # First wall should be outer boundary (far from any hole center).
+            firstWall = wallCoordinates[0]
+            secondWall = wallCoordinates[1]
+
+            # Calculate distance from build plate center for first two walls.
+            # Outer boundary walls should be farther from center than hole walls.
+            firstDist = Math.sqrt((firstWall.x - centerX) ** 2 + (firstWall.y - centerY) ** 2)
+            secondDist = Math.sqrt((secondWall.x - centerX) ** 2 + (secondWall.y - centerY) ** 2)
+
+            # Both should be reasonably far from center (outer boundary).
+            expect(firstDist).toBeGreaterThan(OUTER_BOUNDARY_MIN_DISTANCE)
+            expect(secondDist).toBeGreaterThan(OUTER_BOUNDARY_MIN_DISTANCE)
+
+            # Check that later walls (holes) are closer to center.
+            laterWalls = wallCoordinates.slice(2)
+            holeWallDistances = laterWalls.map((wall) ->
+                Math.sqrt((wall.x - centerX) ** 2 + (wall.y - centerY) ** 2)
+            )
+
+            # At least some hole walls should be closer to center than outer walls.
+            closeHoleWalls = holeWallDistances.filter((dist) -> dist < OUTER_BOUNDARY_MIN_DISTANCE)
+            expect(closeHoleWalls.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should generate skin walls immediately after regular walls for holes on skin layers', ->
+
+            # This test validates the skin wall integration feature.
+            # Import CSG dependencies.
+            { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
+
+            # Create a sheet with holes using CSG operations.
+            sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
+            sheetBrush = new Brush(sheetGeometry)
+            sheetBrush.updateMatrixWorld()
+
+            csgEvaluator = new Evaluator()
+
+            # Create 2x2 grid of holes.
+            gridSize = 2
+            spacing = 50 / (gridSize + 1)
+            offsetX = -50 / 2 + spacing
+            offsetY = -50 / 2 + spacing
+            holeRadius = 3
+
+            resultBrush = sheetBrush
+
+            for row in [0...gridSize]
+
+                for col in [0...gridSize]
+
+                    # Calculate hole position.
+                    holeX = offsetX + col * spacing
+                    holeY = offsetY + row * spacing
+
+                    # Create cylinder for hole.
+                    holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, 10, 32)
+                    holeMesh = new Brush(holeGeometry)
+
+                    holeMesh.rotation.x = Math.PI / 2
+                    holeMesh.position.set(holeX, holeY, 0)
+                    holeMesh.updateMatrixWorld()
+
+                    # Subtract hole from sheet.
+                    resultBrush = csgEvaluator.evaluate(resultBrush, holeMesh, SUBTRACTION)
+
+            # Create final mesh.
+            finalMesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
+            finalMesh.position.set(0, 0, 2.5)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)  # Enable skin layers
+
+            # Slice the mesh.
+            gcode = slicer.slice(finalMesh)
+
+            # Check layer 0 (bottom skin layer).
+            lines = gcode.split('\n')
+
+            layerStartIndex = -1
+            layerEndIndex = -1
+
+            for lineIndex in [0...lines.length]
+
+                line = lines[lineIndex]
+
+                if line.includes('LAYER: 0')
+                    layerStartIndex = lineIndex
+                else if layerStartIndex >= 0 and line.includes('LAYER: 1')
+                    layerEndIndex = lineIndex
+                    break
+
+            # Default to end of file if no next layer found.
+            if layerStartIndex >= 0 and layerEndIndex < 0
+                layerEndIndex = lines.length
+
+            # Extract layer lines.
+            layerLines = lines.slice(layerStartIndex, layerEndIndex)
+
+            # Extract wall and skin type markers in sequence.
+            typeSequence = []
+
+            for lineIndex in [0...layerLines.length]
+
+                line = layerLines[lineIndex]
+
+                if line.includes('TYPE: WALL-OUTER')
+                    typeSequence.push('WALL-OUTER')
+                else if line.includes('TYPE: WALL-INNER')
+                    typeSequence.push('WALL-INNER')
+                else if line.includes('TYPE: SKIN')
+                    typeSequence.push('SKIN')
+
+            # Validate the sequence pattern.
+            # Expected pattern: OUTER_BOUNDARY(OUTER,INNER) + HOLE1(OUTER,INNER,SKIN) + HOLE2(OUTER,INNER,SKIN) + ... + OUTER_BOUNDARY_SKIN + INFILL
+            # We should see at least: 2 outer boundary walls + (3 walls * 4 holes) = 14 type markers
+
+            expect(typeSequence.length).toBeGreaterThanOrEqual(14)
+
+            # First two should be outer boundary walls (OUTER, INNER).
+            expect(typeSequence[0]).toBe('WALL-OUTER')
+            expect(typeSequence[1]).toBe('WALL-INNER')
+
+            # Next should be hole walls with integrated skin.
+            # Find sequences of (OUTER, INNER, SKIN) which indicate integrated processing.
+            holeSequenceCount = 0
+
+            for i in [2...typeSequence.length - 2]
+
+                if typeSequence[i] is 'WALL-OUTER' and
+                   typeSequence[i + 1] is 'WALL-INNER' and
+                   typeSequence[i + 2] is 'SKIN'
+
+                    holeSequenceCount++
+
+            # We should have at least 3 holes with integrated skin walls.
+            # (Some holes might not have skin if geometry is complex, but most should)
+            expect(holeSequenceCount).toBeGreaterThanOrEqual(3)
+
+            return # Explicitly return undefined for Jest.
+
