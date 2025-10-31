@@ -104,12 +104,98 @@ module.exports =
 
         return [] if path.length < 3
 
-        # Step 1: Simplify the path by detecting significant corners only.
-        # A significant corner is one where the direction changes by more than a threshold.
-        simplifiedPath = []
-        angleThreshold = 0.05 # ~2.9 degrees in radians
-
+        # Step 1: Detect path characteristics to determine appropriate simplification strategy.
+        # Calculate average edge length and angle variation to distinguish between smooth curves
+        # (like circles from sphere slicing) and angular shapes (like cubes).
         n = path.length
+        totalEdgeLength = 0
+        edgeLengths = []
+        angleChanges = []
+
+        for i in [0...n]
+
+            nextIdx = if i is n - 1 then 0 else i + 1
+            prevIdx = if i is 0 then n - 1 else i - 1
+
+            p1 = path[prevIdx]
+            p2 = path[i]
+            p3 = path[nextIdx]
+
+            # Calculate edge length.
+            edgeX = p3.x - p2.x
+            edgeY = p3.y - p2.y
+            edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY)
+
+            if edgeLength > 0.0001
+                edgeLengths.push(edgeLength)
+                totalEdgeLength += edgeLength
+
+            # Calculate angle change at this vertex.
+            v1x = p2.x - p1.x
+            v1y = p2.y - p1.y
+            v2x = p3.x - p2.x
+            v2y = p3.y - p2.y
+
+            len1 = Math.sqrt(v1x * v1x + v1y * v1y)
+            len2 = Math.sqrt(v2x * v2x + v2y * v2y)
+
+            if len1 > 0.0001 and len2 > 0.0001
+
+                # Normalize vectors.
+                v1x /= len1
+                v1y /= len1
+                v2x /= len2
+                v2y /= len2
+
+                # Calculate cross product magnitude (measures angle change).
+                cross = Math.abs(v1x * v2y - v1y * v2x)
+                angleChanges.push(cross)
+
+        # Calculate average edge length.
+        avgEdgeLength = if edgeLengths.length > 0 then totalEdgeLength / edgeLengths.length else 0
+
+        # Calculate standard deviation of edge lengths to detect uniformity.
+        edgeLengthVariance = 0
+
+        if edgeLengths.length > 1
+
+            for edgeLength in edgeLengths
+                diff = edgeLength - avgEdgeLength
+                edgeLengthVariance += diff * diff
+
+            edgeLengthVariance /= edgeLengths.length
+
+        edgeLengthStdDev = Math.sqrt(edgeLengthVariance)
+
+        # Calculate max angle change.
+        maxAngleChange = if angleChanges.length > 0 then Math.max(angleChanges...) else 0
+
+        # Determine if this is a smooth curve based on:
+        # 1. Uniform edge lengths (low standard deviation relative to average)
+        # 2. Many small edges (indicating tessellation of a curve)
+        # 3. Gradual angle changes (no sharp corners)
+        isSmoothCurve = false
+
+        if edgeLengths.length > 8 # Must have enough points to be a curve
+
+            # Check edge length uniformity (coefficient of variation < 0.3).
+            edgeLengthCV = if avgEdgeLength > 0 then edgeLengthStdDev / avgEdgeLength else 1
+
+            # Check if max angle change is gradual (< 0.2 radians = ~11.5 degrees).
+            hasGradualAngles = maxAngleChange < 0.2
+
+            if edgeLengthCV < 0.3 and hasGradualAngles
+                isSmoothCurve = true
+
+        # Step 2: Simplify the path by detecting significant corners only.
+        # For smooth curves, use a much smaller angle threshold to preserve smoothness.
+        # For angular shapes, use a larger threshold to remove near-collinear points.
+        simplifiedPath = []
+
+        if isSmoothCurve
+            angleThreshold = 0.01 # ~0.57 degrees for smooth curves like circles
+        else
+            angleThreshold = 0.05 # ~2.9 degrees for angular shapes like cubes
 
         for i in [0...n]
 
@@ -144,9 +230,12 @@ module.exports =
             # If direction changes significantly, this is a real corner.
             if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
 
-        # If simplification resulted in < 4 points for rectangular shapes, use original path.
-        # We want at least 4 corners for proper rectangular insets.
-        if simplifiedPath.length < 4 then simplifiedPath = path
+        # For angular shapes, if simplification resulted in < 4 points, use original path.
+        # For smooth curves, allow any number of points >= 3.
+        if not isSmoothCurve and simplifiedPath.length < 4
+            simplifiedPath = path
+        else if simplifiedPath.length < 3
+            simplifiedPath = path
 
         # Step 2: Create inset using the simplified path.
         insetPath = []
