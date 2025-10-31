@@ -230,13 +230,26 @@ module.exports =
         simplifiedPath = []
 
         # Check if this was detected as smooth via secondary heuristics (irregular tessellation).
-        # If so, skip simplification to preserve all points.
+        # If so, apply curve interpolation to add points for smoother appearance.
         if isSmoothCurve and edgeLengths.length > MIN_CURVE_POINTS
             edgeLengthCV = if avgEdgeLength > 0 then edgeLengthStdDev / avgEdgeLength else MAX_CV_FALLBACK
             hasGradualAngles = maxAngleChange < MAX_GRADUAL_ANGLE
             
-            # If detected via secondary heuristics (not primary), skip simplification.
+            # If detected via secondary heuristics (irregular tessellation), apply interpolation.
             if not (edgeLengthCV < MAX_CV_FOR_UNIFORM and hasGradualAngles)
+                # Apply Catmull-Rom spline interpolation to smooth the curve.
+                # Target: 6-8 points per mm for visually smooth circles.
+                currentDensity = if totalEdgeLength > 0 then edgeLengths.length / totalEdgeLength else 0
+                targetDensity = 6
+                
+                # Only apply interpolation if current density is below target.
+                if currentDensity < targetDensity
+                    targetPoints = Math.max(edgeLengths.length, Math.ceil(totalEdgeLength * targetDensity))
+                    simplifiedPath = @interpolateCurve(path, targetPoints)
+                else
+                    simplifiedPath = path
+            else
+                # Primary detection (uniform curve) - no interpolation needed.
                 simplifiedPath = path
         
         # If we didn't skip simplification above, proceed with normal simplification.
@@ -504,6 +517,76 @@ module.exports =
                 return []
 
         return insetPath
+
+    # Interpolate a curve using Catmull-Rom spline to add smoothness.
+    # Used for irregular tessellations (sphere poles) to create visually smooth circles.
+    interpolateCurve: (path, targetPoints) ->
+
+        return path if path.length < 4 or targetPoints <= path.length
+
+        result = []
+        n = path.length
+
+        # Calculate cumulative distances for arc-length parameterization.
+        distances = [0]
+        totalDist = 0
+
+        for i in [0...n]
+            nextIdx = (i + 1) % n
+            p1 = path[i]
+            p2 = path[nextIdx]
+            dx = p2.x - p1.x
+            dy = p2.y - p1.y
+            dist = Math.sqrt(dx * dx + dy * dy)
+            totalDist += dist
+            distances.push(totalDist)
+
+        # Generate evenly spaced points along the curve.
+        for i in [0...targetPoints]
+            # Arc-length parameter (0 to totalDist).
+            targetDist = (i / targetPoints) * totalDist
+
+            # Find segment containing this distance.
+            segmentIdx = 0
+            for j in [0...n]
+                if distances[j + 1] >= targetDist
+                    segmentIdx = j
+                    break
+
+            # Local parameter within segment (0 to 1).
+            segStart = distances[segmentIdx]
+            segEnd = distances[segmentIdx + 1]
+            segLength = segEnd - segStart
+            t = if segLength > 0 then (targetDist - segStart) / segLength else 0
+
+            # Get control points for Catmull-Rom spline.
+            idx0 = (segmentIdx - 1 + n) % n
+            idx1 = segmentIdx
+            idx2 = (segmentIdx + 1) % n
+            idx3 = (segmentIdx + 2) % n
+
+            p0 = path[idx0]
+            p1 = path[idx1]
+            p2 = path[idx2]
+            p3 = path[idx3]
+
+            # Catmull-Rom spline basis.
+            t2 = t * t
+            t3 = t2 * t
+
+            # Coefficients for centripetal Catmull-Rom.
+            c0 = -0.5 * t3 + t2 - 0.5 * t
+            c1 = 1.5 * t3 - 2.5 * t2 + 1
+            c2 = -1.5 * t3 + 2 * t2 + 0.5 * t
+            c3 = 0.5 * t3 - 0.5 * t2
+
+            x = c0 * p0.x + c1 * p1.x + c2 * p2.x + c3 * p3.x
+            y = c0 * p0.y + c1 * p1.y + c2 * p2.y + c3 * p3.y
+            z = p1.z # Preserve Z from segment start.
+
+            result.push({ x: x, y: y, z: z })
+
+        return result
 
     # Calculate intersection point of two line segments.
     lineIntersection: (p1, p2, p3, p4) ->
