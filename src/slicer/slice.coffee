@@ -332,7 +332,10 @@ module.exports =
         # Helper function to calculate distance between two points.
         calculateDistance = (pointA, pointB) =>
             
-            return Infinity if not pointA or not pointB
+            # If either point is missing, return a large but finite distance.
+            # This allows the nearest-neighbor algorithm to continue with other holes
+            # when lastPathEndPoint is null (e.g., first layer or no prior position).
+            return 1000000 if not pointA or not pointB
             
             dx = pointA.x - pointB.x
             dy = pointA.y - pointB.y
@@ -362,6 +365,9 @@ module.exports =
         
         # Sort holes by nearest neighbor to minimize travel distance.
         # Start from the last known position (where outer boundaries ended).
+        # Note: This is O(n²) complexity, which is acceptable for typical geometries
+        # with moderate hole counts (< 100 holes). For larger counts, consider
+        # spatial indexing optimizations.
         sortedHoleIndices = []
         remainingHoleIndices = holeIndices.slice()  # Create a copy
         

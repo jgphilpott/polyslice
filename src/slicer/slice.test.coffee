@@ -584,9 +584,16 @@ describe 'Slicing', ->
                                     break
 
             # The first 2 walls should be outer boundary (near edges, far from center).
-            # The build plate center is at 110, 110 (default Ender3 size 220x220).
-            # Outer boundary walls should be near 85-135 (50mm sheet centered).
-            # Hole walls should be closer to specific hole centers.
+            # Derive build plate center from slicer configuration.
+            centerX = slicer.getBuildPlateWidth() / 2
+            centerY = slicer.getBuildPlateLength() / 2
+
+            # Distance threshold to distinguish outer boundary from holes.
+            # For a 50mm sheet centered on build plate:
+            # - Outer boundary edges are ~25mm from center
+            # - Hole centers are ~8-16mm from center (for 2x2 grid with 3mm radius holes)
+            # Using 20mm as threshold provides good separation.
+            OUTER_BOUNDARY_MIN_DISTANCE = 20
 
             expect(wallCoordinates.length).toBeGreaterThanOrEqual(10)
 
@@ -594,20 +601,14 @@ describe 'Slicing', ->
             firstWall = wallCoordinates[0]
             secondWall = wallCoordinates[1]
 
-            # Build plate center.
-            centerX = 110
-            centerY = 110
-
             # Calculate distance from build plate center for first two walls.
             # Outer boundary walls should be farther from center than hole walls.
             firstDist = Math.sqrt((firstWall.x - centerX) ** 2 + (firstWall.y - centerY) ** 2)
             secondDist = Math.sqrt((secondWall.x - centerX) ** 2 + (secondWall.y - centerY) ** 2)
 
             # Both should be reasonably far from center (outer boundary).
-            # For a 50mm sheet, corners are ~35mm from center, edges are ~25mm.
-            # Hole centers are ~8-16mm from center.
-            expect(firstDist).toBeGreaterThan(20)
-            expect(secondDist).toBeGreaterThan(20)
+            expect(firstDist).toBeGreaterThan(OUTER_BOUNDARY_MIN_DISTANCE)
+            expect(secondDist).toBeGreaterThan(OUTER_BOUNDARY_MIN_DISTANCE)
 
             # Check that later walls (holes) are closer to center.
             laterWalls = wallCoordinates.slice(2)
@@ -616,7 +617,7 @@ describe 'Slicing', ->
             )
 
             # At least some hole walls should be closer to center than outer walls.
-            closeHoleWalls = holeWallDistances.filter((dist) -> dist < 20)
+            closeHoleWalls = holeWallDistances.filter((dist) -> dist < OUTER_BOUNDARY_MIN_DISTANCE)
             expect(closeHoleWalls.length).toBeGreaterThan(0)
 
             return # Explicitly return undefined for Jest.
