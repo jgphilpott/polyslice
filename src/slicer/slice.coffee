@@ -242,8 +242,9 @@ module.exports =
         
         # After collecting all outer walls, identify paths that are too close together.
         # If outer walls from different paths are closer than one nozzle diameter,
-        # those paths should not generate inner or skin walls to avoid interference.
-        pathsWithInsufficientSpacing = {}  # Track which paths should skip inner/skin walls
+        # those paths should not generate inner walls to avoid interference.
+        pathsWithInsufficientSpacingForInnerWalls = {}  # Track which paths should skip inner walls
+        pathsWithInsufficientSpacingForSkinWalls = {}   # Track which paths should skip skin walls (populated later)
         
         for pathIndex1 in [0...paths.length]
             
@@ -259,11 +260,10 @@ module.exports =
                 minDistance = helpers.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
                 
                 # If the gap between outer walls is less than one nozzle diameter,
-                # mark both paths as having insufficient spacing.
-                # This prevents inner/skin walls from being generated in the narrow gap.
+                # mark both paths as having insufficient spacing for inner walls.
                 if minDistance < nozzleDiameter
-                    pathsWithInsufficientSpacing[pathIndex1] = true
-                    pathsWithInsufficientSpacing[pathIndex2] = true
+                    pathsWithInsufficientSpacingForInnerWalls[pathIndex1] = true
+                    pathsWithInsufficientSpacingForInnerWalls[pathIndex2] = true
 
         # Helper function to generate walls for a single path.
         # Returns the innermost wall path.
@@ -301,9 +301,9 @@ module.exports =
                 # is too small (e.g., first layers of a torus where the tube cross-section is narrow).
                 if wallIndex > 0
                     
-                    # First, check if this path was flagged as having insufficient spacing.
+                    # First, check if this path was flagged as having insufficient spacing for inner walls.
                     # If so, skip inner wall generation entirely.
-                    if pathsWithInsufficientSpacing[pathIndex]
+                    if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
                         break
                     
                     # Check if the next inset would be degenerate (too small to print).
@@ -370,9 +370,9 @@ module.exports =
                 
                 if skinWallPath.length >= 3
                     
-                    # Check if this path was flagged as having insufficient spacing.
-                    # If so, skip skin wall generation as well.
-                    if not pathsWithInsufficientSpacing[pathIndex]
+                    # Check if this path was flagged as having insufficient spacing for skin walls.
+                    # For skin walls, we check spacing between innermost walls, not outer walls.
+                    if not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
                         holeSkinWalls.push(skinWallPath)
                         
                         # For combing, exclude the current hole (destination).
@@ -490,13 +490,78 @@ module.exports =
                 remainingHoleIndices.shift()
         
         # Process holes in sorted order (nearest neighbor).
-        # If this is a skin layer, skin walls are generated immediately after regular walls for each hole.
-        # This is more efficient than making a separate pass (avoids traversing the geometry twice).
+        # Generate walls first without skin walls - skin walls will be generated later
+        # after checking spacing between innermost walls.
         for pathIndex in sortedHoleIndices
             
             path = paths[pathIndex]
-            innermostWall = generateWallsForPath(path, pathIndex, true, layerNeedsSkin)
+            innermostWall = generateWallsForPath(path, pathIndex, true, false)
             innermostWalls[pathIndex] = innermostWall
+        
+        # After generating all walls, check spacing between innermost walls to determine
+        # if skin walls can be generated. Skin walls need space between innermost walls,
+        # not just outer walls. The variable was initialized earlier as an empty object.
+        #
+        # First, if a path was flagged for insufficient spacing for inner walls, it should
+        # also be flagged for skin walls (since innermost wall = outer wall in that case).
+        for pathIndex in [0...paths.length]
+            if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
+                pathsWithInsufficientSpacingForSkinWalls[pathIndex] = true
+        
+        # Then, check spacing between actual innermost walls (which may differ from outer walls
+        # if inner walls were successfully generated).
+        for pathIndex1 in [0...paths.length]
+            
+            innermostWall1 = innermostWalls[pathIndex1]
+            continue if not innermostWall1 or innermostWall1.length < 3
+            
+            for pathIndex2 in [pathIndex1+1...paths.length]
+                
+                innermostWall2 = innermostWalls[pathIndex2]
+                continue if not innermostWall2 or innermostWall2.length < 3
+                
+                # Calculate minimum distance between these two innermost walls.
+                minDistance = helpers.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
+                
+                # If the gap between innermost walls is less than one nozzle diameter,
+                # mark both paths as having insufficient spacing for skin walls.
+                # Skin walls are generated after inner walls, so they need clearance from innermost walls.
+                if minDistance < nozzleDiameter
+                    pathsWithInsufficientSpacingForSkinWalls[pathIndex1] = true
+                    pathsWithInsufficientSpacingForSkinWalls[pathIndex2] = true
+        
+        # Now that spacing has been checked, generate skin walls for holes if this is a skin layer
+        # and the hole has sufficient spacing.
+        if layerNeedsSkin
+            
+            for pathIndex in sortedHoleIndices
+                
+                # Skip if this hole doesn't have sufficient spacing for skin walls.
+                continue if pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+                
+                currentPath = innermostWalls[pathIndex]
+                continue if not currentPath or currentPath.length < 3
+                
+                # Calculate the skin wall path for this hole.
+                skinWallInset = nozzleDiameter
+                skinWallPath = helpers.createInsetPath(currentPath, skinWallInset, true)
+                
+                if skinWallPath.length >= 3
+                    
+                    holeSkinWalls.push(skinWallPath)
+                    
+                    # For combing, exclude the current hole (destination).
+                    if pathToHoleIndex[pathIndex]?
+                        currentHoleIdx = pathToHoleIndex[pathIndex]
+                        skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                    else
+                        skinCombingHoleWalls = holeOuterWalls
+                    
+                    # Generate skin wall for the hole (outward inset).
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, true, false, [], skinCombingHoleWalls)
+                    
+                    # Update lastPathEndPoint with skin wall end position.
+                    lastPathEndPoint = skinEndPoint if skinEndPoint?
 
         # Phase 2: Generate infill and skin.
         # Now that all hole boundaries have been collected, we can generate infill
@@ -532,9 +597,15 @@ module.exports =
             # Always generate skin for the absolute top and bottom layers.
             if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
 
-                needsSkin = true
-                skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
-                isAbsoluteTopOrBottom = true # Mark as absolute top/bottom
+                # Check if this path has insufficient spacing for skin walls.
+                # If so, skip skin generation even on top/bottom layers.
+                if not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+                    needsSkin = true
+                    skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
+                    isAbsoluteTopOrBottom = true # Mark as absolute top/bottom
+                else
+                    needsSkin = false
+                    skinAreas = []
 
             else
 

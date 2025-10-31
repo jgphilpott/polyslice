@@ -715,8 +715,9 @@ describe 'Slicing', ->
                     typeSequence.push('SKIN')
 
             # Validate the sequence pattern.
-            # Expected pattern: OUTER_BOUNDARY(OUTER,INNER) + HOLE1(OUTER,INNER,SKIN) + HOLE2(OUTER,INNER,SKIN) + ... + OUTER_BOUNDARY_SKIN + INFILL
-            # We should see at least: 2 outer boundary walls + (3 walls * 4 holes) = 14 type markers
+            # Updated pattern after spacing validation changes:
+            # OUTER_BOUNDARY(OUTER,INNER) + HOLE1(OUTER,INNER) + HOLE2(OUTER,INNER) + ... + SKIN(for holes) + OUTER_BOUNDARY_SKIN + INFILL
+            # We should see at least: 2 outer boundary walls + (2 walls * 4 holes) + skin = 14+ type markers
 
             expect(typeSequence.length).toBeGreaterThanOrEqual(14)
 
@@ -724,21 +725,22 @@ describe 'Slicing', ->
             expect(typeSequence[0]).toBe('WALL-OUTER')
             expect(typeSequence[1]).toBe('WALL-INNER')
 
-            # Next should be hole walls with integrated skin.
-            # Find sequences of (OUTER, INNER, SKIN) which indicate integrated processing.
-            holeSequenceCount = 0
+            # Count hole walls (pairs of OUTER, INNER without immediate SKIN).
+            holeWallPairCount = 0
 
-            for i in [2...typeSequence.length - 2]
+            for i in [2...typeSequence.length - 1]
 
                 if typeSequence[i] is 'WALL-OUTER' and
-                   typeSequence[i + 1] is 'WALL-INNER' and
-                   typeSequence[i + 2] is 'SKIN'
+                   typeSequence[i + 1] is 'WALL-INNER'
 
-                    holeSequenceCount++
+                    holeWallPairCount++
 
-            # We should have at least 3 holes with integrated skin walls.
-            # (Some holes might not have skin if geometry is complex, but most should)
-            expect(holeSequenceCount).toBeGreaterThanOrEqual(3)
+            # We should have at least 4 hole wall pairs (one for each hole).
+            expect(holeWallPairCount).toBeGreaterThanOrEqual(4)
+            
+            # Count total skin markers (should have some for holes with sufficient spacing).
+            skinCount = typeSequence.filter((t) -> t is 'SKIN').length
+            expect(skinCount).toBeGreaterThanOrEqual(1)
 
             return # Explicitly return undefined for Jest.
 
