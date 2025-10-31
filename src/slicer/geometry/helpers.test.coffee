@@ -1563,3 +1563,82 @@ describe 'Travel Path Optimization', ->
 
             expect(result).toBe(false)
 
+    describe 'calculateMinimumDistanceBetweenPaths', ->
+
+        test 'should return infinity for degenerate paths', ->
+
+            path1 = []
+            path2 = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }]
+
+            result = helpers.calculateMinimumDistanceBetweenPaths(path1, path2)
+
+            expect(result).toBe(Infinity)
+
+        test 'should calculate distance between two concentric circles', ->
+
+            # Create two concentric square paths.
+            # Inner square: 2x2 centered at origin.
+            innerSquare = [
+                { x: -1, y: -1 }
+                { x: 1, y: -1 }
+                { x: 1, y: 1 }
+                { x: -1, y: 1 }
+            ]
+
+            # Outer square: 6x6 centered at origin.
+            outerSquare = [
+                { x: -3, y: -3 }
+                { x: 3, y: -3 }
+                { x: 3, y: 3 }
+                { x: -3, y: 3 }
+            ]
+
+            result = helpers.calculateMinimumDistanceBetweenPaths(innerSquare, outerSquare)
+
+            # The minimum distance should be 2 (from edge to edge: 3 - 1 = 2).
+            expect(result).toBeCloseTo(2, 1)
+
+        test 'should calculate distance between adjacent paths', ->
+
+            # Create two adjacent rectangular paths.
+            path1 = [
+                { x: 0, y: 0 }
+                { x: 2, y: 0 }
+                { x: 2, y: 2 }
+                { x: 0, y: 2 }
+            ]
+
+            path2 = [
+                { x: 3, y: 0 }
+                { x: 5, y: 0 }
+                { x: 5, y: 2 }
+                { x: 3, y: 2 }
+            ]
+
+            result = helpers.calculateMinimumDistanceBetweenPaths(path1, path2)
+
+            # The minimum distance should be 1 (gap between x=2 and x=3).
+            expect(result).toBeCloseTo(1, 1)
+
+        test 'should calculate very small distance for nearly touching paths', ->
+
+            # Create two paths that are very close together (0.3mm apart).
+            path1 = [
+                { x: 0, y: 0 }
+                { x: 1, y: 0 }
+                { x: 1, y: 1 }
+                { x: 0, y: 1 }
+            ]
+
+            path2 = [
+                { x: 1.3, y: 0 }
+                { x: 2.3, y: 0 }
+                { x: 2.3, y: 1 }
+                { x: 1.3, y: 1 }
+            ]
+
+            result = helpers.calculateMinimumDistanceBetweenPaths(path1, path2)
+
+            # The minimum distance should be 0.3mm.
+            expect(result).toBeCloseTo(0.3, 2)
+

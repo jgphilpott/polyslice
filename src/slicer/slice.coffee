@@ -215,6 +215,7 @@ module.exports =
         # Pre-pass: Collect all hole outer walls BEFORE generating any walls.
         # This ensures complete hole information is available for combing path calculation.
         pathToHoleIndex = {}  # Map path index to index in holeOuterWalls array
+        allOuterWalls = {}    # Map path index to its outer wall path (for spacing validation)
         
         for path, pathIndex in paths
             
@@ -227,6 +228,9 @@ module.exports =
             
             # Skip if offset path is degenerate.
             continue if currentPath.length < 3
+            
+            # Store ALL outer walls (both holes and non-holes) for spacing validation.
+            allOuterWalls[pathIndex] = currentPath
             
             # Store hole outer walls for combing path avoidance.
             if pathIsHole[pathIndex]
@@ -269,6 +273,55 @@ module.exports =
                     wallType = "WALL-INNER"
                 else
                     wallType = "WALL-INNER"
+
+                # Before generating inner walls (wallIndex > 0), check if there is sufficient space.
+                # This prevents printing walls in incorrect positions when the gap between outer walls
+                # is too small (e.g., first layers of a torus where the tube cross-section is narrow).
+                if wallIndex > 0
+
+                    # Calculate the inset path for this wall to check spacing.
+                    # We need at least one nozzle diameter of space for the wall to fit properly.
+                    testInsetPath = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
+
+                    # If the inset path is degenerate, there's no room for this wall.
+                    if testInsetPath.length < 3
+                        # No room for inner walls - stop generating walls for this path.
+                        break
+
+                    # Check minimum distance to other outer walls to ensure sufficient spacing.
+                    # This is crucial for geometries like torus where multiple wall loops can be close together.
+                    hasInsufficientSpacing = false
+
+                    for otherPathIndex in [0...paths.length]
+
+                        # Skip checking against itself.
+                        continue if otherPathIndex is pathIndex
+
+                        # Get the outer wall of the other path from our comprehensive lookup.
+                        otherOuterWall = allOuterWalls[otherPathIndex]
+
+                        continue if not otherOuterWall or otherOuterWall.length < 3
+
+                        # Calculate minimum distance between this wall and the other outer wall.
+                        minDistance = helpers.calculateMinimumDistanceBetweenPaths(currentPath, otherOuterWall)
+
+                        # We need at least one nozzle diameter of clearance for a wall to fit.
+                        # Use a small tolerance factor (0.95) to account for floating-point precision.
+                        requiredClearance = nozzleDiameter * 0.95
+
+                        # DEBUG: Log spacing check for first layer
+                        if layerIndex is 0 and verbose
+                            console.log("Layer #{layerIndex}, Path #{pathIndex}, Wall #{wallIndex}: minDist=#{minDistance.toFixed(3)}mm, required=#{requiredClearance.toFixed(3)}mm")
+
+                        if minDistance < requiredClearance
+                            hasInsufficientSpacing = true
+                            if layerIndex is 0 and verbose
+                                console.log("  -> Insufficient spacing detected, skipping inner walls")
+                            break
+
+                    # If insufficient spacing detected, stop generating walls for this path.
+                    if hasInsufficientSpacing
+                        break
 
                 # Only use combing for the FIRST wall of this path (to travel from previous path).
                 # For subsequent walls within the same path, pass null to prevent combing.
@@ -340,9 +393,38 @@ module.exports =
                 skinWallInset = nozzleDiameter
                 skinWallPath = helpers.createInsetPath(currentPath, skinWallInset, pathIsHole[pathIndex])
 
-                if skinWallPath.length >= 3
+                # Skip if skin wall path is degenerate (insufficient space).
+                continue if skinWallPath.length < 3
 
-                    holeSkinWalls.push(skinWallPath)
+                # Check minimum distance to other outer walls to ensure sufficient spacing for skin walls.
+                # This prevents generating skin walls when the gap is too small.
+                hasInsufficientSpacing = false
+
+                for otherPathIndex in [0...paths.length]
+
+                    # Skip checking against itself.
+                    continue if otherPathIndex is pathIndex
+
+                    # Get the outer wall of the other path from our comprehensive lookup.
+                    otherOuterWall = allOuterWalls[otherPathIndex]
+
+                    continue if not otherOuterWall or otherOuterWall.length < 3
+
+                    # Calculate minimum distance between this skin wall and the other outer wall.
+                    minDistance = helpers.calculateMinimumDistanceBetweenPaths(skinWallPath, otherOuterWall)
+
+                    # We need at least one nozzle diameter of clearance for a skin wall to fit.
+                    # Use a small tolerance factor (0.95) to account for floating-point precision.
+                    requiredClearance = nozzleDiameter * 0.95
+
+                    if minDistance < requiredClearance
+                        hasInsufficientSpacing = true
+                        break
+
+                # Skip skin wall generation if insufficient spacing detected.
+                continue if hasInsufficientSpacing
+
+                holeSkinWalls.push(skinWallPath)
 
                 # For combing, exclude the current hole (destination).
                 # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.

@@ -1762,3 +1762,42 @@ module.exports =
                 return true
         
         return false
+
+    # Calculate the minimum distance between two closed paths.
+    # This is useful for determining if there is enough space between walls.
+    # Returns the minimum distance found, or a large number if paths are far apart.
+    calculateMinimumDistanceBetweenPaths: (path1, path2) ->
+
+        return Infinity if path1.length < 3 or path2.length < 3
+
+        minDistance = Infinity
+
+        # Check distance from each point in path1 to each edge in path2.
+        for point in path1
+
+            for i in [0...path2.length]
+
+                nextIdx = if i is path2.length - 1 then 0 else i + 1
+
+                segStart = path2[i]
+                segEnd = path2[nextIdx]
+
+                distance = @distanceFromPointToLineSegment(point.x, point.y, segStart, segEnd)
+
+                minDistance = Math.min(minDistance, distance)
+
+        # Check distance from each point in path2 to each edge in path1.
+        for point in path2
+
+            for i in [0...path1.length]
+
+                nextIdx = if i is path1.length - 1 then 0 else i + 1
+
+                segStart = path1[i]
+                segEnd = path1[nextIdx]
+
+                distance = @distanceFromPointToLineSegment(point.x, point.y, segStart, segEnd)
+
+                minDistance = Math.min(minDistance, distance)
+
+        return minDistance
