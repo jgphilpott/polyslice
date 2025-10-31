@@ -597,6 +597,7 @@ module.exports =
             needsSkin = false
             skinAreas = [] # Will store only the exposed portions of currentPath
             isAbsoluteTopOrBottom = false # Track if this is absolute top/bottom layer
+            skinSuppressedDueToSpacing = false # Track if skin was suppressed due to insufficient spacing
 
             # Always generate skin for the absolute top and bottom layers.
             if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
@@ -610,6 +611,7 @@ module.exports =
                 else
                     needsSkin = false
                     skinAreas = []
+                    skinSuppressedDueToSpacing = true # Mark that spacing is the reason
 
             else
 
@@ -751,7 +753,9 @@ module.exports =
             else
 
                 # No skin needed - generate normal sparse infill only.
-                if infillDensity > 0 and infillBoundary.length >= 3
+                # However, if skin was suppressed due to insufficient spacing, also skip infill
+                # because the area is too narrow for proper material deposition.
+                if infillDensity > 0 and infillBoundary.length >= 3 and not skinSuppressedDueToSpacing
 
                     # Use the original currentPath for infill to keep coverage consistent,
                     # but require that an inset path exists as a guard to ensure there is room inside.
