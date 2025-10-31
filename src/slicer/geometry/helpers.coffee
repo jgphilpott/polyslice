@@ -184,6 +184,7 @@ module.exports =
         # 1. Uniform edge lengths (low standard deviation relative to average)
         # 2. Many small edges (indicating tessellation of a curve)
         # 3. Gradual angle changes (no sharp corners)
+        # 4. High point density relative to perimeter (for irregular tessellation like sphere poles)
         # Note: edgeLengths.length counts only non-degenerate edges (length > EPSILON),
         # which is appropriate since degenerate edges don't contribute to curve detection.
         isSmoothCurve = false
@@ -197,58 +198,95 @@ module.exports =
             # Check if max angle change is gradual.
             hasGradualAngles = maxAngleChange < MAX_GRADUAL_ANGLE
 
+            # Primary detection: uniform edges and gradual angles (perfect circles).
             if edgeLengthCV < MAX_CV_FOR_UNIFORM and hasGradualAngles
                 isSmoothCurve = true
+            
+            # Secondary detection: high point density relative to perimeter.
+            # This catches irregular tessellations like sphere poles where edge lengths vary
+            # but the overall shape is still a circle. For a circle, the ratio of points to
+            # perimeter (in mm) should be high. A rough threshold: > 2 points per mm of perimeter.
+            # This identifies closed curved paths even with non-uniform tessellation.
+            else
+                perimeter = totalEdgeLength
+                pointDensity = if perimeter > 0 then edgeLengths.length / perimeter else 0
+                
+                # Calculate average angle change (not just max) for better curve detection.
+                sum = 0
+                for angle in angleChanges
+                    sum += angle
+                avgAngleChange = if angleChanges.length > 0 then sum / angleChanges.length else 0
+                
+                # Detect curves with high point density and moderate average angles.
+                # Point density > 2 points/mm indicates fine tessellation.
+                # Average angle < 0.25 rad (~14°) indicates mostly smooth transitions.
+                if pointDensity > 2 and avgAngleChange < 0.25
+                    isSmoothCurve = true
 
         # Step 2: Simplify the path by detecting significant corners only.
         # For smooth curves, use a much smaller angle threshold to preserve smoothness.
         # For angular shapes, use a larger threshold to remove near-collinear points.
+        # For curves detected via secondary heuristics (irregular tessellation), skip simplification entirely.
         simplifiedPath = []
 
-        if isSmoothCurve
-            angleThreshold = SMOOTH_CURVE_THRESHOLD
-        else
-            angleThreshold = ANGULAR_SHAPE_THRESHOLD
+        # Check if this was detected as smooth via secondary heuristics (irregular tessellation).
+        # If so, skip simplification to preserve all points.
+        if isSmoothCurve and edgeLengths.length > MIN_CURVE_POINTS
+            edgeLengthCV = if avgEdgeLength > 0 then edgeLengthStdDev / avgEdgeLength else MAX_CV_FALLBACK
+            hasGradualAngles = maxAngleChange < MAX_GRADUAL_ANGLE
+            
+            # If detected via secondary heuristics (not primary), skip simplification.
+            if not (edgeLengthCV < MAX_CV_FOR_UNIFORM and hasGradualAngles)
+                simplifiedPath = path
+        
+        # If we didn't skip simplification above, proceed with normal simplification.
+        if simplifiedPath.length is 0
+            if isSmoothCurve
+                angleThreshold = SMOOTH_CURVE_THRESHOLD
+            else
+                angleThreshold = ANGULAR_SHAPE_THRESHOLD
 
-        for i in [0...n]
+        # Only run simplification if we didn't already copy the path.
+        if simplifiedPath.length is 0
+            for i in [0...n]
 
-            prevIdx = if i is 0 then n - 1 else i - 1
-            nextIdx = if i is n - 1 then 0 else i + 1
+                prevIdx = if i is 0 then n - 1 else i - 1
+                nextIdx = if i is n - 1 then 0 else i + 1
 
-            p1 = path[prevIdx]
-            p2 = path[i]
-            p3 = path[nextIdx]
+                p1 = path[prevIdx]
+                p2 = path[i]
+                p3 = path[nextIdx]
 
-            # Calculate vectors for the two edges.
-            v1x = p2.x - p1.x
-            v1y = p2.y - p1.y
-            v2x = p3.x - p2.x
-            v2y = p3.y - p2.y
+                # Calculate vectors for the two edges.
+                v1x = p2.x - p1.x
+                v1y = p2.y - p1.y
+                v2x = p3.x - p2.x
+                v2y = p3.y - p2.y
 
-            len1 = Math.sqrt(v1x * v1x + v1y * v1y)
-            len2 = Math.sqrt(v2x * v2x + v2y * v2y)
+                len1 = Math.sqrt(v1x * v1x + v1y * v1y)
+                len2 = Math.sqrt(v2x * v2x + v2y * v2y)
 
-            # Skip if either edge is degenerate.
-            if len1 < EPSILON or len2 < EPSILON then continue
+                # Skip if either edge is degenerate.
+                if len1 < EPSILON or len2 < EPSILON then continue
 
-            # Normalize vectors.
-            v1x /= len1
-            v1y /= len1
-            v2x /= len2
-            v2y /= len2
+                # Normalize vectors.
+                v1x /= len1
+                v1y /= len1
+                v2x /= len2
+                v2y /= len2
 
-            # Calculate cross product to detect direction change.
-            cross = v1x * v2y - v1y * v2x
+                # Calculate cross product to detect direction change.
+                cross = v1x * v2y - v1y * v2x
 
-            # If direction changes significantly, this is a real corner.
-            if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
+                # If direction changes significantly, this is a real corner.
+                if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
 
-        # For angular shapes, if simplification resulted in < 4 points, use original path.
-        # For smooth curves, allow any number of points >= 3.
-        if not isSmoothCurve and simplifiedPath.length < 4
-            simplifiedPath = path
-        else if simplifiedPath.length < 3
-            simplifiedPath = path
+            # For angular shapes, if simplification resulted in < 4 points, use original path.
+            # For smooth curves, allow any number of points >= 3.
+            if not isSmoothCurve and simplifiedPath.length < 4
+                simplifiedPath = path
+            else if simplifiedPath.length < 3
+                simplifiedPath = path
 
         # Step 2: Create inset using the simplified path.
         insetPath = []
