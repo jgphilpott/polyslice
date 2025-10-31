@@ -239,6 +239,31 @@ module.exports =
             else
                 # Store outer boundary for combing constraint.
                 outerBoundaryPath = path
+        
+        # After collecting all outer walls, identify paths that are too close together.
+        # If outer walls from different paths are closer than one nozzle diameter,
+        # those paths should not generate inner or skin walls to avoid interference.
+        pathsWithInsufficientSpacing = {}  # Track which paths should skip inner/skin walls
+        
+        for pathIndex1 in [0...paths.length]
+            
+            outerWall1 = allOuterWalls[pathIndex1]
+            continue if not outerWall1 or outerWall1.length < 3
+            
+            for pathIndex2 in [pathIndex1+1...paths.length]
+                
+                outerWall2 = allOuterWalls[pathIndex2]
+                continue if not outerWall2 or outerWall2.length < 3
+                
+                # Calculate minimum distance between these two outer walls.
+                minDistance = helpers.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
+                
+                # If the gap between outer walls is less than one nozzle diameter,
+                # mark both paths as having insufficient spacing.
+                # This prevents inner/skin walls from being generated in the narrow gap.
+                if minDistance < nozzleDiameter
+                    pathsWithInsufficientSpacing[pathIndex1] = true
+                    pathsWithInsufficientSpacing[pathIndex2] = true
 
         # Helper function to generate walls for a single path.
         # Returns the innermost wall path.
@@ -275,6 +300,11 @@ module.exports =
                 # This prevents printing walls in incorrect positions when the gap between outer walls
                 # is too small (e.g., first layers of a torus where the tube cross-section is narrow).
                 if wallIndex > 0
+                    
+                    # First, check if this path was flagged as having insufficient spacing.
+                    # If so, skip inner wall generation entirely.
+                    if pathsWithInsufficientSpacing[pathIndex]
+                        break
                     
                     # Check if the next inset would be degenerate (too small to print).
                     # The createInsetPath function already has sophisticated validation.
@@ -340,23 +370,26 @@ module.exports =
                 
                 if skinWallPath.length >= 3
                     
-                    holeSkinWalls.push(skinWallPath)
-                    
-                    # For combing, exclude the current hole (destination).
-                    # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
-                    if pathToHoleIndex[pathIndex]?
-                        currentHoleIdx = pathToHoleIndex[pathIndex]
-                        skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
-                    else
-                        skinCombingHoleWalls = holeOuterWalls
-                    
-                    # Generate skin wall for the hole (outward inset).
-                    # Pass generateInfill=false to skip infill (only walls).
-                    # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls)
-                    
-                    # Update lastPathEndPoint with skin wall end position.
-                    lastPathEndPoint = skinEndPoint if skinEndPoint?
+                    # Check if this path was flagged as having insufficient spacing.
+                    # If so, skip skin wall generation as well.
+                    if not pathsWithInsufficientSpacing[pathIndex]
+                        holeSkinWalls.push(skinWallPath)
+                        
+                        # For combing, exclude the current hole (destination).
+                        # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
+                        if pathToHoleIndex[pathIndex]?
+                            currentHoleIdx = pathToHoleIndex[pathIndex]
+                            skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                        else
+                            skinCombingHoleWalls = holeOuterWalls
+                        
+                        # Generate skin wall for the hole (outward inset).
+                        # Pass generateInfill=false to skip infill (only walls).
+                        # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
+                        skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls)
+                        
+                        # Update lastPathEndPoint with skin wall end position.
+                        lastPathEndPoint = skinEndPoint if skinEndPoint?
             
             return currentPath
         
