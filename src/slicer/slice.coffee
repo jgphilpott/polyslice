@@ -238,7 +238,8 @@ module.exports =
 
         # Helper function to generate walls for a single path.
         # Returns the innermost wall path.
-        generateWallsForPath = (path, pathIndex, isHole) =>
+        # If generateSkinWalls is true and this is a hole, also generates skin walls immediately after regular walls.
+        generateWallsForPath = (path, pathIndex, isHole, generateSkinWalls = false) =>
             
             # Skip degenerate paths.
             return null if path.length < 3
@@ -310,6 +311,35 @@ module.exports =
                 
                 holeInnerWalls.push(currentPath)
             
+            # If this is a hole on a skin layer, generate skin walls immediately after regular walls.
+            # This is more efficient than making a separate pass later.
+            if isHole and generateSkinWalls and currentPath and currentPath.length >= 3
+                
+                # Calculate the skin wall path for this hole.
+                # This is an inset of full nozzle diameter from the innermost wall.
+                skinWallInset = nozzleDiameter
+                skinWallPath = helpers.createInsetPath(currentPath, skinWallInset, isHole)
+                
+                if skinWallPath.length >= 3
+                    
+                    holeSkinWalls.push(skinWallPath)
+                    
+                    # For combing, exclude the current hole (destination).
+                    # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
+                    if pathToHoleIndex[pathIndex]?
+                        currentHoleIdx = pathToHoleIndex[pathIndex]
+                        skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                    else
+                        skinCombingHoleWalls = holeOuterWalls
+                    
+                    # Generate skin wall for the hole (outward inset).
+                    # Pass generateInfill=false to skip infill (only walls).
+                    # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls)
+                    
+                    # Update lastPathEndPoint with skin wall end position.
+                    lastPathEndPoint = skinEndPoint if skinEndPoint?
+            
             return currentPath
         
         # Helper function to calculate centroid of a path.
@@ -356,11 +386,15 @@ module.exports =
             else
                 outerBoundaryIndices.push(pathIndex)
         
+        # Determine if this layer needs skin.
+        # This is used to decide whether to generate skin walls for holes during wall generation.
+        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+        
         # Process outer boundaries first (non-hole paths).
         for pathIndex in outerBoundaryIndices
             
             path = paths[pathIndex]
-            innermostWall = generateWallsForPath(path, pathIndex, false)
+            innermostWall = generateWallsForPath(path, pathIndex, false, false)
             innermostWalls[pathIndex] = innermostWall
         
         # Sort holes by nearest neighbor to minimize travel distance.
@@ -405,54 +439,13 @@ module.exports =
                 remainingHoleIndices.shift()
         
         # Process holes in sorted order (nearest neighbor).
+        # If this is a skin layer, skin walls are generated immediately after regular walls for each hole.
+        # This is more efficient than making a separate pass (avoids traversing the geometry twice).
         for pathIndex in sortedHoleIndices
             
             path = paths[pathIndex]
-            innermostWall = generateWallsForPath(path, pathIndex, true)
+            innermostWall = generateWallsForPath(path, pathIndex, true, layerNeedsSkin)
             innermostWalls[pathIndex] = innermostWall
-
-        # Determine if this layer needs skin (before Phase 2).
-        # This is used to decide whether to generate hole skin walls.
-        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
-
-        # If layer needs skin, generate hole skin walls for clipping.
-        if layerNeedsSkin
-            
-            # Track position for combing between hole skin walls.
-            lastHoleSkinEndPoint = lastPathEndPoint  # Start from where regular walls ended
-            
-            for path, pathIndex in paths
-
-                continue unless pathIsHole[pathIndex]
-
-                currentPath = innermostWalls[pathIndex]
-
-                continue unless currentPath and currentPath.length >= 3
-
-                # Calculate the skin wall path for this hole.
-                # This is an inset of full nozzle diameter from the innermost wall.
-                skinWallInset = nozzleDiameter
-                skinWallPath = helpers.createInsetPath(currentPath, skinWallInset, pathIsHole[pathIndex])
-
-                if skinWallPath.length >= 3
-
-                    holeSkinWalls.push(skinWallPath)
-
-                # For combing, exclude the current hole (destination).
-                # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
-                if pathToHoleIndex[pathIndex]?
-                    currentHoleIdx = pathToHoleIndex[pathIndex]
-                    skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
-                else
-                    skinCombingHoleWalls = holeOuterWalls
-
-                # Generate skin wall for the hole (outward inset).
-                # Pass generateInfill=false to skip infill (only walls).
-                # Pass lastHoleSkinEndPoint for combing between hole skin walls.
-                skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastHoleSkinEndPoint, pathIsHole[pathIndex], false, [], skinCombingHoleWalls)
-                
-                # Update position tracker for next hole skin wall.
-                lastHoleSkinEndPoint = skinEndPoint if skinEndPoint?
 
         # Phase 2: Generate infill and skin.
         # Now that all hole boundaries have been collected, we can generate infill
