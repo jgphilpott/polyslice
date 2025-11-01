@@ -14,7 +14,7 @@ const { Polyslice, Printer, Filament } = require("../../src/index");
 const fs = require("fs");
 const path = require("path");
 const THREE = require("three");
-const { Brush, Evaluator, SUBTRACTION } = require("three-bvh-csg");
+const { Polytree } = require("@jgphilpott/polytree");
 
 // Export a mesh as an STL (binary) using three's STLExporter (ESM-only)
 async function exportMeshAsSTL(object, outPath) {
@@ -68,30 +68,27 @@ const stlPath = path.join(__dirname, "..", "..", "resources", "support", "block.
  * Box is centered at origin; cylinder axis along X (flat), offset +Y by half height to form a semi-circle cut.
  * Final mesh is lifted so the bottom sits on Z=0 for printing.
  */
-function createArchMesh(width = ARCH_WIDTH, height = ARCH_HEIGHT, thickness = ARCH_THICKNESS, radius = ARCH_RADIUS) {
+async function createArchMesh(width = ARCH_WIDTH, height = ARCH_HEIGHT, thickness = ARCH_THICKNESS, radius = ARCH_RADIUS) {
 
     // Base box
     const boxGeo = new THREE.BoxGeometry(width, height, thickness);
-    const boxBrush = new Brush(boxGeo);
-    boxBrush.updateMatrixWorld();
+    const boxMesh = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial());
 
     // Cylinder lying flat along X: default cylinder axis is Y, rotate about Z by 90° -> axis becomes X
     const cylLength = width * 1.25; // ensure it spans the box width
     const cylGeo = new THREE.CylinderGeometry(radius, radius, cylLength, 48);
-    const cylBrush = new Brush(cylGeo);
-    cylBrush.position.z = -height
-    cylBrush.updateMatrixWorld();
+    const cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshBasicMaterial());
+    cylMesh.position.z = -height
+    cylMesh.updateMatrixWorld();
 
-    // Subtract cylinder from box to form arch opening
-    const evalCSG = new Evaluator();
-    const resultBrush = evalCSG.evaluate(boxBrush, cylBrush, SUBTRACTION);
+    // Subtract cylinder from box to form arch opening using Polytree
+    const resultMesh = await Polytree.subtract(boxMesh, cylMesh);
 
-    // Create mesh and place on build plate
-    const mat = new THREE.MeshBasicMaterial();
-    const archMesh = new THREE.Mesh(resultBrush.geometry, mat);
-    archMesh.position.set(0, 0, thickness / 2);
-    archMesh.updateMatrixWorld();
-    return archMesh;
+    // Wrap in a new THREE.Mesh to ensure full compatibility with three.js tools.
+    const finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material);
+    finalMesh.position.set(0, 0, thickness / 2);
+    finalMesh.updateMatrixWorld();
+    return finalMesh;
 }
 
 // Main async function to create or load the model and slice
@@ -119,7 +116,7 @@ async function main() {
         }
     } else {
         console.log("Building CSG arch (box minus cylinder) ...\n");
-        mesh = createArchMesh();
+        mesh = await createArchMesh();
         // Simple inspection
         const pos = mesh.geometry.attributes.position;
         console.log("✅ Arch mesh created via CSG");

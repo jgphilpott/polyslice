@@ -6,7 +6,7 @@
 
 const { Polyslice, Printer, Filament } = require('../../src/index');
 const THREE = require('three');
-const { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg');
+const { Polytree } = require('@jgphilpott/polytree');
 const path = require('path');
 const fs = require('fs');
 
@@ -43,18 +43,12 @@ const meshesDir = outputDir; // write STL next to G-code (same filenames, .stl)
  * @param {number} thickness - Thickness of the sheet in millimeters.
  * @param {number} holeRadius - Radius of each hole in millimeters.
  * @param {number} gridSize - Size of the hole grid (e.g., 2 for 2x2, 3 for 3x3).
- * @returns {THREE.Mesh} The sheet mesh with holes positioned at the build plate.
+ * @returns {Promise<THREE.Mesh>} The sheet mesh with holes positioned at the build plate.
  */
-function createSheetWithHoles(width = 50, height = 50, thickness = 5, holeRadius = 3, gridSize = 1) {
+async function createSheetWithHoles(width = 50, height = 50, thickness = 5, holeRadius = 3, gridSize = 1) {
   // Create the base sheet geometry.
   const sheetGeometry = new THREE.BoxGeometry(width, height, thickness);
-
-  // Convert sheet to CSG brush.
-  const sheetBrush = new Brush(sheetGeometry);
-  sheetBrush.updateMatrixWorld();
-
-  // Create CSG evaluator.
-  const csgEvaluator = new Evaluator();
+  const sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial());
 
   // Calculate spacing between holes.
   const spacing = Math.min(width, height) / (gridSize + 1);
@@ -64,7 +58,7 @@ function createSheetWithHoles(width = 50, height = 50, thickness = 5, holeRadius
   const offsetY = -height / 2 + spacing;
 
   // Create hole cylinders and subtract them from the sheet.
-  let resultBrush = sheetBrush;
+  let resultMesh = sheetMesh;
 
   for (let row = 0; row < gridSize; row++) {
     for (let col = 0; col < gridSize; col++) {
@@ -81,20 +75,18 @@ function createSheetWithHoles(width = 50, height = 50, thickness = 5, holeRadius
       );
 
       // Rotate cylinder to align with Z-axis (sheets are in XY plane).
-      const holeMesh = new Brush(holeGeometry);
+      const holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshBasicMaterial());
       holeMesh.rotation.x = Math.PI / 2;
       holeMesh.position.set(x, y, 0);
       holeMesh.updateMatrixWorld();
 
-      // Subtract hole from sheet.
-      resultBrush = csgEvaluator.evaluate(resultBrush, holeMesh, SUBTRACTION);
+      // Subtract hole from sheet using Polytree.
+      resultMesh = await Polytree.subtract(resultMesh, holeMesh);
     }
   }
 
-  // Create final mesh from CSG result.
-  const finalMesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial());
-
-  // Position sheet so bottom is at Z=0.
+  // Wrap in a new THREE.Mesh to ensure full compatibility with three.js tools.
+  const finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material);
   finalMesh.position.set(0, 0, thickness / 2);
   finalMesh.updateMatrixWorld();
 
@@ -218,7 +210,7 @@ console.log('='.repeat(90));
 
     try {
       // Create sheet with holes.
-      const mesh = createSheetWithHoles(sheetWidth, sheetHeight, sheetThickness, holeRadius, gridSize);
+      const mesh = await createSheetWithHoles(sheetWidth, sheetHeight, sheetThickness, holeRadius, gridSize);
 
       // Optionally export STL before slicing.
       if (exportSTL) {
