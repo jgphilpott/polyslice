@@ -78,7 +78,7 @@ async function createArchMesh(width = ARCH_WIDTH, height = ARCH_HEIGHT, thicknes
     const cylLength = width * 1.25; // ensure it spans the box width
     const cylGeo = new THREE.CylinderGeometry(radius, radius, cylLength, 48);
     const cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshBasicMaterial());
-    cylMesh.position.z = -height
+    cylMesh.position.z = -height;
     cylMesh.updateMatrixWorld();
 
     // Subtract cylinder from box to form arch opening using Polytree
