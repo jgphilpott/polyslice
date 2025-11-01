@@ -11,7 +11,7 @@ const { Polyslice, Printer, Filament } = require("../../src/index");
 const fs = require("fs");
 const path = require("path");
 const THREE = require("three");
-const { Brush, Evaluator, SUBTRACTION } = require("three-bvh-csg");
+const { Polytree } = require("@jgphilpott/polytree");
 
 // Export a mesh as an STL (binary) using three's STLExporter (ESM-only)
 async function exportMeshAsSTL(object, outPath) {
@@ -59,7 +59,7 @@ const DOME_RADIUS = 10;      // Radius of hemispherical cut (mm)
  * Box is centered at origin before we raise it; the sphere center is placed at Z=+thickness/2.
  * After CSG, we lift the final mesh so Z=0 is the build plate.
  */
-function createDomeMesh(width = DOME_WIDTH, depth = DOME_DEPTH, thickness = DOME_THICKNESS, radius = DOME_RADIUS) {
+async function createDomeMesh(width = DOME_WIDTH, depth = DOME_DEPTH, thickness = DOME_THICKNESS, radius = DOME_RADIUS) {
   // Clamp radius to fit within the box and look reasonable
   const maxRadiusXY = Math.min(width, depth) * 0.49;
   const maxRadiusZ = thickness; // hemisphere must fit within thickness to avoid a bottom hole
@@ -67,32 +67,29 @@ function createDomeMesh(width = DOME_WIDTH, depth = DOME_DEPTH, thickness = DOME
 
   // Base box
   const boxGeo = new THREE.BoxGeometry(width, depth, thickness);
-  const boxBrush = new Brush(boxGeo);
-  boxBrush.updateMatrixWorld();
+  const boxMesh = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial());
 
   // Sphere for dome cavity (high segment counts for smoothness)
   const sphereGeo = new THREE.SphereGeometry(r, 64, 48);
-  const sphereBrush = new Brush(sphereGeo);
+  const sphereMesh = new THREE.Mesh(sphereGeo, new THREE.MeshBasicMaterial());
   // Place the sphere center on the top face plane so the lower hemisphere carves a dome
-  sphereBrush.position.set(0, 0, -(thickness / 2));
-  sphereBrush.updateMatrixWorld();
+  sphereMesh.position.set(0, 0, -(thickness / 2));
+  sphereMesh.updateMatrixWorld();
 
-  // Subtract sphere from box to form the dome cavity
-  const evalCSG = new Evaluator();
-  const resultBrush = evalCSG.evaluate(boxBrush, sphereBrush, SUBTRACTION);
+  // Subtract sphere from box to form the dome cavity using Polytree
+  const resultMesh = await Polytree.subtract(boxMesh, sphereMesh);
 
-  // Create mesh and place on build plate
-  const mat = new THREE.MeshBasicMaterial();
-  const domeMesh = new THREE.Mesh(resultBrush.geometry, mat);
-  domeMesh.position.set(0, 0, thickness / 2);
-  domeMesh.updateMatrixWorld();
-  return domeMesh;
+  // Wrap in a new THREE.Mesh to ensure full compatibility with three.js tools.
+  const finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material);
+  finalMesh.position.set(0, 0, thickness / 2);
+  finalMesh.updateMatrixWorld();
+  return finalMesh;
 }
 
 // Main async function to create the model and slice
 async function main() {
   console.log("Building CSG dome (box minus hemispherical cut) ...\n");
-  const mesh = createDomeMesh();
+  const mesh = await createDomeMesh();
 
   // Inspect geometry briefly
   const pos = mesh.geometry.attributes.position;
