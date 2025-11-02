@@ -1642,3 +1642,211 @@ describe 'Travel Path Optimization', ->
             # The minimum distance should be 0.3mm.
             expect(result).toBeCloseTo(0.3, 2)
 
+    describe 'calculatePolygonArea', ->
+
+        test 'should calculate area of a square', ->
+
+            # 10mm x 10mm square.
+            square = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            area = helpers.calculatePolygonArea(square)
+
+            # Area should be 100.
+            expect(area).toBeCloseTo(100, 1)
+
+        test 'should calculate area of a triangle', ->
+
+            # Right triangle with base 4 and height 3.
+            triangle = [
+                { x: 0, y: 0 }
+                { x: 4, y: 0 }
+                { x: 0, y: 3 }
+            ]
+
+            area = helpers.calculatePolygonArea(triangle)
+
+            # Area should be 6 (0.5 * base * height).
+            expect(area).toBeCloseTo(6, 1)
+
+        test 'should return 0 for degenerate polygon', ->
+
+            # Less than 3 points.
+            line = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+            ]
+
+            area = helpers.calculatePolygonArea(line)
+
+            expect(area).toBe(0)
+
+    describe 'calculateExposedAreasPolygonBased', ->
+
+        test 'should return entire region when no covering regions exist', ->
+
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            exposedAreas = helpers.calculateExposedAreasPolygonBased(testRegion, [])
+
+            # Should return the entire test region.
+            expect(exposedAreas.length).toBe(1)
+            expect(exposedAreas[0].length).toBe(4)
+
+        test 'should return empty when completely covered', ->
+
+            # 10x10 test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Completely covering region.
+            coveringRegions = [[
+                { x: -1, y: -1 }
+                { x: 11, y: -1 }
+                { x: 11, y: 11 }
+                { x: -1, y: 11 }
+            ]]
+
+            exposedAreas = helpers.calculateExposedAreasPolygonBased(testRegion, coveringRegions)
+
+            # Should return empty (fully covered).
+            expect(exposedAreas.length).toBe(0)
+
+        test 'should detect partially exposed region', ->
+
+            # 10x10 test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Covering region that only covers left half.
+            coveringRegions = [[
+                { x: 0, y: 0 }
+                { x: 5, y: 0 }
+                { x: 5, y: 10 }
+                { x: 0, y: 10 }
+            ]]
+
+            exposedAreas = helpers.calculateExposedAreasPolygonBased(testRegion, coveringRegions)
+
+            # Should have exposed area on the right side.
+            expect(exposedAreas.length).toBeGreaterThan(0)
+
+            # Calculate total exposed area.
+            totalExposedArea = 0
+
+            for area in exposedAreas
+
+                totalExposedArea += helpers.calculatePolygonArea(area)
+
+            # Right half should be exposed (approximately 50 square units).
+            expect(totalExposedArea).toBeCloseTo(50, 1)
+
+    describe 'calculateRegionCoveragePolygonBased', ->
+
+        test 'should return 0 when no covering regions exist', ->
+
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            coverage = helpers.calculateRegionCoveragePolygonBased(testRegion, [])
+
+            expect(coverage).toBe(0)
+
+        test 'should return 1.0 when completely covered', ->
+
+            # 10x10 test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Completely covering region.
+            coveringRegions = [[
+                { x: -1, y: -1 }
+                { x: 11, y: -1 }
+                { x: 11, y: 11 }
+                { x: -1, y: 11 }
+            ]]
+
+            coverage = helpers.calculateRegionCoveragePolygonBased(testRegion, coveringRegions)
+
+            # Should be fully covered (1.0).
+            expect(coverage).toBeCloseTo(1.0, 2)
+
+        test 'should calculate partial coverage correctly', ->
+
+            # 10x10 test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Covering region that only covers left half.
+            coveringRegions = [[
+                { x: 0, y: 0 }
+                { x: 5, y: 0 }
+                { x: 5, y: 10 }
+                { x: 0, y: 10 }
+            ]]
+
+            coverage = helpers.calculateRegionCoveragePolygonBased(testRegion, coveringRegions)
+
+            # Should be 50% covered.
+            expect(coverage).toBeCloseTo(0.5, 2)
+
+        test 'should handle multiple covering regions', ->
+
+            # 10x10 test region.
+            testRegion = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Two regions covering left and right quarters.
+            coveringRegions = [
+                [
+                    { x: 0, y: 0 }
+                    { x: 2.5, y: 0 }
+                    { x: 2.5, y: 10 }
+                    { x: 0, y: 10 }
+                ],
+                [
+                    { x: 7.5, y: 0 }
+                    { x: 10, y: 0 }
+                    { x: 10, y: 10 }
+                    { x: 7.5, y: 10 }
+                ]
+            ]
+
+            coverage = helpers.calculateRegionCoveragePolygonBased(testRegion, coveringRegions)
+
+            # Should be 50% covered (25% + 25%).
+            expect(coverage).toBeCloseTo(0.5, 2)
+

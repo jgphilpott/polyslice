@@ -1801,3 +1801,216 @@ module.exports =
                 minDistance = Math.min(minDistance, distance)
 
         return minDistance
+
+    # Calculate the area of a polygon using the shoelace formula.
+    # Returns absolute area (always positive).
+    calculatePolygonArea: (path) ->
+
+        return 0 if not path or path.length < 3
+
+        signedArea = 0
+
+        for i in [0...path.length]
+
+            nextIdx = if i is path.length - 1 then 0 else i + 1
+
+            signedArea += path[i].x * path[nextIdx].y - path[nextIdx].x * path[i].y
+
+        # Return absolute area.
+        return Math.abs(signedArea / 2)
+
+    # Convert a path (array of {x, y} points) to polygon-clipping format.
+    # polygon-clipping uses format: [[[x, y], [x, y], ...]]
+    pathToPolygonClippingFormat: (path) ->
+
+        return null if not path or path.length < 3
+
+        # Convert points to [x, y] array format.
+        coordinates = []
+
+        for point in path
+
+            coordinates.push([point.x, point.y])
+
+        # Close the polygon if not already closed.
+        firstPoint = coordinates[0]
+        lastPoint = coordinates[coordinates.length - 1]
+
+        if firstPoint[0] isnt lastPoint[0] or firstPoint[1] isnt lastPoint[1]
+
+            coordinates.push([firstPoint[0], firstPoint[1]])
+
+        # Return in polygon-clipping format (polygon with one ring, no holes).
+        return [coordinates]
+
+    # Convert polygon-clipping format back to path format.
+    polygonClippingFormatToPath: (polygonData) ->
+
+        return [] if not polygonData or polygonData.length is 0
+
+        # polygon-clipping returns MultiPolygon format: [polygon1, polygon2, ...]
+        # Each polygon is: [outerRing, hole1, hole2, ...]
+        # We'll extract just the outer rings for now.
+        paths = []
+
+        for polygon in polygonData
+
+            continue if not polygon or polygon.length is 0
+
+            # Get outer ring (first ring of each polygon).
+            outerRing = polygon[0]
+
+            continue if not outerRing or outerRing.length < 3
+
+            # Convert to path format.
+            path = []
+
+            for coord in outerRing
+
+                path.push({ x: coord[0], y: coord[1] })
+
+            # Remove duplicate closing point if present.
+            if path.length > 1
+
+                firstPoint = path[0]
+                lastPoint = path[path.length - 1]
+
+                if firstPoint.x is lastPoint.x and firstPoint.y is lastPoint.y
+
+                    path.pop()
+
+            paths.push(path) if path.length >= 3
+
+        return paths
+
+    # Calculate exposed areas using polygon difference operation.
+    # This is the Cura-style polygon-based approach.
+    # Returns array of paths representing exposed (uncovered) regions.
+    calculateExposedAreasPolygonBased: (testRegion, coveringRegions) ->
+
+        return [testRegion] if not coveringRegions or coveringRegions.length is 0
+        return [] if not testRegion or testRegion.length < 3
+
+        # Import polygon-clipping library.
+        polygonClipping = require('polygon-clipping')
+
+        # Convert test region to polygon-clipping format.
+        testPolygon = @pathToPolygonClippingFormat(testRegion)
+
+        return [testRegion] if not testPolygon
+
+        # Start with the full test region.
+        exposedPolygon = testPolygon
+
+        # Subtract each covering region from the exposed area.
+        for coveringRegion in coveringRegions
+
+            continue if not coveringRegion or coveringRegion.length < 3
+
+            coveringPolygon = @pathToPolygonClippingFormat(coveringRegion)
+
+            continue if not coveringPolygon
+
+            # Calculate difference: exposedPolygon - coveringPolygon
+            # This removes the covered area from the exposed area.
+            try
+
+                exposedPolygon = polygonClipping.difference(exposedPolygon, coveringPolygon)
+
+            catch error
+
+                # If polygon operation fails, log and continue.
+                console.warn("Polygon difference operation failed:", error.message)
+
+                continue
+
+            # If nothing left exposed, return empty.
+            break if not exposedPolygon or exposedPolygon.length is 0
+
+        # Convert result back to path format.
+        return [] if not exposedPolygon or exposedPolygon.length is 0
+
+        exposedPaths = @polygonClippingFormatToPath(exposedPolygon)
+
+        return exposedPaths
+
+    # Calculate region coverage using polygon intersection.
+    # Returns coverage ratio (0.0 to 1.0).
+    calculateRegionCoveragePolygonBased: (testRegion, coveringRegions) ->
+
+        return 0 if not testRegion or testRegion.length < 3
+        return 0 if not coveringRegions or coveringRegions.length is 0
+
+        # Import polygon-clipping library.
+        polygonClipping = require('polygon-clipping')
+
+        # Convert test region to polygon-clipping format.
+        testPolygon = @pathToPolygonClippingFormat(testRegion)
+
+        return 0 if not testPolygon
+
+        # Calculate area of test region.
+        testArea = @calculatePolygonArea(testRegion)
+
+        return 0 if testArea <= 0
+
+        # Union all covering regions together first.
+        coveringUnion = null
+
+        for coveringRegion in coveringRegions
+
+            continue if not coveringRegion or coveringRegion.length < 3
+
+            coveringPolygon = @pathToPolygonClippingFormat(coveringRegion)
+
+            continue if not coveringPolygon
+
+            try
+
+                if not coveringUnion
+
+                    coveringUnion = coveringPolygon
+
+                else
+
+                    coveringUnion = polygonClipping.union(coveringUnion, coveringPolygon)
+
+            catch error
+
+                console.warn("Polygon union operation failed:", error.message)
+
+                continue
+
+        # If no valid covering regions, coverage is 0.
+        return 0 if not coveringUnion or coveringUnion.length is 0
+
+        # Calculate intersection between test region and covering union.
+        try
+
+            intersection = polygonClipping.intersection(testPolygon, coveringUnion)
+
+        catch error
+
+            console.warn("Polygon intersection operation failed:", error.message)
+
+            return 0
+
+        # If no intersection, coverage is 0.
+        return 0 if not intersection or intersection.length is 0
+
+        # Calculate area of intersection.
+        intersectionPaths = @polygonClippingFormatToPath(intersection)
+
+        return 0 if intersectionPaths.length is 0
+
+        intersectionArea = 0
+
+        for path in intersectionPaths
+
+            intersectionArea += @calculatePolygonArea(path)
+
+        # Return coverage ratio.
+        coverage = intersectionArea / testArea
+
+        # Clamp to [0, 1] to handle floating point errors.
+        return Math.max(0, Math.min(1, coverage))
