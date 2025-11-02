@@ -1767,12 +1767,18 @@ module.exports =
             minY = Math.min(minY, p.y)
             maxY = Math.max(maxY, p.y)
         
-        # Define corners.
+        # Inset corners by 1mm to ensure waypoints stay well inside the outer wall boundary.
+        # The boundary polygon is the original design boundary, but the actual printed outer wall
+        # is inset by half a nozzle diameter (~0.2mm). Adding 1mm inset ensures waypoints are
+        # safely inside even after wall generation.
+        inset = 1.0
+        
+        # Define corners with inset.
         corners = {
-            1: { x: maxX, y: maxY }  # NE
-            2: { x: minX, y: maxY }  # NW
-            3: { x: minX, y: minY }  # SW
-            4: { x: maxX, y: minY }  # SE
+            1: { x: maxX - inset, y: maxY - inset }  # NE
+            2: { x: minX + inset, y: maxY - inset }  # NW
+            3: { x: minX + inset, y: minY + inset }  # SW
+            4: { x: maxX - inset, y: minY + inset }  # SE
         }
         
         # For opposite quadrants, use a corner between them.
