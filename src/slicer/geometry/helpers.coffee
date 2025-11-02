@@ -1550,7 +1550,32 @@ module.exports =
             x: minX + (gx + 0.5) * gridSize
             y: minY + (gy + 0.5) * gridSize
 
-        # Check if grid cell is valid (within boundary and not in hole).
+        # Pre-calculate hole centers and radii to avoid repeated computation.
+        # This optimization improves A* performance significantly for dense hole patterns.
+        holeCentersAndRadii = []
+        margin = 0.5  # Same margin as travelPathCrossesHoles (0.5mm).
+        
+        for hole in holePolygons
+            # Calculate approximate hole center (average of all points).
+            centerX = 0
+            centerY = 0
+            for p in hole
+                centerX += p.x
+                centerY += p.y
+            centerX /= hole.length
+            centerY /= hole.length
+            
+            # Calculate approximate hole radius (average distance from center).
+            totalDist = 0
+            for p in hole
+                dx = p.x - centerX
+                dy = p.y - centerY
+                totalDist += Math.sqrt(dx * dx + dy * dy)
+            avgRadius = totalDist / hole.length
+            
+            holeCentersAndRadii.push({ centerX, centerY, avgRadius, hole })
+
+        # Check if grid cell is valid (within boundary and not in/near hole).
         isValidCell = (gx, gy) =>
             
             point = gridToPoint(gx, gy)
@@ -1559,9 +1584,19 @@ module.exports =
             if boundary? and not @pointInPolygon(point, boundary)
                 return false
 
-            # Check hole constraints.
-            for hole in holePolygons
-                if @pointInPolygon(point, hole)
+            # Check hole constraints using pre-calculated centers and radii.
+            for holeData in holeCentersAndRadii
+                # Check if cell center is inside hole.
+                if @pointInPolygon(point, holeData.hole)
+                    return false
+                
+                # Check if cell is too close to hole boundary.
+                dx = point.x - holeData.centerX
+                dy = point.y - holeData.centerY
+                distToCenter = Math.sqrt(dx * dx + dy * dy)
+                
+                # If cell center is within hole radius + margin, invalid.
+                if distToCenter < holeData.avgRadius + margin
                     return false
 
             return true
@@ -1681,8 +1716,94 @@ module.exports =
                         if not alreadyInOpen
                             openSet.push(neighbor)
 
-        # A* failed to find path - fall back to direct path.
+        # A* failed to find path - try fallback strategy using boundary waypoints.
+        # Instead of returning a direct path that may cross holes, route around the boundary.
+        if boundary? and boundary.length >= 4
+            # Find boundary corners to use as waypoints.
+            # Determine which corners to use based on quadrant.
+            startQuadrant = @getQuadrant(start, boundary)
+            endQuadrant = @getQuadrant(end, boundary)
+            
+            # If start and end are in opposite quadrants, use corner waypoint.
+            if startQuadrant isnt endQuadrant
+                cornerWaypoint = @findBoundaryCorner(startQuadrant, endQuadrant, boundary)
+                if cornerWaypoint?
+                    return [start, cornerWaypoint, end]
+        
+        # Last resort - return direct path.
         return [start, end]
+
+    # Determine which quadrant a point is in relative to boundary center.
+    # Returns: 1 (NE), 2 (NW), 3 (SW), 4 (SE)
+    getQuadrant: (point, boundary) ->
+        
+        # Calculate boundary center.
+        centerX = 0
+        centerY = 0
+        for p in boundary
+            centerX += p.x
+            centerY += p.y
+        centerX /= boundary.length
+        centerY /= boundary.length
+        
+        # Determine quadrant.
+        if point.x >= centerX
+            if point.y >= centerY then 1 else 4  # NE or SE
+        else
+            if point.y >= centerY then 2 else 3  # NW or SW
+
+    # Find an appropriate boundary corner to use as waypoint between quadrants.
+    findBoundaryCorner: (startQuadrant, endQuadrant, boundary) ->
+        
+        # Find min/max coordinates of boundary.
+        minX = Infinity
+        maxX = -Infinity
+        minY = Infinity
+        maxY = -Infinity
+        
+        for p in boundary
+            minX = Math.min(minX, p.x)
+            maxX = Math.max(maxX, p.x)
+            minY = Math.min(minY, p.y)
+            maxY = Math.max(maxY, p.y)
+        
+        # Inset corners by 1mm to ensure waypoints stay well inside the outer wall boundary.
+        # The boundary polygon is the original design boundary, but the actual printed outer wall
+        # is inset by half a nozzle diameter (~0.2mm). Adding 1mm inset ensures waypoints are
+        # safely inside even after wall generation.
+        inset = 1.0
+        
+        # Define corners with inset.
+        corners = {
+            1: { x: maxX - inset, y: maxY - inset }  # NE
+            2: { x: minX + inset, y: maxY - inset }  # NW
+            3: { x: minX + inset, y: minY + inset }  # SW
+            4: { x: maxX - inset, y: minY + inset }  # SE
+        }
+        
+        # For opposite quadrants, use a corner between them.
+        # E.g., from SE (4) to NW (2), use either NE (1) or SW (3).
+        if startQuadrant is 1 and endQuadrant is 3  # NE to SW
+            return corners[2]  # Go via NW
+        if startQuadrant is 3 and endQuadrant is 1  # SW to NE
+            return corners[4]  # Go via SE
+        if startQuadrant is 2 and endQuadrant is 4  # NW to SE
+            return corners[1]  # Go via NE
+        if startQuadrant is 4 and endQuadrant is 2  # SE to NW
+            return corners[3]  # Go via SW
+        
+        # For adjacent quadrants, use the corner between them.
+        if (startQuadrant is 1 and endQuadrant is 2) or (startQuadrant is 2 and endQuadrant is 1)
+            return corners[2]  # Between NE and NW
+        if (startQuadrant is 2 and endQuadrant is 3) or (startQuadrant is 3 and endQuadrant is 2)
+            return corners[3]  # Between NW and SW
+        if (startQuadrant is 3 and endQuadrant is 4) or (startQuadrant is 4 and endQuadrant is 3)
+            return corners[4]  # Between SW and SE
+        if (startQuadrant is 4 and endQuadrant is 1) or (startQuadrant is 1 and endQuadrant is 4)
+            return corners[1]  # Between SE and NE
+        
+        # Same quadrant - no corner needed.
+        return null
 
     # Manhattan distance heuristic for A*.
     manhattanDistance: (x1, y1, x2, y2) ->

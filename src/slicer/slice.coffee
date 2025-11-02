@@ -315,9 +315,9 @@ module.exports =
                         # No room for inner walls - stop generating walls for this path.
                         break
                 
-                # Only use combing for the FIRST wall of this path (to travel from previous path).
-                # For subsequent walls within the same path, pass null to prevent combing.
-                combingStartPoint = if wallIndex is 0 then lastPathEndPoint else null
+                # Use combing for all walls to avoid crossing holes, even between concentric walls.
+                # The lastPathEndPoint is updated after each wall, so it always reflects the current nozzle position.
+                combingStartPoint = lastPathEndPoint
                 
                 # For combing, exclude the current hole (if this is a hole) ONLY if we're traveling
                 # from the same layer (i.e., lastPathEndPoint has the same Z coordinate).
