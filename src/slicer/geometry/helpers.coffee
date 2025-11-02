@@ -1550,7 +1550,7 @@ module.exports =
             x: minX + (gx + 0.5) * gridSize
             y: minY + (gy + 0.5) * gridSize
 
-        # Check if grid cell is valid (within boundary and not in hole).
+        # Check if grid cell is valid (within boundary and not in/near hole).
         isValidCell = (gx, gy) =>
             
             point = gridToPoint(gx, gy)
@@ -1559,9 +1559,39 @@ module.exports =
             if boundary? and not @pointInPolygon(point, boundary)
                 return false
 
-            # Check hole constraints.
+            # Check hole constraints with margin.
+            # Use same margin as travelPathCrossesHoles (0.5mm).
+            margin = 0.5
+            
             for hole in holePolygons
+                # Check if cell center is inside hole.
                 if @pointInPolygon(point, hole)
+                    return false
+                
+                # Check if cell is too close to hole boundary.
+                # Calculate approximate hole center and radius.
+                centerX = 0
+                centerY = 0
+                for p in hole
+                    centerX += p.x
+                    centerY += p.y
+                centerX /= hole.length
+                centerY /= hole.length
+                
+                totalDist = 0
+                for p in hole
+                    dx = p.x - centerX
+                    dy = p.y - centerY
+                    totalDist += Math.sqrt(dx * dx + dy * dy)
+                avgRadius = totalDist / hole.length
+                
+                # Distance from cell center to hole center.
+                dx = point.x - centerX
+                dy = point.y - centerY
+                distToCenter = Math.sqrt(dx * dx + dy * dy)
+                
+                # If cell center is within hole radius + margin, invalid.
+                if distToCenter < avgRadius + margin
                     return false
 
             return true
