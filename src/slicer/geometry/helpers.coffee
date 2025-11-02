@@ -1550,6 +1550,31 @@ module.exports =
             x: minX + (gx + 0.5) * gridSize
             y: minY + (gy + 0.5) * gridSize
 
+        # Pre-calculate hole centers and radii to avoid repeated computation.
+        # This optimization improves A* performance significantly for dense hole patterns.
+        holeCentersAndRadii = []
+        margin = 0.5  # Same margin as travelPathCrossesHoles (0.5mm).
+        
+        for hole in holePolygons
+            # Calculate approximate hole center (average of all points).
+            centerX = 0
+            centerY = 0
+            for p in hole
+                centerX += p.x
+                centerY += p.y
+            centerX /= hole.length
+            centerY /= hole.length
+            
+            # Calculate approximate hole radius (average distance from center).
+            totalDist = 0
+            for p in hole
+                dx = p.x - centerX
+                dy = p.y - centerY
+                totalDist += Math.sqrt(dx * dx + dy * dy)
+            avgRadius = totalDist / hole.length
+            
+            holeCentersAndRadii.push({ centerX, centerY, avgRadius, hole })
+
         # Check if grid cell is valid (within boundary and not in/near hole).
         isValidCell = (gx, gy) =>
             
@@ -1559,39 +1584,19 @@ module.exports =
             if boundary? and not @pointInPolygon(point, boundary)
                 return false
 
-            # Check hole constraints with margin.
-            # Use same margin as travelPathCrossesHoles (0.5mm).
-            margin = 0.5
-            
-            for hole in holePolygons
+            # Check hole constraints using pre-calculated centers and radii.
+            for holeData in holeCentersAndRadii
                 # Check if cell center is inside hole.
-                if @pointInPolygon(point, hole)
+                if @pointInPolygon(point, holeData.hole)
                     return false
                 
                 # Check if cell is too close to hole boundary.
-                # Calculate approximate hole center and radius.
-                centerX = 0
-                centerY = 0
-                for p in hole
-                    centerX += p.x
-                    centerY += p.y
-                centerX /= hole.length
-                centerY /= hole.length
-                
-                totalDist = 0
-                for p in hole
-                    dx = p.x - centerX
-                    dy = p.y - centerY
-                    totalDist += Math.sqrt(dx * dx + dy * dy)
-                avgRadius = totalDist / hole.length
-                
-                # Distance from cell center to hole center.
-                dx = point.x - centerX
-                dy = point.y - centerY
+                dx = point.x - holeData.centerX
+                dy = point.y - holeData.centerY
                 distToCenter = Math.sqrt(dx * dx + dy * dy)
                 
                 # If cell center is within hole radius + margin, invalid.
-                if distToCenter < avgRadius + margin
+                if distToCenter < holeData.avgRadius + margin
                     return false
 
             return true
