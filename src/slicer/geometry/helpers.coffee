@@ -1333,7 +1333,8 @@ module.exports =
 
         # Apply back-off strategy if start/end points are too close to hole boundaries.
         # This widens the range of potential path angles.
-        backOffDistance = nozzleDiameter * 1.0  # Back off by 1x nozzle diameter.
+        # Use a larger backoff distance (3x nozzle diameter) to ensure paths have sufficient clearance.
+        backOffDistance = nozzleDiameter * 3.0  # Back off by 3x nozzle diameter.
         adjustedStart = @backOffFromHoles(start, holePolygons, backOffDistance, boundary)
         adjustedEnd = @backOffFromHoles(end, holePolygons, backOffDistance, boundary)
 
@@ -1341,16 +1342,25 @@ module.exports =
         if not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
             
             # Build path: original start -> adjusted start -> adjusted end -> original end
+            # But only add original endpoints if the transition doesn't cross holes.
             path = [start]
             
             if not @pointsEqual(start, adjustedStart, 0.001)
-                path.push(adjustedStart)
+                # Check if transition from original start to adjusted start is safe.
+                if not @travelPathCrossesHoles(start, adjustedStart, holePolygons)
+                    path.push(adjustedStart)
+                else
+                    # Transition crosses hole, use adjusted start as the actual start.
+                    path[0] = adjustedStart
             
             if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
                 path.push(adjustedEnd)
             
+            # Check if transition from adjusted end to original end is safe.
             if not @pointsEqual(adjustedEnd, end, 0.001)
-                path.push(end)
+                if not @travelPathCrossesHoles(adjustedEnd, end, holePolygons)
+                    path.push(end)
+                # else: keep adjustedEnd as final destination (don't add original end)
             
             return path
 
@@ -1360,10 +1370,16 @@ module.exports =
         if simplePath.length > 2 and not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
             
             # Build complete path including back-off segments.
+            # But only add original endpoints if the transition doesn't cross holes.
             fullPath = [start]
             
             if not @pointsEqual(start, adjustedStart, 0.001)
-                fullPath.push(adjustedStart)
+                # Check if transition from original start to adjusted start is safe.
+                if not @travelPathCrossesHoles(start, adjustedStart, holePolygons)
+                    fullPath.push(adjustedStart)
+                else
+                    # Transition crosses hole, use adjusted start as the actual start.
+                    fullPath[0] = adjustedStart
             
             # Add simple path waypoints (excluding start/end which are adjustedStart/adjustedEnd).
             for waypoint, i in simplePath when i > 0 and i < simplePath.length - 1
@@ -1372,8 +1388,11 @@ module.exports =
             if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
                 fullPath.push(adjustedEnd)
             
+            # Check if transition from adjusted end to original end is safe.
             if not @pointsEqual(adjustedEnd, end, 0.001)
-                fullPath.push(end)
+                if not @travelPathCrossesHoles(adjustedEnd, end, holePolygons)
+                    fullPath.push(end)
+                # else: keep adjustedEnd as final destination (don't add original end)
             
             return fullPath
 
@@ -1381,10 +1400,16 @@ module.exports =
         astarPath = @findAStarCombingPath(adjustedStart, adjustedEnd, holePolygons, boundary)
 
         # Build complete path with back-off segments.
+        # But only add original endpoints if the transition doesn't cross holes.
         fullPath = [start]
 
         if not @pointsEqual(start, adjustedStart, 0.001)
-            fullPath.push(adjustedStart)
+            # Check if transition from original start to adjusted start is safe.
+            if not @travelPathCrossesHoles(start, adjustedStart, holePolygons)
+                fullPath.push(adjustedStart)
+            else
+                # Transition crosses hole, use adjusted start as the actual start.
+                fullPath[0] = adjustedStart
 
         # Add A* waypoints (excluding start/end which are adjustedStart/adjustedEnd).
         for waypoint, i in astarPath when i > 0 and i < astarPath.length - 1
@@ -1393,8 +1418,11 @@ module.exports =
         if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
             fullPath.push(adjustedEnd)
 
+        # Check if transition from adjusted end to original end is safe.
         if not @pointsEqual(adjustedEnd, end, 0.001)
-            fullPath.push(end)
+            if not @travelPathCrossesHoles(adjustedEnd, end, holePolygons)
+                fullPath.push(end)
+            # else: keep adjustedEnd as final destination (don't add original end)
 
         return fullPath
 
@@ -1728,9 +1756,16 @@ module.exports =
             if startQuadrant isnt endQuadrant
                 cornerWaypoint = @findBoundaryCorner(startQuadrant, endQuadrant, boundary)
                 if cornerWaypoint?
-                    return [start, cornerWaypoint, end]
+                    # Verify both segments of the corner path don't cross holes.
+                    seg1Safe = not @travelPathCrossesHoles(start, cornerWaypoint, holePolygons)
+                    seg2Safe = not @travelPathCrossesHoles(cornerWaypoint, end, holePolygons)
+                    
+                    if seg1Safe and seg2Safe
+                        return [start, cornerWaypoint, end]
         
         # Last resort - return direct path.
+        # Note: This path may cross holes, but caller should have already checked
+        # and will handle the unsafe transition appropriately.
         return [start, end]
 
     # Determine which quadrant a point is in relative to boundary center.
