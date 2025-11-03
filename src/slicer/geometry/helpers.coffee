@@ -1365,7 +1365,8 @@ module.exports =
         # Try simple heuristic first (single waypoint) for performance.
         simplePath = @findSimpleCombingPath(adjustedStart, adjustedEnd, holePolygons, boundary)
         
-        if simplePath.length > 2 and not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
+        # If simple path found a waypoint (length > 2), use it.
+        if simplePath.length > 2
             
             # Build complete path with safe transitions for back-off segments.
             startSegment = @buildSafePathSegment(start, adjustedStart, holePolygons)
