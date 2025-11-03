@@ -2001,3 +2001,87 @@ module.exports =
                 minDistance = Math.min(minDistance, distance)
 
         return minDistance
+
+    # Find the optimal starting point along a closed path for printing.
+    # This searches for the point that's easiest to reach from the current position,
+    # avoiding the need for complex pathfinding around holes.
+    #
+    # @param path {Array} - The closed path (polygon) to print
+    # @param fromPoint {Object} - The current nozzle position {x, y, z}
+    # @param holePolygons {Array} - Array of hole polygons to avoid
+    # @param boundary {Object} - The outer boundary polygon
+    # @param nozzleDiameter {Number} - Nozzle diameter for backoff calculations
+    # @return {Number} - The index in the path array to use as starting point
+    findOptimalStartPoint: (path, fromPoint, holePolygons = [], boundary = null, nozzleDiameter = 0.4) ->
+
+        return 0 if not path or path.length < 3
+        return 0 if not fromPoint
+
+        # If no holes to avoid, just use the closest point.
+        if holePolygons.length is 0
+
+            minDistSq = Infinity
+            bestIndex = 0
+
+            for point, index in path
+
+                dx = point.x - fromPoint.x
+                dy = point.y - fromPoint.y
+                distSq = dx * dx + dy * dy
+
+                if distSq < minDistSq
+
+                    minDistSq = distSq
+                    bestIndex = index
+
+            return bestIndex
+
+        # With holes, we need to find a point that's both close AND accessible.
+        # Strategy: Check each point and score it based on distance and path complexity.
+        bestScore = Infinity
+        bestIndex = 0
+
+        for point, index in path
+
+            # Calculate straight-line distance.
+            dx = point.x - fromPoint.x
+            dy = point.y - fromPoint.y
+            straightDist = Math.sqrt(dx * dx + dy * dy)
+
+            # Check if direct path crosses holes.
+            crossesHoles = @travelPathCrossesHoles(fromPoint, point, holePolygons)
+
+            if not crossesHoles
+
+                # Direct path is clear - this is a good candidate.
+                # Score is just the distance (lower is better).
+                score = straightDist
+
+            else
+
+                # Need to path around holes - calculate actual combing path.
+                combingPath = @findCombingPath(fromPoint, point, holePolygons, boundary, nozzleDiameter)
+
+                # Calculate total path length.
+                totalDist = 0
+
+                for i in [0...combingPath.length - 1]
+
+                    segStart = combingPath[i]
+                    segEnd = combingPath[i + 1]
+
+                    segDx = segEnd.x - segStart.x
+                    segDy = segEnd.y - segStart.y
+
+                    totalDist += Math.sqrt(segDx * segDx + segDy * segDy)
+
+                # Score is the total path length.
+                # Add a penalty for paths that require combing (to prefer direct paths).
+                score = totalDist + straightDist * 0.1
+
+            if score < bestScore
+
+                bestScore = score
+                bestIndex = index
+
+        return bestIndex
