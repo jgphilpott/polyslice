@@ -1,5 +1,10 @@
 # Geometry helper functions for slicing operations.
 
+# Backoff multiplier for hole avoidance in combing paths.
+# This value determines how far to back off from holes (multiplied by nozzle diameter).
+# A value of 3.0 provides adequate clearance to prevent paths from grazing hole boundaries.
+BACKOFF_MULTIPLIER = 3.0
+
 module.exports =
 
     # Convert Polytree line segments (Line3 objects) to closed paths.
@@ -1333,9 +1338,6 @@ module.exports =
 
         # Apply back-off strategy if start/end points are too close to hole boundaries.
         # This widens the range of potential path angles.
-        # Use a larger backoff distance (3x nozzle diameter) to ensure paths have sufficient clearance.
-        # The 3x multiplier provides adequate margin to prevent paths from grazing hole boundaries.
-        BACKOFF_MULTIPLIER = 3.0
         backOffDistance = nozzleDiameter * BACKOFF_MULTIPLIER
         adjustedStart = @backOffFromHoles(start, holePolygons, backOffDistance, boundary)
         adjustedEnd = @backOffFromHoles(end, holePolygons, backOffDistance, boundary)
@@ -1355,10 +1357,8 @@ module.exports =
             if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
                 path.push(adjustedEnd)
             
-            # Add end point if safe transition from adjusted end
-            if not @pointsEqual(adjustedEnd, end, 0.001)
-                if not @travelPathCrossesHoles(adjustedEnd, end, holePolygons)
-                    path.push(end)
+            # Add original end point if safe transition from adjusted end
+            @addSafeEndpoint(path, adjustedEnd, end, holePolygons)
             
             return path
 
@@ -1383,10 +1383,8 @@ module.exports =
             if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
                 fullPath.push(adjustedEnd)
             
-            # Add end point if safe transition from adjusted end
-            if not @pointsEqual(adjustedEnd, end, 0.001)
-                if not @travelPathCrossesHoles(adjustedEnd, end, holePolygons)
-                    fullPath.push(end)
+            # Add original end point if safe transition from adjusted end
+            @addSafeEndpoint(fullPath, adjustedEnd, end, holePolygons)
             
             return fullPath
 
@@ -1409,10 +1407,8 @@ module.exports =
         if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
             fullPath.push(adjustedEnd)
 
-        # Add end point if safe transition from adjusted end
-        if not @pointsEqual(adjustedEnd, end, 0.001)
-            if not @travelPathCrossesHoles(adjustedEnd, end, holePolygons)
-                fullPath.push(end)
+        # Add original end point if safe transition from adjusted end
+        @addSafeEndpoint(fullPath, adjustedEnd, end, holePolygons)
 
         return fullPath
 
@@ -1873,7 +1869,16 @@ module.exports =
     
     # Build a safe path segment that avoids adding points if the transition crosses holes.
     # Used internally by findCombingPath to ensure back-off transitions are safe.
-    # Returns an array of points for the safe path segment.
+    #
+    # When pathfinding backs off from holes, we need to ensure the transition segments
+    # (from original to adjusted points) don't cross holes. This helper checks the transition
+    # and returns the appropriate point(s) to use in the path.
+    #
+    # @param originalPoint {Object} - The original point {x, y, z}
+    # @param adjustedPoint {Object} - The adjusted (backed-off) point {x, y, z}
+    # @param holePolygons {Array} - Array of hole polygons to avoid
+    # @param epsilon {Number} - Tolerance for point equality check (default: 0.001)
+    # @return {Array} - Array of 1 or 2 points representing the safe segment
     buildSafePathSegment: (originalPoint, adjustedPoint, holePolygons, epsilon = 0.001) ->
         
         points = []
@@ -1899,6 +1904,25 @@ module.exports =
             points.push(originalPoint)
         
         return points
+    
+    # Add an endpoint to a path only if the transition from the last point is safe.
+    # This is a specialized helper for adding the final destination point after back-off.
+    #
+    # @param path {Array} - The path array to potentially add the endpoint to
+    # @param adjustedEnd {Object} - The adjusted (backed-off) endpoint {x, y, z}
+    # @param originalEnd {Object} - The original endpoint {x, y, z}
+    # @param holePolygons {Array} - Array of hole polygons to avoid
+    # @param epsilon {Number} - Tolerance for point equality check (default: 0.001)
+    # @return {void} - Modifies path in place
+    addSafeEndpoint: (path, adjustedEnd, originalEnd, holePolygons, epsilon = 0.001) ->
+        
+        # Only add if points are different
+        if not @pointsEqual(adjustedEnd, originalEnd, epsilon)
+            
+            # Check if transition from adjusted to original end is safe
+            if not @travelPathCrossesHoles(adjustedEnd, originalEnd, holePolygons)
+                
+                path.push(originalEnd)
     
     # Helper: Calculate distance from a point to a line segment
     distanceFromPointToLineSegment: (px, py, segStart, segEnd) ->
