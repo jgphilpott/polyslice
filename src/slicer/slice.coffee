@@ -413,39 +413,34 @@ module.exports =
                         
                         if destinationHoleWall? and destinationHoleWall.length > 0
                             
-                            # Calculate approximate hole center (average of outer wall points).
-                            holeCenterX = 0
-                            holeCenterY = 0
+                            # Calculate approximate hole center using existing helper.
+                            holeCenter = calculatePathCentroid(destinationHoleWall)
                             
-                            for p in destinationHoleWall
-                                holeCenterX += p.x
-                                holeCenterY += p.y
-                            
-                            holeCenterX /= destinationHoleWall.length
-                            holeCenterY /= destinationHoleWall.length
-                            
-                            # Calculate approximate hole radius (max distance from center to wall).
-                            holeRadius = 0
-                            
-                            for p in destinationHoleWall
-                                dx = p.x - holeCenterX
-                                dy = p.y - holeCenterY
-                                dist = Math.sqrt(dx * dx + dy * dy)
-                                holeRadius = Math.max(holeRadius, dist)
-                            
-                            # Calculate distance from lastPathEndPoint to hole center.
-                            dx = lastPathEndPoint.x - holeCenterX
-                            dy = lastPathEndPoint.y - holeCenterY
-                            distToHoleCenter = Math.sqrt(dx * dx + dy * dy)
-                            
-                            # Only exclude the hole if we're already close to it (within 3x its radius).
-                            # This allows traveling between concentric walls of the same hole while
-                            # preventing travel paths from crossing through holes when coming from
-                            # distant features (like the outer boundary or other holes).
-                            proximityThreshold = holeRadius * 3
-                            
-                            if distToHoleCenter <= proximityThreshold
-                                excludeDestinationHole = true
+                            if holeCenter?
+                                
+                                # Calculate approximate hole radius (max distance from center to wall).
+                                # Use squared distances for efficiency (only take sqrt of final result).
+                                maxRadiusSq = 0
+                                
+                                for p in destinationHoleWall
+                                    dx = p.x - holeCenter.x
+                                    dy = p.y - holeCenter.y
+                                    distSq = dx * dx + dy * dy
+                                    maxRadiusSq = Math.max(maxRadiusSq, distSq)
+                                
+                                holeRadius = Math.sqrt(maxRadiusSq)
+                                
+                                # Calculate distance from lastPathEndPoint to hole center using existing helper.
+                                distToHoleCenter = calculateDistance(lastPathEndPoint, holeCenter)
+                                
+                                # Only exclude the hole if we're already close to it (within 3x its radius).
+                                # This allows traveling between concentric walls of the same hole while
+                                # preventing travel paths from crossing through holes when coming from
+                                # distant features (like the outer boundary or other holes).
+                                proximityThreshold = holeRadius * 3
+                                
+                                if distToHoleCenter <= proximityThreshold
+                                    excludeDestinationHole = true
                 
                 if excludeDestinationHole
                     currentHoleIdx = pathToHoleIndex[pathIndex]
