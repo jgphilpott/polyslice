@@ -449,6 +449,10 @@ module.exports =
                                 if distToHoleCenter <= proximityThreshold
                                     excludeDestinationHole = true
                 
+                # When traveling to a hole, we need to decide which holes to include in collision detection.
+                # The key insight: for findOptimalStartPoint and findCombingPath, we want the SAME behavior:
+                # only exclude the destination hole if we're already close to it (within its vicinity).
+                
                 if excludeDestinationHole
                     currentHoleIdx = pathToHoleIndex[pathIndex]
                     combingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
@@ -456,7 +460,7 @@ module.exports =
                     combingHoleWalls = holeOuterWalls
                 
                 # Generate this wall with combing path support.
-                # Pass the hole outer walls list (excluding current hole) and boundary for combing.
+                # Pass the hole list which includes destination hole when we're far away.
                 wallEndPoint = wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType, combingStartPoint, combingHoleWalls, outerBoundaryPath)
                 
                 # Update lastPathEndPoint to track the actual nozzle position.
