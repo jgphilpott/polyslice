@@ -1,5 +1,10 @@
 # Geometry helper functions for slicing operations.
 
+# Backoff multiplier for hole avoidance in combing paths.
+# This value determines how far to back off from holes (multiplied by nozzle diameter).
+# A value of 3.0 provides adequate clearance to prevent paths from grazing hole boundaries.
+BACKOFF_MULTIPLIER = 3.0
+
 module.exports =
 
     # Convert Polytree line segments (Line3 objects) to closed paths.
@@ -1333,68 +1338,78 @@ module.exports =
 
         # Apply back-off strategy if start/end points are too close to hole boundaries.
         # This widens the range of potential path angles.
-        backOffDistance = nozzleDiameter * 1.0  # Back off by 1x nozzle diameter.
+        backOffDistance = nozzleDiameter * BACKOFF_MULTIPLIER
         adjustedStart = @backOffFromHoles(start, holePolygons, backOffDistance, boundary)
         adjustedEnd = @backOffFromHoles(end, holePolygons, backOffDistance, boundary)
 
         # If back-off created a valid direct path, use it.
         if not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
             
-            # Build path: original start -> adjusted start -> adjusted end -> original end
-            path = [start]
+            # Build path with safe transitions for back-off segments.
+            startSegment = @buildSafePathSegment(start, adjustedStart, holePolygons)
+            path = [startSegment[0]]  # Start with first point from start segment
             
-            if not @pointsEqual(start, adjustedStart, 0.001)
-                path.push(adjustedStart)
+            # Add adjusted start if different from start
+            if startSegment.length > 1
+                path.push(startSegment[1])
             
+            # Add adjusted end if different from adjusted start
             if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
                 path.push(adjustedEnd)
             
-            if not @pointsEqual(adjustedEnd, end, 0.001)
-                path.push(end)
+            # Add original end point if safe transition from adjusted end
+            @addSafeEndpoint(path, adjustedEnd, end, holePolygons)
             
             return path
 
         # Try simple heuristic first (single waypoint) for performance.
         simplePath = @findSimpleCombingPath(adjustedStart, adjustedEnd, holePolygons, boundary)
         
-        if simplePath.length > 2 and not @travelPathCrossesHoles(adjustedStart, adjustedEnd, holePolygons)
+        # If simple path found a waypoint (length > 2), use it.
+        if simplePath.length > 2
             
-            # Build complete path including back-off segments.
-            fullPath = [start]
+            # Build complete path with safe transitions for back-off segments.
+            startSegment = @buildSafePathSegment(start, adjustedStart, holePolygons)
+            fullPath = [startSegment[0]]
             
-            if not @pointsEqual(start, adjustedStart, 0.001)
-                fullPath.push(adjustedStart)
+            # Add adjusted start if different from start
+            if startSegment.length > 1
+                fullPath.push(startSegment[1])
             
             # Add simple path waypoints (excluding start/end which are adjustedStart/adjustedEnd).
             for waypoint, i in simplePath when i > 0 and i < simplePath.length - 1
                 fullPath.push(waypoint)
             
+            # Add adjusted end if different from adjusted start
             if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
                 fullPath.push(adjustedEnd)
             
-            if not @pointsEqual(adjustedEnd, end, 0.001)
-                fullPath.push(end)
+            # Add original end point if safe transition from adjusted end
+            @addSafeEndpoint(fullPath, adjustedEnd, end, holePolygons)
             
             return fullPath
 
         # Simple heuristic failed - use A* pathfinding for complex scenarios.
         astarPath = @findAStarCombingPath(adjustedStart, adjustedEnd, holePolygons, boundary)
 
-        # Build complete path with back-off segments.
-        fullPath = [start]
+        # Build complete path with safe transitions for back-off segments.
+        startSegment = @buildSafePathSegment(start, adjustedStart, holePolygons)
+        fullPath = [startSegment[0]]
 
-        if not @pointsEqual(start, adjustedStart, 0.001)
-            fullPath.push(adjustedStart)
+        # Add adjusted start if different from start
+        if startSegment.length > 1
+            fullPath.push(startSegment[1])
 
         # Add A* waypoints (excluding start/end which are adjustedStart/adjustedEnd).
         for waypoint, i in astarPath when i > 0 and i < astarPath.length - 1
             fullPath.push(waypoint)
 
+        # Add adjusted end if different from adjusted start
         if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
             fullPath.push(adjustedEnd)
 
-        if not @pointsEqual(adjustedEnd, end, 0.001)
-            fullPath.push(end)
+        # Add original end point if safe transition from adjusted end
+        @addSafeEndpoint(fullPath, adjustedEnd, end, holePolygons)
 
         return fullPath
 
@@ -1728,9 +1743,16 @@ module.exports =
             if startQuadrant isnt endQuadrant
                 cornerWaypoint = @findBoundaryCorner(startQuadrant, endQuadrant, boundary)
                 if cornerWaypoint?
-                    return [start, cornerWaypoint, end]
+                    # Verify both segments of the corner path don't cross holes.
+                    seg1Safe = not @travelPathCrossesHoles(start, cornerWaypoint, holePolygons)
+                    seg2Safe = not @travelPathCrossesHoles(cornerWaypoint, end, holePolygons)
+                    
+                    if seg1Safe and seg2Safe
+                        return [start, cornerWaypoint, end]
         
         # Last resort - return direct path.
+        # Note: This path may cross holes, but caller should have already checked
+        # and will handle the unsafe transition appropriately.
         return [start, end]
 
     # Determine which quadrant a point is in relative to boundary center.
@@ -1846,6 +1868,63 @@ module.exports =
         
         return Math.sqrt(dx * dx + dy * dy) < epsilon
     
+    # Build a safe path segment that avoids adding points if the transition crosses holes.
+    # Used internally by findCombingPath to ensure back-off transitions are safe.
+    #
+    # When pathfinding backs off from holes, we need to ensure the transition segments
+    # (from original to adjusted points) don't cross holes. This helper checks the transition
+    # and returns the appropriate point(s) to use in the path.
+    #
+    # @param originalPoint {Object} - The original point {x, y, z}
+    # @param adjustedPoint {Object} - The adjusted (backed-off) point {x, y, z}
+    # @param holePolygons {Array} - Array of hole polygons to avoid
+    # @param epsilon {Number} - Tolerance for point equality check (default: 0.001)
+    # @return {Array} - Array of 1 or 2 points representing the safe segment
+    buildSafePathSegment: (originalPoint, adjustedPoint, holePolygons, epsilon = 0.001) ->
+        
+        points = []
+        
+        # If points are different, check if transition is safe.
+        if not @pointsEqual(originalPoint, adjustedPoint, epsilon)
+            
+            # Check if transition from original to adjusted point crosses holes.
+            if not @travelPathCrossesHoles(originalPoint, adjustedPoint, holePolygons)
+                
+                # Transition is safe - include both points.
+                points.push(originalPoint)
+                points.push(adjustedPoint)
+                
+            else
+                
+                # Transition crosses hole - only use adjusted point.
+                points.push(adjustedPoint)
+                
+        else
+            
+            # Points are the same - use original.
+            points.push(originalPoint)
+        
+        return points
+    
+    # Add an endpoint to a path only if the transition from the last point is safe.
+    # This is a specialized helper for adding the final destination point after back-off.
+    #
+    # @param path {Array} - The path array to potentially add the endpoint to
+    # @param adjustedEnd {Object} - The adjusted (backed-off) endpoint {x, y, z}
+    # @param originalEnd {Object} - The original endpoint {x, y, z}
+    # @param holePolygons {Array} - Array of hole polygons to avoid
+    # @param epsilon {Number} - Tolerance for point equality check (default: 0.001)
+    # @return {void} - Modifies path in place
+    addSafeEndpoint: (path, adjustedEnd, originalEnd, holePolygons, epsilon = 0.001) ->
+        
+        # Only add if points are different
+        if not @pointsEqual(adjustedEnd, originalEnd, epsilon)
+            
+            # Check if transition from adjusted to original end is safe
+            if not @travelPathCrossesHoles(adjustedEnd, originalEnd, holePolygons)
+                
+                path.push(originalEnd)
+    
     # Helper: Calculate distance from a point to a line segment
     distanceFromPointToLineSegment: (px, py, segStart, segEnd) ->
         dx = segEnd.x - segStart.x
@@ -1922,3 +2001,87 @@ module.exports =
                 minDistance = Math.min(minDistance, distance)
 
         return minDistance
+
+    # Find the optimal starting point along a closed path for printing.
+    # This searches for the point that's easiest to reach from the current position,
+    # avoiding the need for complex pathfinding around holes.
+    #
+    # @param path {Array} - The closed path (polygon) to print
+    # @param fromPoint {Object} - The current nozzle position {x, y, z}
+    # @param holePolygons {Array} - Array of hole polygons to avoid
+    # @param boundary {Object} - The outer boundary polygon
+    # @param nozzleDiameter {Number} - Nozzle diameter for backoff calculations
+    # @return {Number} - The index in the path array to use as starting point
+    findOptimalStartPoint: (path, fromPoint, holePolygons = [], boundary = null, nozzleDiameter = 0.4) ->
+
+        return 0 if not path or path.length < 3
+        return 0 if not fromPoint
+
+        # If no holes to avoid, just use the closest point.
+        if holePolygons.length is 0
+
+            minDistSq = Infinity
+            bestIndex = 0
+
+            for point, index in path
+
+                dx = point.x - fromPoint.x
+                dy = point.y - fromPoint.y
+                distSq = dx * dx + dy * dy
+
+                if distSq < minDistSq
+
+                    minDistSq = distSq
+                    bestIndex = index
+
+            return bestIndex
+
+        # With holes, we need to find a point that's both close AND accessible.
+        # Strategy: Check each point and score it based on distance and path complexity.
+        bestScore = Infinity
+        bestIndex = 0
+
+        for point, index in path
+
+            # Calculate straight-line distance.
+            dx = point.x - fromPoint.x
+            dy = point.y - fromPoint.y
+            straightDist = Math.sqrt(dx * dx + dy * dy)
+
+            # Check if direct path crosses holes.
+            crossesHoles = @travelPathCrossesHoles(fromPoint, point, holePolygons)
+
+            if not crossesHoles
+
+                # Direct path is clear - this is a good candidate.
+                # Score is just the distance (lower is better).
+                score = straightDist
+
+            else
+
+                # Need to path around holes - calculate actual combing path.
+                combingPath = @findCombingPath(fromPoint, point, holePolygons, boundary, nozzleDiameter)
+
+                # Calculate total path length.
+                totalDist = 0
+
+                for i in [0...combingPath.length - 1]
+
+                    segStart = combingPath[i]
+                    segEnd = combingPath[i + 1]
+
+                    segDx = segEnd.x - segStart.x
+                    segDy = segEnd.y - segStart.y
+
+                    totalDist += Math.sqrt(segDx * segDx + segDy * segDy)
+
+                # Score is the total path length.
+                # Add a penalty for paths that require combing (to prefer direct paths).
+                score = totalDist + straightDist * 0.1
+
+            if score < bestScore
+
+                bestScore = score
+                bestIndex = index
+
+        return bestIndex

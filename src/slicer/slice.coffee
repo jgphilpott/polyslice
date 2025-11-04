@@ -536,15 +536,43 @@ module.exports =
         
         # Now that spacing has been checked, generate skin walls for holes if this is a skin layer
         # and the hole has sufficient spacing.
+        # Re-sort holes by nearest neighbor from current position to minimize travel.
         if layerNeedsSkin
             
-            for pathIndex in sortedHoleIndices
+            # Re-sort holes that need skin walls based on current nozzle position.
+            holesNeedingSkinWalls = sortedHoleIndices.filter((idx) -> not pathsWithInsufficientSpacingForSkinWalls[idx] and innermostWalls[idx]? and innermostWalls[idx].length >= 3)
+            
+            # Sort by nearest neighbor starting from current position.
+            sortedSkinHoles = []
+            remainingSkinHoles = holesNeedingSkinWalls.slice()
+            
+            while remainingSkinHoles.length > 0
                 
-                # Skip if this hole doesn't have sufficient spacing for skin walls.
-                continue if pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+                nearestIndex = -1
+                nearestDistance = Infinity
+                
+                for holeIdx in remainingSkinHoles
+                    
+                    holePath = innermostWalls[holeIdx]
+                    holeCentroid = calculatePathCentroid(holePath)
+                    
+                    if holeCentroid
+                        distance = calculateDistance(lastPathEndPoint, holeCentroid)
+                        
+                        if distance < nearestDistance
+                            nearestDistance = distance
+                            nearestIndex = holeIdx
+                
+                if nearestIndex >= 0
+                    sortedSkinHoles.push(nearestIndex)
+                    remainingSkinHoles = remainingSkinHoles.filter((idx) -> idx isnt nearestIndex)
+                else
+                    sortedSkinHoles.push(remainingSkinHoles[0])
+                    remainingSkinHoles.shift()
+            
+            for pathIndex in sortedSkinHoles
                 
                 currentPath = innermostWalls[pathIndex]
-                continue if not currentPath or currentPath.length < 3
                 
                 # Calculate the skin wall path for this hole.
                 skinWallInset = nozzleDiameter

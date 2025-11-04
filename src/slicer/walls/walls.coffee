@@ -21,9 +21,19 @@ module.exports =
         return lastEndPoint if path.length < 3
 
         verbose = slicer.getVerbose()
+        nozzleDiameter = slicer.getNozzleDiameter()
 
-        # Move to start of path (travel move) with center offset.
-        firstPoint = path[0]
+        # Find the optimal starting point along the path.
+        # If we have a last end point and holes to avoid, find the point that's easiest to reach.
+        # This avoids complex pathfinding by choosing an accessible starting point.
+        startIndex = 0
+
+        if lastEndPoint? and holeOuterWalls.length > 0
+
+            startIndex = helpers.findOptimalStartPoint(path, lastEndPoint, holeOuterWalls, boundary, nozzleDiameter)
+
+        # Get the starting point for this wall.
+        firstPoint = path[startIndex]
 
         # Calculate the target point without offset for combing path calculation.
         targetPoint = { x: firstPoint.x, y: firstPoint.y, z: z }
@@ -69,11 +79,16 @@ module.exports =
 
         if verbose then slicer.gcode += "; TYPE: #{wallType}" + slicer.newline
 
-        # Print perimeter.
-        for pointIndex in [1...path.length]
+        # Print perimeter starting from the optimal starting point.
+        # We print the entire closed path, wrapping around from startIndex.
+        prevPoint = path[startIndex]
+        perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
 
-            point = path[pointIndex]
-            prevPoint = path[pointIndex - 1]
+        # Print from startIndex+1 to end of array, then from 0 to startIndex (full loop).
+        for i in [1..path.length]
+
+            currentIndex = (startIndex + i) % path.length
+            point = path[currentIndex]
 
             # Calculate distance for extrusion.
             dx = point.x - prevPoint.x
@@ -82,48 +97,22 @@ module.exports =
             distance = Math.sqrt(dx * dx + dy * dy)
 
             # Skip negligible movements.
-            continue if distance < 0.001
+            if distance >= 0.001
 
-            # Calculate extrusion amount for this segment.
-            extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
+                # Calculate extrusion amount for this segment.
+                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
 
-            # Add to cumulative extrusion (absolute mode).
-            slicer.cumulativeE += extrusionDelta
+                # Add to cumulative extrusion (absolute mode).
+                slicer.cumulativeE += extrusionDelta
 
-            # Apply center offset to coordinates.
-            offsetX = point.x + centerOffsetX
-            offsetY = point.y + centerOffsetY
+                # Apply center offset to coordinates.
+                offsetX = point.x + centerOffsetX
+                offsetY = point.y + centerOffsetY
 
-            # Convert speed from mm/s to mm/min for G-code.
-            perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
+                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
 
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+            prevPoint = point
 
-        # Close the path by returning to start if needed.
-        firstPoint = path[0]
-        lastPoint = path[path.length - 1]
-
-        dx = firstPoint.x - lastPoint.x
-        dy = firstPoint.y - lastPoint.y
-
-        distance = Math.sqrt(dx * dx + dy * dy)
-
-        if distance > 0.001
-
-            # Calculate extrusion amount for closing segment.
-            extrusionDelta = slicer.calculateExtrusion(distance, slicer.getNozzleDiameter())
-
-            # Add to cumulative extrusion (absolute mode).
-            slicer.cumulativeE += extrusionDelta
-
-            offsetX = firstPoint.x + centerOffsetX
-            offsetY = firstPoint.y + centerOffsetY
-
-            # Convert speed from mm/s to mm/min for G-code.
-            perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
-
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
-
-        # Return the last end point (first point of the closed path).
+        # Return the ending point (where we finished the wall).
         # This will be used as the starting point for combing to the next wall.
-        return { x: firstPoint.x, y: firstPoint.y, z: z }
+        return { x: prevPoint.x, y: prevPoint.y, z: z }
