@@ -65,16 +65,18 @@ async function testSinglePassGeneration() {
   });
 
   // Expected pattern: outer walls (2), hole walls (2), hole skin (1), outer skin (1)
-  // Total: 6 wall types
-  if (types.length !== 6) {
-    console.log(`  ❌ FAILED: Expected 6 wall types, got ${types.length}`);
+  const EXPECTED_WALL_COUNT = 6;  // 2 outer + 2 hole + 2 skin
+  const HOLE_SKIN_POSITION = 4;   // Index where hole skin should appear (after 4 regular walls)
+  
+  if (types.length !== EXPECTED_WALL_COUNT) {
+    console.log(`  ❌ FAILED: Expected ${EXPECTED_WALL_COUNT} wall types, got ${types.length}`);
     return false;
   }
 
-  // Check that the 5th element (index 4) is SKIN (hole skin immediately after hole walls)
-  if (types[4] !== 'SKIN') {
+  // Check that hole skin appears immediately after hole walls
+  if (types[HOLE_SKIN_POSITION] !== 'SKIN') {
     console.log('  ❌ FAILED: Hole skin wall not generated immediately after hole walls');
-    console.log(`     Expected SKIN at position 5, got ${types[4]}`);
+    console.log(`     Expected SKIN at position ${HOLE_SKIN_POSITION + 1}, got ${types[HOLE_SKIN_POSITION]}`);
     return false;
   }
 

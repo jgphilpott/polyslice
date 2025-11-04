@@ -438,6 +438,7 @@ module.exports =
             
             # If this is a hole on a skin layer, generate skin walls immediately after regular walls.
             # This is more efficient than making a separate pass later.
+            # Note: generateSkinWalls is only true when spacing is sufficient, so no need to check again.
             if isHole and generateSkinWalls and currentPath and currentPath.length >= 3
                 
                 # Calculate the skin wall path for this hole.
@@ -447,26 +448,23 @@ module.exports =
                 
                 if skinWallPath.length >= 3
                     
-                    # Check if this path was flagged as having insufficient spacing for skin walls.
-                    # For skin walls, we check spacing between innermost walls, not outer walls.
-                    if not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
-                        holeSkinWalls.push(skinWallPath)
-                        
-                        # For combing, exclude the current hole (destination).
-                        # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
-                        if pathToHoleIndex[pathIndex]?
-                            currentHoleIdx = pathToHoleIndex[pathIndex]
-                            skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
-                        else
-                            skinCombingHoleWalls = holeOuterWalls
-                        
-                        # Generate skin wall for the hole (outward inset).
-                        # Pass generateInfill=false to skip infill (only walls).
-                        # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
-                        skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls)
-                        
-                        # Update lastPathEndPoint with skin wall end position.
-                        lastPathEndPoint = skinEndPoint if skinEndPoint?
+                    holeSkinWalls.push(skinWallPath)
+                    
+                    # For combing, exclude the current hole (destination).
+                    # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
+                    if pathToHoleIndex[pathIndex]?
+                        currentHoleIdx = pathToHoleIndex[pathIndex]
+                        skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                    else
+                        skinCombingHoleWalls = holeOuterWalls
+                    
+                    # Generate skin wall for the hole (outward inset).
+                    # Pass generateInfill=false to skip infill (only walls).
+                    # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls)
+                    
+                    # Update lastPathEndPoint with skin wall end position.
+                    lastPathEndPoint = skinEndPoint if skinEndPoint?
             
             return currentPath
         
