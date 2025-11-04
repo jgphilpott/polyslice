@@ -397,14 +397,55 @@ module.exports =
                 combingStartPoint = lastPathEndPoint
                 
                 # For combing, exclude the current hole (if this is a hole) ONLY if we're traveling
-                # from the same layer (i.e., lastPathEndPoint has the same Z coordinate).
-                # When traveling from a different layer, include all holes in collision detection.
+                # from a position that's already close to that hole (i.e., between its concentric walls).
+                # If we're traveling from a distant position, include all holes in collision detection
+                # to prevent travel paths from crossing through holes.
                 excludeDestinationHole = false
                 
                 if isHole and pathToHoleIndex[pathIndex]? and lastPathEndPoint?
-                    # Only exclude if we're on the same layer.
+                    # Only exclude if we're on the same layer AND close to the destination hole.
                     if lastPathEndPoint.z is z
-                        excludeDestinationHole = true
+                        
+                        # Calculate if we're already near this hole.
+                        # Get the destination hole's outer wall path.
+                        currentHoleIdx = pathToHoleIndex[pathIndex]
+                        destinationHoleWall = holeOuterWalls[currentHoleIdx]
+                        
+                        if destinationHoleWall? and destinationHoleWall.length > 0
+                            
+                            # Calculate approximate hole center (average of outer wall points).
+                            holeCenterX = 0
+                            holeCenterY = 0
+                            
+                            for p in destinationHoleWall
+                                holeCenterX += p.x
+                                holeCenterY += p.y
+                            
+                            holeCenterX /= destinationHoleWall.length
+                            holeCenterY /= destinationHoleWall.length
+                            
+                            # Calculate approximate hole radius (max distance from center to wall).
+                            holeRadius = 0
+                            
+                            for p in destinationHoleWall
+                                dx = p.x - holeCenterX
+                                dy = p.y - holeCenterY
+                                dist = Math.sqrt(dx * dx + dy * dy)
+                                holeRadius = Math.max(holeRadius, dist)
+                            
+                            # Calculate distance from lastPathEndPoint to hole center.
+                            dx = lastPathEndPoint.x - holeCenterX
+                            dy = lastPathEndPoint.y - holeCenterY
+                            distToHoleCenter = Math.sqrt(dx * dx + dy * dy)
+                            
+                            # Only exclude the hole if we're already close to it (within 3x its radius).
+                            # This allows traveling between concentric walls of the same hole while
+                            # preventing travel paths from crossing through holes when coming from
+                            # distant features (like the outer boundary or other holes).
+                            proximityThreshold = holeRadius * 3
+                            
+                            if distToHoleCenter <= proximityThreshold
+                                excludeDestinationHole = true
                 
                 if excludeDestinationHole
                     currentHoleIdx = pathToHoleIndex[pathIndex]
