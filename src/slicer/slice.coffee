@@ -10,6 +10,13 @@ skinModule = require('./skin/skin')
 wallsModule = require('./walls/walls')
 supportModule = require('./support/support')
 
+# Proximity threshold for hole exclusion during travel path calculation.
+# When traveling to a hole, only exclude it from collision detection if the
+# nozzle is already within (HOLE_PROXIMITY_MULTIPLIER × hole radius).
+# This allows traveling between concentric walls of the same hole while
+# preventing travel paths from crossing through holes when coming from distant features.
+HOLE_PROXIMITY_MULTIPLIER = 3
+
 module.exports =
 
     # Main slicing method that generates G-code from a scene.
@@ -433,11 +440,11 @@ module.exports =
                                 # Calculate distance from lastPathEndPoint to hole center using existing helper.
                                 distToHoleCenter = calculateDistance(lastPathEndPoint, holeCenter)
                                 
-                                # Only exclude the hole if we're already close to it (within 3x its radius).
+                                # Only exclude the hole if we're already close to it.
                                 # This allows traveling between concentric walls of the same hole while
                                 # preventing travel paths from crossing through holes when coming from
                                 # distant features (like the outer boundary or other holes).
-                                proximityThreshold = holeRadius * 3
+                                proximityThreshold = holeRadius * HOLE_PROXIMITY_MULTIPLIER
                                 
                                 if distToHoleCenter <= proximityThreshold
                                     excludeDestinationHole = true
