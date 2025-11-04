@@ -244,7 +244,7 @@ module.exports =
         # If outer walls from different paths are closer than one nozzle diameter,
         # those paths should not generate inner walls to avoid interference.
         pathsWithInsufficientSpacingForInnerWalls = {}  # Track which paths should skip inner walls
-        pathsWithInsufficientSpacingForSkinWalls = {}   # Track which paths should skip skin walls (populated later)
+        pathsWithInsufficientSpacingForSkinWalls = {}   # Track which paths should skip skin walls
         
         for pathIndex1 in [0...paths.length]
             
@@ -264,6 +264,83 @@ module.exports =
                 if minDistance < nozzleDiameter
                     pathsWithInsufficientSpacingForInnerWalls[pathIndex1] = true
                     pathsWithInsufficientSpacingForInnerWalls[pathIndex2] = true
+        
+        # Pre-calculate innermost walls to determine spacing for skin walls.
+        # This allows us to generate skin walls immediately after regular walls (single pass).
+        # Helper function to calculate innermost wall without generating G-code.
+        calculateInnermostWall = (path, pathIndex, isHole) =>
+            
+            return null if path.length < 3
+            
+            # Create initial offset for the outer wall.
+            outerWallOffset = nozzleDiameter / 2
+            currentPath = helpers.createInsetPath(path, outerWallOffset, isHole)
+            
+            return null if currentPath.length < 3
+            
+            # Simulate wall generation to find innermost wall.
+            for wallIndex in [0...wallCount]
+                
+                # Check if inner walls should be skipped.
+                if wallIndex > 0
+                    
+                    if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
+                        break
+                    
+                    testInsetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    
+                    if testInsetPath.length < 3
+                        break
+                
+                # Create inset for next wall if not the last wall.
+                if wallIndex < wallCount - 1
+                    
+                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    
+                    break if insetPath.length < 3
+                    
+                    currentPath = insetPath
+            
+            return currentPath
+        
+        # Calculate all innermost walls.
+        allInnermostWalls = {}
+        
+        for path, pathIndex in paths
+            
+            innermostWall = calculateInnermostWall(path, pathIndex, pathIsHole[pathIndex])
+            
+            if innermostWall and innermostWall.length >= 3
+                allInnermostWalls[pathIndex] = innermostWall
+        
+        # Check spacing between innermost walls to determine if skin walls can be generated.
+        # Inherit flags from inner wall spacing check first.
+        for pathIndex in [0...paths.length]
+            if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
+                pathsWithInsufficientSpacingForSkinWalls[pathIndex] = true
+        
+        # Then check spacing between actual innermost walls.
+        for pathIndex1 in [0...paths.length]
+            
+            innermostWall1 = allInnermostWalls[pathIndex1]
+            continue if not innermostWall1 or innermostWall1.length < 3
+            
+            for pathIndex2 in [pathIndex1+1...paths.length]
+                
+                innermostWall2 = allInnermostWalls[pathIndex2]
+                continue if not innermostWall2 or innermostWall2.length < 3
+                
+                # Calculate minimum distance between innermost walls.
+                minDistance = helpers.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
+                
+                # For skin walls, we need space for BOTH skin walls (one from each path).
+                # Each skin wall requires one nozzle diameter, so total threshold is 2 * nozzle diameter.
+                skinWallThreshold = nozzleDiameter * 2
+                
+                # If insufficient spacing, mark both paths.
+                if minDistance < skinWallThreshold
+                    pathsWithInsufficientSpacingForSkinWalls[pathIndex1] = true
+                    pathsWithInsufficientSpacingForSkinWalls[pathIndex2] = true
 
         # Helper function to generate walls for a single path.
         # Returns the innermost wall path.
@@ -361,6 +438,7 @@ module.exports =
             
             # If this is a hole on a skin layer, generate skin walls immediately after regular walls.
             # This is more efficient than making a separate pass later.
+            # Note: generateSkinWalls is only true when spacing is sufficient, so no need to check again.
             if isHole and generateSkinWalls and currentPath and currentPath.length >= 3
                 
                 # Calculate the skin wall path for this hole.
@@ -370,26 +448,23 @@ module.exports =
                 
                 if skinWallPath.length >= 3
                     
-                    # Check if this path was flagged as having insufficient spacing for skin walls.
-                    # For skin walls, we check spacing between innermost walls, not outer walls.
-                    if not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
-                        holeSkinWalls.push(skinWallPath)
-                        
-                        # For combing, exclude the current hole (destination).
-                        # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
-                        if pathToHoleIndex[pathIndex]?
-                            currentHoleIdx = pathToHoleIndex[pathIndex]
-                            skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
-                        else
-                            skinCombingHoleWalls = holeOuterWalls
-                        
-                        # Generate skin wall for the hole (outward inset).
-                        # Pass generateInfill=false to skip infill (only walls).
-                        # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
-                        skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls)
-                        
-                        # Update lastPathEndPoint with skin wall end position.
-                        lastPathEndPoint = skinEndPoint if skinEndPoint?
+                    holeSkinWalls.push(skinWallPath)
+                    
+                    # For combing, exclude the current hole (destination).
+                    # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
+                    if pathToHoleIndex[pathIndex]?
+                        currentHoleIdx = pathToHoleIndex[pathIndex]
+                        skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+                    else
+                        skinCombingHoleWalls = holeOuterWalls
+                    
+                    # Generate skin wall for the hole (outward inset).
+                    # Pass generateInfill=false to skip infill (only walls).
+                    # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls)
+                    
+                    # Update lastPathEndPoint with skin wall end position.
+                    lastPathEndPoint = skinEndPoint if skinEndPoint?
             
             return currentPath
         
@@ -490,110 +565,26 @@ module.exports =
                 remainingHoleIndices.shift()
         
         # Process holes in sorted order (nearest neighbor).
-        # Generate walls first without skin walls - skin walls will be generated later
-        # after checking spacing between innermost walls.
+        # On skin layers, generate skin walls immediately after regular walls if spacing permits.
+        # This avoids a second pass around the geometry.
         for pathIndex in sortedHoleIndices
             
             path = paths[pathIndex]
-            innermostWall = generateWallsForPath(path, pathIndex, true, false)
+            
+            # Determine if we should generate skin walls immediately for this hole.
+            # Only generate skin walls if:
+            # 1. This is a skin layer (layerNeedsSkin)
+            # 2. The path has sufficient spacing (not flagged for insufficient spacing)
+            shouldGenerateSkinWalls = layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+            
+            innermostWall = generateWallsForPath(path, pathIndex, true, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
         
-        # After generating all walls, check spacing between innermost walls to determine
-        # if skin walls can be generated. Skin walls need space between innermost walls,
-        # not just outer walls. The variable was initialized earlier as an empty object.
-        #
-        # First, if a path was flagged for insufficient spacing for inner walls, it should
-        # also be flagged for skin walls (since innermost wall = outer wall in that case).
-        for pathIndex in [0...paths.length]
-            if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
-                pathsWithInsufficientSpacingForSkinWalls[pathIndex] = true
-        
-        # Then, check spacing between actual innermost walls (which may differ from outer walls
-        # if inner walls were successfully generated).
-        for pathIndex1 in [0...paths.length]
-            
-            innermostWall1 = innermostWalls[pathIndex1]
-            continue if not innermostWall1 or innermostWall1.length < 3
-            
-            for pathIndex2 in [pathIndex1+1...paths.length]
-                
-                innermostWall2 = innermostWalls[pathIndex2]
-                continue if not innermostWall2 or innermostWall2.length < 3
-                
-                # Calculate minimum distance between these two innermost walls.
-                minDistance = helpers.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
-                
-                # For skin walls to fit, we need space for BOTH skin walls (one from each path).
-                # Each skin wall requires one nozzle diameter, so total threshold is 2 * nozzle diameter.
-                # This prevents skin walls from overlapping when both paths try to generate them.
-                skinWallThreshold = nozzleDiameter * 2
-                
-                # If the gap between innermost walls is less than two nozzle diameters,
-                # mark both paths as having insufficient spacing for skin walls.
-                if minDistance < skinWallThreshold
-                    pathsWithInsufficientSpacingForSkinWalls[pathIndex1] = true
-                    pathsWithInsufficientSpacingForSkinWalls[pathIndex2] = true
-        
-        # Now that spacing has been checked, generate skin walls for holes if this is a skin layer
-        # and the hole has sufficient spacing.
-        # Re-sort holes by nearest neighbor from current position to minimize travel.
-        if layerNeedsSkin
-            
-            # Re-sort holes that need skin walls based on current nozzle position.
-            holesNeedingSkinWalls = sortedHoleIndices.filter((idx) -> not pathsWithInsufficientSpacingForSkinWalls[idx] and innermostWalls[idx]? and innermostWalls[idx].length >= 3)
-            
-            # Sort by nearest neighbor starting from current position.
-            sortedSkinHoles = []
-            remainingSkinHoles = holesNeedingSkinWalls.slice()
-            
-            while remainingSkinHoles.length > 0
-                
-                nearestIndex = -1
-                nearestDistance = Infinity
-                
-                for holeIdx in remainingSkinHoles
-                    
-                    holePath = innermostWalls[holeIdx]
-                    holeCentroid = calculatePathCentroid(holePath)
-                    
-                    if holeCentroid
-                        distance = calculateDistance(lastPathEndPoint, holeCentroid)
-                        
-                        if distance < nearestDistance
-                            nearestDistance = distance
-                            nearestIndex = holeIdx
-                
-                if nearestIndex >= 0
-                    sortedSkinHoles.push(nearestIndex)
-                    remainingSkinHoles = remainingSkinHoles.filter((idx) -> idx isnt nearestIndex)
-                else
-                    sortedSkinHoles.push(remainingSkinHoles[0])
-                    remainingSkinHoles.shift()
-            
-            for pathIndex in sortedSkinHoles
-                
-                currentPath = innermostWalls[pathIndex]
-                
-                # Calculate the skin wall path for this hole.
-                skinWallInset = nozzleDiameter
-                skinWallPath = helpers.createInsetPath(currentPath, skinWallInset, true)
-                
-                if skinWallPath.length >= 3
-                    
-                    holeSkinWalls.push(skinWallPath)
-                    
-                    # For combing, exclude the current hole (destination).
-                    if pathToHoleIndex[pathIndex]?
-                        currentHoleIdx = pathToHoleIndex[pathIndex]
-                        skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
-                    else
-                        skinCombingHoleWalls = holeOuterWalls
-                    
-                    # Generate skin wall for the hole (outward inset).
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, true, false, [], skinCombingHoleWalls)
-                    
-                    # Update lastPathEndPoint with skin wall end position.
-                    lastPathEndPoint = skinEndPoint if skinEndPoint?
+        # Skin walls for holes are now generated immediately after their regular walls
+        # in the loop above (when shouldGenerateSkinWalls is true). This avoids a
+        # second pass around the geometry, which was the behavior before PR #55.
+        # The spacing checks have been moved earlier (pre-calculation) so we know
+        # upfront which paths can have skin walls.
 
         # Phase 2: Generate infill and skin.
         # Now that all hole boundaries have been collected, we can generate infill
