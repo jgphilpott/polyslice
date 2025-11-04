@@ -737,7 +737,7 @@ describe 'Slicing', ->
 
             # We should have at least 4 hole wall pairs (one for each hole).
             expect(holeWallPairCount).toBeGreaterThanOrEqual(4)
-            
+
             # Count total skin markers (should have some for holes with sufficient spacing).
             skinCount = typeSequence.filter((t) -> t is 'SKIN').length
             expect(skinCount).toBeGreaterThanOrEqual(1)
@@ -770,12 +770,12 @@ describe 'Slicing', ->
 
             # Helper to count markers in a layer.
             countMarkersInLayer = (layerNum, marker) ->
-                
+
                 layerStart = -1
                 layerEnd = -1
 
                 for i in [0...lines.length]
-                    
+
                     if lines[i].includes("LAYER: #{layerNum}")
                         layerStart = i
                     else if layerStart >= 0 and lines[i].includes("LAYER: #{layerNum + 1}")
@@ -787,7 +787,7 @@ describe 'Slicing', ->
                 layerEnd = lines.length if layerEnd < 0
 
                 count = 0
-                
+
                 for i in [layerStart...layerEnd]
                     count++ if lines[i].includes(marker)
 

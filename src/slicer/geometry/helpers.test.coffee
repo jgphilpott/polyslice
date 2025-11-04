@@ -1344,13 +1344,13 @@ describe 'Travel Path Optimization', ->
 
             # If back-off worked, there should be an intermediate point after start.
             if path.length > 2
-                
+
                 firstWaypoint = path[1]
-                
+
                 # First waypoint should be farther from hole than start.
                 distStartToHole = Math.sqrt((start.x - centerX) ** 2 + (start.y - centerY) ** 2)
                 distWaypointToHole = Math.sqrt((firstWaypoint.x - centerX) ** 2 + (firstWaypoint.y - centerY) ** 2)
-                
+
                 # Allow some tolerance since back-off is only ~0.4mm.
                 # Main assertion: path successfully navigates without crossing hole.
                 expect(distWaypointToHole).toBeGreaterThanOrEqual(0)  # Just verify calculation works.

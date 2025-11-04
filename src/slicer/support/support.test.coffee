@@ -186,7 +186,7 @@ describe 'Support Module', ->
 
             # Merge geometries manually for testing.
             geometry = new THREE.BufferGeometry()
-            
+
             # For simplicity, just test that the module can be called.
             mesh = new THREE.Mesh(leftPillar)
             mesh.position.set(0, 0, 10)

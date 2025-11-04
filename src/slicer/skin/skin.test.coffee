@@ -317,12 +317,12 @@ describe 'Skin Generation', ->
             # Note: With epsilon offset in slicing, layer count may vary by 1, so we check
             # for 3 consecutive layers rather than specific numbers.
             expect(topSkinLayers.length).toBe(3)
-            
+
             # Verify they are consecutive by checking the range.
             minTopLayer = Math.min(...topSkinLayers)
             maxTopLayer = Math.max(...topSkinLayers)
             expect(maxTopLayer - minTopLayer).toBe(2) # 3 consecutive layers
-            
+
             # All three should be present in the array.
             expect(topSkinLayers).toContain(minTopLayer)
             expect(topSkinLayers).toContain(minTopLayer + 1)
