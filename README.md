@@ -105,6 +105,7 @@ const slicer = new Polyslice(options);
 - `nozzleTemperature` (number): Nozzle temperature (default: 0).
 - `bedTemperature` (number): Bed temperature (default: 0).
 - `fanSpeed` (number): Fan speed percentage 0-100 (default: 100).
+- `exposureDetection` (boolean): Enable adaptive skin layer generation for exposed surfaces (default: false).
 - `printer` (Printer): Printer instance for automatic configuration (default: null).
 - `filament` (Filament): Filament instance for automatic configuration (default: null).
 
@@ -232,6 +233,47 @@ console.log(filament.listAvailableFilaments());
 - `color` (string): Hex color code
 - `weight` (number): Spool weight in grams
 - `cost` (number): Cost per spool
+
+### Advanced Slicing Features
+
+#### Exposure Detection
+
+Polyslice includes an adaptive skin layer generation algorithm that can intelligently detect exposed surfaces on your model and apply skin layers only where needed. This feature is disabled by default but can be enabled for more optimized prints.
+
+**What it does:**
+- Analyzes each layer to detect exposed surfaces (top and bottom surfaces within the skin layer range)
+- Automatically generates skin layers only on exposed regions instead of solid layers
+- Reduces print time and material usage while maintaining surface quality
+- Uses coverage sampling to determine which areas need skin reinforcement
+
+**When to use it:**
+- Complex geometries with varying surface exposure throughout the print
+- Models with overhangs, bridges, or varying cross-sections
+- When you want to optimize material usage without compromising surface quality
+
+**When to keep it disabled:**
+- Simple geometries (cubes, cylinders) where standard top/bottom skin layers are sufficient
+- Models with smooth, gradually changing surfaces where the algorithm may detect false positives
+- When print time is not a concern and you prefer consistent solid top/bottom layers
+
+**Example:**
+
+```javascript
+const slicer = new Polyslice({
+  nozzleTemperature: 210,
+  bedTemperature: 60,
+  exposureDetection: true  // Enable adaptive skin generation
+});
+
+// Or enable at runtime
+slicer.setExposureDetection(true);
+```
+
+**Technical details:**
+- Uses a coverage threshold of 0.1 (10%) to determine exposed surfaces
+- Samples 9 points for coverage detection and 81 points for exposed area calculation
+- Checks layers within the skin layer count range (both above and below)
+- Generates skin for exposed areas while using sparse infill for covered regions
 
 ### File Loader
 

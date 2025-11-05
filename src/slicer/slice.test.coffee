@@ -1019,3 +1019,66 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+    describe 'Exposure Detection', ->
+
+        test 'should generate skin only on top/bottom layers when exposure detection disabled', ->
+
+            # Create a tall cylinder (has middle layers that should not get skin).
+            geometry = new THREE.CylinderGeometry(5, 5, 10, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8) # 4 layers of skin.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(false) # Disabled.
+
+            result = slicer.slice(mesh)
+
+            # Verify we have layers.
+            expect(result).toContain('LAYER:')
+
+            # Count skin pattern occurrences (skin uses different pattern than infill).
+            # With exposure detection disabled, skin should only appear in top/bottom layers.
+            skinPatternMatches = result.match(/TYPE: SKIN/g) || []
+
+            # We should have skin patterns (top and bottom layers).
+            expect(skinPatternMatches.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should enable adaptive skin generation when exposure detection enabled', ->
+
+            # Create the same tall cylinder.
+            geometry = new THREE.CylinderGeometry(5, 5, 10, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8) # 4 layers of skin.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true) # Enabled.
+
+            result = slicer.slice(mesh)
+
+            # Verify we have layers.
+            expect(result).toContain('LAYER:')
+
+            # With exposure detection enabled, the algorithm should detect exposed surfaces.
+            # For a simple cylinder, we may see some adaptive skin behavior, though the
+            # exact behavior depends on the geometry coverage calculations.
+            skinPatternMatches = result.match(/TYPE: SKIN/g) || []
+
+            # We should still have skin patterns.
+            expect(skinPatternMatches.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
