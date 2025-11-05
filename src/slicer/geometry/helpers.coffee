@@ -2170,6 +2170,7 @@ module.exports =
     # Calculate exposed areas using polygon difference operation.
     # This is the Cura-style polygon-based approach.
     # Returns array of paths representing exposed (uncovered) regions.
+    # Falls back to sampling-based approach if polygon operations fail.
     calculateExposedAreasPolygonBased: (testRegion, coveringRegions) ->
 
         return [testRegion] if not coveringRegions or coveringRegions.length is 0
@@ -2185,6 +2186,7 @@ module.exports =
 
         # Start with the full test region.
         exposedPolygon = testPolygon
+        hadError = false
 
         # Subtract each covering region from the exposed area.
         for coveringRegion in coveringRegions
@@ -2203,13 +2205,16 @@ module.exports =
 
             catch error
 
-                # If polygon operation fails, log and continue.
-                console.warn("Polygon difference operation failed:", error.message)
-
-                continue
+                # If polygon operation fails, fallback to sampling-based approach.
+                hadError = true
+                break
 
             # If nothing left exposed, return empty.
             break if not exposedPolygon or exposedPolygon.length is 0
+
+        # If polygon operations failed, fallback to sampling-based approach.
+        if hadError
+            return @calculateExposedAreas(testRegion, coveringRegions, 81)
 
         # Convert result back to path format.
         return [] if not exposedPolygon or exposedPolygon.length is 0
@@ -2220,6 +2225,7 @@ module.exports =
 
     # Calculate region coverage using polygon intersection.
     # Returns coverage ratio (0.0 to 1.0).
+    # Falls back to sampling-based approach if polygon operations fail.
     calculateRegionCoveragePolygonBased: (testRegion, coveringRegions) ->
 
         return 0 if not testRegion or testRegion.length < 3
@@ -2240,6 +2246,7 @@ module.exports =
 
         # Union all covering regions together first.
         coveringUnion = null
+        hadError = false
 
         for coveringRegion in coveringRegions
 
@@ -2261,9 +2268,13 @@ module.exports =
 
             catch error
 
-                console.warn("Polygon union operation failed:", error.message)
+                # If polygon union fails, fallback to sampling-based approach.
+                hadError = true
+                break
 
-                continue
+        # If union failed, fallback to sampling-based approach.
+        if hadError
+            return @calculateRegionCoverage(testRegion, coveringRegions, 9)
 
         # If no valid covering regions, coverage is 0.
         return 0 if not coveringUnion or coveringUnion.length is 0
@@ -2275,9 +2286,8 @@ module.exports =
 
         catch error
 
-            console.warn("Polygon intersection operation failed:", error.message)
-
-            return 0
+            # If intersection fails, fallback to sampling-based approach.
+            return @calculateRegionCoverage(testRegion, coveringRegions, 9)
 
         # If no intersection, coverage is 0.
         return 0 if not intersection or intersection.length is 0
