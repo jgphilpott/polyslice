@@ -640,7 +640,8 @@ module.exports =
                 if slicer.getExposureDetection()
 
                     # ENABLED: Exposure detection algorithm
-                    coverageThreshold = 0.1
+                    # Changed approach: Always calculate exposed areas regardless of overall coverage percentage.
+                    # Only skip if individual exposed areas are too small to be meaningful.
                     exposedFromAbove = []
                     exposedFromBelow = []
 
@@ -658,14 +659,13 @@ module.exports =
                             if aboveSegments? and aboveSegments.length > 0
 
                                 abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
-                                coverageFromAbove = helpers.calculateRegionCoverage(currentPath, abovePaths, 9)
-
-                                if coverageFromAbove < coverageThreshold
-
-                                    # checkIdx is a top surface exposure - calculate exposed areas
-                                    exposedAreas = helpers.calculateExposedAreas(currentPath, abovePaths, 81)
+                                
+                                # Always calculate exposed areas, regardless of overall coverage percentage.
+                                # This allows for skin generation on any exposed portion, even if small.
+                                exposedAreas = helpers.calculateExposedAreas(currentPath, abovePaths, 81)
+                                
+                                if exposedAreas.length > 0
                                     exposedFromAbove.push(exposedAreas...)
-
                                     # Found exposure - current layer gets skin if within range
                                     break
 
@@ -699,12 +699,11 @@ module.exports =
                                 if belowSegments? and belowSegments.length > 0
 
                                     belowPaths = helpers.connectSegmentsToPaths(belowSegments)
-                                    coverageFromBelow = helpers.calculateRegionCoverage(currentPath, belowPaths, 9)
-
-                                    if coverageFromBelow < coverageThreshold
-
-                                        # checkIdx is a bottom surface exposure - calculate exposed areas
-                                        exposedAreas = helpers.calculateExposedAreas(currentPath, belowPaths, 81)
+                                    
+                                    # Always calculate exposed areas, regardless of overall coverage percentage.
+                                    exposedAreas = helpers.calculateExposedAreas(currentPath, belowPaths, 81)
+                                    
+                                    if exposedAreas.length > 0
                                         exposedFromBelow.push(exposedAreas...)
                                         # Found exposure - current layer gets skin if within range
                                         break
