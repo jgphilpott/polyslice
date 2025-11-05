@@ -646,8 +646,11 @@ module.exports =
                 exposedFromAbove = []
                 exposedFromBelow = []
 
-                # Check for TOP surface exposure: Is this boundary covered by layers above?
-                # Look up to skinLayerCount layers above to detect approaching top surfaces.
+                # Check for TOP surface exposure: Is this boundary approaching a transition or overhang?
+                # Strategy: Check if there's a topology change (transition) within skinLayerCount layers above.
+                # If so, generate skin on current layer as preparation/ceiling for the transition.
+                transitionDetectedAbove = false
+                
                 for distanceAbove in [1..Math.min(skinLayerCount, totalLayers - 1 - layerIndex)]
 
                     checkLayerIndex = layerIndex + distanceAbove
@@ -656,11 +659,13 @@ module.exports =
                     if aboveSegments? and aboveSegments.length > 0
 
                         abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
+                        
+                        # Check 1: Is current boundary covered by layer at distanceAbove?
                         coverageFromAbove = helpers.calculateRegionCoveragePolygonBased(currentPath, abovePaths)
 
                         if coverageFromAbove < coverageThreshold
 
-                            # Exposed from above - calculate precise exposed areas.
+                            # Current boundary exposed - calculate precise exposed areas.
                             exposedAreas = helpers.calculateExposedAreasPolygonBased(currentPath, abovePaths)
                             minimumArea = nozzleDiameter * nozzleDiameter * 4
 
@@ -673,12 +678,76 @@ module.exports =
                                     exposedFromAbove.push(exposedArea)
 
                             break
+                        
+                        # Check 2: Is there a topology transition at this level?
+                        # Compare layer at checkLayerIndex with layer at checkLayerIndex-1.
+                        if checkLayerIndex > 0
+                            checkLayerBelowSegments = allLayers[checkLayerIndex - 1]
+                            
+                            if checkLayerBelowSegments? and checkLayerBelowSegments.length > 0
+                                checkLayerBelowPaths = helpers.connectSegmentsToPaths(checkLayerBelowSegments)
+                                
+                                # Check if layer below the check layer is fully covered by the check layer.
+                                # If not, there's a transition (material removed).
+                                for belowPath in checkLayerBelowPaths
+                                    reverseCoverage = helpers.calculateRegionCoveragePolygonBased(belowPath, abovePaths)
+                                    
+                                    if reverseCoverage < 0.995
+                                        # Transition detected! Current layer should get skin as preparation.
+                                        transitionDetectedAbove = true
+                                        break
+                            
+                            if transitionDetectedAbove
+                                break
 
                     else
 
                         # No geometry above - fully exposed.
                         exposedFromAbove.push(currentPath)
                         break
+                
+                # If transition detected above but no direct exposure, calculate WHERE the transition
+                # will occur and generate skin only in that region (as ceiling/preparation).
+                if transitionDetectedAbove and exposedFromAbove.length is 0
+                    # Find the removed material regions from layers above.
+                    # These indicate where the opening/transition is occurring.
+                    for distanceAbove in [1..Math.min(skinLayerCount, totalLayers - 1 - layerIndex)]
+                        checkLayerIndex = layerIndex + distanceAbove
+                        
+                        if checkLayerIndex > 0
+                            aboveSegments = allLayers[checkLayerIndex]
+                            belowAboveSegments = allLayers[checkLayerIndex - 1]
+                            
+                            if aboveSegments? and aboveSegments.length > 0 and belowAboveSegments? and belowAboveSegments.length > 0
+                                abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
+                                belowAbovePaths = helpers.connectSegmentsToPaths(belowAboveSegments)
+                                
+                                # Find removed material: parts of lower layer NOT in upper layer.
+                                for belowPath in belowAbovePaths
+                                    removedAreas = helpers.calculateExposedAreasPolygonBased(belowPath, abovePaths)
+                                    minimumArea = nozzleDiameter * nozzleDiameter * 4
+                                    
+                                    for removedArea in removedAreas
+                                        areaSize = helpers.calculatePolygonArea(removedArea)
+                                        
+                                        if areaSize >= minimumArea
+                                            # Find the intersection between current boundary and removed area.
+                                            # This is the portion of current boundary that will be exposed.
+                                            # Use calculateRegionCoveragePolygonBased to check if they overlap.
+                                            overlap = helpers.calculateRegionCoveragePolygonBased(currentPath, [removedArea])
+                                            
+                                            if overlap > 0.01  # Current boundary overlaps with removed area
+                                                # The intersection of currentPath with removedArea gives us
+                                                # the portion that will form the ceiling of the opening.
+                                                # Since removedArea is from a layer above, it represents the
+                                                # 2D footprint of the gap. We want to generate skin where
+                                                # currentPath overlaps with this gap footprint.
+                                                # Use the removed area itself as the exposed region.
+                                                exposedFromAbove.push(removedArea)
+                                                break
+                                
+                                if exposedFromAbove.length > 0
+                                    break
 
                 # Check for BOTTOM surface exposure: Detect horizontal surfaces created by transitions.
                 # Two checks are needed:
