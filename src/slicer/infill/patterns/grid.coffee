@@ -233,14 +233,14 @@ module.exports =
             # Move to start of line (travel move with combing).
             # Find a path that avoids crossing holes.
             combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
-            
+
             # Generate travel moves for each segment of the combing path
             for i in [0...combingPath.length - 1]
-                
+
                 waypoint = combingPath[i + 1]
                 offsetWaypointX = waypoint.x + centerOffsetX
                 offsetWaypointY = waypoint.y + centerOffsetY
-                
+
                 slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
             # Draw the diagonal line.

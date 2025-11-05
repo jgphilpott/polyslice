@@ -737,7 +737,7 @@ describe 'Slicing', ->
 
             # We should have at least 4 hole wall pairs (one for each hole).
             expect(holeWallPairCount).toBeGreaterThanOrEqual(4)
-            
+
             # Count total skin markers (should have some for holes with sufficient spacing).
             skinCount = typeSequence.filter((t) -> t is 'SKIN').length
             expect(skinCount).toBeGreaterThanOrEqual(1)
@@ -770,12 +770,12 @@ describe 'Slicing', ->
 
             # Helper to count markers in a layer.
             countMarkersInLayer = (layerNum, marker) ->
-                
+
                 layerStart = -1
                 layerEnd = -1
 
                 for i in [0...lines.length]
-                    
+
                     if lines[i].includes("LAYER: #{layerNum}")
                         layerStart = i
                     else if layerStart >= 0 and lines[i].includes("LAYER: #{layerNum + 1}")
@@ -787,7 +787,7 @@ describe 'Slicing', ->
                 layerEnd = lines.length if layerEnd < 0
 
                 count = 0
-                
+
                 for i in [layerStart...layerEnd]
                     count++ if lines[i].includes(marker)
 
@@ -825,6 +825,197 @@ describe 'Slicing', ->
             expect(layer2Outer).toBeGreaterThan(0)  # Should have outer walls.
             expect(layer2Inner).toBeGreaterThan(0)  # Should have inner walls.
             expect(layer2Skin).toBeGreaterThan(0)  # Should have skin (sufficient spacing).
+
+            return # Explicitly return undefined for Jest.
+
+    describe 'Single-Pass Skin Wall Generation (PR #54 + PR #55)', ->
+
+        Polytree = null
+
+        beforeAll ->
+
+            { Polytree } = require('@jgphilpott/polytree')
+
+        test 'should generate hole skin walls immediately after regular walls on skin layers', ->
+
+            # This test verifies PR #54: skin walls for holes should be generated
+            # immediately after their regular walls (single pass), not in a separate
+            # pass after outer boundary skin.
+
+            # Create a sheet with a hole using CSG.
+            sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
+            sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
+
+            holeRadius = 3
+            holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, 10, 32)
+            holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshBasicMaterial())
+            holeMesh.rotation.x = Math.PI / 2
+            holeMesh.position.set(0, 0, 0)
+            holeMesh.updateMatrixWorld()
+
+            # Perform CSG subtraction.
+            resultMesh = await Polytree.subtract(sheetMesh, holeMesh)
+            finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material)
+            finalMesh.position.set(0, 0, 2.5)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer with skin layers.
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setShellWallThickness(0.8)  # 2 walls.
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # Extract layer 0 (a skin layer).
+            parts = result.split('LAYER: 0')
+            expect(parts.length).toBeGreaterThan(1)
+            layer0 = parts[1].split('LAYER: 1')[0]
+
+            # Extract wall type sequence.
+            typeMatches = layer0.match(/TYPE: (WALL-OUTER|WALL-INNER|SKIN)/g) || []
+            types = typeMatches.map((m) -> m.replace('TYPE: ', ''))
+
+            # Expected sequence on skin layer:
+            # 1. WALL-OUTER (outer boundary)
+            # 2. WALL-INNER (outer boundary)
+            # 3. WALL-OUTER (hole)
+            # 4. WALL-INNER (hole)
+            # 5. SKIN (hole) ← immediately after hole walls (PR #54)
+            # 6. SKIN (outer boundary)
+
+            # Verify we have the expected number of wall types.
+            expect(types.length).toBe(6)
+
+            # Verify the 5th element (index 4) is SKIN.
+            # This confirms hole skin is generated immediately after hole walls.
+            expect(types[4]).toBe('SKIN')
+
+            # Verify we have exactly 2 outer and 2 inner walls.
+            outerCount = types.filter((t) -> t is 'WALL-OUTER').length
+            innerCount = types.filter((t) -> t is 'WALL-INNER').length
+            skinCount = types.filter((t) -> t is 'SKIN').length
+
+            expect(outerCount).toBe(2)  # Outer boundary + hole.
+            expect(innerCount).toBe(2)  # Outer boundary + hole.
+            expect(skinCount).toBe(2)  # Outer boundary + hole.
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should not generate skin walls on non-skin layers', ->
+
+            # Verify that skin walls are only generated on skin layers.
+            # Middle layers should only have regular walls.
+
+            sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
+            sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
+
+            holeRadius = 3
+            holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, 10, 32)
+            holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshBasicMaterial())
+            holeMesh.rotation.x = Math.PI / 2
+            holeMesh.position.set(0, 0, 0)
+            holeMesh.updateMatrixWorld()
+
+            resultMesh = await Polytree.subtract(sheetMesh, holeMesh)
+            finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material)
+            finalMesh.position.set(0, 0, 2.5)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(finalMesh)
+
+            # Check middle layer (layer 10, not a skin layer).
+            parts = result.split('LAYER: 10')
+            expect(parts.length).toBeGreaterThan(1)
+            layer10 = parts[1].split('LAYER: 11')[0]
+
+            # Should not have any SKIN markers.
+            skinMatches = layer10.match(/TYPE: SKIN/g) || []
+            expect(skinMatches.length).toBe(0)
+
+            # But should have wall markers.
+            wallMatches = layer10.match(/TYPE: WALL/g) || []
+            expect(wallMatches.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should suppress inner and skin walls when spacing is insufficient (PR #55)', ->
+
+            # This test verifies PR #55: spacing validation should prevent
+            # inner and skin walls when paths are too close together.
+
+            # Create a torus with tight spacing on early layers.
+            geometry = new THREE.TorusGeometry(5, 2, 16, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+            mesh.position.set(0, 0, 2)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer with standard settings.
+            slicer.setShellSkinThickness(0.8)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Layer 0: Spacing is very tight, should only have outer walls.
+            parts = result.split('LAYER: 0')
+            expect(parts.length).toBeGreaterThan(1)
+            layer0 = parts[1].split('LAYER: 1')[0]
+
+            outerMatches = layer0.match(/TYPE: WALL-OUTER/g) || []
+            innerMatches = layer0.match(/TYPE: WALL-INNER/g) || []
+            skinMatches = layer0.match(/TYPE: SKIN/g) || []
+
+            # Should have outer walls.
+            expect(outerMatches.length).toBeGreaterThan(0)
+
+            # Should NOT have inner or skin walls (insufficient spacing).
+            expect(innerMatches.length).toBe(0)
+            expect(skinMatches.length).toBe(0)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should allow inner walls when spacing increases on higher layers', ->
+
+            # As we move up the torus, spacing increases and inner walls
+            # should be allowed again.
+
+            geometry = new THREE.TorusGeometry(5, 2, 16, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+            mesh.position.set(0, 0, 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.8)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Layer 1+: Spacing should be sufficient for inner walls.
+            parts = result.split('LAYER: 1')
+            expect(parts.length).toBeGreaterThan(1)
+            layer1 = parts[1].split('LAYER: 2')[0]
+
+            outerMatches = layer1.match(/TYPE: WALL-OUTER/g) || []
+            innerMatches = layer1.match(/TYPE: WALL-INNER/g) || []
+
+            # Should have both outer and inner walls.
+            expect(outerMatches.length).toBeGreaterThan(0)
+            expect(innerMatches.length).toBeGreaterThan(0)
 
             return # Explicitly return undefined for Jest.
 
