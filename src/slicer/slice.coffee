@@ -720,21 +720,46 @@ module.exports =
                         # Detect exposure from either forward or reverse check.
                         if coverageFromBelow < coverageThreshold or reverseExposureDetected
 
-                            # Exposed from below - this is a bottom surface or transition.
-                            # For reverse exposure, use the entire boundary as exposed.
-                            if reverseExposureDetected
-                                exposedFromBelow.push(currentPath)
-                            else
-                                exposedAreas = helpers.calculateExposedAreasPolygonBased(currentPath, immediateBelowPaths)
-                                minimumArea = nozzleDiameter * nozzleDiameter * 4
+                            # FORWARD CHECK: Calculate exposed areas - parts of current boundary not covered by below.
+                            exposedAreas = helpers.calculateExposedAreasPolygonBased(currentPath, immediateBelowPaths)
+                            minimumArea = nozzleDiameter * nozzleDiameter * 4
 
-                                for exposedArea in exposedAreas
+                            for exposedArea in exposedAreas
 
-                                    areaSize = helpers.calculatePolygonArea(exposedArea)
+                                areaSize = helpers.calculatePolygonArea(exposedArea)
 
-                                    if areaSize >= minimumArea
+                                if areaSize >= minimumArea
 
-                                        exposedFromBelow.push(exposedArea)
+                                    exposedFromBelow.push(exposedArea)
+                            
+                            # REVERSE CHECK: If material was removed (topology transition), also check
+                            # for exposed edges. The current boundary forms edges of the horizontal surface
+                            # where material was removed. Calculate which parts of the current boundary
+                            # border the removed material space.
+                            if reverseExposureDetected and exposedFromBelow.length is 0
+                                # Find the removed material: parts of below layer NOT in current layer.
+                                for belowPath in immediateBelowPaths
+                                    removedParts = helpers.calculateExposedAreasPolygonBased(belowPath, currentLayerAllPaths)
+                                    
+                                    # For each removed part, find where current boundary is adjacent.
+                                    # The exposed area on current layer is the edge region bordering removed material.
+                                    # Simplified approach: if removed material exists and current path borders it,
+                                    # the edge portion of current path (small inset) is exposed.
+                                    for removedArea in removedParts
+                                        removedAreaSize = helpers.calculatePolygonArea(removedArea)
+                                        
+                                        if removedAreaSize >= minimumArea
+                                            # There's significant removed material. The current boundary that
+                                            # borders this removed space has an exposed horizontal surface.
+                                            # Calculate the intersection/overlap to find the bordering edge.
+                                            # As an approximation, use a small inset of the current boundary.
+                                            edgeRegion = helpers.createInsetPath(currentPath, nozzleDiameter * 0.5, false)
+                                            
+                                            if edgeRegion and edgeRegion.length >= 3
+                                                edgeArea = helpers.calculatePolygonArea(edgeRegion)
+                                                if edgeArea >= minimumArea
+                                                    exposedFromBelow.push(edgeRegion)
+                                            break
 
                     else
 
