@@ -226,16 +226,16 @@ describe 'Accessors (Getters and Setters)', ->
 
         test 'should set and get exposure detection setting', ->
 
-            # Default should be false.
-            expect(slicer.getExposureDetection()).toBe(false)
-
-            # Enable exposure detection.
-            slicer.setExposureDetection(true)
+            # Default should be true.
             expect(slicer.getExposureDetection()).toBe(true)
 
             # Disable exposure detection.
             slicer.setExposureDetection(false)
             expect(slicer.getExposureDetection()).toBe(false)
+
+            # Enable exposure detection.
+            slicer.setExposureDetection(true)
+            expect(slicer.getExposureDetection()).toBe(true)
 
         test 'should set and get support settings', ->
 

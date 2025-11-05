@@ -105,7 +105,7 @@ const slicer = new Polyslice(options);
 - `nozzleTemperature` (number): Nozzle temperature (default: 0).
 - `bedTemperature` (number): Bed temperature (default: 0).
 - `fanSpeed` (number): Fan speed percentage 0-100 (default: 100).
-- `exposureDetection` (boolean): Enable adaptive skin layer generation for exposed surfaces (default: false).
+- `exposureDetection` (boolean): Enable adaptive skin layer generation for exposed surfaces (default: true).
 - `printer` (Printer): Printer instance for automatic configuration (default: null).
 - `filament` (Filament): Filament instance for automatic configuration (default: null).
 
@@ -238,7 +238,7 @@ console.log(filament.listAvailableFilaments());
 
 #### Exposure Detection
 
-Polyslice includes an adaptive skin layer generation algorithm that can intelligently detect exposed surfaces on your model and apply skin layers only where needed. This feature is disabled by default but can be enabled for more optimized prints.
+Polyslice includes an adaptive skin layer generation algorithm that can intelligently detect exposed surfaces on your model and apply skin layers only where needed. This feature is enabled by default for optimized prints.
 
 **What it does:**
 - Analyzes each layer to detect exposed surfaces (top and bottom surfaces within the skin layer range)
@@ -251,7 +251,7 @@ Polyslice includes an adaptive skin layer generation algorithm that can intellig
 - Models with overhangs, bridges, or varying cross-sections
 - When you want to optimize material usage without compromising surface quality
 
-**When to keep it disabled:**
+**When to disable it:**
 - Simple geometries (cubes, cylinders) where standard top/bottom skin layers are sufficient
 - Models with smooth, gradually changing surfaces where the algorithm may detect false positives
 - When print time is not a concern and you prefer consistent solid top/bottom layers
@@ -262,11 +262,11 @@ Polyslice includes an adaptive skin layer generation algorithm that can intellig
 const slicer = new Polyslice({
   nozzleTemperature: 210,
   bedTemperature: 60,
-  exposureDetection: true  // Enable adaptive skin generation
+  exposureDetection: true  // Enabled by default
 });
 
-// Or enable at runtime
-slicer.setExposureDetection(true);
+// Or disable at runtime if needed
+slicer.setExposureDetection(false);
 ```
 
 **Technical details:**

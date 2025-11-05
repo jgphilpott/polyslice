@@ -78,7 +78,7 @@ class Polyslice
         @infillPattern = options.infillPattern ?= "grid" # String ['grid', 'triangles', 'hexagons'].
         @shellSkinThickness = conversions.lengthToInternal(options.shellSkinThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
         @shellWallThickness = conversions.lengthToInternal(options.shellWallThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
-        @exposureDetection = options.exposureDetection ?= false # Boolean - enable adaptive skin layer generation for exposed surfaces.
+        @exposureDetection = options.exposureDetection ?= true # Boolean - enable adaptive skin layer generation for exposed surfaces.
 
         # Support structure settings for overhangs and bridges.
         @supportEnabled = options.supportEnabled ?= false # Boolean.
