@@ -106,6 +106,10 @@ module.exports =
 
         return conversions.lengthFromInternal(slicer.shellWallThickness, slicer.lengthUnit)
 
+    getExposureDetection: (slicer) ->
+
+        return slicer.exposureDetection
+
     getSupportEnabled: (slicer) ->
 
         return slicer.supportEnabled
@@ -379,6 +383,12 @@ module.exports =
         if typeof thickness is "number" and thickness >= 0
 
             slicer.shellWallThickness = conversions.lengthToInternal(thickness, slicer.lengthUnit)
+
+        return slicer
+
+    setExposureDetection: (slicer, enabled = false) ->
+
+        slicer.exposureDetection = Boolean enabled
 
         return slicer
 
