@@ -88,6 +88,7 @@ async function createArchMesh(width = ARCH_WIDTH, height = ARCH_HEIGHT, thicknes
     const finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material);
     finalMesh.position.set(0, 0, thickness / 2);
     finalMesh.updateMatrixWorld();
+    finalMesh.rotation.y = Math.PI; // flip upside down
     return finalMesh;
 }
 
@@ -139,7 +140,7 @@ async function main() {
         layerHeight: 0.2,
         testStrip: false,
         verbose: true,
-        supportEnabled: true,
+        supportEnabled: false, // temporarily disabled
         supportType: "normal",
         supportPlacement: "buildPlate",
         supportThreshold: 45
