@@ -635,37 +635,98 @@ module.exports =
             else
 
                 # For middle layers, use polygon-based exposure detection (Cura-style approach).
-                # This method uses direct geometric calculation via polygon difference/intersection.
-                # Coverage threshold for determining if a region needs skin.
+                # Check if THIS SPECIFIC BOUNDARY has exposed surfaces by looking at layers
+                # immediately above AND below. A boundary needs skin if:
+                # 1. It's not fully covered by the layer immediately below (bottom surface exposed)
+                # 2. It's not fully covered by a layer above within skinLayerCount distance (top surface exposed)
+                #
+                # This detects: overhangs, bottom surfaces, and transitions when boundaries appear/disappear.
                 coverageThreshold = 0.15  # 15% - more lenient than previous 10% to reduce false positives
 
                 exposedFromAbove = []
                 exposedFromBelow = []
 
-                # Check if there's a top surface within skinLayerCount layers above us.
-                # A top surface is a layer that's not covered by the layer above it.
-                for checkIdx in [layerIndex..Math.min(totalLayers - 1, layerIndex + skinLayerCount - 1)]
+                # Check for TOP surface exposure: Is this boundary covered by layers above?
+                # Look up to skinLayerCount layers above to detect approaching top surfaces.
+                for distanceAbove in [1..Math.min(skinLayerCount, totalLayers - 1 - layerIndex)]
 
-                    # Is checkIdx a top surface?
-                    if checkIdx < totalLayers - 1
+                    checkLayerIndex = layerIndex + distanceAbove
+                    aboveSegments = allLayers[checkLayerIndex]
 
-                        # Check if layer checkIdx+1 covers this region.
-                        aboveSegments = allLayers[checkIdx + 1]
+                    if aboveSegments? and aboveSegments.length > 0
 
-                        if aboveSegments? and aboveSegments.length > 0
+                        abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
+                        coverageFromAbove = helpers.calculateRegionCoveragePolygonBased(currentPath, abovePaths)
 
-                            abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
+                        if coverageFromAbove < coverageThreshold
 
-                            # Use polygon-based coverage calculation for more accurate results.
-                            coverageFromAbove = helpers.calculateRegionCoveragePolygonBased(currentPath, abovePaths)
+                            # Exposed from above - calculate precise exposed areas.
+                            exposedAreas = helpers.calculateExposedAreasPolygonBased(currentPath, abovePaths)
+                            minimumArea = nozzleDiameter * nozzleDiameter * 4
 
-                            if coverageFromAbove < coverageThreshold
+                            for exposedArea in exposedAreas
 
-                                # Region is exposed - calculate exposed areas using polygon difference.
-                                exposedAreas = helpers.calculateExposedAreasPolygonBased(currentPath, abovePaths)
+                                areaSize = helpers.calculatePolygonArea(exposedArea)
 
-                                # Apply area filtering to ignore small artifacts.
-                                minimumArea = nozzleDiameter * nozzleDiameter * 4  # 4x nozzle diameter squared
+                                if areaSize >= minimumArea
+
+                                    exposedFromAbove.push(exposedArea)
+
+                            break
+
+                    else
+
+                        # No geometry above - fully exposed.
+                        exposedFromAbove.push(currentPath)
+                        break
+
+                # Check for BOTTOM surface exposure: Detect horizontal surfaces created by transitions.
+                # Two checks are needed:
+                # 1. Forward check: Is THIS boundary supported by layer below? (traditional overhang/bottom detection)
+                # 2. Reverse check: Does layer below have EXTRA material not present in this layer? (transition detection)
+                #
+                # Only check if not already exposed from above (avoid double-skinning).
+                if exposedFromAbove.length is 0 and layerIndex > 0
+
+                    immediateBelowSegments = allLayers[layerIndex - 1]
+
+                    if immediateBelowSegments? and immediateBelowSegments.length > 0
+
+                        immediateBelowPaths = helpers.connectSegmentsToPaths(immediateBelowSegments)
+
+                        # FORWARD CHECK: Is this boundary covered by layer below?
+                        coverageFromBelow = helpers.calculateRegionCoveragePolygonBased(currentPath, immediateBelowPaths)
+
+                        # REVERSE CHECK: Does layer below have material that's NOT in current layer?
+                        # This detects transitions where material is removed (creating horizontal surfaces).
+                        # Check if any part of the layer below is NOT covered by current layer's geometry.
+                        currentLayerAllPaths = helpers.connectSegmentsToPaths(allLayers[layerIndex])
+                        
+                        reverseExposureDetected = false
+                        
+                        # Check each path from layer below.
+                        for belowPath in immediateBelowPaths
+                            # What percentage of this below-path is covered by current layer?
+                            reverseCoverage = helpers.calculateRegionCoveragePolygonBased(belowPath, currentLayerAllPaths)
+                            
+                            # If below-path is NOT fully covered, there's exposed material below creating a horizontal surface.
+                            # Use a very lenient threshold (< 99.5%) to catch transitions where geometry changes.
+                            # This detects when boundaries appear/disappear or material is removed.
+                            # Even small gaps (0.5%) indicate transitions worth detecting.
+                            if reverseCoverage < 0.995
+                                reverseExposureDetected = true
+                                break
+
+                        # Detect exposure from either forward or reverse check.
+                        if coverageFromBelow < coverageThreshold or reverseExposureDetected
+
+                            # Exposed from below - this is a bottom surface or transition.
+                            # For reverse exposure, use the entire boundary as exposed.
+                            if reverseExposureDetected
+                                exposedFromBelow.push(currentPath)
+                            else
+                                exposedAreas = helpers.calculateExposedAreasPolygonBased(currentPath, immediateBelowPaths)
+                                minimumArea = nozzleDiameter * nozzleDiameter * 4
 
                                 for exposedArea in exposedAreas
 
@@ -673,75 +734,12 @@ module.exports =
 
                                     if areaSize >= minimumArea
 
-                                        exposedFromAbove.push(exposedArea)
-
-                                # Found exposure - current layer gets skin if within range.
-                                break
-
-                        else
-
-                            # No geometry above means top surface - entire region is exposed.
-                            exposedFromAbove.push(currentPath)
-
-                            break
+                                        exposedFromBelow.push(exposedArea)
 
                     else
 
-                        # checkIdx is the very top layer.
-                        exposedFromAbove.push(currentPath)
-
-                        break
-
-                # Check if there's a bottom surface within skinLayerCount layers below us.
-                if exposedFromAbove.length is 0
-
-                    for checkIdx in [layerIndex..Math.max(0, layerIndex - skinLayerCount + 1)] by -1
-
-                        # Is checkIdx a bottom surface?
-                        if checkIdx > 0
-
-                            # Check if layer checkIdx-1 covers this region.
-                            belowSegments = allLayers[checkIdx - 1]
-
-                            if belowSegments? and belowSegments.length > 0
-
-                                belowPaths = helpers.connectSegmentsToPaths(belowSegments)
-
-                                # Use polygon-based coverage calculation.
-                                coverageFromBelow = helpers.calculateRegionCoveragePolygonBased(currentPath, belowPaths)
-
-                                if coverageFromBelow < coverageThreshold
-
-                                    # Region is exposed - calculate exposed areas using polygon difference.
-                                    exposedAreas = helpers.calculateExposedAreasPolygonBased(currentPath, belowPaths)
-
-                                    # Apply area filtering.
-                                    minimumArea = nozzleDiameter * nozzleDiameter * 4
-
-                                    for exposedArea in exposedAreas
-
-                                        areaSize = helpers.calculatePolygonArea(exposedArea)
-
-                                        if areaSize >= minimumArea
-
-                                            exposedFromBelow.push(exposedArea)
-
-                                    # Found exposure - current layer gets skin if within range.
-                                    break
-
-                            else
-
-                                # No geometry below means bottom surface - entire region is exposed.
-                                exposedFromBelow.push(currentPath)
-
-                                break
-
-                        else
-
-                            # checkIdx is layer 0 (bottom layer).
-                            exposedFromBelow.push(currentPath)
-
-                            break
+                        # No geometry below - fully exposed bottom.
+                        exposedFromBelow.push(currentPath)
 
                 # Combine exposed areas from above and below.
                 skinAreas = exposedFromAbove.concat(exposedFromBelow)
