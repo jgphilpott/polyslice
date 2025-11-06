@@ -844,8 +844,11 @@ module.exports =
                                     currentArea = (currentBounds.maxX - currentBounds.minX) * (currentBounds.maxY - currentBounds.minY)
                                     checkArea = (checkBounds.maxX - checkBounds.minX) * (checkBounds.maxY - checkBounds.minY)
 
-                                    # If the hole has shrunk by more than 20%, consider it as closing up
-                                    if checkArea > currentArea * 0.8
+                                    # If the hole in the layer above is still at least 80% of the current size,
+                                    # consider it as still existing (not closing up significantly).
+                                    shrinkageThreshold = 0.8
+
+                                    if checkArea > currentArea * shrinkageThreshold
 
                                         holeStillExists = true
 
@@ -866,16 +869,27 @@ module.exports =
 
                             if holeBoundary and holeBoundary.length >= 3
 
-                                # Create an inward inset from the hole boundary to get the skin area
-                                # For holes, an "inward" inset means shrinking the hole (outset from hole perspective)
+                                # Create an inset from the hole boundary to get the skin area.
+                                # The third parameter (true) indicates this is a hole, which causes
+                                # createInsetPath to shrink the hole (inset from the material's perspective).
                                 skinInset = nozzleDiameter * 0.5
 
                                 holeSkinArea = helpers.createInsetPath(holeBoundary, skinInset, true)
 
                                 if holeSkinArea and holeSkinArea.length >= 3
 
-                                    # Get the last position for travel optimization
-                                    lastWallPoint = lastPathEndPoint or (if holeSkinArea.length > 0 then { x: holeSkinArea[0].x, y: holeSkinArea[0].y, z: z } else null)
+                                    # Get the last position for travel optimization.
+                                    if lastPathEndPoint?
+
+                                        lastWallPoint = lastPathEndPoint
+
+                                    else if holeSkinArea.length > 0
+
+                                        lastWallPoint = { x: holeSkinArea[0].x, y: holeSkinArea[0].y, z: z }
+
+                                    else
+
+                                        lastWallPoint = null
 
                                     # Generate skin for the interior of this closing hole
                                     # Don't pass this hole's walls to avoid collision (it's the area we're filling)
