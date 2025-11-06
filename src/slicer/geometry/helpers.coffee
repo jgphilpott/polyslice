@@ -973,10 +973,11 @@ module.exports =
 
                         totalValidPoints++
 
-        if totalValidPoints > 0 and exposedCount / totalValidPoints > 0.8
-
-            return [testRegion]
-
+        # Removed the >80% optimization that was returning testRegion directly.
+        # This was causing identical skin patches across layers because it returned
+        # the same object reference instead of calculating the actual exposed bounds.
+        # Now we always calculate the exposed area based on sample points.
+        
         # For partially exposed regions, create simplified exposed area polygons.
         # Strategy: Find exposed regions and create bounding rectangles for them.
         exposedAreas = []
@@ -1005,27 +1006,25 @@ module.exports =
 
                     if region.length > 0
 
-                        # Create a bounding box for this exposed region.
-                        minI = Math.min.apply(null, region.map((p) -> p.i))
-                        maxI = Math.max.apply(null, region.map((p) -> p.i))
-                        minJ = Math.min.apply(null, region.map((p) -> p.j))
-                        maxJ = Math.max.apply(null, region.map((p) -> p.j))
+                        # Create a bounding box for this exposed region based on actual point coordinates.
+                        # Use the actual sample point coordinates, not grid-aligned boxes.
+                        actualPoints = region.map((p) -> exposedGrid[p.i][p.j]).filter((pt) -> pt?)
+                        
+                        if actualPoints.length > 0
+                            minX = Math.min.apply(null, actualPoints.map((pt) -> pt.x))
+                            maxX = Math.max.apply(null, actualPoints.map((pt) -> pt.x))
+                            minY = Math.min.apply(null, actualPoints.map((pt) -> pt.y))
+                            maxY = Math.max.apply(null, actualPoints.map((pt) -> pt.y))
 
-                        # Convert grid coordinates to actual coordinates.
-                        minX = bounds.minX + width * (minI / gridSize)
-                        maxX = bounds.minX + width * ((maxI + 1) / gridSize)
-                        minY = bounds.minY + height * (minJ / gridSize)
-                        maxY = bounds.minY + height * ((maxJ + 1) / gridSize)
+                            # Create rectangle polygon for this exposed area.
+                            exposedPoly = [
+                                { x: minX, y: minY, z: testRegion[0].z }
+                                { x: maxX, y: minY, z: testRegion[0].z }
+                                { x: maxX, y: maxY, z: testRegion[0].z }
+                                { x: minX, y: maxY, z: testRegion[0].z }
+                            ]
 
-                        # Create rectangle polygon for this exposed area.
-                        exposedPoly = [
-                            { x: minX, y: minY, z: testRegion[0].z }
-                            { x: maxX, y: minY, z: testRegion[0].z }
-                            { x: maxX, y: maxY, z: testRegion[0].z }
-                            { x: minX, y: maxY, z: testRegion[0].z }
-                        ]
-
-                        exposedAreas.push(exposedPoly)
+                            exposedAreas.push(exposedPoly)
 
         # If we found exposed areas, return them. Otherwise return entire region.
         return if exposedAreas.length > 0 then exposedAreas else [testRegion]
