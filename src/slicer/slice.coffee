@@ -640,22 +640,24 @@ module.exports =
                 if slicer.getExposureDetection()
 
                     # ENABLED: Exposure detection algorithm
-                    # For the current layer, check ALL layers within skinLayerCount range (ahead AND behind)
-                    # for exposed surfaces. Calculate the exposed areas by comparing current layer with
-                    # layers ahead/behind. This generates skin proactively on any partially exposed areas.
+                    # For the current layer, check the layer exactly skinLayerCount steps ahead/behind
+                    # to determine exposed areas. This ensures each layer independently calculates
+                    # its exposed area based on geometry skinLayerCount layers away.
                     exposedAreas = []
 
-                    # Check EACH layer ahead within skinLayerCount range and compare with current layer.
-                    # This finds areas where future layers won't cover the current layer.
-                    for checkIdx in [layerIndex + 1..Math.min(totalLayers - 1, layerIndex + skinLayerCount)]
+                    # Check the layer exactly skinLayerCount steps AHEAD (above).
+                    # This is the layer that would ideally cover the current layer for top surfaces.
+                    checkIdxAbove = layerIndex + skinLayerCount
 
-                        checkSegments = allLayers[checkIdx]
+                    if checkIdxAbove < totalLayers
+
+                        checkSegments = allLayers[checkIdxAbove]
 
                         if checkSegments? and checkSegments.length > 0
 
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
                             
-                            # Calculate what parts of current layer are NOT covered by this future layer
+                            # Calculate what parts of current layer are NOT covered by the layer skinLayerCount steps ahead
                             checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, 81)
                             
                             if checkExposedAreas.length > 0
@@ -663,20 +665,27 @@ module.exports =
 
                         else
 
-                            # No geometry at this future layer means current layer is exposed
+                            # No geometry at the layer skinLayerCount steps ahead means current layer is exposed
                             exposedAreas.push(currentPath)
 
-                    # Also check EACH layer behind within skinLayerCount range and compare with current layer.
-                    # This finds areas where past layers don't support the current layer.
-                    for checkIdx in [Math.max(0, layerIndex - skinLayerCount)..layerIndex - 1]
+                    else
 
-                        checkSegments = allLayers[checkIdx]
+                        # We're within skinLayerCount of the top - current layer will be exposed
+                        exposedAreas.push(currentPath)
+
+                    # Check the layer exactly skinLayerCount steps BEHIND (below).
+                    # This is the layer that would ideally support the current layer for bottom surfaces.
+                    checkIdxBelow = layerIndex - skinLayerCount
+
+                    if checkIdxBelow >= 0
+
+                        checkSegments = allLayers[checkIdxBelow]
 
                         if checkSegments? and checkSegments.length > 0
 
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
                             
-                            # Calculate what parts of current layer are NOT covered by this past layer
+                            # Calculate what parts of current layer are NOT covered by the layer skinLayerCount steps behind
                             checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, 81)
                             
                             if checkExposedAreas.length > 0
@@ -684,10 +693,15 @@ module.exports =
 
                         else
 
-                            # No geometry at this past layer means current layer is exposed
+                            # No geometry at the layer skinLayerCount steps behind means current layer is exposed
                             exposedAreas.push(currentPath)
 
-                    # Use collected exposed areas for skin generation on current layer
+                    else
+
+                        # We're within skinLayerCount of the bottom - current layer will be exposed
+                        exposedAreas.push(currentPath)
+
+                    # Use calculated exposed areas for skin generation on current layer
                     skinAreas = exposedAreas
                     needsSkin = skinAreas.length > 0
 
