@@ -767,6 +767,133 @@ module.exports =
                     # Pass hole inner walls for clipping and hole outer walls for travel optimization.
                     infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
 
+        # Phase 2b: Check for exposed holes (cavities that close up in upper layers).
+        # When a hole exists in the current layer but disappears or shrinks significantly
+        # in the layer above, the area inside the hole represents the top of a cavity
+        # and should receive skin for a smooth finish.
+        if slicer.getExposureDetection() and layerIndex >= skinLayerCount and layerIndex < totalLayers - skinLayerCount
+
+            for path, pathIndex in paths
+
+                # Only process holes
+                continue unless pathIsHole[pathIndex] and path.length >= 3
+
+                # Check if this hole still exists in the layer above
+                checkIdxAbove = layerIndex + skinLayerCount
+
+                if checkIdxAbove < totalLayers
+
+                    checkSegments = allLayers[checkIdxAbove]
+
+                    if checkSegments? and checkSegments.length > 0
+
+                        checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+
+                        # Detect holes in the check layer
+                        checkPathIsHole = []
+
+                        for i in [0...checkPaths.length]
+
+                            isHole = false
+
+                            for j in [0...checkPaths.length]
+
+                                continue if i is j
+
+                                if checkPaths[i].length > 0 and helpers.pointInPolygon(checkPaths[i][0], checkPaths[j])
+
+                                    isHole = true
+
+                                    break
+
+                            checkPathIsHole.push(isHole)
+
+                        # Try to find a matching hole in the check layer
+                        # A hole "matches" if it overlaps significantly with the current hole
+                        holeStillExists = false
+
+                        for checkPath, checkIdx in checkPaths
+
+                            continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
+
+                            # Check if the holes overlap by testing if center points are inside each other's boundaries
+                            # Calculate center of current hole
+                            centerX = 0
+                            centerY = 0
+
+                            for point in path
+
+                                centerX += point.x
+                                centerY += point.y
+
+                            centerX /= path.length
+                            centerY /= path.length
+
+                            holeCenter = { x: centerX, y: centerY }
+
+                            # Check if hole center is inside the check path (hole still exists in similar location)
+                            if helpers.pointInPolygon(holeCenter, checkPath)
+
+                                # Hole still exists in the layer above - check if it has shrunk significantly
+                                # Calculate approximate areas to detect shrinkage
+                                currentBounds = helpers.calculatePathBounds(path)
+                                checkBounds = helpers.calculatePathBounds(checkPath)
+
+                                if currentBounds and checkBounds
+
+                                    currentArea = (currentBounds.maxX - currentBounds.minX) * (currentBounds.maxY - currentBounds.minY)
+                                    checkArea = (checkBounds.maxX - checkBounds.minX) * (checkBounds.maxY - checkBounds.minY)
+
+                                    # If the hole has shrunk by more than 20%, consider it as closing up
+                                    if checkArea > currentArea * 0.8
+
+                                        holeStillExists = true
+
+                                        break
+
+                                else
+
+                                    # If we can't calculate bounds, assume hole still exists to be safe
+                                    holeStillExists = true
+
+                                    break
+
+                        # If hole has disappeared or shrunk significantly, generate skin inside it
+                        if not holeStillExists
+
+                            # Use the innermost wall of the hole as the boundary for skin
+                            holeBoundary = innermostWalls[pathIndex]
+
+                            if holeBoundary and holeBoundary.length >= 3
+
+                                # Create an inward inset from the hole boundary to get the skin area
+                                # For holes, an "inward" inset means shrinking the hole (outset from hole perspective)
+                                skinInset = nozzleDiameter * 0.5
+
+                                holeSkinArea = helpers.createInsetPath(holeBoundary, skinInset, true)
+
+                                if holeSkinArea and holeSkinArea.length >= 3
+
+                                    # Get the last position for travel optimization
+                                    lastWallPoint = lastPathEndPoint or (if holeSkinArea.length > 0 then { x: holeSkinArea[0].x, y: holeSkinArea[0].y, z: z } else null)
+
+                                    # Generate skin for the interior of this closing hole
+                                    # Don't pass this hole's walls to avoid collision (it's the area we're filling)
+                                    # Pass other holes for collision avoidance
+                                    otherHoleSkinWalls = []
+                                    otherHoleOuterWalls = []
+
+                                    for otherPath, otherIdx in paths
+
+                                        continue if otherIdx is pathIndex or not pathIsHole[otherIdx]
+
+                                        if innermostWalls[otherIdx] and innermostWalls[otherIdx].length >= 3
+
+                                            otherHoleSkinWalls.push(innermostWalls[otherIdx])
+                                            otherHoleOuterWalls.push(paths[otherIdx])
+
+                                    skinModule.generateSkinGCode(slicer, holeSkinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, otherHoleSkinWalls, otherHoleOuterWalls)
+
         # Save the last position from this layer for combing to the next layer.
         # Parse the last G0/G1 command from the generated G-code to get the actual end position.
         # This accounts for infill and skin moves that happen after wall generation.
