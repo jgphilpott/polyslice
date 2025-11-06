@@ -656,7 +656,8 @@ module.exports =
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
                             
                             # Calculate what parts of CURRENT layer are NOT covered by the layer ahead
-                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, 81)
+                            # Use higher sample count (400 = 20x20 grid) for better resolution to detect gradual geometry changes
+                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, 400)
                             
                             if checkExposedAreas.length > 0
                                 exposedAreas.push(checkExposedAreas...)
@@ -685,7 +686,8 @@ module.exports =
                                 checkPaths = helpers.connectSegmentsToPaths(checkSegments)
                                 
                                 # Calculate what parts of CURRENT layer are NOT covered by the layer behind
-                                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, 81)
+                                # Use higher sample count (400 = 20x20 grid) for better resolution to detect gradual geometry changes
+                                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, 400)
                                 
                                 if checkExposedAreas.length > 0
                                     exposedAreas.push(checkExposedAreas...)
