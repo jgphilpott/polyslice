@@ -110,6 +110,10 @@ module.exports =
 
         return slicer.exposureDetection
 
+    getExposureDetectionResolution: (slicer) ->
+
+        return slicer.exposureDetectionResolution
+
     getSupportEnabled: (slicer) ->
 
         return slicer.supportEnabled
@@ -389,6 +393,12 @@ module.exports =
     setExposureDetection: (slicer, enabled = false) ->
 
         slicer.exposureDetection = Boolean enabled
+
+        return slicer
+
+    setExposureDetectionResolution: (slicer, resolution = 900) ->
+
+        slicer.exposureDetectionResolution = Math.max(1, Math.floor(resolution))
 
         return slicer
 

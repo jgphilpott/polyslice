@@ -656,8 +656,8 @@ module.exports =
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
                             
                             # Calculate what parts of CURRENT layer are NOT covered by the layer ahead
-                            # Use higher sample count (400 = 20x20 grid) for better resolution to detect gradual geometry changes
-                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, 400)
+                            # Use configurable resolution for exposure detection (default 900 = 30x30 grid)
+                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
                             
                             if checkExposedAreas.length > 0
                                 exposedAreas.push(checkExposedAreas...)
@@ -686,8 +686,8 @@ module.exports =
                                 checkPaths = helpers.connectSegmentsToPaths(checkSegments)
                                 
                                 # Calculate what parts of CURRENT layer are NOT covered by the layer behind
-                                # Use higher sample count (400 = 20x20 grid) for better resolution to detect gradual geometry changes
-                                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, 400)
+                                # Use configurable resolution for exposure detection (default 900 = 30x30 grid)
+                                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
                                 
                                 if checkExposedAreas.length > 0
                                     exposedAreas.push(checkExposedAreas...)

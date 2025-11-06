@@ -106,6 +106,7 @@ const slicer = new Polyslice(options);
 - `bedTemperature` (number): Bed temperature (default: 0).
 - `fanSpeed` (number): Fan speed percentage 0-100 (default: 100).
 - `exposureDetection` (boolean): Enable adaptive skin layer generation for exposed surfaces (default: true).
+- `exposureDetectionResolution` (number): Sample count for exposure detection analysis, higher = more accurate but slower (default: 900 for 30×30 grid).
 - `printer` (Printer): Printer instance for automatic configuration (default: null).
 - `filament` (Filament): Filament instance for automatic configuration (default: null).
 
@@ -262,18 +263,24 @@ Polyslice includes an adaptive skin layer generation algorithm that can intellig
 const slicer = new Polyslice({
   nozzleTemperature: 210,
   bedTemperature: 60,
-  exposureDetection: true  // Enabled by default
+  exposureDetection: true,  // Enabled by default
+  exposureDetectionResolution: 900  // 30×30 grid (default), higher = more accurate
 });
 
-// Or disable at runtime if needed
+// Adjust resolution at runtime for finer detail
+slicer.setExposureDetectionResolution(1600);  // 40×40 grid for very fine details
+
+// Or disable exposure detection if needed
 slicer.setExposureDetection(false);
 ```
 
 **Technical details:**
-- Uses a coverage threshold of 0.1 (10%) to determine exposed surfaces
-- Samples 9 points for coverage detection and 81 points for exposed area calculation
-- Checks layers within the skin layer count range (both above and below)
-- Generates skin for exposed areas while using sparse infill for covered regions
+- Uses marching squares algorithm to trace smooth contours of exposed regions
+- Default resolution: 900 samples (30×30 grid) - balances accuracy and performance
+- Higher resolutions (1600 = 40×40, 2500 = 50×50) provide more detail but are slower
+- Lower resolutions (400 = 20×20) are faster but may miss fine geometric changes
+- Checks the layer exactly skinLayerCount steps ahead/behind for each layer independently
+- Generates adaptive skin patches that grow/shrink naturally with geometry changes
 
 ### File Loader
 

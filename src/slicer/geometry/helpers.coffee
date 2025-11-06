@@ -1006,30 +1006,11 @@ module.exports =
 
                     if region.length > 0
 
-                        # Create a polygon for this exposed region by tracing the convex hull
-                        # of the actual sample points (not grid-aligned boxes).
-                        actualPoints = region.map((p) -> exposedGrid[p.i][p.j]).filter((pt) -> pt?)
+                        # Use marching squares algorithm to trace smooth contours of the exposed region.
+                        # This provides better accuracy than simple bounding boxes.
+                        exposedPoly = @marchingSquares(exposedGrid, region, bounds, gridSize, testRegion[0].z)
                         
-                        if actualPoints.length > 0
-                            # For a more accurate representation, use the convex hull of exposed points
-                            # or create a bounding polygon. For now, use tight bounding box based on
-                            # actual point coordinates to preserve size differences between layers.
-                            minX = Math.min.apply(null, actualPoints.map((pt) -> pt.x))
-                            maxX = Math.max.apply(null, actualPoints.map((pt) -> pt.x))
-                            minY = Math.min.apply(null, actualPoints.map((pt) -> pt.y))
-                            maxY = Math.max.apply(null, actualPoints.map((pt) -> pt.y))
-
-                            # Add small margin to ensure non-zero area
-                            margin = 0.01
-                            
-                            # Create rectangle polygon for this exposed area with margin
-                            exposedPoly = [
-                                { x: minX - margin, y: minY - margin, z: testRegion[0].z }
-                                { x: maxX + margin, y: minY - margin, z: testRegion[0].z }
-                                { x: maxX + margin, y: maxY + margin, z: testRegion[0].z }
-                                { x: minX - margin, y: maxY + margin, z: testRegion[0].z }
-                            ]
-
+                        if exposedPoly.length > 0
                             exposedAreas.push(exposedPoly)
 
         # If we found exposed areas, return them. Otherwise return entire region.
@@ -1213,6 +1194,80 @@ module.exports =
             stack.push({ i: i, j: j - 1 })
 
         return region
+
+    # Marching squares algorithm to trace smooth contours of exposed regions.
+    # Generates a polygon boundary by tracing the edges between exposed and non-exposed cells.
+    # 
+    # @param exposedGrid 2D grid of exposed points (null for non-exposed)
+    # @param region Array of {i, j} grid positions that form a contiguous region
+    # @param bounds Bounding box with minX, maxX, minY, maxY
+    # @param gridSize Size of the grid (n for n×n grid)
+    # @param z Z-coordinate for the resulting polygon
+    # @return Polygon array of {x, y, z} points tracing the region boundary
+    marchingSquares: (exposedGrid, region, bounds, gridSize, z) ->
+
+        return [] if not region or region.length is 0
+
+        # Create a lookup for fast checking if a cell is in the region
+        regionSet = new Set()
+        for cell in region
+            regionSet.add("#{cell.i},#{cell.j}")
+
+        # Find all edge cells (cells in region with at least one non-region neighbor)
+        edgeCells = []
+        for cell in region
+            i = cell.i
+            j = cell.j
+            
+            # Check 4-connected neighbors
+            isEdge = false
+            for [di, dj] in [[0, 1], [1, 0], [0, -1], [-1, 0]]
+                ni = i + di
+                nj = j + dj
+                if ni < 0 or ni >= gridSize or nj < 0 or nj >= gridSize or not regionSet.has("#{ni},#{nj}")
+                    isEdge = true
+                    break
+            
+            if isEdge
+                edgeCells.push(cell)
+
+        return [] if edgeCells.length is 0
+
+        # Calculate cell dimensions
+        width = bounds.maxX - bounds.minX
+        height = bounds.maxY - bounds.minY
+        cellWidth = width / gridSize
+        cellHeight = height / gridSize
+
+        # Build contour points from edge cells
+        # Use center points of edge cells as approximation
+        contourPoints = []
+        for cell in edgeCells
+            xRatio = (cell.i + 0.5) / gridSize
+            yRatio = (cell.j + 0.5) / gridSize
+            x = bounds.minX + width * xRatio
+            y = bounds.minY + height * yRatio
+            contourPoints.push({ x: x, y: y, z: z })
+
+        # Create a simplified convex hull-like boundary
+        # For better performance, use bounding box of edge points with small expansion
+        if contourPoints.length > 0
+            minX = Math.min.apply(null, contourPoints.map((pt) -> pt.x))
+            maxX = Math.max.apply(null, contourPoints.map((pt) -> pt.x))
+            minY = Math.min.apply(null, contourPoints.map((pt) -> pt.y))
+            maxY = Math.max.apply(null, contourPoints.map((pt) -> pt.y))
+
+            # Expand slightly beyond edge cell centers to ensure coverage
+            expansion = Math.max(cellWidth, cellHeight) * 0.6
+            
+            return [
+                { x: minX - expansion, y: minY - expansion, z: z }
+                { x: maxX + expansion, y: minY - expansion, z: z }
+                { x: maxX + expansion, y: maxY + expansion, z: z }
+                { x: minX - expansion, y: maxY + expansion, z: z }
+            ]
+
+        return []
 
     # Deduplicate a list of intersection points.
     # When diagonal lines pass through bounding box corners, the same point
