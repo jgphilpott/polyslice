@@ -672,7 +672,99 @@ module.exports =
                         # We're within skinLayerCount of the top - current layer will be exposed
                         exposedAreas.push(currentPath)
 
-                    # Only check behind if we didn't find exposure ahead
+                    # Check if any holes in this layer are closing in the layer above.
+                    # When a hole closes, the parent path (current path) needs skin.
+                    if exposedAreas.length is 0 and checkIdxAbove < totalLayers
+
+                        # Find all holes contained within the current path
+                        for holeIdx in [0...paths.length]
+
+                            continue unless pathIsHole[holeIdx] and paths[holeIdx].length >= 3
+
+                            # Check if this hole is inside the current path
+                            if helpers.pointInPolygon(paths[holeIdx][0], currentPath)
+
+                                # Check if this hole still exists in the layer above
+                                checkSegments = allLayers[checkIdxAbove]
+
+                                if checkSegments? and checkSegments.length > 0
+
+                                    checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+
+                                    # Detect holes in the check layer
+                                    checkPathIsHole = []
+
+                                    for i in [0...checkPaths.length]
+
+                                        isCheckHole = false
+
+                                        for j in [0...checkPaths.length]
+
+                                            continue if i is j
+
+                                            if checkPaths[i].length > 0 and helpers.pointInPolygon(checkPaths[i][0], checkPaths[j])
+
+                                                isCheckHole = true
+
+                                                break
+
+                                        checkPathIsHole.push(isCheckHole)
+
+                                    # Try to find a matching hole in the check layer
+                                    holeStillExists = false
+
+                                    for checkPath, checkIdx in checkPaths
+
+                                        continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
+
+                                        # Calculate center of hole
+                                        centerX = 0
+                                        centerY = 0
+
+                                        for point in paths[holeIdx]
+
+                                            centerX += point.x
+                                            centerY += point.y
+
+                                        centerX /= paths[holeIdx].length
+                                        centerY /= paths[holeIdx].length
+
+                                        holeCenter = { x: centerX, y: centerY }
+
+                                        # Check if hole center is inside the check path
+                                        if helpers.pointInPolygon(holeCenter, checkPath)
+
+                                            # Hole still exists - check if it has shrunk significantly
+                                            currentBounds = helpers.calculatePathBounds(paths[holeIdx])
+                                            checkBounds = helpers.calculatePathBounds(checkPath)
+
+                                            if currentBounds and checkBounds
+
+                                                currentArea = (currentBounds.maxX - currentBounds.minX) * (currentBounds.maxY - currentBounds.minY)
+                                                checkArea = (checkBounds.maxX - checkBounds.minX) * (checkBounds.maxY - checkBounds.minY)
+
+                                                shrinkageThreshold = 0.8
+
+                                                if checkArea > currentArea * shrinkageThreshold
+
+                                                    holeStillExists = true
+
+                                                    break
+
+                                            else
+
+                                                holeStillExists = true
+
+                                                break
+
+                                    # If hole has closed, the current path is exposed.
+                                    if not holeStillExists
+
+                                        exposedAreas.push(currentPath)
+
+                                        break  # Found at least one closing hole, that's enough
+
+                    # Only check behind if we didn't find exposure ahead or from closing holes
                     if exposedAreas.length is 0
 
                         checkIdxBelow = layerIndex - skinLayerCount
@@ -691,6 +783,90 @@ module.exports =
                                 
                                 if checkExposedAreas.length > 0
                                     exposedAreas.push(checkExposedAreas...)
+
+                                # Also check if any holes existed in the layer below but not in current layer.
+                                # This means the current layer is the first solid layer after a cavity closed.
+                                if exposedAreas.length is 0
+
+                                    # Detect holes in the check layer (below)
+                                    checkPathIsHole = []
+
+                                    for i in [0...checkPaths.length]
+
+                                        isCheckHole = false
+
+                                        for j in [0...checkPaths.length]
+
+                                            continue if i is j
+
+                                            if checkPaths[i].length > 0 and helpers.pointInPolygon(checkPaths[i][0], checkPaths[j])
+
+                                                isCheckHole = true
+
+                                                break
+
+                                        checkPathIsHole.push(isCheckHole)
+
+                                    # Check if any hole from below doesn't exist in current layer
+                                    for checkPath, checkIdx in checkPaths
+
+                                        continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
+
+                                        # Calculate center of hole in layer below
+                                        centerX = 0
+                                        centerY = 0
+
+                                        for point in checkPath
+
+                                            centerX += point.x
+                                            centerY += point.y
+
+                                        centerX /= checkPath.length
+                                        centerY /= checkPath.length
+
+                                        holeCenter = { x: centerX, y: centerY }
+
+                                        # Check if this hole center is inside the current path (meaning it was contained)
+                                        # but now the hole is gone in the current layer
+                                        if helpers.pointInPolygon(holeCenter, currentPath)
+
+                                            # Check if a similar hole exists in current layer
+                                            holePresentInCurrentLayer = false
+
+                                            for holeIdx in [0...paths.length]
+
+                                                continue unless pathIsHole[holeIdx] and paths[holeIdx].length >= 3
+
+                                                # Check if this is a matching hole
+                                                if helpers.pointInPolygon(paths[holeIdx][0], currentPath)
+
+                                                    # Calculate center of current hole
+                                                    currCenterX = 0
+                                                    currCenterY = 0
+
+                                                    for point in paths[holeIdx]
+
+                                                        currCenterX += point.x
+                                                        currCenterY += point.y
+
+                                                    currCenterX /= paths[holeIdx].length
+                                                    currCenterY /= paths[holeIdx].length
+
+                                                    # Check if centers are close
+                                                    dist = Math.sqrt((currCenterX - holeCenter.x) ** 2 + (currCenterY - holeCenter.y) ** 2)
+
+                                                    if dist < 5  # Within 5mm, consider it the same hole
+
+                                                        holePresentInCurrentLayer = true
+
+                                                        break
+
+                                            # If hole from below is gone in current layer, this layer is exposed
+                                            if not holePresentInCurrentLayer
+
+                                                exposedAreas.push(currentPath)
+
+                                                break
 
                             else
 
@@ -766,141 +942,6 @@ module.exports =
                     # but require that an inset path exists as a guard to ensure there is room inside.
                     # Pass hole inner walls for clipping and hole outer walls for travel optimization.
                     infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
-
-        # Phase 2b: Check for exposed holes (cavities that close up in upper layers).
-        # When a hole exists in the current layer but disappears or shrinks significantly
-        # in the layer above, the MATERIAL surrounding the hole (the cavity roof) is exposed
-        # and should receive skin for a smooth finish.
-        if slicer.getExposureDetection() and layerIndex >= skinLayerCount and layerIndex < totalLayers - skinLayerCount
-
-            for path, pathIndex in paths
-
-                # Only process holes
-                continue unless pathIsHole[pathIndex] and path.length >= 3
-
-                # Check if this hole still exists in the layer above
-                checkIdxAbove = layerIndex + skinLayerCount
-
-                if checkIdxAbove < totalLayers
-
-                    checkSegments = allLayers[checkIdxAbove]
-
-                    if checkSegments? and checkSegments.length > 0
-
-                        checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                        # Detect holes in the check layer
-                        checkPathIsHole = []
-
-                        for i in [0...checkPaths.length]
-
-                            isHole = false
-
-                            for j in [0...checkPaths.length]
-
-                                continue if i is j
-
-                                if checkPaths[i].length > 0 and helpers.pointInPolygon(checkPaths[i][0], checkPaths[j])
-
-                                    isHole = true
-
-                                    break
-
-                            checkPathIsHole.push(isHole)
-
-                        # Try to find a matching hole in the check layer
-                        # A hole "matches" if it overlaps significantly with the current hole
-                        holeStillExists = false
-
-                        for checkPath, checkIdx in checkPaths
-
-                            continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
-
-                            # Check if the holes overlap by testing if center points are inside each other's boundaries
-                            # Calculate center of current hole
-                            centerX = 0
-                            centerY = 0
-
-                            for point in path
-
-                                centerX += point.x
-                                centerY += point.y
-
-                            centerX /= path.length
-                            centerY /= path.length
-
-                            holeCenter = { x: centerX, y: centerY }
-
-                            # Check if hole center is inside the check path (hole still exists in similar location)
-                            if helpers.pointInPolygon(holeCenter, checkPath)
-
-                                # Hole still exists in the layer above - check if it has shrunk significantly
-                                # Calculate approximate areas to detect shrinkage
-                                currentBounds = helpers.calculatePathBounds(path)
-                                checkBounds = helpers.calculatePathBounds(checkPath)
-
-                                if currentBounds and checkBounds
-
-                                    currentArea = (currentBounds.maxX - currentBounds.minX) * (currentBounds.maxY - currentBounds.minY)
-                                    checkArea = (checkBounds.maxX - checkBounds.minX) * (checkBounds.maxY - checkBounds.minY)
-
-                                    # If the hole in the layer above is still at least 80% of the current size,
-                                    # consider it as still existing (not closing up significantly).
-                                    shrinkageThreshold = 0.8
-
-                                    if checkArea > currentArea * shrinkageThreshold
-
-                                        holeStillExists = true
-
-                                        break
-
-                                else
-
-                                    # If we can't calculate bounds, assume hole still exists to be safe
-                                    holeStillExists = true
-
-                                    break
-
-                        # If hole has disappeared or shrunk significantly, the material surrounding it is exposed.
-                        # Generate skin on the PARENT PATH (outer boundary) in the region around the closing hole.
-                        if not holeStillExists
-
-                            # Find the parent path (outer boundary) that contains this hole
-                            parentPathIndex = null
-
-                            for outerIdx in [0...paths.length]
-
-                                continue if pathIsHole[outerIdx] or outerIdx is pathIndex
-
-                                # Check if this hole is inside the outer path
-                                if path.length > 0 and helpers.pointInPolygon(path[0], paths[outerIdx])
-
-                                    parentPathIndex = outerIdx
-
-                                    break
-
-                            # Generate skin on the parent path around the closing hole
-                            if parentPathIndex? and innermostWalls[parentPathIndex] and innermostWalls[parentPathIndex].length >= 3
-
-                                parentInnerWall = innermostWalls[parentPathIndex]
-
-                                # Get the last position for travel optimization.
-                                if lastPathEndPoint?
-
-                                    lastWallPoint = lastPathEndPoint
-
-                                else if parentInnerWall.length > 0
-
-                                    lastWallPoint = { x: parentInnerWall[0].x, y: parentInnerWall[0].y, z: z }
-
-                                else
-
-                                    lastWallPoint = null
-
-                                # Generate skin on the parent path, but with the closing hole as an exclusion.
-                                # This creates skin in the "ring" of material that forms the cavity roof.
-                                # Pass ALL hole skin walls (including the closing hole) for proper clipping.
-                                skinModule.generateSkinGCode(slicer, parentInnerWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
         # Save the last position from this layer for combing to the next layer.
         # Parse the last G0/G1 command from the generated G-code to get the actual end position.
