@@ -758,10 +758,42 @@ module.exports =
                                                 break
 
                                     # If hole has closed, the area around the hole is exposed.
-                                    # Use the hole's path as the exposed area to create circular skin pattern.
+                                    # Create an expanded version of the hole to form a ring-shaped exposed area.
+                                    # The ring will be: outer circle (expanded hole) minus inner circle (actual hole via holeSkinWalls).
                                     if not holeStillExists
 
-                                        exposedAreas.push(paths[holeIdx])
+                                        # Calculate the hole's approximate size
+                                        holeBounds = helpers.calculatePathBounds(paths[holeIdx])
+
+                                        if holeBounds
+
+                                            holeWidth = holeBounds.maxX - holeBounds.minX
+                                            holeHeight = holeBounds.maxY - holeBounds.minY
+                                            holeSize = Math.max(holeWidth, holeHeight)
+
+                                            # Expand proportional to hole size with limits
+                                            # Smaller expansion for larger holes, larger expansion for smaller holes
+                                            # Min: 2 nozzle diameters, Max: 4 nozzle diameters
+                                            expansionFactor = if holeSize > 10 then 0.2 else if holeSize > 5 then 0.25 else 0.35
+                                            ringExpansion = Math.min(Math.max(holeSize * expansionFactor, nozzleDiameter * 2), nozzleDiameter * 4)
+
+                                            # Create expanded hole boundary for ring's outer edge
+                                            # For holes, negative inset with isHole=true expands outward
+                                            expandedHole = helpers.createInsetPath(paths[holeIdx], -ringExpansion, true)
+
+                                            if expandedHole and expandedHole.length >= 3
+
+                                                exposedAreas.push(expandedHole)
+
+                                            else
+
+                                                # Fallback to original hole path if expansion fails
+                                                exposedAreas.push(paths[holeIdx])
+
+                                        else
+
+                                            # Can't calculate bounds, use original hole path
+                                            exposedAreas.push(paths[holeIdx])
 
                                         break  # Found at least one closing hole, that's enough
 
