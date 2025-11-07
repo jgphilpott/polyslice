@@ -514,7 +514,132 @@ module.exports =
 
         # Determine if this layer needs skin.
         # This is used to decide whether to generate skin walls for holes during wall generation.
-        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+        # If exposure detection is enabled, check if any holes on this layer are exposed.
+        # Otherwise, only mark absolute top/bottom layers as needing skin.
+        layerNeedsSkin = false
+        
+        if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+            # Absolute top/bottom layers always need skin
+            layerNeedsSkin = true
+        else if slicer.getExposureDetection()
+            # Middle layers: check if any holes are exposed using adaptive detection
+            # A hole surface is exposed if the layers ahead/behind have filled in the hole
+            # (i.e., they have solid material where this layer has a cavity)
+            for pathIndex in holeIndices
+                holePath = paths[pathIndex]
+                continue if holePath.length < 3
+                
+                # Check if this hole's surface is exposed by comparing with layers ahead/behind
+                holeIsExposed = false
+                
+                # Check layer skinLayerCount steps ahead
+                checkIdxAbove = layerIndex + skinLayerCount
+                if checkIdxAbove < totalLayers
+                    checkSegments = allLayers[checkIdxAbove]
+                    if checkSegments? and checkSegments.length > 0
+                        checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                        
+                        # Find if layer ahead has a corresponding hole
+                        # Detect holes in the check layer
+                        checkHasCorrespondingHole = false
+                        for i in [0...checkPaths.length]
+                            # Check if this check path is a hole
+                            isCheckHole = false
+                            for j in [0...checkPaths.length]
+                                continue if i is j
+                                if checkPaths[i].length > 0 and helpers.pointInPolygon(checkPaths[i][0], checkPaths[j])
+                                    isCheckHole = true
+                                    break
+                            
+                            # If it's a hole, check if it overlaps with our hole
+                            # Two holes overlap if they share significant area
+                            if isCheckHole
+                                # Check both directions: does check hole overlap with our hole,
+                                # and does our hole overlap with check hole
+                                sampleCount = Math.min(5, checkPaths[i].length)
+                                checkToOurOverlapCount = 0
+                                for k in [0...sampleCount]
+                                    idx = Math.floor(k * checkPaths[i].length / sampleCount)
+                                    if helpers.pointInPolygon(checkPaths[i][idx], holePath)
+                                        checkToOurOverlapCount++
+                                
+                                ourToCheckOverlapCount = 0
+                                sampleCount2 = Math.min(5, holePath.length)
+                                for k in [0...sampleCount2]
+                                    idx = Math.floor(k * holePath.length / sampleCount2)
+                                    if helpers.pointInPolygon(holePath[idx], checkPaths[i])
+                                        ourToCheckOverlapCount++
+                                
+                                # If either direction shows significant overlap, this is a corresponding hole
+                                if checkToOurOverlapCount > sampleCount / 2 or ourToCheckOverlapCount > sampleCount2 / 2
+                                    checkHasCorrespondingHole = true
+                                    break
+                        
+                        # If no corresponding hole found, the hole surface is exposed from above
+                        if not checkHasCorrespondingHole
+                            holeIsExposed = true
+                    else
+                        # No geometry ahead means hole surface is exposed
+                        holeIsExposed = true
+                else
+                    # Near top means hole surface is exposed
+                    holeIsExposed = true
+                
+                # If not exposed from above, check below
+                if not holeIsExposed
+                    checkIdxBelow = layerIndex - skinLayerCount
+                    if checkIdxBelow >= 0
+                        checkSegments = allLayers[checkIdxBelow]
+                        if checkSegments? and checkSegments.length > 0
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                            
+                            # Find if layer below has a corresponding hole
+                            checkHasCorrespondingHole = false
+                            for i in [0...checkPaths.length]
+                                # Check if this check path is a hole
+                                isCheckHole = false
+                                for j in [0...checkPaths.length]
+                                    continue if i is j
+                                    if checkPaths[i].length > 0 and helpers.pointInPolygon(checkPaths[i][0], checkPaths[j])
+                                        isCheckHole = true
+                                        break
+                                
+                                # If it's a hole, check if it overlaps with our hole
+                                if isCheckHole
+                                    # Check both directions for overlap
+                                    sampleCount = Math.min(5, checkPaths[i].length)
+                                    checkToOurOverlapCount = 0
+                                    for k in [0...sampleCount]
+                                        idx = Math.floor(k * checkPaths[i].length / sampleCount)
+                                        if helpers.pointInPolygon(checkPaths[i][idx], holePath)
+                                            checkToOurOverlapCount++
+                                    
+                                    ourToCheckOverlapCount = 0
+                                    sampleCount2 = Math.min(5, holePath.length)
+                                    for k in [0...sampleCount2]
+                                        idx = Math.floor(k * holePath.length / sampleCount2)
+                                        if helpers.pointInPolygon(holePath[idx], checkPaths[i])
+                                            ourToCheckOverlapCount++
+                                    
+                                    # If either direction shows significant overlap, this is a corresponding hole
+                                    if checkToOurOverlapCount > sampleCount / 2 or ourToCheckOverlapCount > sampleCount2 / 2
+                                        checkHasCorrespondingHole = true
+                                        break
+                            
+                            # If no corresponding hole found, the hole surface is exposed from below
+                            if not checkHasCorrespondingHole
+                                holeIsExposed = true
+                        else
+                            # No geometry below means hole surface is exposed
+                            holeIsExposed = true
+                    else
+                        # Near bottom means hole surface is exposed
+                        holeIsExposed = true
+                
+                # If any hole is exposed, this layer needs skin
+                if holeIsExposed
+                    layerNeedsSkin = true
+                    break
 
         # Process outer boundaries first (non-hole paths).
         for pathIndex in outerBoundaryIndices
@@ -640,8 +765,9 @@ module.exports =
                 if slicer.getExposureDetection()
 
                     # ENABLED: Exposure detection algorithm
-                    # For the current layer, calculate what parts won't be covered by the layer exactly
-                    # skinLayerCount steps ahead/behind. Each layer independently calculates its exposed area.
+                    # For the current layer, calculate what parts won't be covered by layers
+                    # within ±skinLayerCount range. Each layer independently calculates its exposed area.
+                    # We need to check BOTH ahead and behind to catch all exposed surfaces.
                     exposedAreas = []
 
                     # Check the layer exactly skinLayerCount steps AHEAD (above).
@@ -672,35 +798,34 @@ module.exports =
                         # We're within skinLayerCount of the top - current layer will be exposed
                         exposedAreas.push(currentPath)
 
-                    # Only check behind if we didn't find exposure ahead
-                    if exposedAreas.length is 0
+                    # Always check behind as well - a layer can be exposed from below even if covered above.
+                    # This is critical for dome-like geometries where the top is exposed from below.
+                    checkIdxBelow = layerIndex - skinLayerCount
 
-                        checkIdxBelow = layerIndex - skinLayerCount
+                    if checkIdxBelow >= 0
 
-                        if checkIdxBelow >= 0
+                        checkSegments = allLayers[checkIdxBelow]
 
-                            checkSegments = allLayers[checkIdxBelow]
+                        if checkSegments? and checkSegments.length > 0
 
-                            if checkSegments? and checkSegments.length > 0
-
-                                checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                                
-                                # Calculate what parts of CURRENT layer are NOT covered by the layer behind
-                                # Use configurable resolution for exposure detection (default 900 = 30x30 grid)
-                                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-                                
-                                if checkExposedAreas.length > 0
-                                    exposedAreas.push(checkExposedAreas...)
-
-                            else
-
-                                # No geometry at the layer behind means current layer is exposed
-                                exposedAreas.push(currentPath)
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                            
+                            # Calculate what parts of CURRENT layer are NOT covered by the layer behind
+                            # Use configurable resolution for exposure detection (default 900 = 30x30 grid)
+                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
+                            
+                            if checkExposedAreas.length > 0
+                                exposedAreas.push(checkExposedAreas...)
 
                         else
 
-                            # We're within skinLayerCount of the bottom - current layer will be exposed
+                            # No geometry at the layer behind means current layer is exposed
                             exposedAreas.push(currentPath)
+
+                    else
+
+                        # We're within skinLayerCount of the bottom - current layer will be exposed
+                        exposedAreas.push(currentPath)
 
                     # Use calculated exposed areas for skin generation on current layer
                     skinAreas = exposedAreas
