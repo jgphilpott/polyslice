@@ -757,10 +757,11 @@ module.exports =
 
                                                 break
 
-                                    # If hole has closed, the current path is exposed.
+                                    # If hole has closed, the area around the hole is exposed.
+                                    # Use the hole's path as the exposed area to create circular skin pattern.
                                     if not holeStillExists
 
-                                        exposedAreas.push(currentPath)
+                                        exposedAreas.push(paths[holeIdx])
 
                                         break  # Found at least one closing hole, that's enough
 
@@ -861,10 +862,11 @@ module.exports =
 
                                                         break
 
-                                            # If hole from below is gone in current layer, this layer is exposed
+                                            # If hole from below is gone in current layer, this layer is exposed.
+                                            # Use the hole path from below as the exposed area to maintain circular shape.
                                             if not holePresentInCurrentLayer
 
-                                                exposedAreas.push(currentPath)
+                                                exposedAreas.push(checkPath)
 
                                                 break
 
