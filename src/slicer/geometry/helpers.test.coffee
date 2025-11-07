@@ -1890,3 +1890,159 @@ describe 'Travel Path Optimization', ->
             expect(result).toBeGreaterThanOrEqual(0)
             expect(result).toBeLessThan(path.length)
 
+    describe 'marchingSquares', ->
+
+        test 'should generate contour for simple 2x2 exposed region', ->
+
+            # Create a simple test case: a 2x2 exposed region in a 5x5 grid.
+            gridSize = 5
+            exposedGrid = []
+
+            for i in [0...gridSize]
+                row = []
+                for j in [0...gridSize]
+                    # Create a 2x2 exposed region in the center.
+                    if (i is 1 or i is 2) and (j is 1 or j is 2)
+                        row.push({ x: i, y: j })
+                    else
+                        row.push(null)
+                exposedGrid.push(row)
+
+            # Create region array.
+            region = []
+            for i in [1..2]
+                for j in [1..2]
+                    region.push({ i: i, j: j, point: { x: i, y: j } })
+
+            bounds = {
+                minX: 0
+                maxX: 5
+                minY: 0
+                maxY: 5
+            }
+
+            z = 0
+
+            result = helpers.marchingSquares(exposedGrid, region, bounds, gridSize, z)
+
+            # Should generate a valid polygon with at least 3 points.
+            expect(result.length).toBeGreaterThanOrEqual(3)
+
+            # All points should have z coordinate set correctly.
+            for point in result
+                expect(point.z).toBe(z)
+
+            # Points should be within bounds.
+            for point in result
+                expect(point.x).toBeGreaterThanOrEqual(bounds.minX)
+                expect(point.x).toBeLessThanOrEqual(bounds.maxX)
+                expect(point.y).toBeGreaterThanOrEqual(bounds.minY)
+                expect(point.y).toBeLessThanOrEqual(bounds.maxY)
+            undefined
+
+        test 'should generate multiple points for circular exposed region', ->
+
+            # Create a circular exposed region.
+            gridSize = 10
+            centerI = 5
+            centerJ = 5
+            radius = 3
+
+            exposedGrid = []
+            region = []
+
+            for i in [0...gridSize]
+                row = []
+                for j in [0...gridSize]
+                    dist = Math.sqrt((i - centerI) ** 2 + (j - centerJ) ** 2)
+                    if dist <= radius
+                        row.push({ x: i, y: j })
+                        region.push({ i: i, j: j, point: { x: i, y: j } })
+                    else
+                        row.push(null)
+                exposedGrid.push(row)
+
+            bounds = {
+                minX: 0
+                maxX: 10
+                minY: 0
+                maxY: 10
+            }
+
+            z = 1.5
+
+            result = helpers.marchingSquares(exposedGrid, region, bounds, gridSize, z)
+
+            # Should generate a valid polygon with many points to approximate the circle.
+            expect(result.length).toBeGreaterThanOrEqual(8)
+
+            # All points should have z coordinate set correctly.
+            for point in result
+                expect(point.z).toBe(z)
+            undefined
+
+        test 'should return empty array for empty region', ->
+
+            gridSize = 5
+            exposedGrid = []
+
+            for i in [0...gridSize]
+                row = []
+                for j in [0...gridSize]
+                    row.push(null)
+                exposedGrid.push(row)
+
+            region = []
+
+            bounds = {
+                minX: 0
+                maxX: 5
+                minY: 0
+                maxY: 5
+            }
+
+            z = 0
+
+            result = helpers.marchingSquares(exposedGrid, region, bounds, gridSize, z)
+
+            # Should return empty array for empty region.
+            expect(result).toEqual([])
+
+        test 'should handle single cell exposed region', ->
+
+            # Create a simple test case: a single exposed cell.
+            gridSize = 5
+            exposedGrid = []
+
+            for i in [0...gridSize]
+                row = []
+                for j in [0...gridSize]
+                    # Single exposed cell at (2, 2).
+                    if i is 2 and j is 2
+                        row.push({ x: i, y: j })
+                    else
+                        row.push(null)
+                exposedGrid.push(row)
+
+            # Create region array.
+            region = [{ i: 2, j: 2, point: { x: 2, y: 2 } }]
+
+            bounds = {
+                minX: 0
+                maxX: 5
+                minY: 0
+                maxY: 5
+            }
+
+            z = 0
+
+            result = helpers.marchingSquares(exposedGrid, region, bounds, gridSize, z)
+
+            # Should generate a valid polygon (at least 3 points for a small square).
+            expect(result.length).toBeGreaterThanOrEqual(3)
+
+            # All points should have z coordinate set correctly.
+            for point in result
+                expect(point.z).toBe(z)
+            undefined
+

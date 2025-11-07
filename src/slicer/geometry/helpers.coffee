@@ -1230,116 +1230,99 @@ module.exports =
             y: bounds.minY + (j / gridSize) * height
             z: z
 
-        # Find a starting edge cell to begin contour tracing
-        # Look for a cell on the boundary of the region
-        startCell = null
+        # Collect all boundary vertices where exposed meets non-exposed
+        # Use a set to track unique vertices
+        vertexSet = new Set()
+        vertices = []
+
         for cell in region
             i = cell.i
             j = cell.j
-            # Check if this is an edge cell (has at least one non-exposed neighbor)
-            if not isExposed(i - 1, j) or not isExposed(i + 1, j) or not isExposed(i, j - 1) or not isExposed(i, j + 1)
-                startCell = cell
-                break
 
-        return [] if not startCell
+            # Check each corner of this cell to see if it's on the boundary
+            # A corner is on the boundary if it's adjacent to both exposed and non-exposed cells
+            
+            # Bottom-left corner (i, j)
+            adjacentCells = [
+                isExposed(i - 1, j - 1)  # bottom-left
+                isExposed(i, j - 1)      # bottom
+                isExposed(i - 1, j)      # left
+                isExposed(i, j)          # current
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i},#{j}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i, j: j, point: gridToWorld(i, j) })
 
-        # Trace the contour by walking around the boundary
-        # Use Moore-neighbor tracing algorithm
-        contour = []
-        current = { i: startCell.i, j: startCell.j }
-        
-        # Find the first boundary direction
-        # Start by looking for a non-exposed neighbor
-        startDirection = null
-        directions = [
-            { di: 0, dj: 1, name: 'top' }      # top
-            { di: 1, dj: 0, name: 'right' }    # right
-            { di: 0, dj: -1, name: 'bottom' }  # bottom
-            { di: -1, dj: 0, name: 'left' }    # left
-        ]
-        
-        for dir in directions
-            if not isExposed(current.i + dir.di, current.j + dir.dj)
-                startDirection = dir
-                break
-        
-        return [] if not startDirection
-        
-        # Create edge points by walking around the perimeter
-        # For each cell on the boundary, add the corner point that's on the edge
-        visitedCells = new Set()
-        maxSteps = region.length * 4  # Safety limit
-        steps = 0
-        
-        # Starting corner based on direction
-        if startDirection.name is 'top'
-            contour.push(gridToWorld(current.i, current.j + 1))
-        else if startDirection.name is 'right'
-            contour.push(gridToWorld(current.i + 1, current.j + 1))
-        else if startDirection.name is 'bottom'
-            contour.push(gridToWorld(current.i + 1, current.j))
-        else # left
-            contour.push(gridToWorld(current.i, current.j))
-        
-        currentDir = startDirection
-        
-        while steps < maxSteps
-            steps++
-            
-            cellKey = "#{current.i},#{current.j}"
-            visitedCells.add(cellKey)
-            
-            # Try to turn right first (to follow the boundary clockwise)
-            rightDir = directions[(directions.indexOf(currentDir) + 1) % 4]
-            nextI = current.i + rightDir.di
-            nextJ = current.j + rightDir.dj
-            
-            if isExposed(nextI, nextJ)
-                # Can turn right
-                current = { i: nextI, j: nextJ }
-                currentDir = rightDir
-                
-                # Add corner point
-                if currentDir.name is 'top'
-                    contour.push(gridToWorld(current.i, current.j + 1))
-                else if currentDir.name is 'right'
-                    contour.push(gridToWorld(current.i + 1, current.j + 1))
-                else if currentDir.name is 'bottom'
-                    contour.push(gridToWorld(current.i + 1, current.j))
-                else # left
-                    contour.push(gridToWorld(current.i, current.j))
-            else
-                # Can't turn right, try straight
-                straightI = current.i + currentDir.di
-                straightJ = current.j + currentDir.dj
-                
-                if isExposed(straightI, straightJ)
-                    # Can go straight
-                    current = { i: straightI, j: straightJ }
-                else
-                    # Can't go straight, turn left
-                    leftDir = directions[(directions.indexOf(currentDir) + 3) % 4]
-                    
-                    # Add corner point before turning
-                    if leftDir.name is 'top'
-                        contour.push(gridToWorld(current.i, current.j + 1))
-                    else if leftDir.name is 'right'
-                        contour.push(gridToWorld(current.i + 1, current.j + 1))
-                    else if leftDir.name is 'bottom'
-                        contour.push(gridToWorld(current.i + 1, current.j))
-                    else # left
-                        contour.push(gridToWorld(current.i, current.j))
-                    
-                    currentDir = leftDir
-            
-            # Check if we're back at the start
-            if current.i is startCell.i and current.j is startCell.j and visitedCells.size > 1
-                break
-        
-        # Simplify contour by removing duplicate consecutive points
+            # Bottom-right corner (i+1, j)
+            adjacentCells = [
+                isExposed(i, j - 1)      # bottom-left
+                isExposed(i + 1, j - 1)  # bottom-right
+                isExposed(i, j)          # left
+                isExposed(i + 1, j)      # right
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i + 1},#{j}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i + 1, j: j, point: gridToWorld(i + 1, j) })
+
+            # Top-left corner (i, j+1)
+            adjacentCells = [
+                isExposed(i - 1, j)      # left-bottom
+                isExposed(i, j)          # bottom
+                isExposed(i - 1, j + 1)  # left-top
+                isExposed(i, j + 1)      # top
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i},#{j + 1}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i, j: j + 1, point: gridToWorld(i, j + 1) })
+
+            # Top-right corner (i+1, j+1)
+            adjacentCells = [
+                isExposed(i, j)          # bottom-left
+                isExposed(i + 1, j)      # bottom-right
+                isExposed(i, j + 1)      # top-left
+                isExposed(i + 1, j + 1)  # top-right
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i + 1},#{j + 1}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i + 1, j: j + 1, point: gridToWorld(i + 1, j + 1) })
+
+        return [] if vertices.length < 3
+
+        # Sort vertices to form a contour
+        # Use a simple approach: find the centroid and sort by angle from centroid
+        centroidI = 0
+        centroidJ = 0
+        for vertex in vertices
+            centroidI += vertex.i
+            centroidJ += vertex.j
+        centroidI /= vertices.length
+        centroidJ /= vertices.length
+
+        # Sort by angle from centroid
+        sortedVertices = vertices.slice().sort (a, b) ->
+            angleA = Math.atan2(a.j - centroidJ, a.i - centroidI)
+            angleB = Math.atan2(b.j - centroidJ, b.i - centroidI)
+            return angleA - angleB
+
+        # Extract the points
+        contour = sortedVertices.map((v) -> v.point)
+
+        # Simplify by removing very close consecutive points
         simplifiedContour = []
         epsilon = Math.min(cellWidth, cellHeight) * 0.01
-        
+
         for i in [0...contour.length]
             point = contour[i]
             
@@ -1353,7 +1336,7 @@ module.exports =
                 
                 if dist > epsilon
                     simplifiedContour.push(point)
-        
+
         # Ensure we have at least 3 points for a valid polygon
         return [] if simplifiedContour.length < 3
 
