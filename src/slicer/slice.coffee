@@ -758,14 +758,29 @@ module.exports =
                                                 break
 
                                     # If hole has closed or shrunk significantly, this layer is exposed.
-                                    # Use the CURRENT layer's innermost wall as the exposed area.
-                                    # This creates circular patterns matching the material boundary.
+                                    # Use the outer walls from the CHECK layer (above) as the exposed area.
+                                    # This represents "what the dome looked like 4 layers up".
                                     if not holeStillExists
                                     
-                                        if innermostWalls[pathIndex]?
-                                            exposedAreas.push(innermostWalls[pathIndex])
-                                        else
-                                            exposedAreas.push(currentPath)
+                                        # Find the parent path in the check layer that contains the hole
+                                        for checkOuterPath, checkOuterIdx in checkPaths
+                                        
+                                            # Skip holes in the check layer
+                                            continue if checkPathIsHole[checkOuterIdx]
+                                            
+                                            # Check if the hole center is inside this outer path
+                                            if helpers.pointInPolygon(holeCenter, checkOuterPath)
+                                            
+                                                # Use this outer path from the check layer
+                                                exposedAreas.push(checkOuterPath)
+                                                break
+                                        
+                                        # Fallback if we couldn't find a parent path
+                                        if exposedAreas.length is 0
+                                            if innermostWalls[pathIndex]?
+                                                exposedAreas.push(innermostWalls[pathIndex])
+                                            else
+                                                exposedAreas.push(currentPath)
                                         
                                         break  # Found at least one closing hole, that's enough
 
@@ -940,14 +955,29 @@ module.exports =
                                                         break
 
                                             # If hole has grown significantly (opening up), this layer is exposed.
-                                            # Use the CURRENT layer's innermost wall as the exposed area.
-                                            # This creates circular patterns matching the material boundary.
+                                            # Use the outer walls from the CHECK layer (below) as the exposed area.
+                                            # This represents "what the dome looked like 4 layers down".
                                             if not holeStillSameSize
 
-                                                if innermostWalls[pathIndex]?
-                                                    exposedAreas.push(innermostWalls[pathIndex])
-                                                else
-                                                    exposedAreas.push(currentPath)
+                                                # Find the parent path in the check layer that contains the hole
+                                                for checkOuterPath, checkOuterIdx in checkPaths
+                                                
+                                                    # Skip holes in the check layer
+                                                    continue if checkPathIsHole[checkOuterIdx]
+                                                    
+                                                    # Check if the hole center is inside this outer path
+                                                    if helpers.pointInPolygon(holeCenter, checkOuterPath)
+                                                    
+                                                        # Use this outer path from the check layer
+                                                        exposedAreas.push(checkOuterPath)
+                                                        break
+                                                
+                                                # Fallback if we couldn't find a parent path
+                                                if exposedAreas.length is 0
+                                                    if innermostWalls[pathIndex]?
+                                                        exposedAreas.push(innermostWalls[pathIndex])
+                                                    else
+                                                        exposedAreas.push(currentPath)
 
                                                 break  # Found at least one opening hole, that's enough
 
