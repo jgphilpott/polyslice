@@ -757,12 +757,49 @@ module.exports =
 
                                                 break
 
-                                    # If hole has closed, use the hole path as the exposed area.
-                                    # This creates a simple circular skin patch, like layers above the zenith.
-                                    # TODO: Later we'll need to create a ring shape by also generating the outer boundary.
+                                    # If hole has closed or shrunk significantly, this layer is exposed.
+                                    # Use the check layer's hole (from above) as the exposed area.
+                                    # This creates circular patches based on the view from above.
                                     if not holeStillExists
-
-                                        exposedAreas.push(paths[holeIdx])
+                                    
+                                        # Find the matching smaller hole in the check layer above
+                                        exposedHolePath = null
+                                        
+                                        for checkPath, checkIdx in checkPaths
+                                        
+                                            continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
+                                            
+                                            # Calculate center of current hole
+                                            centerX = 0
+                                            centerY = 0
+                                            
+                                            for point in paths[holeIdx]
+                                            
+                                                centerX += point.x
+                                                centerY += point.y
+                                            
+                                            centerX /= paths[holeIdx].length
+                                            centerY /= paths[holeIdx].length
+                                            
+                                            holeCenter = { x: centerX, y: centerY }
+                                            
+                                            # Check if this check path hole overlaps with current hole's center
+                                            if helpers.pointInPolygon(holeCenter, checkPath)
+                                            
+                                                exposedHolePath = checkPath
+                                                
+                                                break
+                                        
+                                        # Use the check layer's hole (smaller, from above) as exposed area
+                                        # This creates a pattern where circles get progressively larger going down
+                                        if exposedHolePath
+                                        
+                                            exposedAreas.push(exposedHolePath)
+                                        
+                                        else
+                                        
+                                            # Hole completely closed - use current layer's hole as fallback
+                                            exposedAreas.push(paths[holeIdx])
 
                                         break  # Found at least one closing hole, that's enough
 
