@@ -512,6 +512,51 @@ module.exports =
             else
                 outerBoundaryIndices.push(pathIndex)
 
+        # Helper function: Check if a path is a hole (contained within another path).
+        isPathAHole = (path, allPaths) =>
+            for otherPath in allPaths
+                continue if path is otherPath
+                if path.length > 0 and helpers.pointInPolygon(path[0], otherPath)
+                    return true
+            return false
+
+        # Helper function: Check if two holes overlap significantly.
+        # Uses bidirectional sampling to detect overlap from both directions.
+        # Constants for hole overlap detection.
+        MAX_OVERLAP_SAMPLE_POINTS = 5
+        HOLE_OVERLAP_THRESHOLD = 0.5
+
+        doHolesOverlap = (hole1, hole2) =>
+            # Sample points from hole1 and check if they're in hole2
+            sampleCount1 = Math.min(MAX_OVERLAP_SAMPLE_POINTS, hole1.length)
+            hole1ToHole2Count = 0
+            for k in [0...sampleCount1]
+                idx = Math.floor(k * hole1.length / sampleCount1)
+                if helpers.pointInPolygon(hole1[idx], hole2)
+                    hole1ToHole2Count++
+            
+            # Sample points from hole2 and check if they're in hole1
+            sampleCount2 = Math.min(MAX_OVERLAP_SAMPLE_POINTS, hole2.length)
+            hole2ToHole1Count = 0
+            for k in [0...sampleCount2]
+                idx = Math.floor(k * hole2.length / sampleCount2)
+                if helpers.pointInPolygon(hole2[idx], hole1)
+                    hole2ToHole1Count++
+            
+            # If either direction shows significant overlap, holes overlap
+            return (hole1ToHole2Count > sampleCount1 * HOLE_OVERLAP_THRESHOLD or 
+                    hole2ToHole1Count > sampleCount2 * HOLE_OVERLAP_THRESHOLD)
+
+        # Helper function: Check if a check layer has a hole that corresponds to the given hole.
+        hasCorrespondingHole = (holePath, checkPaths) =>
+            for checkPath in checkPaths
+                # Check if this path is a hole in the check layer
+                if isPathAHole(checkPath, checkPaths)
+                    # Check if it overlaps with our hole
+                    if doHolesOverlap(holePath, checkPath)
+                        return true
+            return false
+
         # Determine if this layer needs skin.
         # This is used to decide whether to generate skin walls for holes during wall generation.
         # If exposure detection is enabled, check if any holes on this layer are exposed.
@@ -538,45 +583,8 @@ module.exports =
                     checkSegments = allLayers[checkIdxAbove]
                     if checkSegments? and checkSegments.length > 0
                         checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                        
-                        # Find if layer ahead has a corresponding hole
-                        # Detect holes in the check layer
-                        checkHasCorrespondingHole = false
-                        for i in [0...checkPaths.length]
-                            # Check if this check path is a hole
-                            isCheckHole = false
-                            for j in [0...checkPaths.length]
-                                continue if i is j
-                                if checkPaths[i].length > 0 and helpers.pointInPolygon(checkPaths[i][0], checkPaths[j])
-                                    isCheckHole = true
-                                    break
-                            
-                            # If it's a hole, check if it overlaps with our hole
-                            # Two holes overlap if they share significant area
-                            if isCheckHole
-                                # Check both directions: does check hole overlap with our hole,
-                                # and does our hole overlap with check hole
-                                sampleCount = Math.min(5, checkPaths[i].length)
-                                checkToOurOverlapCount = 0
-                                for k in [0...sampleCount]
-                                    idx = Math.floor(k * checkPaths[i].length / sampleCount)
-                                    if helpers.pointInPolygon(checkPaths[i][idx], holePath)
-                                        checkToOurOverlapCount++
-                                
-                                ourToCheckOverlapCount = 0
-                                sampleCount2 = Math.min(5, holePath.length)
-                                for k in [0...sampleCount2]
-                                    idx = Math.floor(k * holePath.length / sampleCount2)
-                                    if helpers.pointInPolygon(holePath[idx], checkPaths[i])
-                                        ourToCheckOverlapCount++
-                                
-                                # If either direction shows significant overlap, this is a corresponding hole
-                                if checkToOurOverlapCount > sampleCount / 2 or ourToCheckOverlapCount > sampleCount2 / 2
-                                    checkHasCorrespondingHole = true
-                                    break
-                        
                         # If no corresponding hole found, the hole surface is exposed from above
-                        if not checkHasCorrespondingHole
+                        if not hasCorrespondingHole(holePath, checkPaths)
                             holeIsExposed = true
                     else
                         # No geometry ahead means hole surface is exposed
@@ -592,42 +600,8 @@ module.exports =
                         checkSegments = allLayers[checkIdxBelow]
                         if checkSegments? and checkSegments.length > 0
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                            
-                            # Find if layer below has a corresponding hole
-                            checkHasCorrespondingHole = false
-                            for i in [0...checkPaths.length]
-                                # Check if this check path is a hole
-                                isCheckHole = false
-                                for j in [0...checkPaths.length]
-                                    continue if i is j
-                                    if checkPaths[i].length > 0 and helpers.pointInPolygon(checkPaths[i][0], checkPaths[j])
-                                        isCheckHole = true
-                                        break
-                                
-                                # If it's a hole, check if it overlaps with our hole
-                                if isCheckHole
-                                    # Check both directions for overlap
-                                    sampleCount = Math.min(5, checkPaths[i].length)
-                                    checkToOurOverlapCount = 0
-                                    for k in [0...sampleCount]
-                                        idx = Math.floor(k * checkPaths[i].length / sampleCount)
-                                        if helpers.pointInPolygon(checkPaths[i][idx], holePath)
-                                            checkToOurOverlapCount++
-                                    
-                                    ourToCheckOverlapCount = 0
-                                    sampleCount2 = Math.min(5, holePath.length)
-                                    for k in [0...sampleCount2]
-                                        idx = Math.floor(k * holePath.length / sampleCount2)
-                                        if helpers.pointInPolygon(holePath[idx], checkPaths[i])
-                                            ourToCheckOverlapCount++
-                                    
-                                    # If either direction shows significant overlap, this is a corresponding hole
-                                    if checkToOurOverlapCount > sampleCount / 2 or ourToCheckOverlapCount > sampleCount2 / 2
-                                        checkHasCorrespondingHole = true
-                                        break
-                            
                             # If no corresponding hole found, the hole surface is exposed from below
-                            if not checkHasCorrespondingHole
+                            if not hasCorrespondingHole(holePath, checkPaths)
                                 holeIsExposed = true
                         else
                             # No geometry below means hole surface is exposed
