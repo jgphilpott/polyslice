@@ -512,6 +512,10 @@ module.exports =
             else
                 outerBoundaryIndices.push(pathIndex)
 
+        # Constants for hole overlap detection.
+        MAX_OVERLAP_SAMPLE_POINTS = 5
+        HOLE_OVERLAP_THRESHOLD = 0.5
+
         # Helper function: Check if a path is a hole (contained within another path).
         isPathAHole = (path, allPaths) =>
             for otherPath in allPaths
@@ -522,13 +526,14 @@ module.exports =
 
         # Helper function: Check if two holes overlap significantly.
         # Uses bidirectional sampling to detect overlap from both directions.
-        # Constants for hole overlap detection.
-        MAX_OVERLAP_SAMPLE_POINTS = 5
-        HOLE_OVERLAP_THRESHOLD = 0.5
-
         doHolesOverlap = (hole1, hole2) =>
+            # Early return if either hole is too small
+            return false if hole1.length < 3 or hole2.length < 3
+
             # Sample points from hole1 and check if they're in hole2
             sampleCount1 = Math.min(MAX_OVERLAP_SAMPLE_POINTS, hole1.length)
+            return false if sampleCount1 is 0  # Guard against division by zero
+
             hole1ToHole2Count = 0
             for k in [0...sampleCount1]
                 idx = Math.floor(k * hole1.length / sampleCount1)
@@ -537,6 +542,8 @@ module.exports =
             
             # Sample points from hole2 and check if they're in hole1
             sampleCount2 = Math.min(MAX_OVERLAP_SAMPLE_POINTS, hole2.length)
+            return false if sampleCount2 is 0  # Guard against division by zero
+
             hole2ToHole1Count = 0
             for k in [0...sampleCount2]
                 idx = Math.floor(k * hole2.length / sampleCount2)
