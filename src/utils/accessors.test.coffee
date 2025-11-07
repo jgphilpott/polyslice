@@ -239,8 +239,8 @@ describe 'Accessors (Getters and Setters)', ->
 
         test 'should set and get exposure detection resolution', ->
 
-            # Default should be 900 (30x30 grid).
-            expect(slicer.getExposureDetectionResolution()).toBe(900)
+            # Default should be 2500 (50x50 grid).
+            expect(slicer.getExposureDetectionResolution()).toBe(2500)
 
             # Set to 400 (20x20 grid).
             slicer.setExposureDetectionResolution(400)

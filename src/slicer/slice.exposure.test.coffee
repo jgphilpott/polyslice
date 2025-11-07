@@ -36,9 +36,9 @@ describe 'Exposure Detection Algorithm', ->
 
     describe 'Exposure Detection Resolution Parameter', ->
 
-        test 'should default to 900 (30×30 grid)', ->
+        test 'should default to 2500 (50×50 grid)', ->
 
-            expect(slicer.getExposureDetectionResolution()).toBe(900)
+            expect(slicer.getExposureDetectionResolution()).toBe(2500)
 
         test 'should be configurable via constructor', ->
 
