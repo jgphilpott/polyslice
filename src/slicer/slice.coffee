@@ -769,7 +769,7 @@ module.exports =
 
         # Phase 2b: Check for exposed holes (cavities that close up in upper layers).
         # When a hole exists in the current layer but disappears or shrinks significantly
-        # in the layer above, the area inside the hole represents the top of a cavity
+        # in the layer above, the MATERIAL surrounding the hole (the cavity roof) is exposed
         # and should receive skin for a smooth finish.
         if slicer.getExposureDetection() and layerIndex >= skinLayerCount and layerIndex < totalLayers - skinLayerCount
 
@@ -861,52 +861,46 @@ module.exports =
 
                                     break
 
-                        # If hole has disappeared or shrunk significantly, generate skin inside it
+                        # If hole has disappeared or shrunk significantly, the material surrounding it is exposed.
+                        # Generate skin on the PARENT PATH (outer boundary) in the region around the closing hole.
                         if not holeStillExists
 
-                            # Use the innermost wall of the hole as the boundary for skin
-                            holeBoundary = innermostWalls[pathIndex]
+                            # Find the parent path (outer boundary) that contains this hole
+                            parentPathIndex = null
 
-                            if holeBoundary and holeBoundary.length >= 3
+                            for outerIdx in [0...paths.length]
 
-                                # Create an inset from the hole boundary to get the skin area.
-                                # The third parameter (true) indicates this is a hole, which causes
-                                # createInsetPath to shrink the hole (inset from the material's perspective).
-                                skinInset = nozzleDiameter * 0.5
+                                continue if pathIsHole[outerIdx] or outerIdx is pathIndex
 
-                                holeSkinArea = helpers.createInsetPath(holeBoundary, skinInset, true)
+                                # Check if this hole is inside the outer path
+                                if path.length > 0 and helpers.pointInPolygon(path[0], paths[outerIdx])
 
-                                if holeSkinArea and holeSkinArea.length >= 3
+                                    parentPathIndex = outerIdx
 
-                                    # Get the last position for travel optimization.
-                                    if lastPathEndPoint?
+                                    break
 
-                                        lastWallPoint = lastPathEndPoint
+                            # Generate skin on the parent path around the closing hole
+                            if parentPathIndex? and innermostWalls[parentPathIndex] and innermostWalls[parentPathIndex].length >= 3
 
-                                    else if holeSkinArea.length > 0
+                                parentInnerWall = innermostWalls[parentPathIndex]
 
-                                        lastWallPoint = { x: holeSkinArea[0].x, y: holeSkinArea[0].y, z: z }
+                                # Get the last position for travel optimization.
+                                if lastPathEndPoint?
 
-                                    else
+                                    lastWallPoint = lastPathEndPoint
 
-                                        lastWallPoint = null
+                                else if parentInnerWall.length > 0
 
-                                    # Generate skin for the interior of this closing hole
-                                    # Don't pass this hole's walls to avoid collision (it's the area we're filling)
-                                    # Pass other holes for collision avoidance
-                                    otherHoleSkinWalls = []
-                                    otherHoleOuterWalls = []
+                                    lastWallPoint = { x: parentInnerWall[0].x, y: parentInnerWall[0].y, z: z }
 
-                                    for otherPath, otherIdx in paths
+                                else
 
-                                        continue if otherIdx is pathIndex or not pathIsHole[otherIdx]
+                                    lastWallPoint = null
 
-                                        if innermostWalls[otherIdx] and innermostWalls[otherIdx].length >= 3
-
-                                            otherHoleSkinWalls.push(innermostWalls[otherIdx])
-                                            otherHoleOuterWalls.push(paths[otherIdx])
-
-                                    skinModule.generateSkinGCode(slicer, holeSkinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, otherHoleSkinWalls, otherHoleOuterWalls)
+                                # Generate skin on the parent path, but with the closing hole as an exclusion.
+                                # This creates skin in the "ring" of material that forms the cavity roof.
+                                # Pass ALL hole skin walls (including the closing hole) for proper clipping.
+                                skinModule.generateSkinGCode(slicer, parentInnerWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
         # Save the last position from this layer for combing to the next layer.
         # Parse the last G0/G1 command from the generated G-code to get the actual end position.
