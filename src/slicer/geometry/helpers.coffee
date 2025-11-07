@@ -1340,7 +1340,56 @@ module.exports =
         # Ensure we have at least 3 points for a valid polygon
         return [] if simplifiedContour.length < 3
 
-        return simplifiedContour
+        # Apply curve smoothing to reduce pixelated appearance
+        smoothedContour = @smoothContour(simplifiedContour)
+
+        return smoothedContour
+
+    # Smooth a polygon contour using Chaikin's corner cutting algorithm.
+    # This reduces the pixelated/jagged appearance while preserving the overall shape.
+    # 
+    # @param contour Array of {x, y, z} points forming a closed polygon
+    # @param iterations Number of smoothing iterations (default: 2)
+    # @param ratio Corner cutting ratio, 0.25 = cut 25% from each end (default: 0.25)
+    # @return Smoothed contour with more points and smoother curves
+    smoothContour: (contour, iterations = 2, ratio = 0.25) ->
+
+        return contour if not contour or contour.length < 3
+
+        smoothed = contour.slice()
+
+        # Apply Chaikin's algorithm for specified iterations
+        for iter in [0...iterations]
+
+            newContour = []
+
+            for i in [0...smoothed.length]
+
+                # Get current point and next point (wrapping around for closed polygon)
+                p1 = smoothed[i]
+                p2 = smoothed[(i + 1) % smoothed.length]
+
+                # Calculate two new points between p1 and p2
+                # First point: ratio of the way from p1 to p2
+                q = {
+                    x: p1.x + (p2.x - p1.x) * ratio
+                    y: p1.y + (p2.y - p1.y) * ratio
+                    z: p1.z
+                }
+
+                # Second point: (1-ratio) of the way from p1 to p2
+                r = {
+                    x: p1.x + (p2.x - p1.x) * (1 - ratio)
+                    y: p1.y + (p2.y - p1.y) * (1 - ratio)
+                    z: p1.z
+                }
+
+                newContour.push(q)
+                newContour.push(r)
+
+            smoothed = newContour
+
+        return smoothed
 
     # Deduplicate a list of intersection points.
     # When diagonal lines pass through bounding box corners, the same point

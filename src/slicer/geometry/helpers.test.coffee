@@ -2046,3 +2046,94 @@ describe 'Travel Path Optimization', ->
                 expect(point.z).toBe(z)
             undefined
 
+    describe 'smoothContour', ->
+
+        test 'should increase vertex count with smoothing iterations', ->
+
+            # Create a simple square.
+            square = [
+                { x: 0, y: 0, z: 0 }
+                { x: 10, y: 0, z: 0 }
+                { x: 10, y: 10, z: 0 }
+                { x: 0, y: 10, z: 0 }
+            ]
+
+            # After 1 iteration, should have 8 points (2x original).
+            smoothed1 = helpers.smoothContour(square, 1)
+            expect(smoothed1.length).toBe(8)
+
+            # After 2 iterations, should have 16 points (4x original).
+            smoothed2 = helpers.smoothContour(square, 2)
+            expect(smoothed2.length).toBe(16)
+
+            # All points should preserve z coordinate.
+            for point in smoothed2
+                expect(point.z).toBe(0)
+            undefined
+
+        test 'should preserve z coordinate during smoothing', ->
+
+            contour = [
+                { x: 0, y: 0, z: 5 }
+                { x: 10, y: 0, z: 5 }
+                { x: 10, y: 10, z: 5 }
+            ]
+
+            smoothed = helpers.smoothContour(contour, 1)
+
+            # All smoothed points should have the same z.
+            for point in smoothed
+                expect(point.z).toBe(5)
+            undefined
+
+        test 'should handle empty or small contours gracefully', ->
+
+            # Empty contour.
+            expect(helpers.smoothContour([])).toEqual([])
+
+            # Single point - should return as is.
+            single = [{ x: 5, y: 5, z: 0 }]
+            expect(helpers.smoothContour(single)).toEqual(single)
+
+            # Two points - should return as is.
+            two = [{ x: 0, y: 0, z: 0 }, { x: 10, y: 10, z: 0 }]
+            expect(helpers.smoothContour(two)).toEqual(two)
+
+        test 'should create smoother curves than original', ->
+
+            # Create a circular region and check that smoothing increases vertex density.
+            gridSize = 10
+            centerI = 5
+            centerJ = 5
+            radius = 3
+
+            exposedGrid = []
+            region = []
+
+            for i in [0...gridSize]
+                row = []
+                for j in [0...gridSize]
+                    dist = Math.sqrt((i - centerI) ** 2 + (j - centerJ) ** 2)
+                    if dist <= radius
+                        row.push({ x: i, y: j })
+                        region.push({ i: i, j: j, point: { x: i, y: j } })
+                    else
+                        row.push(null)
+                exposedGrid.push(row)
+
+            bounds = { minX: 0, maxX: 10, minY: 0, maxY: 10 }
+            z = 0
+
+            result = helpers.marchingSquares(exposedGrid, region, bounds, gridSize, z)
+
+            # With smoothing, should have significantly more vertices than the base grid.
+            # A 10x10 grid with radius 3 should produce many smoothed vertices.
+            expect(result.length).toBeGreaterThan(50)
+
+            # All points should be valid.
+            for point in result
+                expect(point.x).toBeDefined()
+                expect(point.y).toBeDefined()
+                expect(point.z).toBe(z)
+            undefined
+
