@@ -758,48 +758,16 @@ module.exports =
                                                 break
 
                                     # If hole has closed or shrunk significantly, this layer is exposed.
-                                    # Use the check layer's hole (from above) as the exposed area.
-                                    # This creates circular patches based on the view from above.
+                                    # Use the CURRENT layer's innermost wall as the exposed area.
+                                    # This creates circular patterns matching the material boundary.
                                     if not holeStillExists
                                     
-                                        # Find the matching smaller hole in the check layer above
-                                        exposedHolePath = null
+                                        if innermostWalls[pathIndex]?
+                                            exposedAreas.push(innermostWalls[pathIndex])
+                                        else
+                                            exposedAreas.push(currentPath)
                                         
-                                        for checkPath, checkIdx in checkPaths
-                                        
-                                            continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
-                                            
-                                            # Calculate center of current hole
-                                            centerX = 0
-                                            centerY = 0
-                                            
-                                            for point in paths[holeIdx]
-                                            
-                                                centerX += point.x
-                                                centerY += point.y
-                                            
-                                            centerX /= paths[holeIdx].length
-                                            centerY /= paths[holeIdx].length
-                                            
-                                            holeCenter = { x: centerX, y: centerY }
-                                            
-                                            # Check if this check path hole overlaps with current hole's center
-                                            if helpers.pointInPolygon(holeCenter, checkPath)
-                                            
-                                                exposedHolePath = checkPath
-                                                
-                                                break
-                                        
-                                        # Use the check layer's hole (smaller, from above) as exposed area
-                                        # This creates a pattern where circles get progressively larger going down
-                                        if exposedHolePath
-                                        
-                                            exposedAreas.push(exposedHolePath)
-                                            
-                                            break  # Found at least one closing hole, that's enough
-                                        
-                                        # If no matching hole found in layer above, don't add anything.
-                                        # Let backward detection handle this case.
+                                        break  # Found at least one closing hole, that's enough
 
                     # Only check behind if we didn't find exposure ahead or from closing holes
                     if exposedAreas.length is 0
@@ -971,46 +939,15 @@ module.exports =
 
                                                         break
 
-                                            # If hole has grown significantly (opening up), use the smaller hole from below as exposed area
+                                            # If hole has grown significantly (opening up), this layer is exposed.
+                                            # Use the CURRENT layer's innermost wall as the exposed area.
+                                            # This creates circular patterns matching the material boundary.
                                             if not holeStillSameSize
 
-                                                # Find the matching smaller hole from the check layer below
-                                                exposedHolePath = null
-
-                                                for checkPath, checkIdx in checkPaths
-
-                                                    continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
-
-                                                    # Calculate center of current hole
-                                                    centerX = 0
-                                                    centerY = 0
-
-                                                    for point in paths[holeIdx]
-
-                                                        centerX += point.x
-                                                        centerY += point.y
-
-                                                    centerX /= paths[holeIdx].length
-                                                    centerY /= paths[holeIdx].length
-
-                                                    holeCenter = { x: centerX, y: centerY }
-
-                                                    # Check if this check path hole overlaps with current hole's center
-                                                    if helpers.pointInPolygon(holeCenter, checkPath)
-
-                                                        exposedHolePath = checkPath
-
-                                                        break
-
-                                                # Use the check layer's hole (smaller, from below) as exposed area
-                                                if exposedHolePath
-
-                                                    exposedAreas.push(exposedHolePath)
-
+                                                if innermostWalls[pathIndex]?
+                                                    exposedAreas.push(innermostWalls[pathIndex])
                                                 else
-
-                                                    # Hole completely new - use current layer's hole as fallback
-                                                    exposedAreas.push(paths[holeIdx])
+                                                    exposedAreas.push(currentPath)
 
                                                 break  # Found at least one opening hole, that's enough
 
