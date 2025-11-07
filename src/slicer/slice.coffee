@@ -795,13 +795,11 @@ module.exports =
                                         if exposedHolePath
                                         
                                             exposedAreas.push(exposedHolePath)
+                                            
+                                            break  # Found at least one closing hole, that's enough
                                         
-                                        else
-                                        
-                                            # Hole completely closed - use current layer's hole as fallback
-                                            exposedAreas.push(paths[holeIdx])
-
-                                        break  # Found at least one closing hole, that's enough
+                                        # If no matching hole found in layer above, don't add anything.
+                                        # Let backward detection handle this case.
 
                     # Only check behind if we didn't find exposure ahead or from closing holes
                     if exposedAreas.length is 0
@@ -907,6 +905,114 @@ module.exports =
                                                 exposedAreas.push(checkPath)
 
                                                 break
+
+                                # Also check if any holes in current layer are LARGER than holes below (hole is opening up).
+                                # This is the backward equivalent of forward hole closure detection.
+                                if exposedAreas.length is 0
+
+                                    for holeIdx in [0...paths.length]
+
+                                        continue unless pathIsHole[holeIdx] and paths[holeIdx].length >= 3
+
+                                        # Check if this hole is inside the current path
+                                        if helpers.pointInPolygon(paths[holeIdx][0], currentPath)
+
+                                            # Try to find a matching hole in the check layer below
+                                            holeStillSameSize = true  # Assume no growth by default
+
+                                            for checkPath, checkIdx in checkPaths
+
+                                                continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
+
+                                                # Calculate center of current hole
+                                                centerX = 0
+                                                centerY = 0
+
+                                                for point in paths[holeIdx]
+
+                                                    centerX += point.x
+                                                    centerY += point.y
+
+                                                centerX /= paths[holeIdx].length
+                                                centerY /= paths[holeIdx].length
+
+                                                holeCenter = { x: centerX, y: centerY }
+
+                                                # Check if hole center is inside the check path
+                                                if helpers.pointInPolygon(holeCenter, checkPath)
+
+                                                    # Hole exists in both layers - check if it has grown significantly
+                                                    currentBounds = helpers.calculatePathBounds(paths[holeIdx])
+                                                    checkBounds = helpers.calculatePathBounds(checkPath)
+
+                                                    if currentBounds and checkBounds
+
+                                                        currentArea = (currentBounds.maxX - currentBounds.minX) * (currentBounds.maxY - currentBounds.minY)
+                                                        checkArea = (checkBounds.maxX - checkBounds.minX) * (checkBounds.maxY - checkBounds.minY)
+
+                                                        growthThreshold = 0.8
+
+                                                        # If current hole is significantly LARGER than the one below, it's opening up
+                                                        if currentArea > checkArea * (1 / growthThreshold)
+
+                                                            holeStillSameSize = false  # Growth detected!
+
+                                                            break
+
+                                                        else
+
+                                                            holeStillSameSize = true  # Same size or smaller
+
+                                                            break
+
+                                                    else
+
+                                                        holeStillSameSize = true
+
+                                                        break
+
+                                            # If hole has grown significantly (opening up), use the smaller hole from below as exposed area
+                                            if not holeStillSameSize
+
+                                                # Find the matching smaller hole from the check layer below
+                                                exposedHolePath = null
+
+                                                for checkPath, checkIdx in checkPaths
+
+                                                    continue unless checkPathIsHole[checkIdx] and checkPath.length >= 3
+
+                                                    # Calculate center of current hole
+                                                    centerX = 0
+                                                    centerY = 0
+
+                                                    for point in paths[holeIdx]
+
+                                                        centerX += point.x
+                                                        centerY += point.y
+
+                                                    centerX /= paths[holeIdx].length
+                                                    centerY /= paths[holeIdx].length
+
+                                                    holeCenter = { x: centerX, y: centerY }
+
+                                                    # Check if this check path hole overlaps with current hole's center
+                                                    if helpers.pointInPolygon(holeCenter, checkPath)
+
+                                                        exposedHolePath = checkPath
+
+                                                        break
+
+                                                # Use the check layer's hole (smaller, from below) as exposed area
+                                                if exposedHolePath
+
+                                                    exposedAreas.push(exposedHolePath)
+
+                                                else
+
+                                                    # Hole completely new - use current layer's hole as fallback
+                                                    exposedAreas.push(paths[holeIdx])
+
+                                                break  # Found at least one opening hole, that's enough
 
                             else
 
