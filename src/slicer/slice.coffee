@@ -623,13 +623,13 @@ module.exports =
                     layerNeedsSkin = true
                     break
             
-            # Also check if this layer is "filling in" holes from layers below (ceiling surface).
-            # Even if this layer has no holes, if a layer below (within skinLayerCount) had holes,
-            # this layer's solid area is the ceiling of that cavity and needs skin.
-            # NOTE: Only applies when current layer has NO holes (completely solid ceiling).
+            # Also check if this layer is "filling in" holes from layers below/above (ceiling/floor surface).
+            # Even if this layer has no holes, if a layer below/above (within skinLayerCount) had holes,
+            # this layer's solid area is the ceiling/floor of that cavity and needs skin.
+            # NOTE: Only applies when current layer has NO holes (completely solid ceiling/floor).
             # This prevents false positives for uniform holes that continue through all layers.
             if not layerNeedsSkin and holeIndices.length is 0
-                # Check each layer within skinLayerCount steps below
+                # Check for ceiling surfaces (holes below that have ended)
                 for checkOffset in [1..skinLayerCount]
                     checkIdxBelow = layerIndex - checkOffset
                     break if checkIdxBelow < 0
@@ -663,6 +663,42 @@ module.exports =
                                 break
                     
                     break if layerNeedsSkin
+                
+                # Check for floor surfaces (holes above that have ended)
+                if not layerNeedsSkin
+                    for checkOffset in [1..skinLayerCount]
+                        checkIdxAbove = layerIndex + checkOffset
+                        break if checkIdxAbove >= totalLayers
+                        
+                        checkSegments = allLayers[checkIdxAbove]
+                        continue if not checkSegments? or checkSegments.length is 0
+                        
+                        checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                        
+                        # Check if the layer above has any holes
+                        for checkPath in checkPaths
+                            if isPathAHole(checkPath, checkPaths)
+                                # Layer above has a hole, current layer doesn't → floor surface
+                                # Verify the cavity has ended by checking layer below
+                                checkIdxBelow = layerIndex - skinLayerCount
+                                layerBelowAlsoLacksHole = true
+                                
+                                if checkIdxBelow >= 0
+                                    checkSegmentsBelow = allLayers[checkIdxBelow]
+                                    if checkSegmentsBelow? and checkSegmentsBelow.length > 0
+                                        checkPathsBelow = helpers.connectSegmentsToPaths(checkSegmentsBelow)
+                                        # Check if layer below has any holes
+                                        for checkPathBelow in checkPathsBelow
+                                            if isPathAHole(checkPathBelow, checkPathsBelow)
+                                                layerBelowAlsoLacksHole = false
+                                                break
+                                
+                                # Only mark as floor if the cavity has truly ended (no holes below)
+                                if layerBelowAlsoLacksHole
+                                    layerNeedsSkin = true
+                                    break
+                        
+                        break if layerNeedsSkin
 
         # Process outer boundaries first (non-hole paths).
         for pathIndex in outerBoundaryIndices
@@ -854,13 +890,13 @@ module.exports =
                     skinAreas = exposedAreas
                     needsSkin = skinAreas.length > 0
                     
-                    # Also check if this layer is "filling in" holes from layers below (ceiling surface).
-                    # Even if the outer boundary appears "covered", if layers below had holes that don't
+                    # Also check if this layer is "filling in" holes from layers below/above (ceiling/floor surface).
+                    # Even if the outer boundary appears "covered", if layers below/above had holes that don't
                     # exist at this layer, this layer's solid area is filling in the cavity and needs skin.
-                    # NOTE: Only applies when current layer has NO holes (completely solid ceiling).
+                    # NOTE: Only applies when current layer has NO holes (completely solid ceiling/floor).
                     # This prevents false positives for uniform holes that continue through all layers.
                     if not needsSkin and holeIndices.length is 0
-                        # Check each layer within skinLayerCount steps below
+                        # Check for ceiling surfaces (holes below that have ended)
                         for checkOffset in [1..skinLayerCount]
                             checkIdxBelow = layerIndex - checkOffset
                             break if checkIdxBelow < 0
@@ -891,10 +927,49 @@ module.exports =
                                     # Only mark as ceiling if the cavity has truly ended (no holes above)
                                     if layerAboveAlsoLacksHole
                                         needsSkin = true
-                                        skinAreas = [currentPath]  # Use entire outer boundary as skin area
+                                        # Use the hole path from below as the skin area (matches cavity shape)
+                                        skinAreas = [checkPath]
                                         break
                             
                             break if needsSkin
+                        
+                        # Check for floor surfaces (holes above that have ended)
+                        if not needsSkin
+                            for checkOffset in [1..skinLayerCount]
+                                checkIdxAbove = layerIndex + checkOffset
+                                break if checkIdxAbove >= totalLayers
+                                
+                                checkSegments = allLayers[checkIdxAbove]
+                                continue if not checkSegments? or checkSegments.length is 0
+                                
+                                checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                                
+                                # Check if the layer above has any holes
+                                for checkPath in checkPaths
+                                    if isPathAHole(checkPath, checkPaths)
+                                        # Layer above has a hole, current layer doesn't → floor surface
+                                        # Verify the cavity has ended by checking layer below
+                                        checkIdxBelow = layerIndex - skinLayerCount
+                                        layerBelowAlsoLacksHole = true
+                                        
+                                        if checkIdxBelow >= 0
+                                            checkSegmentsBelow = allLayers[checkIdxBelow]
+                                            if checkSegmentsBelow? and checkSegmentsBelow.length > 0
+                                                checkPathsBelow = helpers.connectSegmentsToPaths(checkSegmentsBelow)
+                                                # Check if layer below has any holes
+                                                for checkPathBelow in checkPathsBelow
+                                                    if isPathAHole(checkPathBelow, checkPathsBelow)
+                                                        layerBelowAlsoLacksHole = false
+                                                        break
+                                        
+                                        # Only mark as floor if the cavity has truly ended (no holes below)
+                                        if layerBelowAlsoLacksHole
+                                            needsSkin = true
+                                            # Use the hole path from above as the skin area (matches cavity shape)
+                                            skinAreas = [checkPath]
+                                            break
+                                
+                                break if needsSkin
 
                 else
 
