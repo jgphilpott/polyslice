@@ -1213,61 +1213,151 @@ module.exports =
         for cell in region
             regionSet.add("#{cell.i},#{cell.j}")
 
-        # Find all edge cells (cells in region with at least one non-region neighbor)
-        edgeCells = []
-        for cell in region
-            i = cell.i
-            j = cell.j
-            
-            # Check 4-connected neighbors
-            isEdge = false
-            for [di, dj] in [[0, 1], [1, 0], [0, -1], [-1, 0]]
-                ni = i + di
-                nj = j + dj
-                if ni < 0 or ni >= gridSize or nj < 0 or nj >= gridSize or not regionSet.has("#{ni},#{nj}")
-                    isEdge = true
-                    break
-            
-            if isEdge
-                edgeCells.push(cell)
-
-        return [] if edgeCells.length is 0
-
         # Calculate cell dimensions
         width = bounds.maxX - bounds.minX
         height = bounds.maxY - bounds.minY
         cellWidth = width / gridSize
         cellHeight = height / gridSize
 
-        # Build contour points from edge cells
-        # Use center points of edge cells as approximation
-        contourPoints = []
-        for cell in edgeCells
-            xRatio = (cell.i + 0.5) / gridSize
-            yRatio = (cell.j + 0.5) / gridSize
-            x = bounds.minX + width * xRatio
-            y = bounds.minY + height * yRatio
-            contourPoints.push({ x: x, y: y, z: z })
+        # Helper to check if a grid cell is exposed (in region)
+        isExposed = (i, j) ->
+            return false if i < 0 or i >= gridSize or j < 0 or j >= gridSize
+            return regionSet.has("#{i},#{j}")
 
-        # Create a simplified convex hull-like boundary
-        # For better performance, use bounding box of edge points with small expansion
-        if contourPoints.length > 0
-            minX = Math.min.apply(null, contourPoints.map((pt) -> pt.x))
-            maxX = Math.max.apply(null, contourPoints.map((pt) -> pt.x))
-            minY = Math.min.apply(null, contourPoints.map((pt) -> pt.y))
-            maxY = Math.max.apply(null, contourPoints.map((pt) -> pt.y))
+        # Helper to convert grid coordinates to world coordinates
+        gridToWorld = (i, j) ->
+            x: bounds.minX + (i / gridSize) * width
+            y: bounds.minY + (j / gridSize) * height
+            z: z
 
-            # Expand slightly beyond edge cell centers to ensure coverage
-            expansion = Math.max(cellWidth, cellHeight) * 0.6
+        # Find a starting edge cell to begin contour tracing
+        # Look for a cell on the boundary of the region
+        startCell = null
+        for cell in region
+            i = cell.i
+            j = cell.j
+            # Check if this is an edge cell (has at least one non-exposed neighbor)
+            if not isExposed(i - 1, j) or not isExposed(i + 1, j) or not isExposed(i, j - 1) or not isExposed(i, j + 1)
+                startCell = cell
+                break
+
+        return [] if not startCell
+
+        # Trace the contour by walking around the boundary
+        # Use Moore-neighbor tracing algorithm
+        contour = []
+        current = { i: startCell.i, j: startCell.j }
+        
+        # Find the first boundary direction
+        # Start by looking for a non-exposed neighbor
+        startDirection = null
+        directions = [
+            { di: 0, dj: 1, name: 'top' }      # top
+            { di: 1, dj: 0, name: 'right' }    # right
+            { di: 0, dj: -1, name: 'bottom' }  # bottom
+            { di: -1, dj: 0, name: 'left' }    # left
+        ]
+        
+        for dir in directions
+            if not isExposed(current.i + dir.di, current.j + dir.dj)
+                startDirection = dir
+                break
+        
+        return [] if not startDirection
+        
+        # Create edge points by walking around the perimeter
+        # For each cell on the boundary, add the corner point that's on the edge
+        visitedCells = new Set()
+        maxSteps = region.length * 4  # Safety limit
+        steps = 0
+        
+        # Starting corner based on direction
+        if startDirection.name is 'top'
+            contour.push(gridToWorld(current.i, current.j + 1))
+        else if startDirection.name is 'right'
+            contour.push(gridToWorld(current.i + 1, current.j + 1))
+        else if startDirection.name is 'bottom'
+            contour.push(gridToWorld(current.i + 1, current.j))
+        else # left
+            contour.push(gridToWorld(current.i, current.j))
+        
+        currentDir = startDirection
+        
+        while steps < maxSteps
+            steps++
             
-            return [
-                { x: minX - expansion, y: minY - expansion, z: z }
-                { x: maxX + expansion, y: minY - expansion, z: z }
-                { x: maxX + expansion, y: maxY + expansion, z: z }
-                { x: minX - expansion, y: maxY + expansion, z: z }
-            ]
+            cellKey = "#{current.i},#{current.j}"
+            visitedCells.add(cellKey)
+            
+            # Try to turn right first (to follow the boundary clockwise)
+            rightDir = directions[(directions.indexOf(currentDir) + 1) % 4]
+            nextI = current.i + rightDir.di
+            nextJ = current.j + rightDir.dj
+            
+            if isExposed(nextI, nextJ)
+                # Can turn right
+                current = { i: nextI, j: nextJ }
+                currentDir = rightDir
+                
+                # Add corner point
+                if currentDir.name is 'top'
+                    contour.push(gridToWorld(current.i, current.j + 1))
+                else if currentDir.name is 'right'
+                    contour.push(gridToWorld(current.i + 1, current.j + 1))
+                else if currentDir.name is 'bottom'
+                    contour.push(gridToWorld(current.i + 1, current.j))
+                else # left
+                    contour.push(gridToWorld(current.i, current.j))
+            else
+                # Can't turn right, try straight
+                straightI = current.i + currentDir.di
+                straightJ = current.j + currentDir.dj
+                
+                if isExposed(straightI, straightJ)
+                    # Can go straight
+                    current = { i: straightI, j: straightJ }
+                else
+                    # Can't go straight, turn left
+                    leftDir = directions[(directions.indexOf(currentDir) + 3) % 4]
+                    
+                    # Add corner point before turning
+                    if leftDir.name is 'top'
+                        contour.push(gridToWorld(current.i, current.j + 1))
+                    else if leftDir.name is 'right'
+                        contour.push(gridToWorld(current.i + 1, current.j + 1))
+                    else if leftDir.name is 'bottom'
+                        contour.push(gridToWorld(current.i + 1, current.j))
+                    else # left
+                        contour.push(gridToWorld(current.i, current.j))
+                    
+                    currentDir = leftDir
+            
+            # Check if we're back at the start
+            if current.i is startCell.i and current.j is startCell.j and visitedCells.size > 1
+                break
+        
+        # Simplify contour by removing duplicate consecutive points
+        simplifiedContour = []
+        epsilon = Math.min(cellWidth, cellHeight) * 0.01
+        
+        for i in [0...contour.length]
+            point = contour[i]
+            
+            if simplifiedContour.length is 0
+                simplifiedContour.push(point)
+            else
+                lastPoint = simplifiedContour[simplifiedContour.length - 1]
+                dx = point.x - lastPoint.x
+                dy = point.y - lastPoint.y
+                dist = Math.sqrt(dx * dx + dy * dy)
+                
+                if dist > epsilon
+                    simplifiedContour.push(point)
+        
+        # Ensure we have at least 3 points for a valid polygon
+        return [] if simplifiedContour.length < 3
 
-        return []
+        return simplifiedContour
 
     # Deduplicate a list of intersection points.
     # When diagonal lines pass through bounding box corners, the same point
