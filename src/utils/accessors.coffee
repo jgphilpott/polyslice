@@ -396,7 +396,7 @@ module.exports =
 
         return slicer
 
-    setExposureDetectionResolution: (slicer, resolution = 2500) ->
+    setExposureDetectionResolution: (slicer, resolution = 961) ->
 
         slicer.exposureDetectionResolution = Math.max(1, Math.floor(resolution))
 

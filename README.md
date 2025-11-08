@@ -106,7 +106,7 @@ const slicer = new Polyslice(options);
 - `bedTemperature` (number): Bed temperature (default: 0).
 - `fanSpeed` (number): Fan speed percentage 0-100 (default: 100).
 - `exposureDetection` (boolean): Enable adaptive skin layer generation for exposed surfaces (default: true).
-- `exposureDetectionResolution` (number): Sample count for exposure detection analysis, higher = more accurate but slower (default: 2500 for 50×50 grid).
+- `exposureDetectionResolution` (number): Sample count for exposure detection analysis, higher = more accurate but slower (default: 961 for 31×31 grid).
 - `printer` (Printer): Printer instance for automatic configuration (default: null).
 - `filament` (Filament): Filament instance for automatic configuration (default: null).
 
@@ -264,14 +264,14 @@ const slicer = new Polyslice({
   nozzleTemperature: 210,
   bedTemperature: 60,
   exposureDetection: true,  // Enabled by default
-  exposureDetectionResolution: 2500  // 50×50 grid (default), higher = more accurate
+  exposureDetectionResolution: 961  // 31×31 grid (default), higher = more accurate
 });
 
 // Adjust resolution at runtime for finer detail
-slicer.setExposureDetectionResolution(3600);  // 60×60 grid for very fine details
+slicer.setExposureDetectionResolution(2500);  // 50×50 grid for very fine details
 
 // Or use lower resolution for faster processing
-slicer.setExposureDetectionResolution(1600);  // 40×40 grid
+slicer.setExposureDetectionResolution(625);  // 25×25 grid
 
 // Or disable exposure detection if needed
 slicer.setExposureDetection(false);
@@ -279,10 +279,10 @@ slicer.setExposureDetection(false);
 
 **Technical details:**
 - Uses marching squares algorithm to trace smooth contours of exposed regions
-- Default resolution: 2500 samples (50×50 grid) - provides smooth, detailed contours
-- Higher resolutions (3600 = 60×60, 4900 = 70×70) provide even more detail with minimal performance impact
-- Lower resolutions (900 = 30×30, 1600 = 40×40) are faster but less smooth
-- Performance impact is minimal: ~1-3ms per region regardless of resolution
+- Default resolution: 961 samples (31×31 grid) - provides smooth, detailed contours with optimal performance
+- Higher resolutions (1600 = 40×40, 2500 = 50×50) provide even more detail with slightly higher processing time
+- Lower resolutions (625 = 25×25, 400 = 20×20) are faster but less smooth
+- Applies Chaikin curve smoothing with 1 iteration and 0.5 ratio for natural-looking contours
 - Checks the layer exactly skinLayerCount steps ahead/behind for each layer independently
 - Generates adaptive skin patches that grow/shrink naturally with geometry changes
 

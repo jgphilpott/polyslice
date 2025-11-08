@@ -1349,10 +1349,10 @@ module.exports =
     # This reduces the pixelated/jagged appearance while preserving the overall shape.
     # 
     # @param contour Array of {x, y, z} points forming a closed polygon
-    # @param iterations Number of smoothing iterations (default: 2)
-    # @param ratio Corner cutting ratio, 0.25 = cut 25% from each end (default: 0.25)
+    # @param iterations Number of smoothing iterations (default: 1)
+    # @param ratio Corner cutting ratio, 0.5 = cut at midpoint (default: 0.5)
     # @return Smoothed contour with more points and smoother curves
-    smoothContour: (contour, iterations = 2, ratio = 0.25) ->
+    smoothContour: (contour, iterations = 1, ratio = 0.5) ->
 
         return contour if not contour or contour.length < 3
 

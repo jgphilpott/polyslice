@@ -2137,3 +2137,171 @@ describe 'Travel Path Optimization', ->
                 expect(point.z).toBe(z)
             undefined
 
+        test 'should work with custom iterations and ratio parameters', ->
+
+            # Create a simple triangle.
+            triangle = [
+                { x: 0, y: 0, z: 0 }
+                { x: 10, y: 0, z: 0 }
+                { x: 5, y: 10, z: 0 }
+            ]
+
+            # Test with 0 iterations - should return original.
+            smoothed0 = helpers.smoothContour(triangle, 0)
+            expect(smoothed0.length).toBe(3)
+
+            # Test with 1 iteration and ratio 0.5 (midpoint).
+            smoothed1 = helpers.smoothContour(triangle, 1, 0.5)
+            expect(smoothed1.length).toBe(6)  # 2x original
+
+            # Test with 2 iterations and ratio 0.5.
+            smoothed2 = helpers.smoothContour(triangle, 2, 0.5)
+            expect(smoothed2.length).toBe(12)  # 4x original
+
+            # Test with ratio 0.25 (quarter points).
+            smoothed_quarter = helpers.smoothContour(triangle, 1, 0.25)
+            expect(smoothed_quarter.length).toBe(6)  # Still 2x, but different positions
+
+            # Verify all maintain z-coordinate.
+            for point in smoothed2
+                expect(point.z).toBe(0)
+            undefined
+
+        test 'should handle edge case of very small ratios', ->
+
+            square = [
+                { x: 0, y: 0, z: 0 }
+                { x: 10, y: 0, z: 0 }
+                { x: 10, y: 10, z: 0 }
+                { x: 0, y: 10, z: 0 }
+            ]
+
+            # Very small ratio should still work.
+            smoothed = helpers.smoothContour(square, 1, 0.1)
+            expect(smoothed.length).toBe(8)
+
+            # All points should be valid and have proper coordinates.
+            for point in smoothed
+                expect(point.x).toBeGreaterThanOrEqual(0)
+                expect(point.x).toBeLessThanOrEqual(10)
+                expect(point.y).toBeGreaterThanOrEqual(0)
+                expect(point.y).toBeLessThanOrEqual(10)
+            undefined
+
+    describe 'Integration Tests', ->
+
+        test 'should produce consistent results for exposure detection with default settings', ->
+
+            # Create a test region similar to what would be found in a sphere layer.
+            gridSize = 31  # New default
+            centerI = 15.5
+            centerJ = 15.5
+            radius = 10
+
+            exposedGrid = []
+            region = []
+
+            for i in [0...gridSize]
+                row = []
+                for j in [0...gridSize]
+                    dist = Math.sqrt((i - centerI) ** 2 + (j - centerJ) ** 2)
+                    if dist <= radius
+                        row.push({ x: i, y: j })
+                        region.push({ i: i, j: j, point: { x: i, y: j } })
+                    else
+                        row.push(null)
+                exposedGrid.push(row)
+
+            bounds = { minX: 0, maxX: 31, minY: 0, maxY: 31 }
+            z = 1.5
+
+            result = helpers.marchingSquares(exposedGrid, region, bounds, gridSize, z)
+
+            # Should produce a reasonable number of vertices for the circular region.
+            # With 31x31 grid and 1 iteration of smoothing at 0.5 ratio, expect ~130-170 vertices.
+            expect(result.length).toBeGreaterThan(100)
+            expect(result.length).toBeLessThan(200)
+
+            # All points should be within bounds.
+            for point in result
+                expect(point.x).toBeGreaterThanOrEqual(bounds.minX)
+                expect(point.x).toBeLessThanOrEqual(bounds.maxX)
+                expect(point.y).toBeGreaterThanOrEqual(bounds.minY)
+                expect(point.y).toBeLessThanOrEqual(bounds.maxY)
+                expect(point.z).toBe(z)
+            undefined
+
+        test 'should handle rectangular regions correctly', ->
+
+            # Create a rectangular exposed region.
+            gridSize = 20
+            exposedGrid = []
+            region = []
+
+            for i in [0...gridSize]
+                row = []
+                for j in [0...gridSize]
+                    # Rectangle from (5,5) to (15,10).
+                    if i >= 5 and i <= 15 and j >= 5 and j <= 10
+                        row.push({ x: i, y: j })
+                        region.push({ i: i, j: j, point: { x: i, y: j } })
+                    else
+                        row.push(null)
+                exposedGrid.push(row)
+
+            bounds = { minX: 0, maxX: 20, minY: 0, maxY: 20 }
+            z = 0
+
+            result = helpers.marchingSquares(exposedGrid, region, bounds, gridSize, z)
+
+            # Should produce a valid polygon.
+            expect(result.length).toBeGreaterThanOrEqual(3)
+
+            # All points should have correct z.
+            for point in result
+                expect(point.z).toBe(z)
+            undefined
+
+        test 'should maintain contour integrity across multiple smoothing iterations', ->
+
+            # Create a hexagon-like shape.
+            hexagon = [
+                { x: 5, y: 0, z: 0 }
+                { x: 10, y: 2.5, z: 0 }
+                { x: 10, y: 7.5, z: 0 }
+                { x: 5, y: 10, z: 0 }
+                { x: 0, y: 7.5, z: 0 }
+                { x: 0, y: 2.5, z: 0 }
+            ]
+
+            # Apply progressive smoothing.
+            smoothed1 = helpers.smoothContour(hexagon, 1, 0.5)
+            smoothed2 = helpers.smoothContour(hexagon, 2, 0.5)
+            smoothed3 = helpers.smoothContour(hexagon, 3, 0.5)
+
+            # Vertex count should double with each iteration.
+            expect(smoothed1.length).toBe(12)   # 6 * 2
+            expect(smoothed2.length).toBe(24)   # 6 * 4
+            expect(smoothed3.length).toBe(48)   # 6 * 8
+
+            # All should maintain the z-coordinate.
+            for point in smoothed3
+                expect(point.z).toBe(0)
+
+            # Centroid should remain approximately the same.
+            calcCentroid = (points) ->
+                cx = 0
+                cy = 0
+                for p in points
+                    cx += p.x
+                    cy += p.y
+                return { x: cx / points.length, y: cy / points.length }
+
+            originalCentroid = calcCentroid(hexagon)
+            smoothedCentroid = calcCentroid(smoothed3)
+
+            # Centroids should be very close (within 1 unit).
+            expect(Math.abs(smoothedCentroid.x - originalCentroid.x)).toBeLessThan(1)
+            expect(Math.abs(smoothedCentroid.y - originalCentroid.y)).toBeLessThan(1)
+            undefined
+

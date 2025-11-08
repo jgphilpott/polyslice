@@ -79,7 +79,7 @@ class Polyslice
         @shellSkinThickness = conversions.lengthToInternal(options.shellSkinThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
         @shellWallThickness = conversions.lengthToInternal(options.shellWallThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
         @exposureDetection = options.exposureDetection ?= true # Boolean - enable adaptive skin layer generation for exposed surfaces.
-        @exposureDetectionResolution = options.exposureDetectionResolution ?= 2500 # Number - sample count for exposure detection (2500 = 50x50 grid).
+        @exposureDetectionResolution = options.exposureDetectionResolution ?= 961 # Number - sample count for exposure detection (961 = 31x31 grid).
 
         # Support structure settings for overhangs and bridges.
         @supportEnabled = options.supportEnabled ?= false # Boolean.
@@ -318,7 +318,7 @@ class Polyslice
     setExposureDetection: (enabled = false) ->
         accessors.setExposureDetection(this, enabled)
 
-    setExposureDetectionResolution: (resolution = 2500) ->
+    setExposureDetectionResolution: (resolution = 961) ->
         accessors.setExposureDetectionResolution(this, resolution)
 
     setSupportEnabled: (enabled = false) ->
