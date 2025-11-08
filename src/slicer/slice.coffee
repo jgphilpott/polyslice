@@ -642,6 +642,7 @@ module.exports =
                     # ENABLED: Exposure detection algorithm
                     # For the current layer, calculate what parts won't be covered by the layer exactly
                     # skinLayerCount steps ahead/behind. Each layer independently calculates its exposed area.
+                    # Check BOTH directions to detect overhangs (exposure from above) AND cavities/holes (exposure from below).
                     exposedAreas = []
 
                     # Check the layer exactly skinLayerCount steps AHEAD (above).
@@ -672,35 +673,34 @@ module.exports =
                         # We're within skinLayerCount of the top - current layer will be exposed
                         exposedAreas.push(currentPath)
 
-                    # Only check behind if we didn't find exposure ahead
-                    if exposedAreas.length is 0
+                    # Always check behind to detect cavities and holes (exposure from below).
+                    # Previously this was only checked if exposedAreas.length was 0, which missed cavities.
+                    checkIdxBelow = layerIndex - skinLayerCount
 
-                        checkIdxBelow = layerIndex - skinLayerCount
+                    if checkIdxBelow >= 0
 
-                        if checkIdxBelow >= 0
+                        checkSegments = allLayers[checkIdxBelow]
 
-                            checkSegments = allLayers[checkIdxBelow]
+                        if checkSegments? and checkSegments.length > 0
 
-                            if checkSegments? and checkSegments.length > 0
-
-                                checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                                
-                                # Calculate what parts of CURRENT layer are NOT covered by the layer behind
-                                # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
-                                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-                                
-                                if checkExposedAreas.length > 0
-                                    exposedAreas.push(checkExposedAreas...)
-
-                            else
-
-                                # No geometry at the layer behind means current layer is exposed
-                                exposedAreas.push(currentPath)
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                            
+                            # Calculate what parts of CURRENT layer are NOT covered by the layer behind
+                            # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
+                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
+                            
+                            if checkExposedAreas.length > 0
+                                exposedAreas.push(checkExposedAreas...)
 
                         else
 
-                            # We're within skinLayerCount of the bottom - current layer will be exposed
+                            # No geometry at the layer behind means current layer is exposed
                             exposedAreas.push(currentPath)
+
+                    else
+
+                        # We're within skinLayerCount of the bottom - current layer will be exposed
+                        exposedAreas.push(currentPath)
 
                     # Use calculated exposed areas for skin generation on current layer
                     skinAreas = exposedAreas
