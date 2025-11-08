@@ -514,7 +514,8 @@ module.exports =
 
         # Determine if this layer needs skin.
         # This is used to decide whether to generate skin walls for holes during wall generation.
-        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+        # Include middle layers if exposure detection is enabled, as they may need adaptive skin.
+        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount or slicer.getExposureDetection()
 
         # Process outer boundaries first (non-hole paths).
         for pathIndex in outerBoundaryIndices
