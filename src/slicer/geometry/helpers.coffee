@@ -1213,61 +1213,183 @@ module.exports =
         for cell in region
             regionSet.add("#{cell.i},#{cell.j}")
 
-        # Find all edge cells (cells in region with at least one non-region neighbor)
-        edgeCells = []
-        for cell in region
-            i = cell.i
-            j = cell.j
-            
-            # Check 4-connected neighbors
-            isEdge = false
-            for [di, dj] in [[0, 1], [1, 0], [0, -1], [-1, 0]]
-                ni = i + di
-                nj = j + dj
-                if ni < 0 or ni >= gridSize or nj < 0 or nj >= gridSize or not regionSet.has("#{ni},#{nj}")
-                    isEdge = true
-                    break
-            
-            if isEdge
-                edgeCells.push(cell)
-
-        return [] if edgeCells.length is 0
-
         # Calculate cell dimensions
         width = bounds.maxX - bounds.minX
         height = bounds.maxY - bounds.minY
         cellWidth = width / gridSize
         cellHeight = height / gridSize
 
-        # Build contour points from edge cells
-        # Use center points of edge cells as approximation
-        contourPoints = []
-        for cell in edgeCells
-            xRatio = (cell.i + 0.5) / gridSize
-            yRatio = (cell.j + 0.5) / gridSize
-            x = bounds.minX + width * xRatio
-            y = bounds.minY + height * yRatio
-            contourPoints.push({ x: x, y: y, z: z })
+        # Helper to check if a grid cell is exposed (in region)
+        isExposed = (i, j) ->
+            return false if i < 0 or i >= gridSize or j < 0 or j >= gridSize
+            return regionSet.has("#{i},#{j}")
 
-        # Create a simplified convex hull-like boundary
-        # For better performance, use bounding box of edge points with small expansion
-        if contourPoints.length > 0
-            minX = Math.min.apply(null, contourPoints.map((pt) -> pt.x))
-            maxX = Math.max.apply(null, contourPoints.map((pt) -> pt.x))
-            minY = Math.min.apply(null, contourPoints.map((pt) -> pt.y))
-            maxY = Math.max.apply(null, contourPoints.map((pt) -> pt.y))
+        # Helper to convert grid coordinates to world coordinates
+        gridToWorld = (i, j) ->
+            x: bounds.minX + (i / gridSize) * width
+            y: bounds.minY + (j / gridSize) * height
+            z: z
 
-            # Expand slightly beyond edge cell centers to ensure coverage
-            expansion = Math.max(cellWidth, cellHeight) * 0.6
+        # Collect all boundary vertices where exposed meets non-exposed
+        # Use a set to track unique vertices
+        vertexSet = new Set()
+        vertices = []
+
+        for cell in region
+            i = cell.i
+            j = cell.j
+
+            # Check each corner of this cell to see if it's on the boundary
+            # A corner is on the boundary if it's adjacent to both exposed and non-exposed cells
             
-            return [
-                { x: minX - expansion, y: minY - expansion, z: z }
-                { x: maxX + expansion, y: minY - expansion, z: z }
-                { x: maxX + expansion, y: maxY + expansion, z: z }
-                { x: minX - expansion, y: maxY + expansion, z: z }
+            # Bottom-left corner (i, j)
+            adjacentCells = [
+                isExposed(i - 1, j - 1)  # bottom-left
+                isExposed(i, j - 1)      # bottom
+                isExposed(i - 1, j)      # left
+                isExposed(i, j)          # current
             ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i},#{j}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i, j: j, point: gridToWorld(i, j) })
 
-        return []
+            # Bottom-right corner (i+1, j)
+            adjacentCells = [
+                isExposed(i, j - 1)      # bottom-left
+                isExposed(i + 1, j - 1)  # bottom-right
+                isExposed(i, j)          # left
+                isExposed(i + 1, j)      # right
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i + 1},#{j}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i + 1, j: j, point: gridToWorld(i + 1, j) })
+
+            # Top-left corner (i, j+1)
+            adjacentCells = [
+                isExposed(i - 1, j)      # left-bottom
+                isExposed(i, j)          # bottom
+                isExposed(i - 1, j + 1)  # left-top
+                isExposed(i, j + 1)      # top
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i},#{j + 1}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i, j: j + 1, point: gridToWorld(i, j + 1) })
+
+            # Top-right corner (i+1, j+1)
+            adjacentCells = [
+                isExposed(i, j)          # bottom-left
+                isExposed(i + 1, j)      # bottom-right
+                isExposed(i, j + 1)      # top-left
+                isExposed(i + 1, j + 1)  # top-right
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i + 1},#{j + 1}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i + 1, j: j + 1, point: gridToWorld(i + 1, j + 1) })
+
+        return [] if vertices.length < 3
+
+        # Sort vertices to form a contour
+        # Use a simple approach: find the centroid and sort by angle from centroid
+        centroidI = 0
+        centroidJ = 0
+        for vertex in vertices
+            centroidI += vertex.i
+            centroidJ += vertex.j
+        centroidI /= vertices.length
+        centroidJ /= vertices.length
+
+        # Sort by angle from centroid
+        sortedVertices = vertices.slice().sort (a, b) ->
+            angleA = Math.atan2(a.j - centroidJ, a.i - centroidI)
+            angleB = Math.atan2(b.j - centroidJ, b.i - centroidI)
+            return angleA - angleB
+
+        # Extract the points
+        contour = sortedVertices.map((v) -> v.point)
+
+        # Simplify by removing very close consecutive points
+        simplifiedContour = []
+        epsilon = Math.min(cellWidth, cellHeight) * 0.01
+
+        for i in [0...contour.length]
+            point = contour[i]
+            
+            if simplifiedContour.length is 0
+                simplifiedContour.push(point)
+            else
+                lastPoint = simplifiedContour[simplifiedContour.length - 1]
+                dx = point.x - lastPoint.x
+                dy = point.y - lastPoint.y
+                dist = Math.sqrt(dx * dx + dy * dy)
+                
+                if dist > epsilon
+                    simplifiedContour.push(point)
+
+        # Ensure we have at least 3 points for a valid polygon
+        return [] if simplifiedContour.length < 3
+
+        # Apply curve smoothing to reduce pixelated appearance
+        smoothedContour = @smoothContour(simplifiedContour)
+
+        return smoothedContour
+
+    # Smooth a polygon contour using Chaikin's corner cutting algorithm.
+    # This reduces the pixelated/jagged appearance while preserving the overall shape.
+    # 
+    # @param contour Array of {x, y, z} points forming a closed polygon
+    # @param iterations Number of smoothing iterations (default: 1)
+    # @param ratio Corner cutting ratio, 0.5 = cut at midpoint (default: 0.5)
+    # @return Smoothed contour with more points and smoother curves
+    smoothContour: (contour, iterations = 1, ratio = 0.5) ->
+
+        return contour if not contour or contour.length < 3
+
+        smoothed = contour.slice()
+
+        # Apply Chaikin's algorithm for specified iterations
+        for iter in [0...iterations]
+
+            newContour = []
+
+            for i in [0...smoothed.length]
+
+                # Get current point and next point (wrapping around for closed polygon)
+                p1 = smoothed[i]
+                p2 = smoothed[(i + 1) % smoothed.length]
+
+                # Calculate two new points between p1 and p2
+                # First point: ratio of the way from p1 to p2
+                q = {
+                    x: p1.x + (p2.x - p1.x) * ratio
+                    y: p1.y + (p2.y - p1.y) * ratio
+                    z: p1.z
+                }
+
+                # Second point: (1-ratio) of the way from p1 to p2
+                r = {
+                    x: p1.x + (p2.x - p1.x) * (1 - ratio)
+                    y: p1.y + (p2.y - p1.y) * (1 - ratio)
+                    z: p1.z
+                }
+
+                newContour.push(q)
+                newContour.push(r)
+
+            smoothed = newContour
+
+        return smoothed
 
     # Deduplicate a list of intersection points.
     # When diagonal lines pass through bounding box corners, the same point
