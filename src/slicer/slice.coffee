@@ -737,6 +737,10 @@ module.exports =
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
+                        # Skip if skin area is completely inside a hole (>95% coverage).
+                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
                 else
@@ -753,6 +757,10 @@ module.exports =
                     # Generate skin ONLY in the exposed areas.
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
+
+                        # Skip if skin area is completely inside a hole (>95% coverage).
+                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 

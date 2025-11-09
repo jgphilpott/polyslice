@@ -866,6 +866,26 @@ module.exports =
         # Return coverage ratio (0.0 to 1.0).
         return if validSamples > 0 then coveredSamples / validSamples else 0
 
+    # Check if a skin area is completely inside a hole.
+    # Returns true if the skin area is substantially (>95%) inside any hole.
+    # This is used to skip generating skin patches that would be entirely within holes.
+    isSkinAreaInsideHole: (skinArea, holePolygons) ->
+
+        return false if not skinArea or skinArea.length < 3
+        return false if not holePolygons or holePolygons.length is 0
+
+        # Check coverage by each hole.
+        # If any hole covers >95% of the skin area, consider it inside the hole.
+        for holePolygon in holePolygons
+
+            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 25)
+
+            if coverage > 0.95
+
+                return true
+
+        return false
+
     # Calculate the exposed (uncovered) areas of a region.
     # Returns an array of polygons representing the exposed portions.
     # Uses dense sampling to identify uncovered areas and groups them into regions.
