@@ -866,6 +866,26 @@ module.exports =
         # Return coverage ratio (0.0 to 1.0).
         return if validSamples > 0 then coveredSamples / validSamples else 0
 
+    # Check if a skin area is completely inside a hole.
+    # Returns true if the skin area is substantially (>95%) inside any hole.
+    # This is used to skip generating skin patches that would be entirely within holes.
+    isSkinAreaInsideHole: (skinArea, holePolygons) ->
+
+        return false if not skinArea or skinArea.length < 3
+        return false if not holePolygons or holePolygons.length is 0
+
+        # Check coverage by each hole.
+        # If any hole covers >95% of the skin area, consider it inside the hole.
+        for holePolygon in holePolygons
+
+            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 25)
+
+            if coverage > 0.95
+
+                return true
+
+        return false
+
     # Calculate the exposed (uncovered) areas of a region.
     # Returns an array of polygons representing the exposed portions.
     # Uses dense sampling to identify uncovered areas and groups them into regions.
@@ -881,6 +901,44 @@ module.exports =
 
         width = bounds.maxX - bounds.minX
         height = bounds.maxY - bounds.minY
+
+        # Identify which covering regions are holes (contained within other regions).
+        # A region is a hole if its representative point is inside another region.
+        holeIndices = new Set()
+
+        for regionIdx in [0...coveringRegions.length]
+
+            region = coveringRegions[regionIdx]
+            continue if region.length < 3
+
+            # Use first point as representative (could use centroid for better accuracy).
+            testPoint = region[0]
+
+            # Check if this point is inside any OTHER region.
+            for otherIdx in [0...coveringRegions.length]
+
+                continue if otherIdx is regionIdx
+
+                otherRegion = coveringRegions[otherIdx]
+                continue if otherRegion.length < 3
+
+                if @pointInPolygon(testPoint, otherRegion)
+
+                    # This region is contained within another, so it's a hole.
+                    holeIndices.add(regionIdx)
+
+                    break
+
+        # Separate covering regions into solid regions and holes.
+        solidRegions = []
+        holeRegions = []
+
+        for region, idx in coveringRegions
+
+            if holeIndices.has(idx)
+                holeRegions.push(region)
+            else
+                solidRegions.push(region)
 
         # Generate dense sample points in a grid pattern across the region.
         # Use sqrt(sampleCount) to get grid dimensions.
@@ -910,13 +968,31 @@ module.exports =
 
                 if isInside
 
-                    for coveringRegion in coveringRegions
+                    # A point is covered if it's inside a solid region AND NOT inside a hole.
+                    # If there are no solid regions (only holes), nothing is covered.
+                    if solidRegions.length > 0
 
-                        if @pointInPolygon(point, coveringRegion)
+                        for solidRegion in solidRegions
 
-                            isCovered = true
+                            if @pointInPolygon(point, solidRegion)
 
-                            break
+                                # Check if it's also inside a hole.
+                                inHole = false
+
+                                for holeRegion in holeRegions
+
+                                    if @pointInPolygon(point, holeRegion)
+
+                                        inHole = true
+
+                                        break
+
+                                # If inside solid but not in a hole, it's covered.
+                                if not inHole
+
+                                    isCovered = true
+
+                                    break
 
                 # Mark as exposed if inside but not covered.
                 row.push(if isInside and not isCovered then point else null)
@@ -973,12 +1049,13 @@ module.exports =
 
                         totalValidPoints++
 
-        if totalValidPoints > 0 and exposedCount / totalValidPoints > 0.8
+        # Removed the >80% optimization that was returning testRegion directly.
+        # This was causing identical skin patches across layers because it returned
+        # the same object reference instead of calculating the actual exposed bounds.
+        # Now we always calculate the exposed area based on sample points.
 
-            return [testRegion]
-
-        # For partially exposed regions, create simplified exposed area polygons.
-        # Strategy: Find exposed regions and create bounding rectangles for them.
+        # For exposed regions, create polygons that preserve the actual shape.
+        # Strategy: Use marching squares algorithm to trace contours of exposed regions.
         exposedAreas = []
 
         # Find contiguous exposed regions using flood fill approach.
@@ -1005,27 +1082,12 @@ module.exports =
 
                     if region.length > 0
 
-                        # Create a bounding box for this exposed region.
-                        minI = Math.min.apply(null, region.map((p) -> p.i))
-                        maxI = Math.max.apply(null, region.map((p) -> p.i))
-                        minJ = Math.min.apply(null, region.map((p) -> p.j))
-                        maxJ = Math.max.apply(null, region.map((p) -> p.j))
+                        # Use marching squares algorithm to trace smooth contours of the exposed region.
+                        # This provides better accuracy than simple bounding boxes.
+                        exposedPoly = @marchingSquares(exposedGrid, region, bounds, gridSize, testRegion[0].z)
 
-                        # Convert grid coordinates to actual coordinates.
-                        minX = bounds.minX + width * (minI / gridSize)
-                        maxX = bounds.minX + width * ((maxI + 1) / gridSize)
-                        minY = bounds.minY + height * (minJ / gridSize)
-                        maxY = bounds.minY + height * ((maxJ + 1) / gridSize)
-
-                        # Create rectangle polygon for this exposed area.
-                        exposedPoly = [
-                            { x: minX, y: minY, z: testRegion[0].z }
-                            { x: maxX, y: minY, z: testRegion[0].z }
-                            { x: maxX, y: maxY, z: testRegion[0].z }
-                            { x: minX, y: maxY, z: testRegion[0].z }
-                        ]
-
-                        exposedAreas.push(exposedPoly)
+                        if exposedPoly.length > 0
+                            exposedAreas.push(exposedPoly)
 
         # If we found exposed areas, return them. Otherwise return entire region.
         return if exposedAreas.length > 0 then exposedAreas else [testRegion]
@@ -1208,6 +1270,202 @@ module.exports =
             stack.push({ i: i, j: j - 1 })
 
         return region
+
+    # Marching squares algorithm to trace smooth contours of exposed regions.
+    # Generates a polygon boundary by tracing the edges between exposed and non-exposed cells.
+    #
+    # @param exposedGrid 2D grid of exposed points (null for non-exposed)
+    # @param region Array of {i, j} grid positions that form a contiguous region
+    # @param bounds Bounding box with minX, maxX, minY, maxY
+    # @param gridSize Size of the grid (n for n×n grid)
+    # @param z Z-coordinate for the resulting polygon
+    # @return Polygon array of {x, y, z} points tracing the region boundary
+    marchingSquares: (exposedGrid, region, bounds, gridSize, z) ->
+
+        return [] if not region or region.length is 0
+
+        # Create a lookup for fast checking if a cell is in the region
+        regionSet = new Set()
+        for cell in region
+            regionSet.add("#{cell.i},#{cell.j}")
+
+        # Calculate cell dimensions
+        width = bounds.maxX - bounds.minX
+        height = bounds.maxY - bounds.minY
+        cellWidth = width / gridSize
+        cellHeight = height / gridSize
+
+        # Helper to check if a grid cell is exposed (in region)
+        isExposed = (i, j) ->
+            return false if i < 0 or i >= gridSize or j < 0 or j >= gridSize
+            return regionSet.has("#{i},#{j}")
+
+        # Helper to convert grid coordinates to world coordinates
+        gridToWorld = (i, j) ->
+            x: bounds.minX + (i / gridSize) * width
+            y: bounds.minY + (j / gridSize) * height
+            z: z
+
+        # Collect all boundary vertices where exposed meets non-exposed
+        # Use a set to track unique vertices
+        vertexSet = new Set()
+        vertices = []
+
+        for cell in region
+            i = cell.i
+            j = cell.j
+
+            # Check each corner of this cell to see if it's on the boundary
+            # A corner is on the boundary if it's adjacent to both exposed and non-exposed cells
+
+            # Bottom-left corner (i, j)
+            adjacentCells = [
+                isExposed(i - 1, j - 1)  # bottom-left
+                isExposed(i, j - 1)      # bottom
+                isExposed(i - 1, j)      # left
+                isExposed(i, j)          # current
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i},#{j}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i, j: j, point: gridToWorld(i, j) })
+
+            # Bottom-right corner (i+1, j)
+            adjacentCells = [
+                isExposed(i, j - 1)      # bottom-left
+                isExposed(i + 1, j - 1)  # bottom-right
+                isExposed(i, j)          # left
+                isExposed(i + 1, j)      # right
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i + 1},#{j}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i + 1, j: j, point: gridToWorld(i + 1, j) })
+
+            # Top-left corner (i, j+1)
+            adjacentCells = [
+                isExposed(i - 1, j)      # left-bottom
+                isExposed(i, j)          # bottom
+                isExposed(i - 1, j + 1)  # left-top
+                isExposed(i, j + 1)      # top
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i},#{j + 1}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i, j: j + 1, point: gridToWorld(i, j + 1) })
+
+            # Top-right corner (i+1, j+1)
+            adjacentCells = [
+                isExposed(i, j)          # bottom-left
+                isExposed(i + 1, j)      # bottom-right
+                isExposed(i, j + 1)      # top-left
+                isExposed(i + 1, j + 1)  # top-right
+            ]
+            exposedCount = adjacentCells.filter((x) -> x).length
+            if exposedCount > 0 and exposedCount < 4
+                key = "#{i + 1},#{j + 1}"
+                if not vertexSet.has(key)
+                    vertexSet.add(key)
+                    vertices.push({ i: i + 1, j: j + 1, point: gridToWorld(i + 1, j + 1) })
+
+        return [] if vertices.length < 3
+
+        # Sort vertices to form a contour
+        # Use a simple approach: find the centroid and sort by angle from centroid
+        centroidI = 0
+        centroidJ = 0
+        for vertex in vertices
+            centroidI += vertex.i
+            centroidJ += vertex.j
+        centroidI /= vertices.length
+        centroidJ /= vertices.length
+
+        # Sort by angle from centroid
+        sortedVertices = vertices.slice().sort (a, b) ->
+            angleA = Math.atan2(a.j - centroidJ, a.i - centroidI)
+            angleB = Math.atan2(b.j - centroidJ, b.i - centroidI)
+            return angleA - angleB
+
+        # Extract the points
+        contour = sortedVertices.map((v) -> v.point)
+
+        # Simplify by removing very close consecutive points
+        simplifiedContour = []
+        epsilon = Math.min(cellWidth, cellHeight) * 0.01
+
+        for i in [0...contour.length]
+            point = contour[i]
+
+            if simplifiedContour.length is 0
+                simplifiedContour.push(point)
+            else
+                lastPoint = simplifiedContour[simplifiedContour.length - 1]
+                dx = point.x - lastPoint.x
+                dy = point.y - lastPoint.y
+                dist = Math.sqrt(dx * dx + dy * dy)
+
+                if dist > epsilon
+                    simplifiedContour.push(point)
+
+        # Ensure we have at least 3 points for a valid polygon
+        return [] if simplifiedContour.length < 3
+
+        # Apply curve smoothing to reduce pixelated appearance
+        smoothedContour = @smoothContour(simplifiedContour)
+
+        return smoothedContour
+
+    # Smooth a polygon contour using Chaikin's corner cutting algorithm.
+    # This reduces the pixelated/jagged appearance while preserving the overall shape.
+    #
+    # @param contour Array of {x, y, z} points forming a closed polygon
+    # @param iterations Number of smoothing iterations (default: 1)
+    # @param ratio Corner cutting ratio, 0.5 = cut at midpoint (default: 0.5)
+    # @return Smoothed contour with more points and smoother curves
+    smoothContour: (contour, iterations = 1, ratio = 0.5) ->
+
+        return contour if not contour or contour.length < 3
+
+        smoothed = contour.slice()
+
+        # Apply Chaikin's algorithm for specified iterations
+        for iter in [0...iterations]
+
+            newContour = []
+
+            for i in [0...smoothed.length]
+
+                # Get current point and next point (wrapping around for closed polygon)
+                p1 = smoothed[i]
+                p2 = smoothed[(i + 1) % smoothed.length]
+
+                # Calculate two new points between p1 and p2
+                # First point: ratio of the way from p1 to p2
+                q = {
+                    x: p1.x + (p2.x - p1.x) * ratio
+                    y: p1.y + (p2.y - p1.y) * ratio
+                    z: p1.z
+                }
+
+                # Second point: (1-ratio) of the way from p1 to p2
+                r = {
+                    x: p1.x + (p2.x - p1.x) * (1 - ratio)
+                    y: p1.y + (p2.y - p1.y) * (1 - ratio)
+                    z: p1.z
+                }
+
+                newContour.push(q)
+                newContour.push(r)
+
+            smoothed = newContour
+
+        return smoothed
 
     # Deduplicate a list of intersection points.
     # When diagonal lines pass through bounding box corners, the same point

@@ -224,6 +224,32 @@ describe 'Accessors (Getters and Setters)', ->
             inchSlicer.setShellSkinThickness(0.047) # ~1.2mm.
             expect(inchSlicer.getShellSkinThickness()).toBeCloseTo(0.047, 3)
 
+        test 'should set and get exposure detection setting', ->
+
+            # Default should be true.
+            expect(slicer.getExposureDetection()).toBe(true)
+
+            # Disable exposure detection.
+            slicer.setExposureDetection(false)
+            expect(slicer.getExposureDetection()).toBe(false)
+
+            # Enable exposure detection.
+            slicer.setExposureDetection(true)
+            expect(slicer.getExposureDetection()).toBe(true)
+
+        test 'should set and get exposure detection resolution', ->
+
+            # Default should be 961 (31x31 grid).
+            expect(slicer.getExposureDetectionResolution()).toBe(961)
+
+            # Set to 400 (20x20 grid).
+            slicer.setExposureDetectionResolution(400)
+            expect(slicer.getExposureDetectionResolution()).toBe(400)
+
+            # Set to 1600 (40x40 grid).
+            slicer.setExposureDetectionResolution(1600)
+            expect(slicer.getExposureDetectionResolution()).toBe(1600)
+
         test 'should set and get support settings', ->
 
             expect(slicer.getSupportEnabled()).toBe(false)

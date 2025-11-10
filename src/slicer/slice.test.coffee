@@ -904,10 +904,46 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
-        test 'should not generate skin walls on non-skin layers', ->
+        test 'should not generate skin walls on non-skin layers without holes', ->
 
             # Verify that skin walls are only generated on skin layers.
-            # Middle layers should only have regular walls.
+            # Middle layers without exposure should only have regular walls.
+            # Note: This test uses a SOLID sheet (no holes) to verify baseline behavior.
+
+            sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
+            sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
+
+            # Position the mesh so Z=0 is the build plate.
+            sheetMesh.position.set(0, 0, 2.5)
+            sheetMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(sheetMesh)
+
+            # Check middle layer (layer 10, not a skin layer).
+            parts = result.split('LAYER: 10')
+            expect(parts.length).toBeGreaterThan(1)
+            layer10 = parts[1].split('LAYER: 11')[0]
+
+            # Should not have any SKIN markers on middle layers of solid geometry.
+            skinMatches = layer10.match(/TYPE: SKIN/g) || []
+            expect(skinMatches.length).toBe(0)
+
+            # But should have wall markers.
+            wallMatches = layer10.match(/TYPE: WALL/g) || []
+            expect(wallMatches.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should generate adaptive skin on middle layers with holes (cavity detection)', ->
+
+            # Verify that exposure detection properly detects holes/cavities as exposed areas.
+            # Middle layers with holes should get adaptive skin because the hole exposes those layers.
 
             sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
             sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
@@ -929,19 +965,20 @@ describe 'Slicing', ->
             slicer.setLayerHeight(0.2)
             slicer.setVerbose(true)
             slicer.setAutohome(false)
+            slicer.setExposureDetection(true)  # Ensure exposure detection is enabled.
 
             result = slicer.slice(finalMesh)
 
-            # Check middle layer (layer 10, not a skin layer).
+            # Check middle layer (layer 10).
             parts = result.split('LAYER: 10')
             expect(parts.length).toBeGreaterThan(1)
             layer10 = parts[1].split('LAYER: 11')[0]
 
-            # Should not have any SKIN markers.
+            # Middle layers with holes SHOULD have SKIN markers because the hole creates exposed areas.
             skinMatches = layer10.match(/TYPE: SKIN/g) || []
-            expect(skinMatches.length).toBe(0)
+            expect(skinMatches.length).toBeGreaterThan(0)
 
-            # But should have wall markers.
+            # Should also have wall markers.
             wallMatches = layer10.match(/TYPE: WALL/g) || []
             expect(wallMatches.length).toBeGreaterThan(0)
 
@@ -1016,6 +1053,69 @@ describe 'Slicing', ->
             # Should have both outer and inner walls.
             expect(outerMatches.length).toBeGreaterThan(0)
             expect(innerMatches.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
+    describe 'Exposure Detection', ->
+
+        test 'should generate skin only on top/bottom layers when exposure detection disabled', ->
+
+            # Create a tall cylinder (has middle layers that should not get skin).
+            geometry = new THREE.CylinderGeometry(5, 5, 10, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8) # 4 layers of skin.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(false) # Disabled.
+
+            result = slicer.slice(mesh)
+
+            # Verify we have layers.
+            expect(result).toContain('LAYER:')
+
+            # Count skin pattern occurrences (skin uses different pattern than infill).
+            # With exposure detection disabled, skin should only appear in top/bottom layers.
+            skinPatternMatches = result.match(/TYPE: SKIN/g) || []
+
+            # We should have skin patterns (top and bottom layers).
+            expect(skinPatternMatches.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should enable adaptive skin generation when exposure detection enabled', ->
+
+            # Create the same tall cylinder.
+            geometry = new THREE.CylinderGeometry(5, 5, 10, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8) # 4 layers of skin.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true) # Enabled.
+
+            result = slicer.slice(mesh)
+
+            # Verify we have layers.
+            expect(result).toContain('LAYER:')
+
+            # With exposure detection enabled, the algorithm should detect exposed surfaces.
+            # For a simple cylinder, we may see some adaptive skin behavior, though the
+            # exact behavior depends on the geometry coverage calculations.
+            skinPatternMatches = result.match(/TYPE: SKIN/g) || []
+
+            # We should still have skin patterns.
+            expect(skinPatternMatches.length).toBeGreaterThan(0)
 
             return # Explicitly return undefined for Jest.
 

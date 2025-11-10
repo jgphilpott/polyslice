@@ -105,6 +105,8 @@ const slicer = new Polyslice(options);
 - `nozzleTemperature` (number): Nozzle temperature (default: 0).
 - `bedTemperature` (number): Bed temperature (default: 0).
 - `fanSpeed` (number): Fan speed percentage 0-100 (default: 100).
+- `exposureDetection` (boolean): Enable adaptive skin layer generation for exposed surfaces (default: true).
+- `exposureDetectionResolution` (number): Sample count for exposure detection analysis, higher = more accurate but slower (default: 961 for 31×31 grid).
 - `printer` (Printer): Printer instance for automatic configuration (default: null).
 - `filament` (Filament): Filament instance for automatic configuration (default: null).
 
@@ -232,6 +234,29 @@ console.log(filament.listAvailableFilaments());
 - `color` (string): Hex color code
 - `weight` (number): Spool weight in grams
 - `cost` (number): Cost per spool
+
+### Advanced Slicing Features
+
+#### Exposure Detection
+
+Polyslice includes an adaptive skin layer generation algorithm that intelligently detects exposed surfaces and applies skin layers only where needed. This feature is **enabled by default** for optimized prints.
+
+**Quick Start:**
+
+```javascript
+const slicer = new Polyslice({
+  exposureDetection: true,  // Enabled by default
+  exposureDetectionResolution: 961  // 31×31 grid (default)
+});
+
+// Adjust resolution for finer/coarser detection
+slicer.setExposureDetectionResolution(1600);  // Higher detail
+
+// Disable if not needed
+slicer.setExposureDetection(false);
+```
+
+For comprehensive documentation on exposure detection, including technical details, performance considerations, and usage examples, see [docs/EXPOSURE_DETECTION.md](docs/EXPOSURE_DETECTION.md)
 
 ### File Loader
 

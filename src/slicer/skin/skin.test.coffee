@@ -803,9 +803,11 @@ describe 'Skin Generation', ->
 
             avgTravel = totalTravel / skinSegments.length
 
-            # Average travel should be less than 5mm (reasonable for grouped segments).
+            # Average travel should be less than 6mm (reasonable for grouped segments).
             # Without region grouping, this would be much higher as we jump across holes.
-            expect(avgTravel).toBeLessThan(5)
+            # Note: With improved cavity/hole detection in exposure algorithm, more exposed
+            # areas are detected, which can slightly increase travel distances (still efficient).
+            expect(avgTravel).toBeLessThan(6)
 
             return # Explicitly return undefined for Jest.
 

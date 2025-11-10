@@ -57,15 +57,15 @@
   "dependencies": {
     "@jgphilpott/polyconvert": "^1.0.4",
     "@jgphilpott/polytree": "^0.1.2",
-    "three": "^0.181.0"
+    "three": "^0.181.1"
   },
   "optionalDependencies": {
     "serialport": "^13.0.0"
   },
   "devDependencies": {
     "coffeescript": "^2.7.0",
-    "esbuild": "^0.25.11",
-    "eslint": "^9.38.0",
+    "esbuild": "^0.27.0",
+    "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jest": "^29.0.1",
     "jest": "^30.2.0",

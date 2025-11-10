@@ -514,7 +514,8 @@ module.exports =
 
         # Determine if this layer needs skin.
         # This is used to decide whether to generate skin walls for holes during wall generation.
-        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+        # Include middle layers if exposure detection is enabled, as they may need adaptive skin.
+        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount or slicer.getExposureDetection()
 
         # Process outer boundaries first (non-hole paths).
         for pathIndex in outerBoundaryIndices
@@ -634,97 +635,83 @@ module.exports =
 
             else
 
-                # For middle layers, disable exposure detection for now.
-                # TODO: Improve exposure detection algorithm to handle complex geometries like torus.
-                # The current algorithm has too many false positives for curved surfaces.
-                needsSkin = false
-                skinAreas = []
+                # For middle layers, check if exposure detection is enabled.
+                # When enabled, adaptively generates skin layers for exposed surfaces.
+                # When disabled, only top and bottom layers get skin (simpler but less optimal).
+                if slicer.getExposureDetection()
 
-                # DISABLED: Exposure detection algorithm
-                # coverageThreshold = 0.1
-                # exposedFromAbove = []
-                # exposedFromBelow = []
-                #
-                # # Check if there's a top surface within skinLayerCount layers above us.
-                # # A top surface is a layer that's not covered by the layer above it.
-                # # We need to check up to skinLayerCount layers, so range is [layerIndex..layerIndex + skinLayerCount - 1]
-                # for checkIdx in [layerIndex..Math.min(totalLayers - 1, layerIndex + skinLayerCount - 1)]
-                #
-                #     # Is checkIdx a top surface?
-                #     if checkIdx < totalLayers - 1
-                #
-                #         # Check if layer checkIdx+1 covers this region
-                #         aboveSegments = allLayers[checkIdx + 1]
-                #
-                #         if aboveSegments? and aboveSegments.length > 0
-                #
-                #             abovePaths = helpers.connectSegmentsToPaths(aboveSegments)
-                #             coverageFromAbove = helpers.calculateRegionCoverage(currentPath, abovePaths, 9)
-                #
-                #             if coverageFromAbove < coverageThreshold
-                #
-                #                 # checkIdx is a top surface exposure - calculate exposed areas
-                #                 exposedAreas = helpers.calculateExposedAreas(currentPath, abovePaths, 81)
-                #                 exposedFromAbove.push(exposedAreas...)
-                #
-                #                 # Found exposure - current layer gets skin if within range
-                #                 break
-                #
-                #         else
-                #
-                #             # No geometry above means top surface - entire region is exposed
-                #             exposedFromAbove.push(currentPath)
-                #
-                #             break
-                #
-                #     else
-                #
-                #         # checkIdx is the very top layer
-                #         exposedFromAbove.push(currentPath)
-                #
-                #         break
-                #
-                # # Check if there's a bottom surface within skinLayerCount layers below us.
-                # # A bottom surface is a layer that's not covered by the layer below it.
-                # # We need to check down to skinLayerCount layers, so range is [layerIndex down to layerIndex - skinLayerCount + 1]
-                # if exposedFromAbove.length is 0
-                #
-                #     for checkIdx in [layerIndex..Math.max(0, layerIndex - skinLayerCount + 1)] by -1
-                #
-                #         # Is checkIdx a bottom surface?
-                #         if checkIdx > 0
-                #
-                #             # Check if layer checkIdx-1 covers this region
-                #             belowSegments = allLayers[checkIdx - 1]
-                #
-                #             if belowSegments? and belowSegments.length > 0
-                #
-                #                 belowPaths = helpers.connectSegmentsToPaths(belowSegments)
-                #                 coverageFromBelow = helpers.calculateRegionCoverage(currentPath, belowPaths, 9)
-                #
-                #                 if coverageFromBelow < coverageThreshold
-                #
-                #                     # checkIdx is a bottom surface exposure - calculate exposed areas
-                #                     exposedAreas = helpers.calculateExposedAreas(currentPath, belowPaths, 81)
-                #                     exposedFromBelow.push(exposedAreas...)
-                #                     # Found exposure - current layer gets skin if within range
-                #                     break
-                #
-                #             else
-                #
-                #                 # No geometry below means bottom surface - entire region is exposed
-                #                 exposedFromBelow.push(currentPath)
-                #                 break
-                #
-                #         else
-                #
-                #             # checkIdx is layer 0 (bottom layer)
-                #             exposedFromBelow.push(currentPath)
-                #             break
-                #
-                # # Combine exposed areas from above and below.
-                # skinAreas = exposedFromAbove.concat(exposedFromBelow)
-                # needsSkin = skinAreas.length > 0
+                    # ENABLED: Exposure detection algorithm
+                    # For the current layer, calculate what parts won't be covered by the layer exactly
+                    # skinLayerCount steps ahead/behind. Each layer independently calculates its exposed area.
+                    # Check BOTH directions to detect overhangs (exposure from above) AND cavities/holes (exposure from below).
+                    exposedAreas = []
+
+                    # Check the layer exactly skinLayerCount steps AHEAD (above).
+                    checkIdxAbove = layerIndex + skinLayerCount
+
+                    if checkIdxAbove < totalLayers
+
+                        checkSegments = allLayers[checkIdxAbove]
+
+                        if checkSegments? and checkSegments.length > 0
+
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+
+                            # Calculate what parts of CURRENT layer are NOT covered by the layer ahead
+                            # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
+                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
+
+                            if checkExposedAreas.length > 0
+                                exposedAreas.push(checkExposedAreas...)
+
+                        else
+
+                            # No geometry at the layer ahead means current layer is exposed
+                            exposedAreas.push(currentPath)
+
+                    else
+
+                        # We're within skinLayerCount of the top - current layer will be exposed
+                        exposedAreas.push(currentPath)
+
+                    # Always check behind to detect cavities and holes (exposure from below).
+                    # Previously this was only checked if exposedAreas.length was 0, which missed cavities.
+                    checkIdxBelow = layerIndex - skinLayerCount
+
+                    if checkIdxBelow >= 0
+
+                        checkSegments = allLayers[checkIdxBelow]
+
+                        if checkSegments? and checkSegments.length > 0
+
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+
+                            # Calculate what parts of CURRENT layer are NOT covered by the layer behind
+                            # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
+                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
+
+                            if checkExposedAreas.length > 0
+                                exposedAreas.push(checkExposedAreas...)
+
+                        else
+
+                            # No geometry at the layer behind means current layer is exposed
+                            exposedAreas.push(currentPath)
+
+                    else
+
+                        # We're within skinLayerCount of the bottom - current layer will be exposed
+                        exposedAreas.push(currentPath)
+
+                    # Use calculated exposed areas for skin generation on current layer
+                    skinAreas = exposedAreas
+                    needsSkin = skinAreas.length > 0
+
+                else
+
+                    # Exposure detection disabled - no skin for middle layers.
+                    needsSkin = false
+                    skinAreas = []
 
             # Generate infill and/or skin based on exposure.
             #
@@ -750,6 +737,10 @@ module.exports =
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
+                        # Skip if skin area is completely inside a hole (>95% coverage).
+                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
                 else
@@ -766,6 +757,10 @@ module.exports =
                     # Generate skin ONLY in the exposed areas.
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
+
+                        # Skip if skin area is completely inside a hole (>95% coverage).
+                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
