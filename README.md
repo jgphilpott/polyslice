@@ -239,52 +239,24 @@ console.log(filament.listAvailableFilaments());
 
 #### Exposure Detection
 
-Polyslice includes an adaptive skin layer generation algorithm that can intelligently detect exposed surfaces on your model and apply skin layers only where needed. This feature is enabled by default for optimized prints.
+Polyslice includes an adaptive skin layer generation algorithm that intelligently detects exposed surfaces and applies skin layers only where needed. This feature is **enabled by default** for optimized prints.
 
-**What it does:**
-- Analyzes each layer to detect exposed surfaces (top and bottom surfaces within the skin layer range)
-- Automatically generates skin layers only on exposed regions instead of solid layers
-- Reduces print time and material usage while maintaining surface quality
-- Uses coverage sampling to determine which areas need skin reinforcement
-
-**When to use it:**
-- Complex geometries with varying surface exposure throughout the print
-- Models with overhangs, bridges, or varying cross-sections
-- When you want to optimize material usage without compromising surface quality
-
-**When to disable it:**
-- Simple geometries (cubes, cylinders) where standard top/bottom skin layers are sufficient
-- Models with smooth, gradually changing surfaces where the algorithm may detect false positives
-- When print time is not a concern and you prefer consistent solid top/bottom layers
-
-**Example:**
+**Quick Start:**
 
 ```javascript
 const slicer = new Polyslice({
-  nozzleTemperature: 210,
-  bedTemperature: 60,
   exposureDetection: true,  // Enabled by default
-  exposureDetectionResolution: 961  // 31×31 grid (default), higher = more accurate
+  exposureDetectionResolution: 961  // 31×31 grid (default)
 });
 
-// Adjust resolution at runtime for finer detail
-slicer.setExposureDetectionResolution(2500);  // 50×50 grid for very fine details
+// Adjust resolution for finer/coarser detection
+slicer.setExposureDetectionResolution(1600);  // Higher detail
 
-// Or use lower resolution for faster processing
-slicer.setExposureDetectionResolution(625);  // 25×25 grid
-
-// Or disable exposure detection if needed
+// Disable if not needed
 slicer.setExposureDetection(false);
 ```
 
-**Technical details:**
-- Uses marching squares algorithm to trace smooth contours of exposed regions
-- Default resolution: 961 samples (31×31 grid) - provides smooth, detailed contours with optimal performance
-- Higher resolutions (1600 = 40×40, 2500 = 50×50) provide even more detail with slightly higher processing time
-- Lower resolutions (625 = 25×25, 400 = 20×20) are faster but less smooth
-- Applies Chaikin curve smoothing with 1 iteration and 0.5 ratio for natural-looking contours
-- Checks the layer exactly skinLayerCount steps ahead/behind for each layer independently
-- Generates adaptive skin patches that grow/shrink naturally with geometry changes
+For comprehensive documentation on exposure detection, including technical details, performance considerations, and usage examples, see [docs/EXPOSURE_DETECTION.md](docs/EXPOSURE_DETECTION.md)
 
 ### File Loader
 

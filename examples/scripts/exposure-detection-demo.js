@@ -15,15 +15,15 @@ mesh.updateMatrixWorld();
 
 console.log('\n=== Exposure Detection Comparison ===\n');
 
-// Test 1: Exposure detection DISABLED (default)
-console.log('1. Slicing with exposure detection DISABLED (default)...');
+// Test 1: Exposure detection DISABLED
+console.log('1. Slicing with exposure detection DISABLED...');
 const slicerDisabled = new Polyslice({
     layerHeight: 0.2,
     shellSkinThickness: 0.8,  // 4 layers
     nozzleTemperature: 200,
     bedTemperature: 60,
     verbose: true,
-    exposureDetection: false  // Explicitly disabled
+    exposureDetection: false  // Disabled for comparison
 });
 
 const gcodeDisabled = slicerDisabled.slice(mesh);
@@ -36,15 +36,15 @@ console.log(`   - Skin operations: ${skinCountDisabled}`);
 console.log(`   - Infill operations: ${infillCountDisabled}`);
 console.log('   - Strategy: Skin only on top 4 and bottom 4 layers\n');
 
-// Test 2: Exposure detection ENABLED
-console.log('2. Slicing with exposure detection ENABLED...');
+// Test 2: Exposure detection ENABLED (default)
+console.log('2. Slicing with exposure detection ENABLED (default)...');
 const slicerEnabled = new Polyslice({
     layerHeight: 0.2,
     shellSkinThickness: 0.8,  // 4 layers
     nozzleTemperature: 200,
     bedTemperature: 60,
     verbose: true,
-    exposureDetection: true  // Enabled
+    exposureDetection: true  // Enabled by default (shown explicitly here)
 });
 
 const gcodeEnabled = slicerEnabled.slice(mesh);

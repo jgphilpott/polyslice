@@ -16,7 +16,7 @@ mesh.updateMatrixWorld();
 
 console.log('\n=== Exposure Detection with Complex Geometry (Sphere) ===\n');
 
-// Test 1: Exposure detection DISABLED (default)
+// Test 1: Exposure detection DISABLED
 console.log('1. Slicing sphere with exposure detection DISABLED...');
 const slicerDisabled = new Polyslice({
     layerHeight: 0.2,
@@ -25,7 +25,7 @@ const slicerDisabled = new Polyslice({
     nozzleTemperature: 200,
     bedTemperature: 60,
     verbose: true,
-    exposureDetection: false
+    exposureDetection: false  // Disabled for comparison
 });
 
 const gcodeDisabled = slicerDisabled.slice(mesh);
@@ -40,8 +40,8 @@ console.log(`   - Skin operations: ${skinCountDisabled}`);
 console.log(`   - Infill operations: ${infillCountDisabled}`);
 console.log('   - Strategy: Skin only on top 4 and bottom 4 layers\n');
 
-// Test 2: Exposure detection ENABLED
-console.log('2. Slicing sphere with exposure detection ENABLED...');
+// Test 2: Exposure detection ENABLED (default)
+console.log('2. Slicing sphere with exposure detection ENABLED (default)...');
 const slicerEnabled = new Polyslice({
     layerHeight: 0.2,
     shellSkinThickness: 0.8,  // 4 layers
@@ -49,7 +49,7 @@ const slicerEnabled = new Polyslice({
     nozzleTemperature: 200,
     bedTemperature: 60,
     verbose: true,
-    exposureDetection: true
+    exposureDetection: true  // Enabled by default (shown explicitly here)
 });
 
 const gcodeEnabled = slicerEnabled.slice(mesh);
