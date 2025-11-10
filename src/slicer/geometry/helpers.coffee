@@ -1033,7 +1033,7 @@ module.exports =
         # This was causing identical skin patches across layers because it returned
         # the same object reference instead of calculating the actual exposed bounds.
         # Now we always calculate the exposed area based on sample points.
-        
+
         # For exposed regions, create polygons that preserve the actual shape.
         # Strategy: Use marching squares algorithm to trace contours of exposed regions.
         exposedAreas = []
@@ -1065,7 +1065,7 @@ module.exports =
                         # Use marching squares algorithm to trace smooth contours of the exposed region.
                         # This provides better accuracy than simple bounding boxes.
                         exposedPoly = @marchingSquares(exposedGrid, region, bounds, gridSize, testRegion[0].z)
-                        
+
                         if exposedPoly.length > 0
                             exposedAreas.push(exposedPoly)
 
@@ -1253,7 +1253,7 @@ module.exports =
 
     # Marching squares algorithm to trace smooth contours of exposed regions.
     # Generates a polygon boundary by tracing the edges between exposed and non-exposed cells.
-    # 
+    #
     # @param exposedGrid 2D grid of exposed points (null for non-exposed)
     # @param region Array of {i, j} grid positions that form a contiguous region
     # @param bounds Bounding box with minX, maxX, minY, maxY
@@ -1297,7 +1297,7 @@ module.exports =
 
             # Check each corner of this cell to see if it's on the boundary
             # A corner is on the boundary if it's adjacent to both exposed and non-exposed cells
-            
+
             # Bottom-left corner (i, j)
             adjacentCells = [
                 isExposed(i - 1, j - 1)  # bottom-left
@@ -1381,7 +1381,7 @@ module.exports =
 
         for i in [0...contour.length]
             point = contour[i]
-            
+
             if simplifiedContour.length is 0
                 simplifiedContour.push(point)
             else
@@ -1389,7 +1389,7 @@ module.exports =
                 dx = point.x - lastPoint.x
                 dy = point.y - lastPoint.y
                 dist = Math.sqrt(dx * dx + dy * dy)
-                
+
                 if dist > epsilon
                     simplifiedContour.push(point)
 
@@ -1403,7 +1403,7 @@ module.exports =
 
     # Smooth a polygon contour using Chaikin's corner cutting algorithm.
     # This reduces the pixelated/jagged appearance while preserving the overall shape.
-    # 
+    #
     # @param contour Array of {x, y, z} points forming a closed polygon
     # @param iterations Number of smoothing iterations (default: 1)
     # @param ratio Corner cutting ratio, 0.5 = cut at midpoint (default: 0.5)

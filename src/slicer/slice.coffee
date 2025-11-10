@@ -656,11 +656,11 @@ module.exports =
                         if checkSegments? and checkSegments.length > 0
 
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                            
+
                             # Calculate what parts of CURRENT layer are NOT covered by the layer ahead
                             # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
                             checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-                            
+
                             if checkExposedAreas.length > 0
                                 exposedAreas.push(checkExposedAreas...)
 
@@ -685,11 +685,11 @@ module.exports =
                         if checkSegments? and checkSegments.length > 0
 
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                            
+
                             # Calculate what parts of CURRENT layer are NOT covered by the layer behind
                             # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
                             checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-                            
+
                             if checkExposedAreas.length > 0
                                 exposedAreas.push(checkExposedAreas...)
 
