@@ -866,6 +866,26 @@ module.exports =
         # Return coverage ratio (0.0 to 1.0).
         return if validSamples > 0 then coveredSamples / validSamples else 0
 
+    # Check if a skin area is completely inside a hole.
+    # Returns true if the skin area is substantially (>95%) inside any hole.
+    # This is used to skip generating skin patches that would be entirely within holes.
+    isSkinAreaInsideHole: (skinArea, holePolygons) ->
+
+        return false if not skinArea or skinArea.length < 3
+        return false if not holePolygons or holePolygons.length is 0
+
+        # Check coverage by each hole.
+        # If any hole covers >95% of the skin area, consider it inside the hole.
+        for holePolygon in holePolygons
+
+            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 25)
+
+            if coverage > 0.95
+
+                return true
+
+        return false
+
     # Calculate the exposed (uncovered) areas of a region.
     # Returns an array of polygons representing the exposed portions.
     # Uses dense sampling to identify uncovered areas and groups them into regions.
@@ -881,6 +901,44 @@ module.exports =
 
         width = bounds.maxX - bounds.minX
         height = bounds.maxY - bounds.minY
+
+        # Identify which covering regions are holes (contained within other regions).
+        # A region is a hole if its representative point is inside another region.
+        holeIndices = new Set()
+
+        for regionIdx in [0...coveringRegions.length]
+
+            region = coveringRegions[regionIdx]
+            continue if region.length < 3
+
+            # Use first point as representative (could use centroid for better accuracy).
+            testPoint = region[0]
+
+            # Check if this point is inside any OTHER region.
+            for otherIdx in [0...coveringRegions.length]
+
+                continue if otherIdx is regionIdx
+
+                otherRegion = coveringRegions[otherIdx]
+                continue if otherRegion.length < 3
+
+                if @pointInPolygon(testPoint, otherRegion)
+
+                    # This region is contained within another, so it's a hole.
+                    holeIndices.add(regionIdx)
+
+                    break
+
+        # Separate covering regions into solid regions and holes.
+        solidRegions = []
+        holeRegions = []
+
+        for region, idx in coveringRegions
+
+            if holeIndices.has(idx)
+                holeRegions.push(region)
+            else
+                solidRegions.push(region)
 
         # Generate dense sample points in a grid pattern across the region.
         # Use sqrt(sampleCount) to get grid dimensions.
@@ -910,13 +968,31 @@ module.exports =
 
                 if isInside
 
-                    for coveringRegion in coveringRegions
+                    # A point is covered if it's inside a solid region AND NOT inside a hole.
+                    # If there are no solid regions (only holes), nothing is covered.
+                    if solidRegions.length > 0
 
-                        if @pointInPolygon(point, coveringRegion)
+                        for solidRegion in solidRegions
 
-                            isCovered = true
+                            if @pointInPolygon(point, solidRegion)
 
-                            break
+                                # Check if it's also inside a hole.
+                                inHole = false
+
+                                for holeRegion in holeRegions
+
+                                    if @pointInPolygon(point, holeRegion)
+
+                                        inHole = true
+
+                                        break
+
+                                # If inside solid but not in a hole, it's covered.
+                                if not inHole
+
+                                    isCovered = true
+
+                                    break
 
                 # Mark as exposed if inside but not covered.
                 row.push(if isInside and not isCovered then point else null)
@@ -977,7 +1053,7 @@ module.exports =
         # This was causing identical skin patches across layers because it returned
         # the same object reference instead of calculating the actual exposed bounds.
         # Now we always calculate the exposed area based on sample points.
-        
+
         # For exposed regions, create polygons that preserve the actual shape.
         # Strategy: Use marching squares algorithm to trace contours of exposed regions.
         exposedAreas = []
@@ -1009,7 +1085,7 @@ module.exports =
                         # Use marching squares algorithm to trace smooth contours of the exposed region.
                         # This provides better accuracy than simple bounding boxes.
                         exposedPoly = @marchingSquares(exposedGrid, region, bounds, gridSize, testRegion[0].z)
-                        
+
                         if exposedPoly.length > 0
                             exposedAreas.push(exposedPoly)
 
@@ -1197,7 +1273,7 @@ module.exports =
 
     # Marching squares algorithm to trace smooth contours of exposed regions.
     # Generates a polygon boundary by tracing the edges between exposed and non-exposed cells.
-    # 
+    #
     # @param exposedGrid 2D grid of exposed points (null for non-exposed)
     # @param region Array of {i, j} grid positions that form a contiguous region
     # @param bounds Bounding box with minX, maxX, minY, maxY
@@ -1241,7 +1317,7 @@ module.exports =
 
             # Check each corner of this cell to see if it's on the boundary
             # A corner is on the boundary if it's adjacent to both exposed and non-exposed cells
-            
+
             # Bottom-left corner (i, j)
             adjacentCells = [
                 isExposed(i - 1, j - 1)  # bottom-left
@@ -1325,7 +1401,7 @@ module.exports =
 
         for i in [0...contour.length]
             point = contour[i]
-            
+
             if simplifiedContour.length is 0
                 simplifiedContour.push(point)
             else
@@ -1333,7 +1409,7 @@ module.exports =
                 dx = point.x - lastPoint.x
                 dy = point.y - lastPoint.y
                 dist = Math.sqrt(dx * dx + dy * dy)
-                
+
                 if dist > epsilon
                     simplifiedContour.push(point)
 
@@ -1347,7 +1423,7 @@ module.exports =
 
     # Smooth a polygon contour using Chaikin's corner cutting algorithm.
     # This reduces the pixelated/jagged appearance while preserving the overall shape.
-    # 
+    #
     # @param contour Array of {x, y, z} points forming a closed polygon
     # @param iterations Number of smoothing iterations (default: 1)
     # @param ratio Corner cutting ratio, 0.5 = cut at midpoint (default: 0.5)

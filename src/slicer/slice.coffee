@@ -514,7 +514,8 @@ module.exports =
 
         # Determine if this layer needs skin.
         # This is used to decide whether to generate skin walls for holes during wall generation.
-        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+        # Include middle layers if exposure detection is enabled, as they may need adaptive skin.
+        layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount or slicer.getExposureDetection()
 
         # Process outer boundaries first (non-hole paths).
         for pathIndex in outerBoundaryIndices
@@ -642,6 +643,7 @@ module.exports =
                     # ENABLED: Exposure detection algorithm
                     # For the current layer, calculate what parts won't be covered by the layer exactly
                     # skinLayerCount steps ahead/behind. Each layer independently calculates its exposed area.
+                    # Check BOTH directions to detect overhangs (exposure from above) AND cavities/holes (exposure from below).
                     exposedAreas = []
 
                     # Check the layer exactly skinLayerCount steps AHEAD (above).
@@ -654,11 +656,11 @@ module.exports =
                         if checkSegments? and checkSegments.length > 0
 
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                            
+
                             # Calculate what parts of CURRENT layer are NOT covered by the layer ahead
                             # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
                             checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-                            
+
                             if checkExposedAreas.length > 0
                                 exposedAreas.push(checkExposedAreas...)
 
@@ -672,35 +674,34 @@ module.exports =
                         # We're within skinLayerCount of the top - current layer will be exposed
                         exposedAreas.push(currentPath)
 
-                    # Only check behind if we didn't find exposure ahead
-                    if exposedAreas.length is 0
+                    # Always check behind to detect cavities and holes (exposure from below).
+                    # Previously this was only checked if exposedAreas.length was 0, which missed cavities.
+                    checkIdxBelow = layerIndex - skinLayerCount
 
-                        checkIdxBelow = layerIndex - skinLayerCount
+                    if checkIdxBelow >= 0
 
-                        if checkIdxBelow >= 0
+                        checkSegments = allLayers[checkIdxBelow]
 
-                            checkSegments = allLayers[checkIdxBelow]
+                        if checkSegments? and checkSegments.length > 0
 
-                            if checkSegments? and checkSegments.length > 0
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
 
-                                checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                                
-                                # Calculate what parts of CURRENT layer are NOT covered by the layer behind
-                                # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
-                                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-                                
-                                if checkExposedAreas.length > 0
-                                    exposedAreas.push(checkExposedAreas...)
+                            # Calculate what parts of CURRENT layer are NOT covered by the layer behind
+                            # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
+                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
 
-                            else
-
-                                # No geometry at the layer behind means current layer is exposed
-                                exposedAreas.push(currentPath)
+                            if checkExposedAreas.length > 0
+                                exposedAreas.push(checkExposedAreas...)
 
                         else
 
-                            # We're within skinLayerCount of the bottom - current layer will be exposed
+                            # No geometry at the layer behind means current layer is exposed
                             exposedAreas.push(currentPath)
+
+                    else
+
+                        # We're within skinLayerCount of the bottom - current layer will be exposed
+                        exposedAreas.push(currentPath)
 
                     # Use calculated exposed areas for skin generation on current layer
                     skinAreas = exposedAreas
@@ -736,6 +737,10 @@ module.exports =
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
+                        # Skip if skin area is completely inside a hole (>95% coverage).
+                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
                 else
@@ -752,6 +757,10 @@ module.exports =
                     # Generate skin ONLY in the exposed areas.
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
+
+                        # Skip if skin area is completely inside a hole (>95% coverage).
+                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
