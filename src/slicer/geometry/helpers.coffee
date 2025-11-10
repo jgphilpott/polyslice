@@ -902,27 +902,6 @@ module.exports =
         width = bounds.maxX - bounds.minX
         height = bounds.maxY - bounds.minY
 
-        # Separate covering regions into solid areas and holes based on winding order.
-        # Positive signed area = counter-clockwise = solid region.
-        # Negative signed area = clockwise = hole.
-        solidRegions = []
-        holeRegions = []
-
-        for region in coveringRegions
-
-            signedArea = 0
-
-            for i in [0...region.length]
-
-                nextIdx = if i is region.length - 1 then 0 else i + 1
-                signedArea += region[i].x * region[nextIdx].y - region[nextIdx].x * region[i].y
-
-            # Positive area means counter-clockwise (solid), negative means clockwise (hole).
-            if signedArea > 0
-                solidRegions.push(region)
-            else
-                holeRegions.push(region)
-
         # Generate dense sample points in a grid pattern across the region.
         # Use sqrt(sampleCount) to get grid dimensions.
         gridSize = Math.ceil(Math.sqrt(sampleCount))
@@ -951,28 +930,13 @@ module.exports =
 
                 if isInside
 
-                    # Point is covered if it's inside any solid region AND NOT inside any hole.
-                    for solidRegion in solidRegions
+                    for coveringRegion in coveringRegions
 
-                        if @pointInPolygon(point, solidRegion)
+                        if @pointInPolygon(point, coveringRegion)
 
-                            # Check if it's inside a hole within this solid region.
-                            inHole = false
+                            isCovered = true
 
-                            for holeRegion in holeRegions
-
-                                if @pointInPolygon(point, holeRegion)
-
-                                    inHole = true
-
-                                    break
-
-                            # If inside solid but not in a hole, it's covered.
-                            if not inHole
-
-                                isCovered = true
-
-                                break
+                            break
 
                 # Mark as exposed if inside but not covered.
                 row.push(if isInside and not isCovered then point else null)
