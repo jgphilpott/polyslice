@@ -902,6 +902,44 @@ module.exports =
         width = bounds.maxX - bounds.minX
         height = bounds.maxY - bounds.minY
 
+        # Identify which covering regions are holes (contained within other regions).
+        # A region is a hole if its representative point is inside another region.
+        holeIndices = new Set()
+
+        for regionIdx in [0...coveringRegions.length]
+
+            region = coveringRegions[regionIdx]
+            continue if region.length < 3
+
+            # Use first point as representative (could use centroid for better accuracy).
+            testPoint = region[0]
+
+            # Check if this point is inside any OTHER region.
+            for otherIdx in [0...coveringRegions.length]
+
+                continue if otherIdx is regionIdx
+
+                otherRegion = coveringRegions[otherIdx]
+                continue if otherRegion.length < 3
+
+                if @pointInPolygon(testPoint, otherRegion)
+
+                    # This region is contained within another, so it's a hole.
+                    holeIndices.add(regionIdx)
+
+                    break
+
+        # Separate covering regions into solid regions and holes.
+        solidRegions = []
+        holeRegions = []
+
+        for region, idx in coveringRegions
+
+            if holeIndices.has(idx)
+                holeRegions.push(region)
+            else
+                solidRegions.push(region)
+
         # Generate dense sample points in a grid pattern across the region.
         # Use sqrt(sampleCount) to get grid dimensions.
         gridSize = Math.ceil(Math.sqrt(sampleCount))
@@ -930,13 +968,31 @@ module.exports =
 
                 if isInside
 
-                    for coveringRegion in coveringRegions
+                    # A point is covered if it's inside a solid region AND NOT inside a hole.
+                    # If there are no solid regions (only holes), nothing is covered.
+                    if solidRegions.length > 0
 
-                        if @pointInPolygon(point, coveringRegion)
+                        for solidRegion in solidRegions
 
-                            isCovered = true
+                            if @pointInPolygon(point, solidRegion)
 
-                            break
+                                # Check if it's also inside a hole.
+                                inHole = false
+
+                                for holeRegion in holeRegions
+
+                                    if @pointInPolygon(point, holeRegion)
+
+                                        inHole = true
+
+                                        break
+
+                                # If inside solid but not in a hole, it's covered.
+                                if not inHole
+
+                                    isCovered = true
+
+                                    break
 
                 # Mark as exposed if inside but not covered.
                 row.push(if isInside and not isCovered then point else null)
