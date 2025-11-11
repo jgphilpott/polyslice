@@ -1,6 +1,6 @@
 {
   "name": "@jgphilpott/polyslice",
-  "version": "25.10.1",
+  "version": "25.11.0",
   "description": "An FDM slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
