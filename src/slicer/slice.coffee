@@ -816,8 +816,10 @@ module.exports =
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>95% coverage).
+                        # Check against both outer walls and skin walls to prevent patches inside holes.
                         # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
@@ -837,8 +839,10 @@ module.exports =
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>95% coverage).
+                        # Check against both outer walls and skin walls to prevent patches inside holes.
                         # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
