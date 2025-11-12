@@ -23,13 +23,20 @@ console.log(`- Build Volume: ${printer.getSizeX()}x${printer.getSizeY()}x${print
 console.log(`- Filament: ${filament.name} (${filament.type.toUpperCase()})`);
 console.log(`- Brand: ${filament.brand}\n`);
 
-// Base output directory.
+// Base output directory for STL previews (keep next to examples by default).
 const outputDir = path.join(__dirname, '../output');
+// Target directory for G-code artifacts (wayfinding tests/outputs).
+const gcodeDir = path.join(__dirname, '../../resources/gcode/wayfinding');
 
-// Ensure output directory exists.
+// Ensure output directories exist.
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
   console.log(`Created output directory: ${outputDir}\n`);
+}
+
+if (!fs.existsSync(gcodeDir)) {
+  fs.mkdirSync(gcodeDir, { recursive: true });
+  console.log(`Created G-code directory: ${gcodeDir}\n`);
 }
 
 // STL export toggle and output folder (uses same output dir by default).
@@ -134,16 +141,16 @@ function sliceAndSave(mesh, filename) {
   const slicer = new Polyslice({
     printer: printer,
     filament: filament,
-    shellSkinThickness: 0.8,
-    shellWallThickness: 0.8,
+    shellSkinThickness: 0.4,
+    shellWallThickness: 0.4,
     lengthUnit: 'millimeters',
     timeUnit: 'seconds',
-    infillPattern: 'grid',
+    infillPattern: 'hexagons',
     infillDensity: 20,
     bedTemperature: 0,
     layerHeight: 0.2,
     testStrip: false,
-    metadata: true,
+    metadata: false,
     verbose: true
   });
 
@@ -151,7 +158,7 @@ function sliceAndSave(mesh, filename) {
   const gcode = slicer.slice(mesh);
   const endTime = Date.now();
 
-  const outputPath = path.join(outputDir, filename);
+  const outputPath = path.join(gcodeDir, filename);
   fs.writeFileSync(outputPath, gcode);
 
   const sizeBytes = fs.statSync(outputPath).size;
@@ -182,16 +189,35 @@ function formatBytes(bytes) {
 
 // Configuration for hole grids to generate.
 const gridSizes = [1, 2, 3, 4, 5];
-const sheetWidth = 50;
-const sheetHeight = 50;
-const sheetThickness = 5;
-const holeRadius = 3;
+const sheetThickness = 1.4;
+const holeRadius = 2;
 
-console.log('Sheet Configuration:');
-console.log(`- Dimensions: ${sheetWidth}mm x ${sheetHeight}mm x ${sheetThickness}mm`);
+// Dynamic sizing controls
+// - minHoleGap: minimum clearance between adjacent hole edges (mm)
+// - edgeMarginMin: minimum margin from hole edge to sheet edge (mm)
+const minHoleGap = 2;      // mm between hole edges
+const edgeMarginMin = 5;   // mm from outermost hole edge to sheet boundary
+
+// Compute dynamic sheet width/height for a given grid size so holes have
+// adequate spacing and edge margins using the placement scheme in createSheetWithHoles.
+function computeSheetSize(gridSize, holeRadius) {
+  // Required center-to-center spacing s to satisfy:
+  //   - gap between holes >= minHoleGap  => s >= 2*R + minHoleGap
+  //   - margin at edges  >= edgeMarginMin => s - R >= edgeMarginMin => s >= R + edgeMarginMin
+  const s = Math.max(2 * holeRadius + minHoleGap, holeRadius + edgeMarginMin);
+  // With the example's placement, width = s * (gridSize + 1)
+  const width = s * (gridSize + 1);
+  const height = width; // square sheet
+  return { width, height, spacing: s };
+}
+
+console.log('Sheet Configuration (dynamic sizing):');
 console.log(`- Hole Radius: ${holeRadius}mm`);
+console.log(`- Min Hole Gap: ${minHoleGap}mm`);
+console.log(`- Edge Margin: ${edgeMarginMin}mm`);
 console.log(`- Grid Sizes: ${gridSizes.map(size => `${size}x${size}`).join(', ')}`);
-console.log(`- Output Directory: ${outputDir}\n`);
+console.log(`- STL Output Dir: ${outputDir}`);
+console.log(`- G-code Output Dir: ${gcodeDir}\n`);
 
 console.log('Starting hole slicing...\n');
 console.log('='.repeat(90));
@@ -209,8 +235,12 @@ console.log('='.repeat(90));
     console.log(`\nProcessing ${gridSize}x${gridSize} grid (${totalHoles} hole${totalHoles > 1 ? 's' : ''})...`);
 
     try {
+      // Compute dynamic sheet size for this grid
+      const { width, height, spacing } = computeSheetSize(gridSize, holeRadius);
+      console.log(`  Sheet: ${width.toFixed(1)} x ${height.toFixed(1)} x ${sheetThickness} mm (spacing=${spacing.toFixed(1)}mm)`);
+
       // Create sheet with holes.
-      const mesh = await createSheetWithHoles(sheetWidth, sheetHeight, sheetThickness, holeRadius, gridSize);
+      const mesh = await createSheetWithHoles(width, height, sheetThickness, holeRadius, gridSize);
 
       // Optionally export STL before slicing.
       if (exportSTL) {
@@ -244,7 +274,8 @@ console.log('='.repeat(90));
   console.log('='.repeat(90));
   console.log(`✅ Successfully generated ${results.length}/${gridSizes.length} files`);
   console.log(`⏱️  Total Time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
-  console.log(`📁 Output Directory: ${outputDir}`);
+  console.log(`📁 G-code Output Directory: ${gcodeDir}`);
+  console.log(`📁 STL Output Directory: ${outputDir}`);
 
   if (results.length > 0) {
     console.log('\nGenerated Files:');
