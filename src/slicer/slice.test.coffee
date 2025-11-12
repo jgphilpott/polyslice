@@ -940,10 +940,11 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
-        test 'should generate adaptive skin on middle layers with holes (cavity detection)', ->
+        test 'should NOT generate skin walls for vertical holes on middle layers', ->
 
-            # Verify that exposure detection properly detects holes/cavities as exposed areas.
-            # Middle layers with holes should get adaptive skin because the hole exposes those layers.
+            # Verify that vertical holes (holes that go straight through) do NOT generate
+            # skin walls on middle layers. Only top and bottom layers should have skin.
+            # This fixes the issue where skin walls were incorrectly generated on every layer.
 
             sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
             sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
@@ -969,18 +970,27 @@ describe 'Slicing', ->
 
             result = slicer.slice(finalMesh)
 
-            # Check middle layer (layer 10).
+            # Check middle layer (layer 10 at z=2.0mm).
             parts = result.split('LAYER: 10')
             expect(parts.length).toBeGreaterThan(1)
             layer10 = parts[1].split('LAYER: 11')[0]
 
-            # Middle layers with holes SHOULD have SKIN markers because the hole creates exposed areas.
+            # Middle layers with VERTICAL holes should NOT have skin markers.
+            # The hole goes straight through, so there's no exposure.
             skinMatches = layer10.match(/TYPE: SKIN/g) || []
-            expect(skinMatches.length).toBeGreaterThan(0)
+            expect(skinMatches.length).toBe(0)
 
-            # Should also have wall markers.
+            # Should still have wall markers (outer and hole walls).
             wallMatches = layer10.match(/TYPE: WALL/g) || []
             expect(wallMatches.length).toBeGreaterThan(0)
+
+            # Top layers should still have skin (layer 21-24 are top 4 layers).
+            partsTop = result.split('LAYER: 22')
+            expect(partsTop.length).toBeGreaterThan(1)
+            layer22 = partsTop[1].split('LAYER: 23')[0]
+
+            skinMatchesTop = layer22.match(/TYPE: SKIN/g) || []
+            expect(skinMatchesTop.length).toBeGreaterThan(0)
 
             return # Explicitly return undefined for Jest.
 
