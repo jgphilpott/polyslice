@@ -815,11 +815,12 @@ module.exports =
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
-                        # Skip if skin area is completely inside a hole (>95% coverage).
-                        # Check against both outer walls and skin walls to prevent patches inside holes.
+                        # Skip if skin area is completely inside a hole (>90% coverage).
+                        # Check against skin walls, inner walls and outer walls to prevent patches inside holes.
                         # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
                         continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
+                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
@@ -838,11 +839,12 @@ module.exports =
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
-                        # Skip if skin area is completely inside a hole (>95% coverage).
-                        # Check against both outer walls and skin walls to prevent patches inside holes.
+                        # Skip if skin area is completely inside a hole (>90% coverage).
+                        # Check against skin walls, inner walls and outer walls to prevent patches inside holes.
                         # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
                         continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
+                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 

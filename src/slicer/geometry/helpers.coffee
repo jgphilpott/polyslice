@@ -876,11 +876,10 @@ module.exports =
 
         # Check coverage by each hole.
         # If any hole covers >90% of the skin area, consider it inside the hole.
-        # Lowered threshold from 95% to 90% to catch more edge cases.
-        # Use higher sample count (100) for better accuracy with small patches.
+        # Use higher sample count for better accuracy with small patches.
         for holePolygon in holePolygons
 
-            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 100)
+            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 12)
 
             if coverage > 0.90
 
