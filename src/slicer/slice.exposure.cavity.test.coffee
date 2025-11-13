@@ -105,10 +105,11 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
     describe 'Through-Hole Detection', ->
 
-        test 'should detect adaptive skin on layers with through-holes', ->
+        test 'should NOT generate hole skin walls for vertical through-holes on middle layers', ->
 
-            # Create a sheet with a cylindrical hole through it.
-            # Middle layers should get adaptive skin due to the hole.
+            # Create a sheet with a cylindrical hole through it (vertical hole).
+            # Middle layers should NOT get hole skin walls because the hole goes straight through.
+            # Only top and bottom layers should have skin for through-holes.
             sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
             sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
 
@@ -163,25 +164,25 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             skinLayers = Array.from(skinLayersSet).sort((a, b) -> a - b)
 
             # Total layers: 25 (5mm / 0.2mm = 25 layers).
-            # Expected skin layers:
-            # - Bottom 4 layers (0-3): absolute bottom.
-            # - Top 4 layers (21-24): absolute top.
-            # - Middle layers (4-20): adaptive skin due to hole exposure.
-            expect(skinLayers.length).toBeGreaterThan(15)
+            # Expected skin layers (CORRECTED):
+            # - Bottom 4 layers (0-3): absolute bottom - HAVE skin.
+            # - Top 4 layers (21-24): absolute top - HAVE skin.
+            # - Middle layers (4-20): NO skin (vertical hole, not exposed).
+            # Total: 8 layers with skin (4 bottom + 4 top).
+            expect(skinLayers.length).toBe(8)
 
-            # Verify all layers have skin (because hole exposes all layers).
-            # Bottom layers.
+            # Verify bottom layers have skin.
             expect(skinLayers).toContain(0)
             expect(skinLayers).toContain(1)
             expect(skinLayers).toContain(2)
             expect(skinLayers).toContain(3)
 
-            # Middle layers (should have adaptive skin due to hole).
+            # Verify middle layers DO NOT have skin (through-holes don't expose middle layers).
             middleLayersWithSkin = skinLayers.filter((l) -> l >= 4 and l <= 20)
 
-            expect(middleLayersWithSkin.length).toBeGreaterThan(10)
+            expect(middleLayersWithSkin.length).toBe(0)
 
-            # Top layers.
+            # Verify top layers have skin.
             expect(skinLayers).toContain(21)
             expect(skinLayers).toContain(22)
             expect(skinLayers).toContain(23)
@@ -240,12 +241,16 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             # Cavity should generate significantly more skin due to adaptive detection.
             # Solid box: only 8 skin occurrences (4 bottom + 4 top).
-            # Cavity box: many more due to exposed areas from cavity.
+            # Cavity box: more skin due to exposed areas from cavity.
+            # UPDATED expectations after fixing vertical hole bug:
+            # - Solid: 8 skin sections (4 bottom + 4 top layers only)
+            # - Cavity: ~30-40 skin sections (bottom, top, plus exposed areas above cavity)
+            # - Ratio: ~4-5x (cavity has significantly more skin than solid)
             expect(solidSkinCount).toBeLessThan(15)
 
-            expect(cavitySkinCount).toBeGreaterThan(50)
+            expect(cavitySkinCount).toBeGreaterThan(25)
 
-            expect(cavitySkinCount).toBeGreaterThan(solidSkinCount * 5)
+            expect(cavitySkinCount).toBeGreaterThan(solidSkinCount * 3)
 
     describe 'Exposure Detection Disabled', ->
 

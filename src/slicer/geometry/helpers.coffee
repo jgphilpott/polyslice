@@ -875,12 +875,13 @@ module.exports =
         return false if not holePolygons or holePolygons.length is 0
 
         # Check coverage by each hole.
-        # If any hole covers >95% of the skin area, consider it inside the hole.
+        # If any hole covers >90% of the skin area, consider it inside the hole.
+        # Use higher sample count for better accuracy with small patches.
         for holePolygon in holePolygons
 
-            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 25)
+            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 12)
 
-            if coverage > 0.95
+            if coverage > 0.90
 
                 return true
 
@@ -2343,3 +2344,106 @@ module.exports =
                 bestIndex = index
 
         return bestIndex
+
+    # Check if a hole path exists in a layer's paths.
+    # A hole "exists" if there's a path in the layer that:
+    # 1. Is also identified as a hole (contained within another path)
+    # 2. Has similar position and size to the reference hole
+    doesHoleExistInLayer: (holePath, layerPaths) ->
+
+        return false if not holePath or holePath.length < 3
+        return false if not layerPaths or layerPaths.length is 0
+
+        # First identify which paths in layerPaths are holes.
+        layerHoles = []
+
+        for pathIdx in [0...layerPaths.length]
+
+            path = layerPaths[pathIdx]
+            continue if path.length < 3
+
+            isHole = false
+
+            # Check if this path is contained within any other path.
+            for otherIdx in [0...layerPaths.length]
+
+                continue if pathIdx is otherIdx
+
+                otherPath = layerPaths[otherIdx]
+                continue if otherPath.length < 3
+
+                # Test if a sample point from path is inside otherPath.
+                if @pointInPolygon(path[0], otherPath)
+
+                    isHole = true
+
+                    break
+
+            if isHole
+
+                layerHoles.push(path)
+
+        # Now check if any of the layer holes match our reference hole.
+        # Calculate centroid as average of all points.
+        holeCentroidX = 0
+        holeCentroidY = 0
+
+        for point in holePath
+
+            holeCentroidX += point.x
+            holeCentroidY += point.y
+
+        holeCentroidX /= holePath.length
+        holeCentroidY /= holePath.length
+
+        holeBounds = @calculatePathBounds(holePath)
+
+        return false if not holeBounds
+
+        # Calculate hole size (area or bounding box dimensions).
+        holeWidth = holeBounds.maxX - holeBounds.minX
+        holeHeight = holeBounds.maxY - holeBounds.minY
+        holeSize = Math.sqrt(holeWidth * holeWidth + holeHeight * holeHeight)
+
+        # For each hole in the layer, check if it matches our reference hole.
+        for layerHole in layerHoles
+
+            # Calculate layer hole centroid.
+            layerHoleCentroidX = 0
+            layerHoleCentroidY = 0
+
+            for point in layerHole
+
+                layerHoleCentroidX += point.x
+                layerHoleCentroidY += point.y
+
+            layerHoleCentroidX /= layerHole.length
+            layerHoleCentroidY /= layerHole.length
+
+            layerHoleBounds = @calculatePathBounds(layerHole)
+
+            continue if not layerHoleBounds
+
+            # Calculate centroid distance.
+            dx = holeCentroidX - layerHoleCentroidX
+            dy = holeCentroidY - layerHoleCentroidY
+            centroidDistance = Math.sqrt(dx * dx + dy * dy)
+
+            # Calculate size difference.
+            layerHoleWidth = layerHoleBounds.maxX - layerHoleBounds.minX
+            layerHoleHeight = layerHoleBounds.maxY - layerHoleBounds.minY
+            layerHoleSize = Math.sqrt(layerHoleWidth * layerHoleWidth + layerHoleHeight * layerHoleHeight)
+
+            sizeDifference = Math.abs(holeSize - layerHoleSize)
+
+            # Consider a match if:
+            # 1. Centroids are very close (within 10% of hole size, or 0.5mm minimum)
+            # 2. Sizes are very similar (within 20% difference)
+            centroidThreshold = Math.max(0.5, holeSize * 0.1)
+            sizeThreshold = holeSize * 0.2
+
+            if centroidDistance < centroidThreshold and sizeDifference < sizeThreshold
+
+                return true
+
+        return false

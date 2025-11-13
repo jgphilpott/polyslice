@@ -576,7 +576,85 @@ module.exports =
             # Only generate skin walls if:
             # 1. This is a skin layer (layerNeedsSkin)
             # 2. The path has sufficient spacing (not flagged for insufficient spacing)
-            shouldGenerateSkinWalls = layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+            # 3. For middle layers with exposure detection: the hole represents an actual exposure (cavity)
+            shouldGenerateSkinWalls = false
+
+            if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+
+                # For absolute top/bottom layers, always generate skin walls.
+                isAbsoluteTopOrBottom = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
+                if isAbsoluteTopOrBottom
+
+                    shouldGenerateSkinWalls = true
+
+                else if slicer.getExposureDetection()
+
+                    # For middle layers with exposure detection enabled:
+                    # Only generate skin walls if this hole represents an actual exposure (cavity).
+                    # Check if the hole exists in the layer skinLayerCount steps above and below.
+                    # If the hole exists in both directions, it's a vertical hole (not exposed).
+                    # If the hole is missing in either direction, it's a cavity (exposed).
+                    holeExposedAbove = false
+                    holeExposedBelow = false
+
+                    # Check if hole exists in layer above.
+                    checkIdxAbove = layerIndex + skinLayerCount
+
+                    if checkIdxAbove < totalLayers
+
+                        checkSegments = allLayers[checkIdxAbove]
+
+                        if checkSegments? and checkSegments.length > 0
+
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+
+                            # Check if this hole path exists in the layer above.
+                            # A hole "exists" if there's a corresponding hole path in the check layer.
+                            holeExistsAbove = helpers.doesHoleExistInLayer(path, checkPaths)
+
+                            # If hole doesn't exist above, this hole is exposed from above.
+                            holeExposedAbove = not holeExistsAbove
+
+                        else
+
+                            # No geometry above means hole is exposed from above.
+                            holeExposedAbove = true
+
+                    else
+
+                        # Near top of model - hole is exposed from above.
+                        holeExposedAbove = true
+
+                    # Check if hole exists in layer below.
+                    checkIdxBelow = layerIndex - skinLayerCount
+
+                    if checkIdxBelow >= 0
+
+                        checkSegments = allLayers[checkIdxBelow]
+
+                        if checkSegments? and checkSegments.length > 0
+
+                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+
+                            # Check if this hole path exists in the layer below.
+                            holeExistsBelow = helpers.doesHoleExistInLayer(path, checkPaths)
+
+                            # If hole doesn't exist below, this hole is exposed from below.
+                            holeExposedBelow = not holeExistsBelow
+
+                        else
+
+                            # No geometry below means hole is exposed from below.
+                            holeExposedBelow = true
+
+                    else
+
+                        # Near bottom of model - hole is exposed from below.
+                        holeExposedBelow = true
+
+                    # Generate skin walls only if hole is exposed in at least one direction.
+                    shouldGenerateSkinWalls = holeExposedAbove or holeExposedBelow
 
             innermostWall = generateWallsForPath(path, pathIndex, true, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
@@ -737,8 +815,11 @@ module.exports =
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
-                        # Skip if skin area is completely inside a hole (>95% coverage).
+                        # Skip if skin area is completely inside a hole (>90% coverage).
+                        # Check against skin walls, inner walls and outer walls to prevent patches inside holes.
                         # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
+                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
+                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
@@ -758,8 +839,11 @@ module.exports =
                     # Pass hole skin walls for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
-                        # Skip if skin area is completely inside a hole (>95% coverage).
+                        # Skip if skin area is completely inside a hole (>90% coverage).
+                        # Check against skin walls, inner walls and outer walls to prevent patches inside holes.
                         # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
+                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
+                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
