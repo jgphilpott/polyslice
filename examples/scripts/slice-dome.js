@@ -83,6 +83,7 @@ async function createDomeMesh(width = DOME_WIDTH, depth = DOME_DEPTH, thickness 
   const finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material);
   finalMesh.position.set(0, 0, thickness / 2);
   finalMesh.updateMatrixWorld();
+//   finalMesh.rotation.y = Math.PI; // flip
   return finalMesh;
 }
 
@@ -112,7 +113,7 @@ async function main() {
     layerHeight: 0.2,
     testStrip: false,
     verbose: true,
-    supportEnabled: true,
+    supportEnabled: false,
     supportType: "normal",
     supportPlacement: "buildPlate",
     supportThreshold: 45,

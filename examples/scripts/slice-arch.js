@@ -61,7 +61,7 @@ const ARCH_THICKNESS = 20; // Z dimension (mm)
 const ARCH_RADIUS = 15;    // Radius of semi-circular cut (mm)
 
 // STL path (if --use-stl)
-const stlPath = path.join(__dirname, "..", "..", "resources", "support", "block.test.stl");
+const stlPath = path.join(__dirname, "..", "..", "resources", "testing", "block.test.stl");
 
 /**
  * Build an arch by subtracting a horizontal cylinder (lying flat) from a box.
@@ -88,7 +88,7 @@ async function createArchMesh(width = ARCH_WIDTH, height = ARCH_HEIGHT, thicknes
     const finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material);
     finalMesh.position.set(0, 0, thickness / 2);
     finalMesh.updateMatrixWorld();
-    finalMesh.rotation.y = Math.PI;
+    // finalMesh.rotation.y = Math.PI; // flip
     return finalMesh;
 }
 
@@ -186,13 +186,13 @@ async function main() {
 
     const baseName = useStl ? "block-with-supports" : "arch-with-supports";
     const gcodePath = path.join(outputDir, `${baseName}.gcode`);
-    const stlPath = path.join(outputDir, `${baseName}.stl`);
+    const outputStlPath = path.join(outputDir, `${baseName}.stl`);
     fs.writeFileSync(gcodePath, gcode);
 
     // Export STL for the mesh used (mirrors slice-holes behavior)
     try {
-        await exportMeshAsSTL(mesh, stlPath);
-        console.log(`🧊 STL saved to: ${stlPath}`);
+        await exportMeshAsSTL(mesh, outputStlPath);
+        console.log(`🧊 STL saved to: ${outputStlPath}`);
     } catch (e) {
         console.warn(`⚠️  Failed to export STL: ${e.message}`);
     }
