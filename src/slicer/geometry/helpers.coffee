@@ -875,12 +875,14 @@ module.exports =
         return false if not holePolygons or holePolygons.length is 0
 
         # Check coverage by each hole.
-        # If any hole covers >95% of the skin area, consider it inside the hole.
+        # If any hole covers >90% of the skin area, consider it inside the hole.
+        # Lowered threshold from 95% to 90% to catch more edge cases.
+        # Use higher sample count (100) for better accuracy with small patches.
         for holePolygon in holePolygons
 
-            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 25)
+            coverage = @calculateRegionCoverage(skinArea, [holePolygon], 100)
 
-            if coverage > 0.95
+            if coverage > 0.90
 
                 return true
 
