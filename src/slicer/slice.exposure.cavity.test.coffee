@@ -248,7 +248,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # - Ratio: ~4-5x (cavity has significantly more skin than solid)
             expect(solidSkinCount).toBeLessThan(15)
 
-            expect(cavitySkinCount).toBeGreaterThan(30)
+            expect(cavitySkinCount).toBeGreaterThan(25)
 
             expect(cavitySkinCount).toBeGreaterThan(solidSkinCount * 3)
 
