@@ -104,6 +104,11 @@ module.exports =
                             currentDirY /= currentLen
 
                             bestDotProduct = -2  # Worst possible value.
+                            
+                            # Threshold for rejecting sharp turns that indicate wrong connections.
+                            # A dot product < -0.5 means angle > 120 degrees (very sharp turn).
+                            # This filters out connections that jump across gaps to wrong contours.
+                            minAcceptableDotProduct = -0.5
 
                             for candidate in candidates
 
@@ -120,7 +125,8 @@ module.exports =
                                     # Dot product measures alignment (1 = same direction, -1 = opposite).
                                     dotProduct = currentDirX * nextDirX + currentDirY * nextDirY
 
-                                    if dotProduct > bestDotProduct
+                                    # Only consider candidates that don't create overly sharp turns.
+                                    if dotProduct > minAcceptableDotProduct and dotProduct > bestDotProduct
 
                                         bestDotProduct = dotProduct
                                         bestCandidate = candidate
