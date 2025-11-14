@@ -820,27 +820,44 @@ module.exports =
                 # Process covering regions into skin wall format for exclusion.
                 # Covering regions are from other layers and should be used to exclude skin generation.
                 # They need to be slightly expanded (outset) to create proper exclusion zones.
+                # NOTE: Only use covering regions that are smaller than the current layer.
+                # If a covering region is the same size or larger, it would exclude all skin, which is incorrect.
                 coveringSkinWalls = []
 
                 if coveringRegions? and coveringRegions.length > 0
 
-                    # For covering regions, we want to expand them slightly to ensure proper exclusion.
-                    # Use negative inset (outset) to make the exclusion zone larger than the actual coverage.
-                    coveringOutset = -nozzleDiameter  # Negative inset = outset (expand)
+                    # Calculate current path bounds for size comparison.
+                    currentPathBounds = helpers.calculatePathBounds(currentPath)
+
+                    # For covering regions, use them as-is without additional inset.
+                    # The skin generation will apply its own gap when creating holeSkinWallsWithGap.
 
                     for coveringRegion in coveringRegions
 
                         # Skip degenerate paths.
                         continue if coveringRegion.length < 3
 
-                        # Create outset path for the covering region.
-                        # Use negative inset to expand the region, creating a larger exclusion zone.
-                        # This ensures skin infill doesn't get too close to covered areas.
-                        coveringSkinWall = helpers.createInsetPath(coveringRegion, coveringOutset, false)
+                        # Calculate covering region bounds.
+                        coveringBounds = helpers.calculatePathBounds(coveringRegion)
 
-                        if coveringSkinWall.length >= 3
+                        # Skip covering regions that are as large or larger than the current path.
+                        # These represent the same geometry and shouldn't exclude skin.
+                        if currentPathBounds? and coveringBounds?
 
-                            coveringSkinWalls.push(coveringSkinWall)
+                            currentWidth = currentPathBounds.maxX - currentPathBounds.minX
+                            currentHeight = currentPathBounds.maxY - currentPathBounds.minY
+                            coveringWidth = coveringBounds.maxX - coveringBounds.minX
+                            coveringHeight = coveringBounds.maxY - coveringBounds.minY
+
+                            # Skip if covering region is >= 90% of current path size.
+                            # Allow 10% tolerance for floating point and slight geometry differences.
+                            if coveringWidth >= currentWidth * 0.9 and coveringHeight >= currentHeight * 0.9
+
+                                continue
+
+                        # Use the covering region as-is, without inset/outset.
+                        # The skin generation code will apply the appropriate gap via holeSkinWallsWithGap.
+                        coveringSkinWalls.push(coveringRegion)
 
                 # Combine hole skin walls with covering skin walls for complete exclusion.
                 combinedSkinWalls = holeSkinWalls.concat(coveringSkinWalls)
