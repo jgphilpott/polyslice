@@ -878,6 +878,47 @@ module.exports =
 
                         # Pass combined skin walls (holes + covering regions) for proper exclusion.
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedSkinWalls, holeOuterWalls)
+                    
+                    # Generate skin walls around covering regions to create explicit holes in the skin patch.
+                    # This ensures the skin patch visually shows holes where areas are covered by other layers.
+                    # Only generate hole walls when there are actual skin areas being generated.
+                    if skinAreas.length > 0
+                        
+                        # Only generate hole walls for covering regions that are substantially inside the skin area.
+                        # This prevents generating unnecessary hole walls for covering regions that don't create holes.
+                        for coveringSkinWall in coveringSkinWalls
+                            
+                            continue if coveringSkinWall.length < 3
+                            
+                            # Check if the covering region is substantially inside at least one skin area.
+                            isInsideSkinArea = false
+                            
+                            for skinArea in skinAreas
+                                
+                                # Sample a few points from the covering region to check coverage.
+                                insideCount = 0
+                                sampleCount = Math.min(5, coveringSkinWall.length)
+                                
+                                for i in [0...sampleCount]
+                                    
+                                    sampleIdx = Math.floor(i * coveringSkinWall.length / sampleCount)
+                                    point = coveringSkinWall[sampleIdx]
+                                    
+                                    if helpers.pointInPolygon(point, skinArea)
+                                        insideCount++
+                                
+                                # If >60% of samples are inside the skin area, consider it as creating a hole.
+                                if insideCount / sampleCount > 0.6
+                                    
+                                    isInsideSkinArea = true
+                                    
+                                    break
+                            
+                            continue unless isInsideSkinArea
+                            
+                            # Generate skin wall (perimeter only, no infill) for the covering region.
+                            # Treat it as a hole (isHole=true) so the wall is inset inward.
+                            skinModule.generateSkinGCode(slicer, coveringSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, null, true, false, [], holeOuterWalls)
 
                 else
 
@@ -903,15 +944,47 @@ module.exports =
 
                         # Pass combined skin walls (holes + covering regions) for proper exclusion.
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedSkinWalls, holeOuterWalls)
-
-                        # Skip if skin area is completely inside a hole (>90% coverage).
-                        # Check against skin walls, inner walls and outer walls to prevent patches inside holes.
-                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
-                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
-                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
-
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
+                    
+                    # Generate skin walls around covering regions to create explicit holes in the skin patch.
+                    # This ensures the skin patch visually shows holes where areas are covered by other layers.
+                    # Only generate hole walls when there are actual skin areas being generated.
+                    if skinAreas.length > 0
+                        
+                        # Only generate hole walls for covering regions that are substantially inside the skin area.
+                        # This prevents generating unnecessary hole walls for covering regions that don't create holes.
+                        for coveringSkinWall in coveringSkinWalls
+                            
+                            continue if coveringSkinWall.length < 3
+                            
+                            # Check if the covering region is substantially inside at least one skin area.
+                            isInsideSkinArea = false
+                            
+                            for skinArea in skinAreas
+                                
+                                # Sample a few points from the covering region to check coverage.
+                                insideCount = 0
+                                sampleCount = Math.min(5, coveringSkinWall.length)
+                                
+                                for i in [0...sampleCount]
+                                    
+                                    sampleIdx = Math.floor(i * coveringSkinWall.length / sampleCount)
+                                    point = coveringSkinWall[sampleIdx]
+                                    
+                                    if helpers.pointInPolygon(point, skinArea)
+                                        insideCount++
+                                
+                                # If >60% of samples are inside the skin area, consider it as creating a hole.
+                                if insideCount / sampleCount > 0.6
+                                    
+                                    isInsideSkinArea = true
+                                    
+                                    break
+                            
+                            continue unless isInsideSkinArea
+                            
+                            # Generate skin wall (perimeter only, no infill) for the covering region.
+                            # Treat it as a hole (isHole=true) so the wall is inset inward.
+                            skinModule.generateSkinGCode(slicer, coveringSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, null, true, false, [], holeOuterWalls)
 
             else
 
