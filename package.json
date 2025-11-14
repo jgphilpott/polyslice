@@ -57,6 +57,7 @@
   "dependencies": {
     "@jgphilpott/polyconvert": "^1.0.4",
     "@jgphilpott/polytree": "^0.1.2",
+    "polygon-clipping": "^0.15.7",
     "three": "^0.181.1"
   },
   "optionalDependencies": {
