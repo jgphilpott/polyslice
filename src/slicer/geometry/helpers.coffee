@@ -8,8 +8,6 @@ BACKOFF_MULTIPLIER = 3.0
 module.exports =
 
     # Convert Polytree line segments (Line3 objects) to closed paths.
-    # Uses an improved algorithm that builds an adjacency graph to properly
-    # handle branching points and ensure correct path reconstruction.
     connectSegmentsToPaths: (segments) ->
 
         return [] if not segments or segments.length is 0
@@ -28,129 +26,127 @@ module.exports =
                 end: {x: segment.end.x, y: segment.end.y}
             })
 
-        # Build adjacency lists for efficient connection lookup.
-        # Key: "x,y" (rounded), Value: array of {edgeIndex, isStart}
-        pointToEdges = new Map()
+        # Simple greedy path connection.
+        for startEdgeIndex in [0...edges.length]
 
-        for edgeIdx in [0...edges.length]
-
-            edge = edges[edgeIdx]
-
-            # Round coordinates to avoid floating point issues in key generation.
-            startKey = "#{edge.start.x.toFixed(6)},#{edge.start.y.toFixed(6)}"
-            endKey = "#{edge.end.x.toFixed(6)},#{edge.end.y.toFixed(6)}"
-
-            if not pointToEdges.has(startKey) then pointToEdges.set(startKey, [])
-            if not pointToEdges.has(endKey) then pointToEdges.set(endKey, [])
-
-            pointToEdges.get(startKey).push({edgeIndex: edgeIdx, isStart: true})
-            pointToEdges.get(endKey).push({edgeIndex: edgeIdx, isStart: false})
-
-        # Helper to find connecting edges from a point.
-        findConnections = (point, currentEdgeIdx) =>
-
-            key = "#{point.x.toFixed(6)},#{point.y.toFixed(6)}"
-            connections = pointToEdges.get(key) ? []
-
-            # Filter out the current edge and already used edges.
-            return connections.filter((conn) ->
-                conn.edgeIndex isnt currentEdgeIdx and not usedSegments.has(conn.edgeIndex)
-            )
-
-        # Build paths by traversing connected edges.
-        for startEdgeIdx in [0...edges.length]
-
-            continue if usedSegments.has(startEdgeIdx)
+            continue if usedSegments.has(startEdgeIndex)
 
             currentPath = []
-            currentEdge = edges[startEdgeIdx]
-            usedSegments.add(startEdgeIdx)
+            currentEdge = edges[startEdgeIndex]
+            usedSegments.add(startEdgeIndex)
 
-            currentPath.push({x: currentEdge.start.x, y: currentEdge.start.y})
-            currentPath.push({x: currentEdge.end.x, y: currentEdge.end.y})
+            currentPath.push(currentEdge.start)
+            currentPath.push(currentEdge.end)
 
-            # Try to extend path forward from end point.
-            currentIdx = startEdgeIdx
-            currentPoint = currentEdge.end
-            maxIterations = edges.length * 2
+            # Try to extend the path.
+            searching = true
+            maxIterations = edges.length * 2 # Prevent infinite loops.
             iterations = 0
 
-            while iterations < maxIterations
+            while searching and iterations < maxIterations
 
                 iterations++
 
-                connections = findConnections(currentPoint, currentIdx)
+                searching = false
+                lastPoint = currentPath[currentPath.length - 1]
 
-                if connections.length is 0
+                # Find all connecting edges at this point.
+                candidates = []
 
-                    break
+                for nextEdgeIndex in [0...edges.length]
 
-                # For now, use simple greedy approach - take first available connection.
-                # This preserves the original behavior while fixing the branching point issue.
-                nextConn = connections[0]
-                nextIdx = nextConn.edgeIndex
-                nextEdge = edges[nextIdx]
+                    continue if usedSegments.has(nextEdgeIndex)
 
-                usedSegments.add(nextIdx)
+                    nextEdge = edges[nextEdgeIndex]
 
-                # Determine which end to add based on connection point.
-                if nextConn.isStart
+                    # Check if next edge connects to current path end.
+                    if @pointsMatch(lastPoint, nextEdge.start, epsilon)
 
-                    # Connected at start, so add end point.
-                    currentPath.push({x: nextEdge.end.x, y: nextEdge.end.y})
-                    currentPoint = nextEdge.end
+                        candidates.push({
+                            index: nextEdgeIndex
+                            edge: nextEdge
+                            nextPoint: nextEdge.end
+                            connectAtStart: true
+                        })
 
-                else
+                    else if @pointsMatch(lastPoint, nextEdge.end, epsilon)
 
-                    # Connected at end, so add start point.
-                    currentPath.push({x: nextEdge.start.x, y: nextEdge.start.y})
-                    currentPoint = nextEdge.start
+                        candidates.push({
+                            index: nextEdgeIndex
+                            edge: nextEdge
+                            nextPoint: nextEdge.start
+                            connectAtStart: false
+                        })
 
-                currentIdx = nextIdx
+                # If we have candidates, select the best one based on angle continuity.
+                if candidates.length > 0
 
-            # Try to extend path backward from start point.
-            currentIdx = startEdgeIdx
-            currentPoint = edges[startEdgeIdx].start
-            iterations = 0
+                    bestCandidate = null
 
-            while iterations < maxIterations
+                    if candidates.length is 1
 
-                iterations++
+                        # Only one option - take it.
+                        bestCandidate = candidates[0]
 
-                connections = findConnections(currentPoint, currentIdx)
+                    else if currentPath.length >= 2
 
-                if connections.length is 0
+                        # Multiple options - select based on angle continuity.
+                        # Calculate current direction from previous segment.
+                        prevPoint = currentPath[currentPath.length - 2]
 
-                    break
+                        currentDirX = lastPoint.x - prevPoint.x
+                        currentDirY = lastPoint.y - prevPoint.y
+                        currentLen = Math.sqrt(currentDirX * currentDirX + currentDirY * currentDirY)
 
-                # Take first available connection.
-                prevConn = connections[0]
-                prevIdx = prevConn.edgeIndex
-                prevEdge = edges[prevIdx]
+                        if currentLen > 0.0001
 
-                usedSegments.add(prevIdx)
+                            currentDirX /= currentLen
+                            currentDirY /= currentLen
 
-                # Prepend the appropriate point.
-                if prevConn.isStart
+                            bestDotProduct = -2  # Worst possible value.
 
-                    # Connected at start, so prepend end point.
-                    currentPath.unshift({x: prevEdge.end.x, y: prevEdge.end.y})
-                    currentPoint = prevEdge.end
+                            for candidate in candidates
 
-                else
+                                # Calculate direction of candidate edge.
+                                nextDirX = candidate.nextPoint.x - lastPoint.x
+                                nextDirY = candidate.nextPoint.y - lastPoint.y
+                                nextLen = Math.sqrt(nextDirX * nextDirX + nextDirY * nextDirY)
 
-                    # Connected at end, so prepend start point.
-                    currentPath.unshift({x: prevEdge.start.x, y: prevEdge.start.y})
-                    currentPoint = prevEdge.start
+                                if nextLen > 0.0001
 
-                currentIdx = prevIdx
+                                    nextDirX /= nextLen
+                                    nextDirY /= nextLen
 
-            # Remove duplicate last point if it matches first (closed loop).
+                                    # Dot product measures alignment (1 = same direction, -1 = opposite).
+                                    dotProduct = currentDirX * nextDirX + currentDirY * nextDirY
+
+                                    if dotProduct > bestDotProduct
+
+                                        bestDotProduct = dotProduct
+                                        bestCandidate = candidate
+
+                        # If we couldn't determine based on angle, take first.
+                        if not bestCandidate? then bestCandidate = candidates[0]
+
+                    else
+
+                        # Not enough path history - take first candidate.
+                        bestCandidate = candidates[0]
+
+                    # Apply the best candidate.
+                    if bestCandidate?
+
+                        currentPath.push(bestCandidate.nextPoint)
+                        usedSegments.add(bestCandidate.index)
+                        searching = true
+
+            # Only add paths with at least 3 points and remove duplicate last point if it matches first.
             if currentPath.length >= 3
 
                 firstPoint = currentPath[0]
                 lastPoint = currentPath[currentPath.length - 1]
 
+                # Remove last point if it's the same as first (closed loop).
                 if @pointsMatch(firstPoint, lastPoint, epsilon)
 
                     currentPath.pop()
