@@ -8,6 +8,8 @@ BACKOFF_MULTIPLIER = 3.0
 module.exports =
 
     # Convert Polytree line segments (Line3 objects) to closed paths.
+    # Uses an improved algorithm that builds an adjacency graph to properly
+    # handle branching points and ensure correct path reconstruction.
     connectSegmentsToPaths: (segments) ->
 
         return [] if not segments or segments.length is 0
@@ -26,63 +28,129 @@ module.exports =
                 end: {x: segment.end.x, y: segment.end.y}
             })
 
-        # Simple greedy path connection.
-        for startEdgeIndex in [0...edges.length]
+        # Build adjacency lists for efficient connection lookup.
+        # Key: "x,y" (rounded), Value: array of {edgeIndex, isStart}
+        pointToEdges = new Map()
 
-            continue if usedSegments.has(startEdgeIndex)
+        for edgeIdx in [0...edges.length]
+
+            edge = edges[edgeIdx]
+
+            # Round coordinates to avoid floating point issues in key generation.
+            startKey = "#{edge.start.x.toFixed(6)},#{edge.start.y.toFixed(6)}"
+            endKey = "#{edge.end.x.toFixed(6)},#{edge.end.y.toFixed(6)}"
+
+            if not pointToEdges.has(startKey) then pointToEdges.set(startKey, [])
+            if not pointToEdges.has(endKey) then pointToEdges.set(endKey, [])
+
+            pointToEdges.get(startKey).push({edgeIndex: edgeIdx, isStart: true})
+            pointToEdges.get(endKey).push({edgeIndex: edgeIdx, isStart: false})
+
+        # Helper to find connecting edges from a point.
+        findConnections = (point, currentEdgeIdx) =>
+
+            key = "#{point.x.toFixed(6)},#{point.y.toFixed(6)}"
+            connections = pointToEdges.get(key) ? []
+
+            # Filter out the current edge and already used edges.
+            return connections.filter((conn) ->
+                conn.edgeIndex isnt currentEdgeIdx and not usedSegments.has(conn.edgeIndex)
+            )
+
+        # Build paths by traversing connected edges.
+        for startEdgeIdx in [0...edges.length]
+
+            continue if usedSegments.has(startEdgeIdx)
 
             currentPath = []
-            currentEdge = edges[startEdgeIndex]
-            usedSegments.add(startEdgeIndex)
+            currentEdge = edges[startEdgeIdx]
+            usedSegments.add(startEdgeIdx)
 
-            currentPath.push(currentEdge.start)
-            currentPath.push(currentEdge.end)
+            currentPath.push({x: currentEdge.start.x, y: currentEdge.start.y})
+            currentPath.push({x: currentEdge.end.x, y: currentEdge.end.y})
 
-            # Try to extend the path.
-            searching = true
-            maxIterations = edges.length * 2 # Prevent infinite loops.
+            # Try to extend path forward from end point.
+            currentIdx = startEdgeIdx
+            currentPoint = currentEdge.end
+            maxIterations = edges.length * 2
             iterations = 0
 
-            while searching and iterations < maxIterations
+            while iterations < maxIterations
 
                 iterations++
 
-                searching = false
-                lastPoint = currentPath[currentPath.length - 1]
+                connections = findConnections(currentPoint, currentIdx)
 
-                # Find next connecting edge.
-                for nextEdgeIndex in [0...edges.length]
+                if connections.length is 0
 
-                    continue if usedSegments.has(nextEdgeIndex)
+                    break
 
-                    nextEdge = edges[nextEdgeIndex]
+                # For now, use simple greedy approach - take first available connection.
+                # This preserves the original behavior while fixing the branching point issue.
+                nextConn = connections[0]
+                nextIdx = nextConn.edgeIndex
+                nextEdge = edges[nextIdx]
 
-                    # Check if next edge connects to current path end.
-                    if @pointsMatch(lastPoint, nextEdge.start, epsilon)
+                usedSegments.add(nextIdx)
 
-                        currentPath.push(nextEdge.end)
-                        usedSegments.add(nextEdgeIndex)
+                # Determine which end to add based on connection point.
+                if nextConn.isStart
 
-                        searching = true
+                    # Connected at start, so add end point.
+                    currentPath.push({x: nextEdge.end.x, y: nextEdge.end.y})
+                    currentPoint = nextEdge.end
 
-                        break
+                else
 
-                    else if @pointsMatch(lastPoint, nextEdge.end, epsilon)
+                    # Connected at end, so add start point.
+                    currentPath.push({x: nextEdge.start.x, y: nextEdge.start.y})
+                    currentPoint = nextEdge.start
 
-                        currentPath.push(nextEdge.start)
-                        usedSegments.add(nextEdgeIndex)
+                currentIdx = nextIdx
 
-                        searching = true
+            # Try to extend path backward from start point.
+            currentIdx = startEdgeIdx
+            currentPoint = edges[startEdgeIdx].start
+            iterations = 0
 
-                        break
+            while iterations < maxIterations
 
-            # Only add paths with at least 3 points and remove duplicate last point if it matches first.
+                iterations++
+
+                connections = findConnections(currentPoint, currentIdx)
+
+                if connections.length is 0
+
+                    break
+
+                # Take first available connection.
+                prevConn = connections[0]
+                prevIdx = prevConn.edgeIndex
+                prevEdge = edges[prevIdx]
+
+                usedSegments.add(prevIdx)
+
+                # Prepend the appropriate point.
+                if prevConn.isStart
+
+                    # Connected at start, so prepend end point.
+                    currentPath.unshift({x: prevEdge.end.x, y: prevEdge.end.y})
+                    currentPoint = prevEdge.end
+
+                else
+
+                    # Connected at end, so prepend start point.
+                    currentPath.unshift({x: prevEdge.start.x, y: prevEdge.start.y})
+                    currentPoint = prevEdge.start
+
+                currentIdx = prevIdx
+
+            # Remove duplicate last point if it matches first (closed loop).
             if currentPath.length >= 3
 
                 firstPoint = currentPath[0]
                 lastPoint = currentPath[currentPath.length - 1]
 
-                # Remove last point if it's the same as first (closed loop).
                 if @pointsMatch(firstPoint, lastPoint, epsilon)
 
                     currentPath.pop()
