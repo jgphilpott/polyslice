@@ -1054,17 +1054,16 @@ module.exports =
         # In such cases, return exact testRegion boundary for clean edges.
         # The skin generation's hole clipping (via coveringRegions) handles exclusion.
         perimeterExposedCount = 0
-        centerCoveredCount = 0
         perimeterTotalCount = 0
-        centerTotalCount = 0
 
-        # Sample perimeter points (outer ring of grid) and center points separately.
+        # Sample perimeter points (outer ring of grid).
         for i in [0...gridSize]
 
             for j in [0...gridSize]
 
                 isPerimeter = (i is 0 or i is gridSize - 1 or j is 0 or j is gridSize - 1)
-                isCenter = (i > gridSize / 4 and i < gridSize * 3 / 4 and j > gridSize / 4 and j < gridSize * 3 / 4)
+
+                continue if not isPerimeter
 
                 xRatio = (i + 0.5) / gridSize
                 yRatio = (j + 0.5) / gridSize
@@ -1074,40 +1073,14 @@ module.exports =
 
                 if @pointInPolygon(testPoint, testRegion)
 
-                    if isPerimeter
+                    perimeterTotalCount++
 
-                        perimeterTotalCount++
+                    if exposedGrid[i][j]?  # exposed
+                        perimeterExposedCount++
 
-                        if exposedGrid[i][j]?  # exposed
-                            perimeterExposedCount++
-
-                    if isCenter
-
-                        centerTotalCount++
-
-                        if not exposedGrid[i][j]?  # covered (null means covered)
-                            centerCoveredCount++
-
-        # Ring pattern detection: >80% perimeter exposed AND >30% center covered.
-        # This ensures we have actual coverage creating a hole, not just a fully exposed layer.
-        # Also require that not everything is covered (must have some exposed points).
-        hasRingPattern = false
-
-        if perimeterTotalCount > 0 and centerTotalCount > 0 and exposedCount > 0
-
-            perimeterExposedRatio = perimeterExposedCount / perimeterTotalCount
-            centerCoveredRatio = centerCoveredCount / centerTotalCount
-            overallExposedRatio = if totalValidPoints > 0 then exposedCount / totalValidPoints else 0
-
-            # Ring pattern: perimeter mostly exposed, center significantly covered,
-            # and overall exposure is significant (not everything is covered).
-            if perimeterExposedRatio > 0.8 and centerCoveredRatio > 0.3 and overallExposedRatio > 0.2
-
-                hasRingPattern = true
-
-        # If ring pattern detected, use exact testRegion boundary.
-        # This preserves clean edges for pyramid-like overhangs.
-        if hasRingPattern
+        # If >80% of perimeter is exposed, use exact testRegion boundary.
+        # This preserves clean edges for ring patterns (pyramid, overhangs).
+        if perimeterTotalCount > 0 and (perimeterExposedCount / perimeterTotalCount) > 0.8 and exposedCount > 0
 
             return [testRegion]
 
