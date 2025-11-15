@@ -1050,6 +1050,41 @@ module.exports =
 
                         totalValidPoints++
 
+        # OPTIMIZATION: Detect "ring" pattern (perimeter exposed, center covered).
+        # In such cases, return exact testRegion boundary for clean edges.
+        # The skin generation's hole clipping (via coveringRegions) handles exclusion.
+        perimeterExposedCount = 0
+        perimeterTotalCount = 0
+
+        # Sample perimeter points (outer ring of grid).
+        for i in [0...gridSize]
+
+            for j in [0...gridSize]
+
+                isPerimeter = (i is 0 or i is gridSize - 1 or j is 0 or j is gridSize - 1)
+
+                continue if not isPerimeter
+
+                xRatio = (i + 0.5) / gridSize
+                yRatio = (j + 0.5) / gridSize
+                sampleX = bounds.minX + width * xRatio
+                sampleY = bounds.minY + height * yRatio
+                testPoint = { x: sampleX, y: sampleY }
+
+                if @pointInPolygon(testPoint, testRegion)
+
+                    perimeterTotalCount++
+
+                    if exposedGrid[i][j]?  # exposed
+                        perimeterExposedCount++
+
+        # If >80% of perimeter is exposed, use exact testRegion boundary.
+        # This preserves clean edges for ring patterns (pyramid, overhangs).
+        if perimeterTotalCount > 0 and (perimeterExposedCount / perimeterTotalCount) > 0.8 and exposedCount > 0
+
+            return [testRegion]
+
+        # Fall through to marching squares for complex patterns.
         # Removed the >80% optimization that was returning testRegion directly.
         # This was causing identical skin patches across layers because it returned
         # the same object reference instead of calculating the actual exposed bounds.
