@@ -917,8 +917,8 @@ module.exports =
                             continue unless isInsideSkinArea
                             
                             # Generate skin wall (perimeter only, no infill) for the covering region.
-                            # Treat it as a hole (isHole=true) so the wall is inset inward.
-                            skinModule.generateSkinGCode(slicer, coveringSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, null, true, false, [], holeOuterWalls)
+                            # Use isCoveredArea=true to inset the wall inward (away from the covering region).
+                            skinModule.generateSkinGCode(slicer, coveringSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, null, false, false, [], holeOuterWalls, true)
 
                 else
 
@@ -983,8 +983,8 @@ module.exports =
                             continue unless isInsideSkinArea
                             
                             # Generate skin wall (perimeter only, no infill) for the covering region.
-                            # Treat it as a hole (isHole=true) so the wall is inset inward.
-                            skinModule.generateSkinGCode(slicer, coveringSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, null, true, false, [], holeOuterWalls)
+                            # Use isCoveredArea=true to inset the wall inward (away from the covering region).
+                            skinModule.generateSkinGCode(slicer, coveringSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, null, false, false, [], holeOuterWalls, true)
 
             else
 

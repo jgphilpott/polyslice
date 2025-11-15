@@ -9,7 +9,8 @@ module.exports =
     # If generateInfill is false, only skin walls are generated (useful for holes).
     # holeSkinWalls: Array of hole skin wall paths to exclude from skin infill.
     # holeOuterWalls: Array of hole outer wall paths for travel path optimization (avoiding holes).
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = [], holeOuterWalls = []) ->
+    # isCoveredArea: Boolean indicating if this is a covered area (not a real hole), which affects offset direction.
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = [], holeOuterWalls = [], isCoveredArea = false) ->
 
         return if boundaryPath.length < 3
 
@@ -20,9 +21,12 @@ module.exports =
 
         # Step 1: Generate skin wall (perimeter pass around skin boundary).
         # Create an inset of full nozzle diameter from the boundary path.
-        # Pass isHole parameter to ensure correct inset direction for holes.
+        # For covered areas (isCoveredArea=true), inset inward (same as isHole=true).
+        # For real holes (isHole=true), outset outward (to shrink the hole).
+        # For normal skin boundaries (both false), inset inward.
         skinWallInset = nozzleDiameter
-        skinWallPath = helpers.createInsetPath(boundaryPath, skinWallInset, isHole)
+        offsetDirection = if isCoveredArea then true else isHole
+        skinWallPath = helpers.createInsetPath(boundaryPath, skinWallInset, offsetDirection)
 
         if skinWallPath.length >= 3
 
