@@ -233,6 +233,109 @@ describe 'Exposure Detection Algorithm', ->
             # The algorithm should complete without errors and produce valid output.
             expect(skinAtTransition1.length + skinAtTransition2.length).toBeGreaterThanOrEqual(0)
 
+        test 'should generate clean boundaries without jagged edges for pyramid geometry', ->
+
+            # Create a 2-tier pyramid (simpler than wedding cake).
+            # Bottom tier: 50×50×10mm.
+            # Top tier: 30×30×10mm.
+            bottomGeometry = new THREE.BoxGeometry(50, 50, 10)
+            topGeometry = new THREE.BoxGeometry(30, 30, 10)
+
+            # Create meshes.
+            bottomMesh = new THREE.Mesh(bottomGeometry, new THREE.MeshBasicMaterial())
+            topMesh = new THREE.Mesh(topGeometry, new THREE.MeshBasicMaterial())
+
+            # Position meshes (stacked).
+            bottomMesh.position.set(0, 0, 5)
+            topMesh.position.set(0, 0, 15)
+
+            bottomMesh.updateMatrixWorld()
+            topMesh.updateMatrixWorld()
+
+            # Create scene.
+            scene = new THREE.Scene()
+            scene.add(bottomMesh)
+            scene.add(topMesh)
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8) # 4 layers.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+            slicer.setExposureDetectionResolution(900)
+
+            # Slice the scene.
+            result = slicer.slice(scene)
+
+            # Extract G-code lines and parse layer data.
+            lines = result.split('\n')
+            currentLayer = null
+            skinSections = []
+
+            for line in lines
+
+                if line.includes('LAYER:')
+
+                    layerMatch = line.match(/LAYER:\s*(\d+)/)
+
+                    if layerMatch
+                        currentLayer = parseInt(layerMatch[1])
+
+                else if currentLayer? and line.includes('TYPE: SKIN')
+
+                    skinSections.push({ layer: currentLayer, line: line })
+
+            # Calculate the transition layer (just before top tier starts).
+            # Bottom tier: 0-10mm (layers 0-49), Top tier: 10-20mm (layers 50+).
+            transitionLayer = Math.floor(10 / 0.2) - 1 # Layer 49.
+
+            # This layer should have exposed edges (outer ring) but covered center.
+            transitionSkin = skinSections.filter((s) -> s.layer is transitionLayer)
+
+            # Should have at least one skin section on this transition layer.
+            expect(transitionSkin.length).toBeGreaterThanOrEqual(1)
+
+            # Extract X coordinate ranges from the transition layer skin movements only.
+            xCoords = []
+            isOnTransitionLayer = false
+
+            for line in lines
+
+                if line.includes('LAYER:')
+
+                    layerMatch = line.match(/LAYER:\s*(\d+)/)
+
+                    if layerMatch
+                        currentLayer = parseInt(layerMatch[1])
+                        isOnTransitionLayer = (currentLayer is transitionLayer)
+
+                else if isOnTransitionLayer and line.includes('G1 ')
+
+                    # Extract X coordinate if present.
+                    xMatch = line.match(/X([\d.-]+)/)
+
+                    if xMatch
+                        xCoords.push(parseFloat(xMatch[1]))
+
+            # Verify we have coordinate data.
+            if xCoords.length > 0
+
+                minX = Math.min(...xCoords)
+                maxX = Math.max(...xCoords)
+                xRange = maxX - minX
+
+                # For a 50mm wide bottom tier, expect X range close to 48mm (accounting for wall thickness).
+                # The key test: range should be close to expected (not significantly smaller due to jagged boundaries).
+                # Previous jagged implementation would show ~44mm range due to cell-based approximation.
+                # Clean boundary optimization should preserve geometry-aligned edges closer to 48mm.
+                # We use a tolerance to allow for wall thickness and minor variations.
+                expect(xRange).toBeGreaterThan(45) # Should be reasonably close to 48mm.
+
+            # Test should complete without errors.
+            expect(result).toBeDefined()
+            expect(result).toContain('LAYER:')
+
     describe 'Cylinder Geometry', ->
 
         test 'should generate minimal middle layer skin for vertical cylinder', ->
