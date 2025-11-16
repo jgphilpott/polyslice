@@ -50,7 +50,9 @@ module.exports =
                 searching = false
                 lastPoint = currentPath[currentPath.length - 1]
 
-                # Find next connecting edge.
+                # Find all connecting edges at this point.
+                candidates = []
+
                 for nextEdgeIndex in [0...edges.length]
 
                     continue if usedSegments.has(nextEdgeIndex)
@@ -60,21 +62,87 @@ module.exports =
                     # Check if next edge connects to current path end.
                     if @pointsMatch(lastPoint, nextEdge.start, epsilon)
 
-                        currentPath.push(nextEdge.end)
-                        usedSegments.add(nextEdgeIndex)
-
-                        searching = true
-
-                        break
+                        candidates.push({
+                            index: nextEdgeIndex
+                            edge: nextEdge
+                            nextPoint: nextEdge.end
+                            connectAtStart: true
+                        })
 
                     else if @pointsMatch(lastPoint, nextEdge.end, epsilon)
 
-                        currentPath.push(nextEdge.start)
-                        usedSegments.add(nextEdgeIndex)
+                        candidates.push({
+                            index: nextEdgeIndex
+                            edge: nextEdge
+                            nextPoint: nextEdge.start
+                            connectAtStart: false
+                        })
 
+                # If we have candidates, select the best one based on angle continuity.
+                if candidates.length > 0
+
+                    bestCandidate = null
+
+                    if candidates.length is 1
+
+                        # Only one option - take it.
+                        bestCandidate = candidates[0]
+
+                    else if currentPath.length >= 2
+
+                        # Multiple options - select using leftmost turn heuristic.
+                        # This follows outer boundaries counterclockwise.
+                        # Calculate current direction from previous segment.
+                        prevPoint = currentPath[currentPath.length - 2]
+
+                        currentDirX = lastPoint.x - prevPoint.x
+                        currentDirY = lastPoint.y - prevPoint.y
+                        currentLen = Math.sqrt(currentDirX * currentDirX + currentDirY * currentDirY)
+
+                        if currentLen > 0.0001
+
+                            currentDirX /= currentLen
+                            currentDirY /= currentLen
+
+                            bestCandidate = null
+                            bestCrossProduct = -Infinity  # Select maximum (most positive) = leftmost turn.
+
+                            for candidate in candidates
+
+                                # Calculate direction to candidate.
+                                nextDirX = candidate.nextPoint.x - lastPoint.x
+                                nextDirY = candidate.nextPoint.y - lastPoint.y
+                                nextLen = Math.sqrt(nextDirX * nextDirX + nextDirY * nextDirY)
+
+                                if nextLen > 0.0001
+
+                                    nextDirX /= nextLen
+                                    nextDirY /= nextLen
+
+                                    # Cross product (Z component) determines turn direction:
+                                    # Positive = left turn (CCW), Negative = right turn (CW).
+                                    # Select MAXIMUM (most positive) = leftmost turn = follows outer boundary CCW.
+                                    crossProduct = currentDirX * nextDirY - currentDirY * nextDirX
+
+                                    if crossProduct > bestCrossProduct
+
+                                        bestCrossProduct = crossProduct
+                                        bestCandidate = candidate
+
+                        # If we couldn't determine based on direction, take first.
+                        if not bestCandidate? then bestCandidate = candidates[0]
+
+                    else
+
+                        # Not enough path history - take first candidate.
+                        bestCandidate = candidates[0]
+
+                    # Apply the best candidate.
+                    if bestCandidate?
+
+                        currentPath.push(bestCandidate.nextPoint)
+                        usedSegments.add(bestCandidate.index)
                         searching = true
-
-                        break
 
             # Only add paths with at least 3 points and remove duplicate last point if it matches first.
             if currentPath.length >= 3
