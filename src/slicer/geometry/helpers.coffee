@@ -90,7 +90,8 @@ module.exports =
 
                     else if currentPath.length >= 2
 
-                        # Multiple options - select based on angle continuity.
+                        # Multiple options - select using "rightmost turn" heuristic.
+                        # This follows outer boundaries by always taking the rightmost path.
                         # Calculate current direction from previous segment.
                         prevPoint = currentPath[currentPath.length - 2]
 
@@ -103,16 +104,12 @@ module.exports =
                             currentDirX /= currentLen
                             currentDirY /= currentLen
 
-                            bestDotProduct = -2  # Worst possible value.
-                            
-                            # Threshold for rejecting sharp turns that indicate wrong connections.
-                            # A dot product < -0.5 means angle > 120 degrees (very sharp turn).
-                            # This filters out connections that jump across gaps to wrong contours.
-                            minAcceptableDotProduct = -0.5
+                            bestCandidate = null
+                            bestCrossProduct = -Infinity  # Most negative = rightmost turn.
 
                             for candidate in candidates
 
-                                # Calculate direction of candidate edge.
+                                # Calculate direction to candidate.
                                 nextDirX = candidate.nextPoint.x - lastPoint.x
                                 nextDirY = candidate.nextPoint.y - lastPoint.y
                                 nextLen = Math.sqrt(nextDirX * nextDirX + nextDirY * nextDirY)
@@ -122,16 +119,17 @@ module.exports =
                                     nextDirX /= nextLen
                                     nextDirY /= nextLen
 
-                                    # Dot product measures alignment (1 = same direction, -1 = opposite).
-                                    dotProduct = currentDirX * nextDirX + currentDirY * nextDirY
+                                    # Cross product (Z component) determines turn direction:
+                                    # Positive = left turn, Negative = right turn.
+                                    # We want the MOST negative (rightmost turn) to follow outer boundary.
+                                    crossProduct = currentDirX * nextDirY - currentDirY * nextDirX
 
-                                    # Only consider candidates that don't create overly sharp turns.
-                                    if dotProduct > minAcceptableDotProduct and dotProduct > bestDotProduct
+                                    if crossProduct > bestCrossProduct
 
-                                        bestDotProduct = dotProduct
+                                        bestCrossProduct = crossProduct
                                         bestCandidate = candidate
 
-                        # If we couldn't determine based on angle, take first.
+                        # If we couldn't determine based on direction, take first.
                         if not bestCandidate? then bestCandidate = candidates[0]
 
                     else
