@@ -90,8 +90,8 @@ module.exports =
 
                     else if currentPath.length >= 2
 
-                        # Multiple options - select using "rightmost turn" heuristic.
-                        # This follows outer boundaries by always taking the rightmost path.
+                        # Multiple options - select using leftmost turn heuristic.
+                        # This follows outer boundaries counterclockwise.
                         # Calculate current direction from previous segment.
                         prevPoint = currentPath[currentPath.length - 2]
 
@@ -105,7 +105,7 @@ module.exports =
                             currentDirY /= currentLen
 
                             bestCandidate = null
-                            bestCrossProduct = -Infinity  # Most negative = rightmost turn.
+                            bestCrossProduct = -Infinity  # Select maximum (most positive) = leftmost turn.
 
                             for candidate in candidates
 
@@ -120,8 +120,8 @@ module.exports =
                                     nextDirY /= nextLen
 
                                     # Cross product (Z component) determines turn direction:
-                                    # Positive = left turn, Negative = right turn.
-                                    # We want the MOST negative (rightmost turn) to follow outer boundary.
+                                    # Positive = left turn (CCW), Negative = right turn (CW).
+                                    # Select MAXIMUM (most positive) = leftmost turn = follows outer boundary CCW.
                                     crossProduct = currentDirX * nextDirY - currentDirY * nextDirX
 
                                     if crossProduct > bestCrossProduct
