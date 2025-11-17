@@ -26,7 +26,48 @@ module.exports =
                 end: {x: segment.end.x, y: segment.end.y}
             })
 
-        # Simple greedy path connection.
+        # Helper to select best candidate using leftmost-turn heuristic.
+        selectBestCandidate = (candidates, prevPoint, currentPoint) =>
+        
+            return null if candidates.length is 0
+            return candidates[0] if candidates.length is 1
+            
+            # Calculate current direction.
+            currentDirX = currentPoint.x - prevPoint.x
+            currentDirY = currentPoint.y - prevPoint.y
+            currentLen = Math.sqrt(currentDirX * currentDirX + currentDirY * currentDirY)
+            
+            return candidates[0] if currentLen <= 0.0001
+            
+            currentDirX /= currentLen
+            currentDirY /= currentLen
+            
+            bestCandidate = null
+            bestCrossProduct = -Infinity
+            
+            for candidate in candidates
+            
+                nextDirX = candidate.nextPoint.x - currentPoint.x
+                nextDirY = candidate.nextPoint.y - currentPoint.y
+                nextLen = Math.sqrt(nextDirX * nextDirX + nextDirY * nextDirY)
+                
+                if nextLen > 0.0001
+                
+                    nextDirX /= nextLen
+                    nextDirY /= nextLen
+                    
+                    # Cross product: positive = left turn (CCW), negative = right turn (CW).
+                    # Select maximum = leftmost turn = follows outer boundary CCW.
+                    crossProduct = currentDirX * nextDirY - currentDirY * nextDirX
+                    
+                    if crossProduct > bestCrossProduct
+                    
+                        bestCrossProduct = crossProduct
+                        bestCandidate = candidate
+            
+            return bestCandidate ? candidates[0]
+
+        # Bidirectional greedy path connection.
         for startEdgeIndex in [0...edges.length]
 
             continue if usedSegments.has(startEdgeIndex)
@@ -35,46 +76,106 @@ module.exports =
             currentEdge = edges[startEdgeIndex]
             usedSegments.add(startEdgeIndex)
 
+            # Start with the edge in path.
             currentPath.push(currentEdge.start)
             currentPath.push(currentEdge.end)
 
-            # Try to extend the path.
-            searching = true
-            maxIterations = edges.length * 2 # Prevent infinite loops.
+            # Extend forward (from end).
+            maxIterations = edges.length # Prevent infinite loops.
             iterations = 0
 
-            while searching and iterations < maxIterations
+            while iterations < maxIterations
 
                 iterations++
-
-                searching = false
                 lastPoint = currentPath[currentPath.length - 1]
+                prevPoint = currentPath[currentPath.length - 2]
 
-                # Find next connecting edge.
+                # Find all connecting edges at the end.
+                candidates = []
+
                 for nextEdgeIndex in [0...edges.length]
 
                     continue if usedSegments.has(nextEdgeIndex)
 
                     nextEdge = edges[nextEdgeIndex]
 
-                    # Check if next edge connects to current path end.
                     if @pointsMatch(lastPoint, nextEdge.start, epsilon)
 
-                        currentPath.push(nextEdge.end)
-                        usedSegments.add(nextEdgeIndex)
-
-                        searching = true
-
-                        break
+                        candidates.push({
+                            index: nextEdgeIndex
+                            edge: nextEdge
+                            nextPoint: nextEdge.end
+                        })
 
                     else if @pointsMatch(lastPoint, nextEdge.end, epsilon)
 
-                        currentPath.push(nextEdge.start)
-                        usedSegments.add(nextEdgeIndex)
+                        candidates.push({
+                            index: nextEdgeIndex
+                            edge: nextEdge
+                            nextPoint: nextEdge.start
+                        })
 
-                        searching = true
+                break if candidates.length is 0
 
-                        break
+                bestCandidate = selectBestCandidate(candidates, prevPoint, lastPoint)
+                
+                if bestCandidate?
+                
+                    currentPath.push(bestCandidate.nextPoint)
+                    usedSegments.add(bestCandidate.index)
+                    
+                else
+                
+                    break
+
+            # Extend backward (from start).
+            iterations = 0
+
+            while iterations < maxIterations
+
+                iterations++
+                firstPoint = currentPath[0]
+                secondPoint = currentPath[1]
+
+                # Find all connecting edges at the start.
+                candidates = []
+
+                for nextEdgeIndex in [0...edges.length]
+
+                    continue if usedSegments.has(nextEdgeIndex)
+
+                    nextEdge = edges[nextEdgeIndex]
+
+                    if @pointsMatch(firstPoint, nextEdge.start, epsilon)
+
+                        candidates.push({
+                            index: nextEdgeIndex
+                            edge: nextEdge
+                            nextPoint: nextEdge.end
+                        })
+
+                    else if @pointsMatch(firstPoint, nextEdge.end, epsilon)
+
+                        candidates.push({
+                            index: nextEdgeIndex
+                            edge: nextEdge
+                            nextPoint: nextEdge.start
+                        })
+
+                break if candidates.length is 0
+
+                # For backward extension, we want rightmost turn (minimum cross product).
+                # This keeps us on the outer boundary when traversing backward.
+                bestCandidate = selectBestCandidate(candidates, secondPoint, firstPoint)
+                
+                if bestCandidate?
+                
+                    currentPath.unshift(bestCandidate.nextPoint)
+                    usedSegments.add(bestCandidate.index)
+                    
+                else
+                
+                    break
 
             # Only add paths with at least 3 points and remove duplicate last point if it matches first.
             if currentPath.length >= 3
