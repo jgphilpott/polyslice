@@ -1,6 +1,6 @@
 # Main slicing method for Polyslice.
 
-Polytree = require('@jgphilpott/polytree')
+meshSlicer = require('./mesh-slicer/slicer')
 
 coders = require('./gcode/coders')
 helpers = require('./geometry/helpers')
@@ -74,8 +74,8 @@ module.exports =
         SLICE_EPSILON = 0.01
         adjustedMinZ = minZ + SLICE_EPSILON
 
-        # Use Polytree to slice the mesh into layers with adjusted starting position.
-        allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
+        # Use custom mesh slicer to slice the mesh into layers with adjusted starting position.
+        allLayers = meshSlicer.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
 
         # Calculate center offset to position on build plate.
         buildPlateWidth = slicer.getBuildPlateWidth()
