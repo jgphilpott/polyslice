@@ -64,6 +64,7 @@
     "serialport": "^13.0.0"
   },
   "devDependencies": {
+    "@dgreenheck/three-pinata": "^2.0.1",
     "coffeescript": "^2.7.0",
     "esbuild": "^0.27.0",
     "eslint": "^9.39.1",
