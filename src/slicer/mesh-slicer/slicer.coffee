@@ -153,18 +153,20 @@ module.exports =
         edge12ParallelFactor = Math.abs(edge12Vector.z) / edge12Vector.length()
         edge20ParallelFactor = Math.abs(edge20Vector.z) / edge20Vector.length()
 
-        # Adaptive epsilon: 100x larger for edges nearly parallel to plane.
-        PARALLEL_THRESHOLD = 0.02  # ~1 degree
-        PARALLEL_EPSILON_MULTIPLIER = 100
+        # Find the minimum parallel factor (most parallel edge).
+        minParallelFactor = Math.min(edge01ParallelFactor, edge12ParallelFactor, edge20ParallelFactor)
 
-        epsilon01 = if edge01ParallelFactor < PARALLEL_THRESHOLD then baseEpsilon * PARALLEL_EPSILON_MULTIPLIER else baseEpsilon
-        epsilon12 = if edge12ParallelFactor < PARALLEL_THRESHOLD then baseEpsilon * PARALLEL_EPSILON_MULTIPLIER else baseEpsilon
-        epsilon20 = if edge20ParallelFactor < PARALLEL_THRESHOLD then baseEpsilon * PARALLEL_EPSILON_MULTIPLIER else baseEpsilon
+        # Adaptive epsilon: 1000x larger for triangles with near-parallel edges.
+        PARALLEL_THRESHOLD = 0.02  # ~1 degree
+        PARALLEL_EPSILON_MULTIPLIER = 1000
+
+        # Use larger epsilon if ANY edge is nearly parallel to the plane.
+        epsilon = if minParallelFactor < PARALLEL_THRESHOLD then baseEpsilon * PARALLEL_EPSILON_MULTIPLIER else baseEpsilon
 
         # Check if vertices are on the plane (within epsilon).
-        onPlane0 = Math.abs(d0) < epsilon01
-        onPlane1 = Math.abs(d1) < epsilon12
-        onPlane2 = Math.abs(d2) < epsilon20
+        onPlane0 = Math.abs(d0) < epsilon
+        onPlane1 = Math.abs(d1) < epsilon
+        onPlane2 = Math.abs(d2) < epsilon
 
         # Collect intersection points.
         intersectionPoints = []
@@ -181,15 +183,16 @@ module.exports =
         # Check edge v0-v1.
         if onPlane0 and onPlane1
             # Both vertices on plane - entire edge is on plane.
-            # This is a degenerate case - skip this edge.
-            null
+            # Add both points (they form a segment along the plane).
+            addPoint({ x: v0.x, y: v0.y, z: planeZ })
+            addPoint({ x: v1.x, y: v1.y, z: planeZ })
         else if onPlane0
             # v0 is on plane.
             addPoint({ x: v0.x, y: v0.y, z: planeZ })
         else if onPlane1
             # v1 is on plane.
             addPoint({ x: v1.x, y: v1.y, z: planeZ })
-        else if (d0 < -epsilon01 and d1 > epsilon01) or (d0 > epsilon01 and d1 < -epsilon01)
+        else if (d0 < -epsilon and d1 > epsilon) or (d0 > epsilon and d1 < -epsilon)
             # Edge crosses plane - compute intersection point.
             t = -d0 / (d1 - d0)
             point =
@@ -201,14 +204,16 @@ module.exports =
         # Check edge v1-v2.
         if onPlane1 and onPlane2
             # Both vertices on plane - entire edge is on plane.
-            null
+            # Add both points (they form a segment along the plane).
+            addPoint({ x: v1.x, y: v1.y, z: planeZ })
+            addPoint({ x: v2.x, y: v2.y, z: planeZ })
         else if onPlane1
             # Already added v1 above.
             null
         else if onPlane2
             # v2 is on plane.
             addPoint({ x: v2.x, y: v2.y, z: planeZ })
-        else if (d1 < -epsilon12 and d2 > epsilon12) or (d1 > epsilon12 and d2 < -epsilon12)
+        else if (d1 < -epsilon and d2 > epsilon) or (d1 > epsilon and d2 < -epsilon)
             # Edge crosses plane - compute intersection point.
             t = -d1 / (d2 - d1)
             point =
@@ -220,14 +225,16 @@ module.exports =
         # Check edge v2-v0.
         if onPlane2 and onPlane0
             # Both vertices on plane - entire edge is on plane.
-            null
+            # Add both points (they form a segment along the plane).
+            addPoint({ x: v2.x, y: v2.y, z: planeZ })
+            addPoint({ x: v0.x, y: v0.y, z: planeZ })
         else if onPlane2
             # Already added v2 above.
             null
         else if onPlane0
             # Already added v0 above.
             null
-        else if (d2 < -epsilon20 and d0 > epsilon20) or (d2 > epsilon20 and d0 < -epsilon20)
+        else if (d2 < -epsilon and d0 > epsilon) or (d2 > epsilon and d0 < -epsilon)
             # Edge crosses plane - compute intersection point.
             t = -d2 / (d0 - d2)
             point =
