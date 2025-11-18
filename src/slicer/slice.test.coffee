@@ -1129,3 +1129,75 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+    describe 'Mesh Preprocessing', ->
+
+        test 'should have meshPreprocessing disabled by default', ->
+
+            expect(slicer.getMeshPreprocessing()).toBe(false)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should allow enabling meshPreprocessing', ->
+
+            slicer.setMeshPreprocessing(true)
+            expect(slicer.getMeshPreprocessing()).toBe(true)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should allow disabling meshPreprocessing', ->
+
+            slicer.setMeshPreprocessing(true)
+            slicer.setMeshPreprocessing(false)
+            expect(slicer.getMeshPreprocessing()).toBe(false)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should accept meshPreprocessing in constructor', ->
+
+            slicerWithPreprocessing = new Polyslice({ meshPreprocessing: true })
+            expect(slicerWithPreprocessing.getMeshPreprocessing()).toBe(true)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should slice mesh successfully with preprocessing enabled', ->
+
+            # Create a simple cube.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            # Enable preprocessing.
+            slicer.setMeshPreprocessing(true)
+            slicer.setLayerHeight(0.2)
+            slicer.setAutohome(false)
+
+            # Slice should complete without errors.
+            result = slicer.slice(mesh)
+            expect(result).toContain('LAYER:')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should handle preprocessing without errors on sparse geometry', ->
+
+            # Create a very sparse, large sphere that should trigger subdivision.
+            geometry = new THREE.SphereGeometry(50, 4, 3) # Very sparse
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 50)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer with preprocessing enabled.
+            slicer.setMeshPreprocessing(true)
+            slicer.setLayerHeight(1) # Larger layer height for faster test
+            slicer.setAutohome(false)
+            slicer.setVerbose(false)
+
+            # Should not throw an error.
+            expect(() -> slicer.slice(mesh)).not.toThrow()
+
+            return # Explicitly return undefined for Jest.
+
