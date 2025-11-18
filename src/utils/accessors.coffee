@@ -154,6 +154,10 @@ module.exports =
 
         return slicer.verbose
 
+    getMeshPreprocessing: (slicer) ->
+
+        return slicer.meshPreprocessing
+
     getBuzzer: (slicer) ->
 
         return slicer.buzzer
@@ -479,6 +483,12 @@ module.exports =
     setVerbose: (slicer, verbose = true) ->
 
         slicer.verbose = Boolean verbose
+
+        return slicer
+
+    setMeshPreprocessing: (slicer, enabled = true) ->
+
+        slicer.meshPreprocessing = Boolean enabled
 
         return slicer
 

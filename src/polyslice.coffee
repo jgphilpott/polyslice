@@ -99,6 +99,9 @@ class Polyslice
         @metadata = options.metadata ?= true # Boolean - include metadata header in G-code.
         @verbose = options.verbose ?= true # Boolean - include comments/annotations in G-code.
 
+        # Mesh preprocessing settings to improve slicing quality.
+        @meshPreprocessing = options.meshPreprocessing ?= false # Boolean - enable mesh subdivision for sparse geometries.
+
         # Post-print settings.
         @buzzer = options.buzzer ?= true # Boolean - sound buzzer at end of post-print.
         @wipeNozzle = options.wipeNozzle ?= true # Boolean - perform wipe move during post-print.
@@ -219,6 +222,9 @@ class Polyslice
 
     getVerbose: ->
         accessors.getVerbose(this)
+
+    getMeshPreprocessing: ->
+        accessors.getMeshPreprocessing(this)
 
     getBuzzer: ->
         accessors.getBuzzer(this)
@@ -350,6 +356,9 @@ class Polyslice
 
     setVerbose: (verbose = true) ->
         accessors.setVerbose(this, verbose)
+
+    setMeshPreprocessing: (enabled = true) ->
+        accessors.setMeshPreprocessing(this, enabled)
 
     setBuzzer: (buzzer = true) ->
         accessors.setBuzzer(this, buzzer)
