@@ -357,7 +357,7 @@ class Polyslice
     setVerbose: (verbose = true) ->
         accessors.setVerbose(this, verbose)
 
-    setMeshPreprocessing: (enabled = true) ->
+    setMeshPreprocessing: (enabled = false) ->
         accessors.setMeshPreprocessing(this, enabled)
 
     setBuzzer: (buzzer = true) ->

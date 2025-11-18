@@ -70,9 +70,9 @@ module.exports =
         #   can result in only half the geometry being captured (semi-circle instead of full circle).
         # - Torus: Slicing at the center plane (Z=2 for tube radius 2) can miss the outer ring,
         #   printing only the inner hole.
-        # Using a small epsilon (0.01mm = 10 microns) that's negligible for printing but sufficient
-        # to nudge all slice planes away from exact geometric boundaries.
-        SLICE_EPSILON = 0.01
+        # Using a small epsilon (0.001mm = 1 micron) that's negligible for printing but sufficient
+        # to nudge slice planes away from exact geometric boundaries.
+        SLICE_EPSILON = 0.001
         adjustedMinZ = minZ + SLICE_EPSILON
 
         # Apply mesh preprocessing if enabled in slicer configuration.
@@ -248,7 +248,7 @@ module.exports =
 
         THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
 
-        # Use Loop subdivision with 1 iteration.
+        # Use Loop subdivision with 1 iteration (static method).
         # Loop subdivision is a smooth subdivision scheme that:
         # - Splits each triangle into 4 smaller triangles
         # - Smooths the mesh by repositioning vertices
@@ -258,9 +258,15 @@ module.exports =
         # - 4x triangle count (225k -> 900k for Benchy)
         # - Significant improvement in sparse regions
         # - Reasonable computation time
-        modifier = new LoopSubdivision(geometry, 1)
+        params = {
+            split: true           # Split coplanar faces for uniform subdivision
+            uvSmooth: false       # Don't average UVs (avoid tearing)
+            preserveEdges: false  # Allow smooth subdivision
+            flatOnly: false       # Subdivide all faces
+            maxTriangles: Infinity # No triangle limit
+        }
 
-        return modifier.modify()
+        return LoopSubdivision.modify(geometry, 1, params)
 
     # Generate G-code for a single layer.
     generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0, allLayers = [], layerSegments = []) ->

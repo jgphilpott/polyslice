@@ -486,7 +486,7 @@ module.exports =
 
         return slicer
 
-    setMeshPreprocessing: (slicer, enabled = true) ->
+    setMeshPreprocessing: (slicer, enabled = false) ->
 
         slicer.meshPreprocessing = Boolean enabled
 
