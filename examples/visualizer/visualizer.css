@@ -276,7 +276,9 @@ body {
 }
 
 #settings {
-    max-height: 75px;
+    margin-top: 15px;
+    max-height: 95px;
+    height: 95px;
 }
 
 #legend h3,
