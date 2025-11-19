@@ -1,5 +1,11 @@
 /**
  * Example: slice the Benchy test model from an STL and write G-code to examples/output.
+ *
+ * Usage:
+ *   node examples/scripts/slice-benchy.js               # resources/testing/benchy/test.stl (default)
+ *   node examples/scripts/slice-benchy.js very-low-poly # resources/testing/benchy/very-low-poly.test.stl
+ *   node examples/scripts/slice-benchy.js low-poly      # resources/testing/benchy/low-poly.test.stl
+ *   node examples/scripts/slice-benchy.js battle        # resources/testing/benchy/battle.test.stl
  */
 
 const { Polyslice, Printer, Filament } = require("../../src/index");
@@ -25,9 +31,41 @@ async function loadSTLMesh(stlPath) {
   return mesh;
 }
 
+function resolveBenchyPath(arg) {
+  const baseDir = path.join(__dirname, "../../resources/testing/benchy");
+  const variant = (arg || "").toLowerCase();
+  let file, slug;
+  switch (variant) {
+    case "very-low-poly":
+      file = "very-low-poly.test.stl";
+      slug = "very-low-poly";
+      break;
+    case "low-poly":
+      file = "low-poly.test.stl";
+      slug = "low-poly";
+      break;
+    case "battle":
+      file = "battle.test.stl";
+      slug = "battle";
+      break;
+    case "":
+      file = "test.stl";
+      slug = "test";
+      break;
+    default:
+      console.warn(`Unknown variant '${arg}', defaulting to 'test.stl'`);
+      file = "test.stl";
+      slug = "test";
+  }
+  return { path: path.join(baseDir, file), slug };
+}
+
 async function main() {
   console.log("Polyslice Benchy Example");
   console.log("========================\n");
+
+  const variantArg = process.argv[2] || "";
+  const { path: stlPath, slug: variantSlug } = resolveBenchyPath(variantArg);
 
   const printer = new Printer("Ender5");
   const filament = new Filament("GenericPLA");
@@ -37,7 +75,6 @@ async function main() {
   console.log(`- Volume: ${printer.getSizeX()}x${printer.getSizeY()}x${printer.getSizeZ()} mm`);
   console.log(`- Filament: ${filament.name} (${filament.type.toUpperCase()})\n`);
 
-  const stlPath = path.join(__dirname, "../../resources/testing/benchy.test.stl");
   console.log("Loading STL...");
   console.log(`- ${stlPath}`);
 
@@ -50,10 +87,11 @@ async function main() {
   }
 
   const pos = mesh.geometry.attributes.position;
+  const triApprox = pos ? ((pos.count / 3) | 0) : null;
   console.log("✅ Mesh loaded");
   console.log(`- Geometry: ${mesh.geometry.type}`);
   console.log(`- Vertices: ${pos ? pos.count : "unknown"}`);
-  if (pos) console.log(`- Triangles (approx): ${(pos.count / 3) | 0}\n`);
+  if (pos) console.log(`- Triangles (approx): ${triApprox}\n`);
 
   const slicer = new Polyslice({
     printer,
@@ -72,13 +110,29 @@ async function main() {
 
   console.log("Slicing model...");
   const t0 = Date.now();
-  const gcode = slicer.slice(mesh);
+  let gcode = slicer.slice(mesh);
   const dt = Date.now() - t0;
   console.log(`✅ Sliced in ${dt} ms`);
 
+  // Prepend run metadata including selected variant to the G-code as comments
+  const meta = [
+    "; Run Metadata",
+    `; Model: Benchy`,
+    `; Variant: ${variantSlug}`,
+    `; Source: ${stlPath}`,
+    pos ? `; Vertices: ${pos.count}` : null,
+    triApprox != null ? `; Triangles(approx): ${triApprox}` : null,
+    `; Slice Time(ms): ${dt}`,
+    `; Printer: ${printer.model}`,
+    `; Filament: ${filament.name} (${filament.type})`,
+    ""
+  ].filter(Boolean).join("\n");
+  gcode = meta + "\n" + gcode;
+
   const outDir = path.join(__dirname, "../output");
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-  const outPath = path.join(outDir, "benchy.gcode");
+  const outBase = `benchy.${variantSlug}.gcode`;
+  const outPath = path.join(outDir, outBase);
   fs.writeFileSync(outPath, gcode);
 
   const size = fs.statSync(outPath).size;
