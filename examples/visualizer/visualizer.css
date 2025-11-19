@@ -263,7 +263,8 @@ body {
 }
 
 #legend,
-#axes-legend {
+#axes-legend,
+#settings {
   background: rgba(0, 0, 0, 0.8);
   padding: 15px;
   border-radius: 8px;
@@ -274,8 +275,13 @@ body {
     max-height: 125px;
 }
 
+#settings {
+    max-height: 75px;
+}
+
 #legend h3,
-#axes-legend h3 {
+#axes-legend h3,
+#settings h3 {
   margin-bottom: 10px;
   font-size: 14px;
 }
