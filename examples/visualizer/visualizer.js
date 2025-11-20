@@ -418,9 +418,15 @@ function applyThickLinesEffect(isThick) {
   gcodeObject.traverse(child => {
     if (child instanceof THREE.LineSegments || child instanceof THREE.Line) {
       if (child.material) {
-        // Store original linewidth if not already stored
+        // Store original values on first application (before ANY modification)
         if (child.userData.originalLinewidth === undefined) {
           child.userData.originalLinewidth = child.material.linewidth || 1;
+        }
+        if (child.userData.originalOpacity === undefined) {
+          child.userData.originalOpacity = child.material.opacity !== undefined ? child.material.opacity : 1.0;
+        }
+        if (child.userData.originalTransparent === undefined) {
+          child.userData.originalTransparent = child.material.transparent || false;
         }
 
         // Check if this is a travel line (non-extruding move)
@@ -429,32 +435,14 @@ function applyThickLinesEffect(isThick) {
         // Apply thick or normal linewidth
         if (isThick && !isTravelLine) {
           child.material.linewidth = 5; // Thick lines for extrusion paths
-        } else {
-          child.material.linewidth = child.userData.originalLinewidth;
-        }
-
-        // Add depth effect by making the material slightly transparent and adding opacity
-        // This creates a visual "depth" by allowing overlapping lines to be visible
-        if (isThick && !isTravelLine) {
-          // Store original opacity if not already stored
-          if (child.userData.originalOpacity === undefined) {
-            child.userData.originalOpacity = child.material.opacity !== undefined ? child.material.opacity : 1.0;
-          }
-          if (child.userData.originalTransparent === undefined) {
-            child.userData.originalTransparent = child.material.transparent || false;
-          }
-          
           // Enable transparency and set opacity to create depth effect
           child.material.transparent = true;
           child.material.opacity = 0.9; // Slightly transparent for visual depth
         } else {
-          // Restore original transparency settings
-          if (child.userData.originalOpacity !== undefined) {
-            child.material.opacity = child.userData.originalOpacity;
-          }
-          if (child.userData.originalTransparent !== undefined) {
-            child.material.transparent = child.userData.originalTransparent;
-          }
+          // Restore original settings
+          child.material.linewidth = child.userData.originalLinewidth;
+          child.material.opacity = child.userData.originalOpacity;
+          child.material.transparent = child.userData.originalTransparent;
         }
 
         // Mark material as needing update
