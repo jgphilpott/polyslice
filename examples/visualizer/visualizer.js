@@ -416,37 +416,41 @@ function applyThickLinesEffect(isThick) {
   if (!gcodeObject) return;
 
   gcodeObject.traverse(child => {
-    if (child instanceof THREE.LineSegments || child instanceof THREE.Line) {
-      if (child.material) {
-        // Store original values on first application (before ANY modification)
-        if (child.userData.originalLinewidth === undefined) {
-          child.userData.originalLinewidth = child.material.linewidth || 1;
-        }
-        if (child.userData.originalOpacity === undefined) {
-          child.userData.originalOpacity = child.material.opacity !== undefined ? child.material.opacity : 1.0;
-        }
-        if (child.userData.originalTransparent === undefined) {
-          child.userData.originalTransparent = child.material.transparent || false;
-        }
+    if (!(child instanceof THREE.LineSegments || child instanceof THREE.Line)) return;
+    if (!child.material) return;
 
-        // Check if this is a travel line (non-extruding move)
-        const isTravelLine = child.material.name === 'path';
+    const isTravelLine = child.material.name === 'path';
 
-        // Apply thick or normal linewidth
-        if (isThick && !isTravelLine) {
-          child.material.linewidth = 5; // Thick lines for extrusion paths
-          // Enable transparency and set opacity to create depth effect
-          child.material.transparent = true;
-          child.material.opacity = 0.9; // Slightly transparent for visual depth
-        } else {
-          // Restore original settings
-          child.material.linewidth = child.userData.originalLinewidth;
-          child.material.opacity = child.userData.originalOpacity;
-          child.material.transparent = child.userData.originalTransparent;
-        }
-
-        // Mark material as needing update
+    // When enabling thick lines, swap to a cloned "thick" material so we can revert cleanly.
+    if (isThick && !isTravelLine) {
+      if (!child.userData.originalMaterial) {
+        // Preserve original material reference once.
+        child.userData.originalMaterial = child.material;
+      }
+      if (!child.userData.thickMaterial) {
+        const thickMat = child.userData.originalMaterial.clone();
+        thickMat.linewidth = 5; // Note: LineBasicMaterial linewidth may be GPU-limited; kept for platforms that support it.
+        thickMat.transparent = false;
+        thickMat.opacity = 1;
+        child.userData.thickMaterial = thickMat;
+      }
+      // Swap to thick material if not already active.
+      if (child.material !== child.userData.thickMaterial) {
+        child.material = child.userData.thickMaterial;
         child.material.needsUpdate = true;
+      }
+    } else {
+      // Disable thick mode: restore original material if we have it.
+      if (child.userData.originalMaterial && child.material !== child.userData.originalMaterial) {
+        child.material = child.userData.originalMaterial;
+        child.material.needsUpdate = true;
+      }
+      // Ensure transparency/opacity restored if we previously mutated original directly (legacy first toggle scenario).
+      if (child.userData.originalOpacity !== undefined) {
+        child.material.opacity = child.userData.originalOpacity;
+      }
+      if (child.userData.originalTransparent !== undefined) {
+        child.material.transparent = child.userData.originalTransparent;
       }
     }
   });

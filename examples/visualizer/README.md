@@ -66,7 +66,7 @@ Click the reset button to center the camera on the G-code visualization.
 2. Click the **Upload** button to select a G-code file from your computer
 3. The G-code will be parsed and visualized in 3D
 4. Navigate the 3D view:
-   - **Mouse**: 
+   - **Mouse**:
      - Rotate: Left-click and drag
      - Zoom: Scroll wheel
      - Pan: Right-click and drag (or Ctrl + left-click and drag)
