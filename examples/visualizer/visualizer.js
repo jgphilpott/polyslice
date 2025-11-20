@@ -401,8 +401,7 @@ function loadSettingsStates() {
       const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
       if (thickLinesCheckbox && 'thickLines' in states) {
         thickLinesCheckbox.checked = states.thickLines;
-        // Apply the thick lines effect if needed
-        applyThickLinesEffect(states.thickLines);
+        // Don't apply effect here - it will be applied when G-code loads
       }
     }
   } catch (error) {
