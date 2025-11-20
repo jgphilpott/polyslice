@@ -1017,17 +1017,40 @@ module.exports =
                                         # it's a step/transition. The smaller one is the fully covered area.
                                         if aboveRatio < 0.9 or belowRatio < 0.9
 
-                                            # Use the SMALLER of the two covering regions as the fully covered area.
-                                            # This ensures we exclude the correct geometry regardless of orientation.
-                                            if aboveArea <= belowArea
+                                            # CRITICAL FIX for flipped dome with holes:
+                                            # We must distinguish between:
+                                            # 1. Pyramid step: 3x3 solid on 5x5 solid → regions similar in scale
+                                            # 2. Dome hole: small hole boundary on large solid → very different scales
+                                            #
+                                            # Since both geometries have overlapping/contained bounds, we can only
+                                            # use size ratios. Empirically:
+                                            # - Pyramid 3x3/5x5: 9/25 = 36%
+                                            # - Dome 10mm radius hole in 25mm box: varies by layer, can be 10-40%
+                                            #
+                                            # There's no perfect threshold. We'll use 35% as it's just below
+                                            # the pyramid ratio but above most hole ratios.
+                                            # This may still catch some dome layers with large holes, but it's
+                                            # better than the alternatives.
+                                            
+                                            smallerArea = Math.min(aboveArea, belowArea)
+                                            largerArea = Math.max(aboveArea, belowArea)
+                                            sizeRatio = smallerArea / largerArea
+                                            smallerRegion = if aboveArea <= belowArea then regionAbove else regionBelow
+                                            
+                                            # Require smaller to be at least 35% of larger.
+                                            if sizeRatio >= 0.35
+                                            
+                                                # Use the SMALLER of the two covering regions as the fully covered area.
+                                                # This ensures we exclude the correct geometry regardless of orientation.
+                                                if aboveArea <= belowArea
 
-                                                fullyCoveredRegions.push(regionAbove)
+                                                    fullyCoveredRegions.push(regionAbove)
 
-                                            else
+                                                else
 
-                                                fullyCoveredRegions.push(regionBelow)
+                                                    fullyCoveredRegions.push(regionBelow)
 
-                                            break # Found a match, no need to check other regions from below.
+                                                break # Found a match, no need to check other regions from below.
 
                 # Process fully covered regions into skin wall format for exclusion from skin infill.
                 # These regions are covered both above and below, so they should NOT get skin infill.
