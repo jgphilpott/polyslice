@@ -424,11 +424,38 @@ function applyThickLinesEffect(isThick) {
           child.userData.originalLinewidth = child.material.linewidth || 1;
         }
 
+        // Check if this is a travel line (non-extruding move)
+        const isTravelLine = child.material.name === 'path';
+
         // Apply thick or normal linewidth
-        if (isThick) {
-          child.material.linewidth = 5; // Thick lines
+        if (isThick && !isTravelLine) {
+          child.material.linewidth = 5; // Thick lines for extrusion paths
         } else {
           child.material.linewidth = child.userData.originalLinewidth;
+        }
+
+        // Add depth effect by making the material slightly transparent and adding opacity
+        // This creates a visual "depth" by allowing overlapping lines to be visible
+        if (isThick && !isTravelLine) {
+          // Store original opacity if not already stored
+          if (child.userData.originalOpacity === undefined) {
+            child.userData.originalOpacity = child.material.opacity !== undefined ? child.material.opacity : 1.0;
+          }
+          if (child.userData.originalTransparent === undefined) {
+            child.userData.originalTransparent = child.material.transparent || false;
+          }
+          
+          // Enable transparency and set opacity to create depth effect
+          child.material.transparent = true;
+          child.material.opacity = 0.9; // Slightly transparent for visual depth
+        } else {
+          // Restore original transparency settings
+          if (child.userData.originalOpacity !== undefined) {
+            child.material.opacity = child.userData.originalOpacity;
+          }
+          if (child.userData.originalTransparent !== undefined) {
+            child.material.transparent = child.userData.originalTransparent;
+          }
         }
 
         // Mark material as needing update
@@ -1041,6 +1068,12 @@ function loadGCode(content, filename) {
   if (isFirstUpload) {
     centerCamera(gcodeObject);
     isFirstUpload = false;
+  }
+
+  // Apply thick lines setting if it's enabled
+  const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+  if (thickLinesCheckbox && thickLinesCheckbox.checked) {
+    applyThickLinesEffect(true);
   }
 }
 
