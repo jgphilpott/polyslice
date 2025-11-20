@@ -145,22 +145,31 @@ function createAxes() {
 function createLegend() {
   const legendHTML = `
         <div class="legend-container">
-            <div id="axes-legend">
-                <h3>Axes</h3>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
-                    <div class="legend-color" style="background-color: #ff0000;"></div>
-                    <span>X Axis</span>
+            <div>
+                <div id="axes-legend">
+                    <h3>Axes</h3>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
+                        <div class="legend-color" style="background-color: #ff0000;"></div>
+                        <span>X Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
+                        <div class="legend-color" style="background-color: #00ff00;"></div>
+                        <span>Y Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
+                        <div class="legend-color" style="background-color: #0000ff;"></div>
+                        <span>Z Axis</span>
+                    </div>
                 </div>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
-                    <div class="legend-color" style="background-color: #00ff00;"></div>
-                    <span>Y Axis</span>
-                </div>
-                <div class="legend-item">
-                    <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
-                    <div class="legend-color" style="background-color: #0000ff;"></div>
-                    <span>Z Axis</span>
+                <div id="settings">
+                    <h3>Settings</h3>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
+                        <span>Thick Lines</span>
+                    </div>
                 </div>
             </div>
             <div id="legend">
@@ -216,6 +225,9 @@ function createLegend() {
 
   // Setup event listeners for axis checkboxes.
   setupAxisToggles();
+
+  // Setup event listeners for settings checkboxes.
+  setupSettingsToggles();
 }
 
 /**
@@ -264,6 +276,28 @@ function setupAxisToggles() {
       }
     });
   });
+}
+
+/**
+ * Setup event listeners for settings toggles.
+ */
+function setupSettingsToggles() {
+  const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+
+  // Load saved settings from localStorage
+  loadSettingsStates();
+
+  if (thickLinesCheckbox) {
+    thickLinesCheckbox.addEventListener('change', (event) => {
+      const isThick = event.target.checked;
+
+      // Save settings state to localStorage
+      saveSettingsStates();
+
+      // Apply thick lines effect to all G-code line segments
+      applyThickLinesEffect(isThick);
+    });
+  }
 }
 
 /**
@@ -338,6 +372,88 @@ function loadAxisCheckboxStates() {
   } catch (error) {
     console.warn('Failed to load axis checkbox states from localStorage:', error);
   }
+}
+
+/**
+ * Save settings states to localStorage.
+ */
+function saveSettingsStates() {
+  const states = {};
+  const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+  if (thickLinesCheckbox) {
+    states.thickLines = thickLinesCheckbox.checked;
+  }
+  try {
+    localStorage.setItem('visualizer-settings-states', JSON.stringify(states));
+  } catch (error) {
+    console.warn('Failed to save settings states to localStorage:', error);
+  }
+}
+
+/**
+ * Load settings states from localStorage.
+ */
+function loadSettingsStates() {
+  try {
+    const saved = localStorage.getItem('visualizer-settings-states');
+    if (saved) {
+      const states = JSON.parse(saved);
+      const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+      if (thickLinesCheckbox && 'thickLines' in states) {
+        thickLinesCheckbox.checked = states.thickLines;
+        // Don't apply effect here - it will be applied when G-code loads
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to load settings states from localStorage:', error);
+  }
+}
+
+/**
+ * Apply or remove thick lines effect to all G-code line segments.
+ */
+function applyThickLinesEffect(isThick) {
+  if (!gcodeObject) return;
+
+  gcodeObject.traverse(child => {
+    if (!(child instanceof THREE.LineSegments || child instanceof THREE.Line)) return;
+    if (!child.material) return;
+
+    const isTravelLine = child.material.name === 'path';
+
+    // When enabling thick lines, swap to a cloned "thick" material so we can revert cleanly.
+    if (isThick && !isTravelLine) {
+      if (!child.userData.originalMaterial) {
+        // Preserve original material reference once.
+        child.userData.originalMaterial = child.material;
+      }
+      if (!child.userData.thickMaterial) {
+        const thickMat = child.userData.originalMaterial.clone();
+        thickMat.linewidth = 5; // Note: LineBasicMaterial linewidth may be GPU-limited; kept for platforms that support it.
+        thickMat.transparent = false;
+        thickMat.opacity = 1;
+        child.userData.thickMaterial = thickMat;
+      }
+      // Swap to thick material if not already active.
+      if (child.material !== child.userData.thickMaterial) {
+        child.material = child.userData.thickMaterial;
+        child.material.needsUpdate = true;
+      }
+    } else {
+      // Disable thick mode: restore original material if we have it.
+      if (child.userData.originalMaterial && child.material !== child.userData.originalMaterial) {
+        child.material = child.userData.originalMaterial;
+        child.material.needsUpdate = true;
+      }
+      // Ensure transparency/opacity restored if we previously mutated original directly (legacy first toggle scenario).
+      if (child.userData.originalOpacity !== undefined) {
+        child.material.opacity = child.userData.originalOpacity;
+      }
+      if (child.userData.originalTransparent !== undefined) {
+        child.material.transparent = child.userData.originalTransparent;
+      }
+    }
+  });
 }
 
 /**
@@ -944,6 +1060,12 @@ function loadGCode(content, filename) {
     centerCamera(gcodeObject);
     isFirstUpload = false;
   }
+
+  // Apply thick lines setting if it's enabled
+  const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+  if (thickLinesCheckbox && thickLinesCheckbox.checked) {
+    applyThickLinesEffect(true);
+  }
 }
 
 /**
@@ -1045,7 +1167,7 @@ function resetView() {
   }
 
   // Reset all movement type checkboxes to checked
-  document.querySelectorAll('.legend-checkbox:not(.axis-checkbox)').forEach(checkbox => {
+  document.querySelectorAll('.legend-checkbox:not(.axis-checkbox):not(.settings-checkbox)').forEach(checkbox => {
     checkbox.checked = true;
   });
 
@@ -1058,6 +1180,13 @@ function resetView() {
       axesLines[axisIndex].visible = true;
     }
   });
+
+  // Reset settings checkboxes to unchecked (default state)
+  const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+  if (thickLinesCheckbox) {
+    thickLinesCheckbox.checked = false;
+    applyThickLinesEffect(false);
+  }
 
   // Reset layer sliders to show all layers
   if (layerSliderMin && layerSliderMax && layerCount > 0) {
@@ -1073,6 +1202,7 @@ function resetView() {
   // Save the reset states to localStorage
   saveCheckboxStates();
   saveAxisCheckboxStates();
+  saveSettingsStates();
 
   // Update layer visibility with all checkboxes checked
   if (allLayers.length > 0) {
