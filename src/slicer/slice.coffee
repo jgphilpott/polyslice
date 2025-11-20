@@ -993,8 +993,9 @@ module.exports =
                         continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
-                        # Pass combined skin walls (holes + covering regions) for proper exclusion.
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedSkinWalls, holeOuterWalls)
+                        # Pass only hole skin walls for infill clipping, not covering regions.
+                        # Covering regions are used for exposure detection but shouldn't exclude skin infill.
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
                 else
 
@@ -1018,8 +1019,9 @@ module.exports =
                         continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
-                        # Pass combined skin walls (holes + covering regions) for proper exclusion.
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedSkinWalls, holeOuterWalls)
+                        # Pass only hole skin walls for infill clipping, not covering regions.
+                        # Covering regions are used for exposure detection but shouldn't exclude skin infill.
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
 
             else
 

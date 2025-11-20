@@ -315,3 +315,98 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             for layer in skinLayers
 
                 expect(layer < 4 or layer >= 56).toBe(true)
+
+    describe 'Skin Infill Generation with Covering Regions', ->
+
+        test 'should generate skin infill even when covering regions are present', ->
+
+            # Regression test for issue where skin patches above dome had walls but no infill.
+            # This test ensures that covering regions (used for exposure detection) don't prevent
+            # skin infill from being generated.
+            width = 25
+            depth = 25
+            thickness = 12
+            radius = 10
+
+            boxGeometry = new THREE.BoxGeometry(width, depth, thickness)
+            boxMesh = new THREE.Mesh(boxGeometry, new THREE.MeshBasicMaterial())
+
+            sphereGeometry = new THREE.SphereGeometry(radius, 32, 24)
+            sphereMesh = new THREE.Mesh(sphereGeometry, new THREE.MeshBasicMaterial())
+
+            # Place sphere to carve cavity from top.
+            sphereMesh.position.set(0, 0, -(thickness / 2))
+            sphereMesh.updateMatrixWorld()
+
+            # Perform CSG subtraction.
+            resultMesh = await Polytree.subtract(boxMesh, sphereMesh)
+
+            # Position final mesh with build plate at Z=0.
+            finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material)
+            finalMesh.position.set(0, 0, thickness / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer with exposure detection enabled.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setShellWallThickness(0.8)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # Count skin wall and skin infill occurrences.
+            skinWallCount = (result.match(/Moving to skin wall/g) || []).length
+            skinInfillCount = (result.match(/Moving to skin infill line/g) || []).length
+
+            # Verify that skin sections have both walls AND infill.
+            # Before the fix, skin patches would have walls but no infill.
+            expect(skinWallCount).toBeGreaterThan(0)
+            expect(skinInfillCount).toBeGreaterThan(0)
+
+            # The ratio of infill lines to walls should be reasonable.
+            # Skin infill should have many more lines than walls (typically 10-50x).
+            expect(skinInfillCount).toBeGreaterThan(skinWallCount * 5)
+
+            # Verify that skin sections actually generate extrusion moves (not just travel).
+            # This confirms that infill is being laid down, not just walls.
+            lines = result.split('\n')
+            inSkinSection = false
+            skinSectionHasExtrusion = false
+            skinSectionsWithExtrusion = 0
+
+            for line in lines
+
+                if line.includes('TYPE: SKIN')
+
+                    # If we were tracking a previous skin section and it had extrusion, count it.
+                    if inSkinSection and skinSectionHasExtrusion
+                        skinSectionsWithExtrusion += 1
+
+                    # Start tracking new skin section.
+                    inSkinSection = true
+                    skinSectionHasExtrusion = false
+
+                else if line.includes('TYPE:')
+
+                    # End of skin section.
+                    if inSkinSection and skinSectionHasExtrusion
+                        skinSectionsWithExtrusion += 1
+
+                    inSkinSection = false
+                    skinSectionHasExtrusion = false
+
+                else if inSkinSection and line.includes(' E')
+
+                    # Found extrusion command in skin section.
+                    skinSectionHasExtrusion = true
+
+            # Check the last section if needed.
+            if inSkinSection and skinSectionHasExtrusion
+                skinSectionsWithExtrusion += 1
+
+            # Most skin sections should have extrusion (walls + infill).
+            # At minimum, we should have many skin sections with extrusion.
+            expect(skinSectionsWithExtrusion).toBeGreaterThan(20)
