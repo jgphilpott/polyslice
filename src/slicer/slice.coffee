@@ -938,12 +938,25 @@ module.exports =
                 # Identify fully covered areas: regions that are covered BOTH above AND below.
                 # These areas should be excluded from skin infill generation.
                 # Regions covered only above OR only below represent holes/cavities and should NOT be excluded.
+                #
+                # ORIENTATION-INDEPENDENT LOGIC:
+                # A fully covered area occurs when covering regions from above AND below both overlap
+                # the SAME area of the current layer, AND at least one of them is significantly smaller
+                # than the current layer (indicating a step/transition, not a continuous wall).
                 fullyCoveredRegions = []
 
-                if coveringRegionsAbove.length > 0 and coveringRegionsBelow.length > 0
+                # Calculate current path bounds for comparison.
+                currentPathBounds = helpers.calculatePathBounds(currentPath)
 
-                    # For each region from above, check if there's a similar region from below.
-                    # If both exist, it's a fully covered area.
+                if currentPathBounds? and coveringRegionsAbove.length > 0 and coveringRegionsBelow.length > 0
+
+                    currentWidth = currentPathBounds.maxX - currentPathBounds.minX
+                    currentHeight = currentPathBounds.maxY - currentPathBounds.minY
+                    currentArea = currentWidth * currentHeight
+
+                    # For each region from above, check if there's an overlapping region from below.
+                    # Only mark as fully covered if one of the covering regions is significantly smaller
+                    # than the current layer (< 90%), indicating a genuine transition/step.
                     for regionAbove in coveringRegionsAbove
 
                         continue if regionAbove.length < 3
@@ -951,6 +964,10 @@ module.exports =
                         # Calculate bounds of region from above.
                         boundsAbove = helpers.calculatePathBounds(regionAbove)
                         continue unless boundsAbove?
+
+                        aboveWidth = boundsAbove.maxX - boundsAbove.minX
+                        aboveHeight = boundsAbove.maxY - boundsAbove.minY
+                        aboveArea = aboveWidth * aboveHeight
 
                         # Check if this region overlaps with any region from below.
                         for regionBelow in coveringRegionsBelow
@@ -961,8 +978,11 @@ module.exports =
                             boundsBelow = helpers.calculatePathBounds(regionBelow)
                             continue unless boundsBelow?
 
-                            # Check if the regions overlap significantly (at least 50% overlap).
-                            # This indicates the area is covered both above and below.
+                            belowWidth = boundsBelow.maxX - boundsBelow.minX
+                            belowHeight = boundsBelow.maxY - boundsBelow.minY
+                            belowArea = belowWidth * belowHeight
+
+                            # Check if the regions overlap significantly.
                             overlapMinX = Math.max(boundsAbove.minX, boundsBelow.minX)
                             overlapMaxX = Math.min(boundsAbove.maxX, boundsBelow.maxX)
                             overlapMinY = Math.max(boundsAbove.minY, boundsBelow.minY)
@@ -974,17 +994,40 @@ module.exports =
                                 overlapHeight = overlapMaxY - overlapMinY
                                 overlapArea = overlapWidth * overlapHeight
 
-                                aboveWidth = boundsAbove.maxX - boundsAbove.minX
-                                aboveHeight = boundsAbove.maxY - boundsAbove.minY
-                                aboveArea = aboveWidth * aboveHeight
+                                # Only mark as fully covered if:
+                                # 1. The overlap is substantial (≥50% of regionAbove)
+                                # 2. At least one covering region is significantly smaller than current layer
+                                #    (< 90% of current area), indicating a step/transition
+                                #
+                                # This handles:
+                                # - Pyramid normal: 3x3 above (36% of 5x5 current) → fully covered ✓
+                                # - Pyramid flipped: 5x5 above (100% of 3x3 current) BUT 3x3 below (36%) → NOT fully covered ✓
+                                # - Dome: Both similar size to current layer (>90%) → NOT fully covered ✓
+                                if aboveArea > 0 and currentArea > 0
 
-                                # If overlap is at least 50% of the region from above, consider it fully covered.
-                                if aboveArea > 0 and (overlapArea / aboveArea) >= 0.5
+                                    # Check overlap percentage.
+                                    if (overlapArea / aboveArea) >= 0.5
 
-                                    # Use the region from above as the fully covered area to exclude.
-                                    # This ensures we're excluding the correct geometry.
-                                    fullyCoveredRegions.push(regionAbove)
-                                    break # Found a match, no need to check other regions from below.
+                                        # Check if at least one covering region is significantly smaller than current layer.
+                                        # This indicates a genuine step/transition, not just continuous walls.
+                                        aboveRatio = aboveArea / currentArea
+                                        belowRatio = belowArea / currentArea
+
+                                        # If EITHER covering region is < 90% of current layer size,
+                                        # it's a step/transition. The smaller one is the fully covered area.
+                                        if aboveRatio < 0.9 or belowRatio < 0.9
+
+                                            # Use the SMALLER of the two covering regions as the fully covered area.
+                                            # This ensures we exclude the correct geometry regardless of orientation.
+                                            if aboveArea <= belowArea
+
+                                                fullyCoveredRegions.push(regionAbove)
+
+                                            else
+
+                                                fullyCoveredRegions.push(regionBelow)
+
+                                            break # Found a match, no need to check other regions from below.
 
                 # Process fully covered regions into skin wall format for exclusion from skin infill.
                 # These regions are covered both above and below, so they should NOT get skin infill.
