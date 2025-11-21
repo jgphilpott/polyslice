@@ -38,7 +38,7 @@ function init() {
     0.1,
     1000
   );
-  camera.position.set(100, 100, -100); // Moved Y axis to opposite side
+  camera.position.set(300, 200, -300); // Moved Y axis to opposite side
   camera.lookAt(0, 0, 0);
 
   // Create renderer.
@@ -97,8 +97,10 @@ function init() {
 /**
  * Create custom axes with proper colors and thickness.
  */
+const AXIS_LENGTH = 220; // Single source of truth for axis & grid sizing
+
 function createAxes() {
-  const axisLength = 150;
+  const axisLength = AXIS_LENGTH;
   const axisThickness = 3;
 
   // G-code coordinate system: X (red), Y (green), Z (blue, vertical up)
@@ -147,16 +149,47 @@ function createAxes() {
  * Create grid helper on the XY plane.
  */
 function createGridHelper() {
-  const size = 200; // Grid size (200x200 units)
-  const divisions = 20; // 20 divisions (creates 10mm spacing for typical build plates)
-  const colorCenterLine = 0x888888; // Light gray for center lines
-  const colorGrid = 0x444444; // Darker gray for grid lines
+  // Only draw grid in X+ / Y- quadrant of G-code space -> Three.js (X >= 0, Z <= 0)
+  const sizeX = AXIS_LENGTH;
+  const sizeZ = AXIS_LENGTH; // magnitude for negative Z direction
+  const divisions = 20; // keep 10mm spacing if AXIS_LENGTH=220 (~11mm) but acceptable
+  const colorCenterLine = 0x888888;
+  const colorGrid = 0x444444;
 
-  // GridHelper creates a grid on the XZ plane by default in Three.js
-  // Since G-code Y maps to Three.js Z, this gives us the XY plane grid we want
-  gridHelper = new THREE.GridHelper(size, divisions, colorCenterLine, colorGrid);
+  const group = new THREE.Group();
 
-  // The grid is already on the XY plane (Y=0) which is correct for the build plate
+  const materialCenter = new THREE.LineBasicMaterial({ color: colorCenterLine });
+  const materialGrid = new THREE.LineBasicMaterial({ color: colorGrid });
+
+  // Step size based on divisions
+  const stepX = sizeX / divisions;
+  const stepZ = sizeZ / divisions;
+
+  // Vertical lines (parallel to Z axis, extend negative Z)
+  for (let x = 0; x <= sizeX + 0.0001; x += stepX) {
+    const points = [];
+    points.push(new THREE.Vector3(x, 0, 0));
+    points.push(new THREE.Vector3(x, 0, -sizeZ));
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    const isCenter = Math.abs(x) < 1e-6; // x==0 edge
+    const line = new THREE.Line(geom, isCenter ? materialCenter : materialGrid);
+    group.add(line);
+  }
+
+  // Horizontal lines (parallel to X axis, at z<=0)
+  for (let z = 0; z <= sizeZ + 0.0001; z += stepZ) {
+    const points = [];
+    const zNeg = -z; // convert to negative Z
+    points.push(new THREE.Vector3(0, 0, zNeg));
+    points.push(new THREE.Vector3(sizeX, 0, zNeg));
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    const isCenter = Math.abs(z) < 1e-6; // z==0 edge
+    const line = new THREE.Line(geom, isCenter ? materialCenter : materialGrid);
+    group.add(line);
+  }
+
+  // Store group in gridHelper reference for checkbox toggle
+  gridHelper = group;
   scene.add(gridHelper);
 }
 
@@ -168,7 +201,7 @@ function createLegend() {
         <div class="legend-container">
             <div>
                 <div id="axes-legend">
-                    <h3>Axes</h3>
+                    <h3>Axes and Grid</h3>
                     <div class="legend-item">
                         <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
                         <div class="legend-color" style="background-color: #ff0000;"></div>
@@ -1195,7 +1228,7 @@ function resetView() {
   if (gcodeObject) {
     centerCamera(gcodeObject);
   } else {
-    camera.position.set(100, 100, -100); // Moved Y axis to opposite side
+    camera.position.set(300, 200, -300); // Moved Y axis to opposite side
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();
