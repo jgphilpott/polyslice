@@ -410,3 +410,104 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Most skin sections should have extrusion (walls + infill).
             # At minimum, we should have many skin sections with extrusion.
             expect(skinSectionsWithExtrusion).toBeGreaterThan(20)
+
+    describe 'Fully Covered Areas Exclusion', ->
+
+        test 'should NOT generate skin infill in fully covered areas (Pyramid case)', ->
+
+            # Test for issue where skin patches at the top of pyramid slabs had infill
+            # in the center area that is fully covered both above and below.
+            # This test ensures that fully covered areas are excluded from skin infill.
+            # Create a simplified pyramid: 5x5 base slab + 3x3 top slab.
+            cubeSize = 10
+
+            baseSlab = new THREE.BoxGeometry(5 * cubeSize, 5 * cubeSize, cubeSize)
+            baseSlabMesh = new THREE.Mesh(baseSlab, new THREE.MeshBasicMaterial())
+
+            baseSlabMesh.position.set(0, 0, 0)
+            baseSlabMesh.updateMatrixWorld()
+
+            topSlab = new THREE.BoxGeometry(3 * cubeSize, 3 * cubeSize, cubeSize)
+            topSlabMesh = new THREE.Mesh(topSlab, new THREE.MeshBasicMaterial())
+
+            topSlabMesh.position.set(0, 0, cubeSize)
+            topSlabMesh.updateMatrixWorld()
+
+            # Unite the two slabs to create a simple pyramid.
+            pyramidMesh = await Polytree.unite(baseSlabMesh, topSlabMesh)
+
+            finalMesh = new THREE.Mesh(pyramidMesh.geometry, pyramidMesh.material)
+            finalMesh.position.set(0, 0, 0)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer with exposure detection enabled.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setShellWallThickness(0.8)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # The base slab is 10mm tall = 50 layers (0-49).
+            # The top slab is 10mm tall = 50 layers (50-99).
+            # Top 4 layers of base slab (46-49) should have adaptive skin.
+            # The center 3x3 area (covered by top slab above) should NOT have skin infill.
+            # The outer ring (exposed area) should have skin infill.
+            # Parse the G-code to find layer 46 skin section.
+            lines = result.split('\n')
+            layer46Started = false
+            layer47Started = false
+            layer46SkinInfillLines = []
+
+            for line in lines
+
+                if line.includes('LAYER: 46')
+
+                    layer46Started = true
+
+                else if line.includes('LAYER: 47')
+
+                    layer47Started = true
+                    break
+
+                else if layer46Started and line.includes('Moving to skin infill line')
+
+                    layer46SkinInfillLines.push(line)
+
+            # Verify that layer 46 has skin infill.
+            expect(layer46SkinInfillLines.length).toBeGreaterThan(0)
+
+            # Extract X and Y coordinates from skin infill lines.
+            # Check that NO infill lines are in the fully covered center area (95-125).
+            # The 3x3 slab covers X=[95, 125] and Y=[95, 125] (approximately).
+            # Skin infill should only be in the outer ring, not the center.
+            centerInfillCount = 0
+
+            for line in layer46SkinInfillLines
+
+                # Extract X and Y coordinates from the line.
+                # Format: "G0 X... Y... Z... F...; Moving to skin infill line"
+                xMatch = line.match(/X([\d.]+)/)
+                yMatch = line.match(/Y([\d.]+)/)
+
+                if xMatch and yMatch
+
+                    xCoord = parseFloat(xMatch[1])
+                    yCoord = parseFloat(yMatch[1])
+
+                    # Check if this coordinate is in the center area (95-125).
+                    # Allow small tolerance for rounding.
+                    if xCoord > 95 and xCoord < 125 and yCoord > 95 and yCoord < 125
+
+                        centerInfillCount += 1
+
+            # Verify that NO skin infill lines are in the fully covered center area.
+            # All skin infill should be in the exposed outer ring only.
+            expect(centerInfillCount).toBe(0)
+
+            # Verify that skin infill exists in the outer ring (exposed area).
+            # This ensures we're not accidentally excluding all infill.
+            expect(layer46SkinInfillLines.length).toBeGreaterThan(100)

@@ -812,8 +812,9 @@ module.exports =
             needsSkin = false
             skinAreas = [] # Will store only the exposed portions of currentPath
             isAbsoluteTopOrBottom = false # Track if this is absolute top/bottom layer
-            skinSuppressedDueToSpacing = false # Track if skin was suppressed due to insufficient spacing
-            coveringRegions = [] # Track covering regions from other layers for skin exclusion
+            skinSuppressedDueToSpacing = false
+            coveringRegionsAbove = [] # Regions from layer above for fully covered detection.
+            coveringRegionsBelow = [] # Regions from layer below for fully covered detection.
 
             # Always generate skin for the absolute top and bottom layers.
             if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
@@ -853,12 +854,10 @@ module.exports =
 
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
 
-                            # Store covering regions for skin exclusion.
-                            # These regions are from the layer above and should not have skin printed in them.
-                            coveringRegions.push(checkPaths...)
+                            # Store covering regions for fully covered area detection.
+                            coveringRegionsAbove.push(checkPaths...)
 
-                            # Calculate what parts of CURRENT layer are NOT covered by the layer ahead
-                            # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
+                            # Calculate exposed areas not covered by layer ahead.
                             checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
 
                             if checkExposedAreas.length > 0
@@ -874,8 +873,7 @@ module.exports =
                         # We're within skinLayerCount of the top - current layer will be exposed
                         exposedAreas.push(currentPath)
 
-                    # Always check behind to detect cavities and holes (exposure from below).
-                    # Previously this was only checked if exposedAreas.length was 0, which missed cavities.
+                    # Check behind to detect cavities and holes.
                     checkIdxBelow = layerIndex - skinLayerCount
 
                     if checkIdxBelow >= 0
@@ -886,12 +884,10 @@ module.exports =
 
                             checkPaths = helpers.connectSegmentsToPaths(checkSegments)
 
-                            # Store covering regions for skin exclusion.
-                            # These regions are from the layer below and should not have skin printed in them.
-                            coveringRegions.push(checkPaths...)
+                            # Store covering regions for fully covered area detection.
+                            coveringRegionsBelow.push(checkPaths...)
 
-                            # Calculate what parts of CURRENT layer are NOT covered by the layer behind
-                            # Use configurable resolution for exposure detection (default 961 = 31x31 grid)
+                            # Calculate exposed areas not covered by layer behind.
                             checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
 
                             if checkExposedAreas.length > 0
@@ -934,50 +930,103 @@ module.exports =
 
             if needsSkin
 
-                # Process covering regions into skin wall format for exclusion.
-                # Covering regions are from other layers and should be used to exclude skin generation.
-                # They need to be slightly expanded (outset) to create proper exclusion zones.
-                # NOTE: Only use covering regions that are smaller than the current layer.
-                # If a covering region is the same size or larger, it would exclude all skin, which is incorrect.
-                coveringSkinWalls = []
+                # Identify fully covered areas to exclude from skin infill.
+                # A fully covered area has geometry both above AND below.
+                fullyCoveredRegions = []
 
-                if coveringRegions? and coveringRegions.length > 0
+                currentPathBounds = helpers.calculatePathBounds(currentPath)
 
-                    # Calculate current path bounds for size comparison.
+                if currentPathBounds? and coveringRegionsAbove.length > 0 and coveringRegionsBelow.length > 0
+
+                    currentWidth = currentPathBounds.maxX - currentPathBounds.minX
+                    currentHeight = currentPathBounds.maxY - currentPathBounds.minY
+                    currentArea = currentWidth * currentHeight
+
+                    for regionAbove in coveringRegionsAbove
+
+                        continue if regionAbove.length < 3
+
+                        boundsAbove = helpers.calculatePathBounds(regionAbove)
+                        continue unless boundsAbove?
+
+                        aboveWidth = boundsAbove.maxX - boundsAbove.minX
+                        aboveHeight = boundsAbove.maxY - boundsAbove.minY
+                        aboveArea = aboveWidth * aboveHeight
+
+                        for regionBelow in coveringRegionsBelow
+
+                            continue if regionBelow.length < 3
+
+                            boundsBelow = helpers.calculatePathBounds(regionBelow)
+                            continue unless boundsBelow?
+
+                            belowWidth = boundsBelow.maxX - boundsBelow.minX
+                            belowHeight = boundsBelow.maxY - boundsBelow.minY
+                            belowArea = belowWidth * belowHeight
+
+                            # Check for overlap between regions.
+                            overlapMinX = Math.max(boundsAbove.minX, boundsBelow.minX)
+                            overlapMaxX = Math.min(boundsAbove.maxX, boundsBelow.maxX)
+                            overlapMinY = Math.max(boundsAbove.minY, boundsBelow.minY)
+                            overlapMaxY = Math.min(boundsAbove.maxY, boundsBelow.maxY)
+
+                            if overlapMinX < overlapMaxX and overlapMinY < overlapMaxY
+
+                                overlapWidth = overlapMaxX - overlapMinX
+                                overlapHeight = overlapMaxY - overlapMinY
+                                overlapArea = overlapWidth * overlapHeight
+
+                                if aboveArea > 0 and currentArea > 0
+
+                                    # Check if overlap is substantial (≥50% of regionAbove).
+                                    if (overlapArea / aboveArea) >= 0.5
+
+                                        aboveRatio = aboveArea / currentArea
+                                        belowRatio = belowArea / currentArea
+
+                                        # Check if at least one region is smaller than current layer (step/transition).
+                                        if aboveRatio < 0.9 or belowRatio < 0.9
+
+                                            smallerArea = Math.min(aboveArea, belowArea)
+                                            largerArea = Math.max(aboveArea, belowArea)
+                                            sizeRatio = smallerArea / largerArea
+                                            
+                                            # Filter: size ratio 10-70% (excludes tiny holes and similar-sized regions).
+                                            # Only mark as covered when smaller region is from above.
+                                            if sizeRatio >= 0.10 and sizeRatio < 0.70 and aboveArea < belowArea
+                                            
+                                                fullyCoveredRegions.push(regionAbove)
+                                                break
+
+                # Process fully covered regions for skin infill exclusion.
+                fullyCoveredSkinWalls = []
+
+                if fullyCoveredRegions.length > 0
+
                     currentPathBounds = helpers.calculatePathBounds(currentPath)
 
-                    # For covering regions, use them as-is without additional inset.
-                    # The skin generation will apply its own gap when creating holeSkinWallsWithGap.
+                    for fullyCoveredRegion in fullyCoveredRegions
 
-                    for coveringRegion in coveringRegions
+                        continue if fullyCoveredRegion.length < 3
 
-                        # Skip degenerate paths.
-                        continue if coveringRegion.length < 3
+                        coveredBounds = helpers.calculatePathBounds(fullyCoveredRegion)
 
-                        # Calculate covering region bounds.
-                        coveringBounds = helpers.calculatePathBounds(coveringRegion)
-
-                        # Skip covering regions that are as large or larger than the current path.
-                        # These represent the same geometry and shouldn't exclude skin.
-                        if currentPathBounds? and coveringBounds?
+                        # Skip regions >= 90% of current path (same geometry).
+                        if currentPathBounds? and coveredBounds?
 
                             currentWidth = currentPathBounds.maxX - currentPathBounds.minX
                             currentHeight = currentPathBounds.maxY - currentPathBounds.minY
-                            coveringWidth = coveringBounds.maxX - coveringBounds.minX
-                            coveringHeight = coveringBounds.maxY - coveringBounds.minY
+                            coveredWidth = coveredBounds.maxX - coveredBounds.minX
+                            coveredHeight = coveredBounds.maxY - coveredBounds.minY
 
-                            # Skip if covering region is >= 90% of current path size.
-                            # Allow 10% tolerance for floating point and slight geometry differences.
-                            if coveringWidth >= currentWidth * 0.9 and coveringHeight >= currentHeight * 0.9
+                            if coveredWidth >= currentWidth * 0.9 and coveredHeight >= currentHeight * 0.9
 
                                 continue
 
-                        # Use the covering region as-is, without inset/outset.
-                        # The skin generation code will apply the appropriate gap via holeSkinWallsWithGap.
-                        coveringSkinWalls.push(coveringRegion)
+                        fullyCoveredSkinWalls.push(fullyCoveredRegion)
 
-                # Combine hole skin walls with covering skin walls for complete exclusion.
-                combinedSkinWalls = holeSkinWalls.concat(coveringSkinWalls)
+                # Combine hole and fully covered skin walls for exclusion.
+                combinedSkinWalls = holeSkinWalls.concat(fullyCoveredSkinWalls)
 
                 if isAbsoluteTopOrBottom
 
@@ -993,9 +1042,12 @@ module.exports =
                         continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
-                        # Pass only hole skin walls for infill clipping, not covering regions.
-                        # Covering regions are used for exposure detection but shouldn't exclude skin infill.
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
+                        # Pass hole skin walls AND fully covered skin walls for infill clipping.
+                        # Hole skin walls exclude holes from skin infill.
+                        # Fully covered skin walls exclude areas that are covered both above and below.
+                        # This ensures skin infill is only generated in truly exposed areas.
+                        combinedExclusionWalls = holeSkinWalls.concat(fullyCoveredSkinWalls)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedExclusionWalls, holeOuterWalls)
 
                 else
 
@@ -1009,7 +1061,7 @@ module.exports =
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
 
                     # Generate skin ONLY in the exposed areas.
-                    # Pass combined skin walls (holes + covering regions) for clipping and hole outer walls for travel path optimization.
+                    # Pass combined skin walls (holes + fully covered regions) for clipping and hole outer walls for travel path optimization.
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>90% coverage).
@@ -1019,9 +1071,12 @@ module.exports =
                         continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
-                        # Pass only hole skin walls for infill clipping, not covering regions.
-                        # Covering regions are used for exposure detection but shouldn't exclude skin infill.
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls)
+                        # Pass hole skin walls AND fully covered skin walls for infill clipping.
+                        # Hole skin walls exclude holes from skin infill.
+                        # Fully covered skin walls exclude areas that are covered both above and below.
+                        # This ensures skin infill is only generated in truly exposed areas.
+                        combinedExclusionWalls = holeSkinWalls.concat(fullyCoveredSkinWalls)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedExclusionWalls, holeOuterWalls)
 
             else
 
