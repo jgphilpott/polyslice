@@ -2632,6 +2632,9 @@ module.exports =
 
             skinPolygons.push(skinPolygon)
 
+        # If all skin areas were degenerate, return original boundary.
+        return [infillBoundary] if skinPolygons.length is 0
+
         # Use polygon-clipping difference operation to subtract skin areas from infill boundary.
         # Start with the infill boundary and subtract each skin area.
         resultPolygons = infillPolygon
