@@ -11,6 +11,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let scene, camera, renderer, controls;
 let gcodeObject = null;
 let axesLines;
+let gridHelper = null;
 let allLayers = [];
 let layersByIndex = {}; // Map layer index to LineSegments
 let layerCount = 0; // Total number of actual layers from LAYER comments
@@ -37,7 +38,7 @@ function init() {
     0.1,
     1000
   );
-  camera.position.set(100, 100, -100); // Moved Y axis to opposite side
+  camera.position.set(300, 200, -300); // Moved Y axis to opposite side
   camera.lookAt(0, 0, 0);
 
   // Create renderer.
@@ -64,6 +65,9 @@ function init() {
 
   // Add custom axes (longer and thicker).
   createAxes();
+
+  // Add grid helper.
+  createGridHelper();
 
   // Add legend.
   createLegend();
@@ -93,8 +97,10 @@ function init() {
 /**
  * Create custom axes with proper colors and thickness.
  */
+const AXIS_LENGTH = 220; // Single source of truth for axis & grid sizing
+
 function createAxes() {
-  const axisLength = 150;
+  const axisLength = AXIS_LENGTH;
   const axisThickness = 3;
 
   // G-code coordinate system: X (red), Y (green), Z (blue, vertical up)
@@ -140,14 +146,73 @@ function createAxes() {
 }
 
 /**
+ * Create grid helper on the XY plane.
+ */
+function createGridHelper() {
+  // Only draw grid in X+ / Y- quadrant of G-code space -> Three.js (X >= 0, Z <= 0)
+  const sizeX = AXIS_LENGTH;
+  const sizeZ = AXIS_LENGTH; // magnitude for negative Z direction
+  const divisions = 20; // keep 10mm spacing if AXIS_LENGTH=220 (~11mm) but acceptable
+  const colorCenterLine = 0x888888;
+  const colorGrid = 0x444444;
+
+  const group = new THREE.Group();
+
+  const materialCenter = new THREE.LineBasicMaterial({ color: colorCenterLine });
+  const materialGrid = new THREE.LineBasicMaterial({ color: colorGrid });
+
+  // Step size based on divisions
+  const stepX = sizeX / divisions;
+  const stepZ = sizeZ / divisions;
+
+  // Vertical lines (parallel to Z axis, extend negative Z)
+  for (let x = 0; x <= sizeX + 0.0001; x += stepX) {
+    const points = [];
+    points.push(new THREE.Vector3(x, 0, 0));
+    points.push(new THREE.Vector3(x, 0, -sizeZ));
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    const isCenter = Math.abs(x) < 1e-6; // x==0 edge
+    const line = new THREE.Line(geom, isCenter ? materialCenter : materialGrid);
+    group.add(line);
+  }
+
+  // Horizontal lines (parallel to X axis, at z<=0)
+  for (let z = 0; z <= sizeZ + 0.0001; z += stepZ) {
+    const points = [];
+    const zNeg = -z; // convert to negative Z
+    points.push(new THREE.Vector3(0, 0, zNeg));
+    points.push(new THREE.Vector3(sizeX, 0, zNeg));
+    const geom = new THREE.BufferGeometry().setFromPoints(points);
+    const isCenter = Math.abs(z) < 1e-6; // z==0 edge
+    const line = new THREE.Line(geom, isCenter ? materialCenter : materialGrid);
+    group.add(line);
+  }
+
+  // Store group in gridHelper reference for checkbox toggle
+  gridHelper = group;
+  scene.add(gridHelper);
+}
+
+/**
  * Create the legends for movement types and axes.
  */
 function createLegend() {
   const legendHTML = `
         <div class="legend-container">
             <div>
+                <div id="settings">
+                    <h3>Settings</h3>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
+                        <span>Thick Lines</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="translucent-lines-checkbox" />
+                        <span>Translucent Lines</span>
+                    </div>
+                </div>
                 <div id="axes-legend">
-                    <h3>Axes</h3>
+                    <h3>Axes and Grid</h3>
                     <div class="legend-item">
                         <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
                         <div class="legend-color" style="background-color: #ff0000;"></div>
@@ -163,12 +228,10 @@ function createLegend() {
                         <div class="legend-color" style="background-color: #0000ff;"></div>
                         <span>Z Axis</span>
                     </div>
-                </div>
-                <div id="settings">
-                    <h3>Settings</h3>
                     <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
-                        <span>Thick Lines</span>
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="grid" checked />
+                        <div class="legend-color" style="background-color: #888888;"></div>
+                        <span>Grid Lines</span>
                     </div>
                 </div>
             </div>
@@ -269,8 +332,13 @@ function setupAxisToggles() {
       // Save axis checkbox state to localStorage
       saveAxisCheckboxStates();
 
-      // Toggle visibility of the corresponding axis line
-      if (axesLines) {
+      // Toggle visibility of the corresponding axis line or grid
+      if (axis === 'grid') {
+        // Toggle grid visibility
+        if (gridHelper) {
+          gridHelper.visible = isVisible;
+        }
+      } else if (axesLines) {
         const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
         axesLines[axisIndex].visible = isVisible;
       }
@@ -283,6 +351,7 @@ function setupAxisToggles() {
  */
 function setupSettingsToggles() {
   const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+  const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
 
   // Load saved settings from localStorage
   loadSettingsStates();
@@ -296,6 +365,16 @@ function setupSettingsToggles() {
 
       // Apply thick lines effect to all G-code line segments
       applyThickLinesEffect(isThick);
+    });
+  }
+
+  if (translucentLinesCheckbox) {
+    translucentLinesCheckbox.addEventListener('change', (event) => {
+      const isTranslucent = event.target.checked;
+      // Save settings state to localStorage
+      saveSettingsStates();
+      // Apply translucency to all G-code line segments
+      applyTranslucentLinesEffect(isTranslucent);
     });
   }
 }
@@ -361,8 +440,12 @@ function loadAxisCheckboxStates() {
         const axis = checkbox.dataset.axis;
         if (axis in states) {
           checkbox.checked = states[axis];
-          // Apply the visibility state to the axis line
-          if (axesLines) {
+          // Apply the visibility state to the axis line or grid
+          if (axis === 'grid') {
+            if (gridHelper) {
+              gridHelper.visible = checkbox.checked;
+            }
+          } else if (axesLines) {
             const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
             axesLines[axisIndex].visible = checkbox.checked;
           }
@@ -380,8 +463,12 @@ function loadAxisCheckboxStates() {
 function saveSettingsStates() {
   const states = {};
   const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+  const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
   if (thickLinesCheckbox) {
     states.thickLines = thickLinesCheckbox.checked;
+  }
+  if (translucentLinesCheckbox) {
+    states.translucentLines = translucentLinesCheckbox.checked;
   }
   try {
     localStorage.setItem('visualizer-settings-states', JSON.stringify(states));
@@ -399,8 +486,13 @@ function loadSettingsStates() {
     if (saved) {
       const states = JSON.parse(saved);
       const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+      const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
       if (thickLinesCheckbox && 'thickLines' in states) {
         thickLinesCheckbox.checked = states.thickLines;
+        // Don't apply effect here - it will be applied when G-code loads
+      }
+      if (translucentLinesCheckbox && 'translucentLines' in states) {
+        translucentLinesCheckbox.checked = states.translucentLines;
         // Don't apply effect here - it will be applied when G-code loads
       }
     }
@@ -452,6 +544,37 @@ function applyThickLinesEffect(isThick) {
       if (child.userData.originalTransparent !== undefined) {
         child.material.transparent = child.userData.originalTransparent;
       }
+    }
+  });
+}
+
+/**
+ * Apply or remove translucency to all G-code line segments.
+ * When enabled, sets opacity to 0.5 and transparent=true; when disabled, restores to 1.0.
+ */
+function applyTranslucentLinesEffect(isTranslucent) {
+  if (!gcodeObject) return;
+
+  gcodeObject.traverse(child => {
+    if (!(child instanceof THREE.LineSegments || child instanceof THREE.Line)) return;
+    if (!child.material) return;
+
+    // Preserve original transparency settings at first encounter
+    if (child.userData.originalTransparent === undefined) {
+      child.userData.originalTransparent = !!child.material.transparent;
+    }
+    if (child.userData.originalOpacity === undefined) {
+      child.userData.originalOpacity = (child.material.opacity !== undefined) ? child.material.opacity : 1;
+    }
+
+    if (isTranslucent) {
+      child.material.transparent = true;
+      child.material.opacity = 0.5;
+      child.material.needsUpdate = true;
+    } else {
+      child.material.transparent = child.userData.originalTransparent ?? false;
+      child.material.opacity = 1.0;
+      child.material.needsUpdate = true;
     }
   });
 }
@@ -1066,6 +1189,12 @@ function loadGCode(content, filename) {
   if (thickLinesCheckbox && thickLinesCheckbox.checked) {
     applyThickLinesEffect(true);
   }
+
+  // Apply translucent lines setting if it's enabled
+  const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
+  if (translucentLinesCheckbox && translucentLinesCheckbox.checked) {
+    applyTranslucentLinesEffect(true);
+  }
 }
 
 /**
@@ -1160,7 +1289,7 @@ function resetView() {
   if (gcodeObject) {
     centerCamera(gcodeObject);
   } else {
-    camera.position.set(100, 100, -100); // Moved Y axis to opposite side
+    camera.position.set(300, 200, -300); // Moved Y axis to opposite side
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();
@@ -1175,7 +1304,11 @@ function resetView() {
   document.querySelectorAll('.axis-checkbox').forEach(checkbox => {
     checkbox.checked = true;
     const axis = checkbox.dataset.axis;
-    if (axesLines) {
+    if (axis === 'grid') {
+      if (gridHelper) {
+        gridHelper.visible = true;
+      }
+    } else if (axesLines) {
       const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
       axesLines[axisIndex].visible = true;
     }
@@ -1186,6 +1319,11 @@ function resetView() {
   if (thickLinesCheckbox) {
     thickLinesCheckbox.checked = false;
     applyThickLinesEffect(false);
+  }
+  const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
+  if (translucentLinesCheckbox) {
+    translucentLinesCheckbox.checked = false; // default OFF
+    applyTranslucentLinesEffect(false);
   }
 
   // Reset layer sliders to show all layers
