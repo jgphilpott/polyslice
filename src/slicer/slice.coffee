@@ -1017,28 +1017,37 @@ module.exports =
                                         # it's a step/transition. The smaller one is the fully covered area.
                                         if aboveRatio < 0.9 or belowRatio < 0.9
 
-                                            # CRITICAL FIX for flipped dome with holes:
+                                            # CRITICAL FIX for orientation independence with holes:
                                             # We must distinguish between:
-                                            # 1. Pyramid step: 3x3 solid on 5x5 solid → regions similar in scale
-                                            # 2. Dome hole: small hole boundary on large solid → very different scales
+                                            # 1. Pyramid steps: solid regions of varying sizes (1x1, 3x3, 5x5)
+                                            #    - 1x1/3x3: 1/9 = 11% ratio
+                                            #    - 3x3/5x5: 9/25 = 36% ratio
+                                            # 2. Dome holes: hole boundary on solid
+                                            #    - Varies significantly across layers
                                             #
-                                            # Since both geometries have overlapping/contained bounds, we can only
-                                            # use size ratios. Empirically:
-                                            # - Pyramid 3x3/5x5: 9/25 = 36%
-                                            # - Dome 10mm radius hole in 25mm box: varies by layer, can be 10-40%
+                                            # Key insight: For pyramid, we're comparing TWO SOLID regions.
+                                            # For dome hole, we're comparing a HOLE (empty) with SOLID.
                                             #
-                                            # There's no perfect threshold. We'll use 35% as it's just below
-                                            # the pyramid ratio but above most hole ratios.
-                                            # This may still catch some dome layers with large holes, but it's
-                                            # better than the alternatives.
+                                            # Since we can't distinguish solid from hole geometrically,
+                                            # we use a conservative approach: only exclude if the smaller
+                                            # region is at least 10% of the larger AND less than 70% 
+                                            # (to avoid excluding continuous walls).
+                                            #
+                                            # This handles:
+                                            # - 1x1/3x3: 11% ✓ (just above 10%)
+                                            # - 3x3/5x5: 36% ✓  
+                                            # - Very small holes: <10% ✗ (not excluded)
+                                            # - Large holes close to solid size: may be included but filtered
+                                            #   by the 90% current layer filter below
                                             
                                             smallerArea = Math.min(aboveArea, belowArea)
                                             largerArea = Math.max(aboveArea, belowArea)
                                             sizeRatio = smallerArea / largerArea
                                             smallerRegion = if aboveArea <= belowArea then regionAbove else regionBelow
                                             
-                                            # Require smaller to be at least 35% of larger.
-                                            if sizeRatio >= 0.35
+                                            # Require smaller to be at least 10% of larger but less than 70%
+                                            # to filter out both tiny holes and regions that are too similar.
+                                            if sizeRatio >= 0.10 and sizeRatio < 0.70
                                             
                                                 # Use the SMALLER of the two covering regions as the fully covered area.
                                                 # This ensures we exclude the correct geometry regardless of orientation.
