@@ -1040,26 +1040,38 @@ module.exports =
                                             # - Large holes close to solid size: may be included but filtered
                                             #   by the 90% current layer filter below
                                             
+                                            # CRITICAL: Only treat as fully covered if the SMALLER region
+                                            # is from ABOVE (sitting on top of larger region below).
+                                            # 
+                                            # Correct cases:
+                                            # - Standard pyramid layer 46: 3x3 ABOVE, 5x5 BELOW → 3x3 covered ✓
+                                            # - Standard pyramid layer 96: 1x1 ABOVE, 3x3 BELOW → 1x1 covered ✓
+                                            # - Flipped pyramid layer 100: 3x3 ABOVE, 5x5 BELOW → 3x3 covered ✓
+                                            # - Flipped pyramid layer 50: 1x1 ABOVE, 3x3 BELOW → 1x1 covered ✓
+                                            #
+                                            # Incorrect cases (should NOT be marked as covered):
+                                            # - Flipped pyramid layer 50: 3x3 ABOVE (same), 1x1 BELOW → nothing covered ✗
+                                            # - Standard pyramid layer 50: 3x3 ABOVE (same), 1x1 BELOW → nothing covered ✗
+                                            #
+                                            # The rule: ONLY mark as fully covered if aboveArea < belowArea
+                                            # (smaller region from above sitting on larger region below)
+                                            
                                             smallerArea = Math.min(aboveArea, belowArea)
                                             largerArea = Math.max(aboveArea, belowArea)
                                             sizeRatio = smallerArea / largerArea
-                                            smallerRegion = if aboveArea <= belowArea then regionAbove else regionBelow
                                             
                                             # Require smaller to be at least 10% of larger but less than 70%
                                             # to filter out both tiny holes and regions that are too similar.
                                             if sizeRatio >= 0.10 and sizeRatio < 0.70
                                             
-                                                # Use the SMALLER of the two covering regions as the fully covered area.
-                                                # This ensures we exclude the correct geometry regardless of orientation.
-                                                if aboveArea <= belowArea
-
+                                                # ONLY use regionAbove if it's the smaller one (sitting on larger below).
+                                                # Do NOT mark anything as covered if the smaller region is below.
+                                                if aboveArea < belowArea
+                                                
+                                                    # Smaller region from above sitting on larger region below.
+                                                    # This is a fully covered area (pyramid step).
                                                     fullyCoveredRegions.push(regionAbove)
-
-                                                else
-
-                                                    fullyCoveredRegions.push(regionBelow)
-
-                                                break # Found a match, no need to check other regions from below.
+                                                    break
 
                 # Process fully covered regions into skin wall format for exclusion from skin infill.
                 # These regions are covered both above and below, so they should NOT get skin infill.
