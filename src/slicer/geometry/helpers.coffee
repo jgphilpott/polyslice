@@ -2647,7 +2647,7 @@ module.exports =
             catch error
                 # If polygon-clipping fails (e.g., invalid geometry), skip this skin area.
                 # Include skin area index and boundary point count for debugging.
-                console.warn("polygon-clipping difference failed for skin area #{skinAreaIndex} (#{skinPolygon[0].length} points): #{error.message}")
+                console.warn("subtractSkinAreasFromInfill: polygon-clipping difference failed for skin area #{skinAreaIndex} (#{skinPolygon[0].length} points): #{error.message}")
 
         # Convert result back to our path format: {x, y} objects.
         resultPaths = []
