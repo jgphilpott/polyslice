@@ -11,6 +11,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 let scene, camera, renderer, controls;
 let gcodeObject = null;
 let axesLines;
+let gridHelper = null;
 let allLayers = [];
 let layersByIndex = {}; // Map layer index to LineSegments
 let layerCount = 0; // Total number of actual layers from LAYER comments
@@ -64,6 +65,9 @@ function init() {
 
   // Add custom axes (longer and thicker).
   createAxes();
+
+  // Add grid helper.
+  createGridHelper();
 
   // Add legend.
   createLegend();
@@ -140,6 +144,23 @@ function createAxes() {
 }
 
 /**
+ * Create grid helper on the XY plane.
+ */
+function createGridHelper() {
+  const size = 200; // Grid size (200x200 units)
+  const divisions = 20; // 20 divisions (creates 10mm spacing for typical build plates)
+  const colorCenterLine = 0x888888; // Light gray for center lines
+  const colorGrid = 0x444444; // Darker gray for grid lines
+
+  // GridHelper creates a grid on the XZ plane by default in Three.js
+  // Since G-code Y maps to Three.js Z, this gives us the XY plane grid we want
+  gridHelper = new THREE.GridHelper(size, divisions, colorCenterLine, colorGrid);
+
+  // The grid is already on the XY plane (Y=0) which is correct for the build plate
+  scene.add(gridHelper);
+}
+
+/**
  * Create the legends for movement types and axes.
  */
 function createLegend() {
@@ -162,6 +183,11 @@ function createLegend() {
                         <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
                         <div class="legend-color" style="background-color: #0000ff;"></div>
                         <span>Z Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="grid" checked />
+                        <div class="legend-color" style="background-color: #888888;"></div>
+                        <span>Grid Lines</span>
                     </div>
                 </div>
                 <div id="settings">
@@ -269,8 +295,13 @@ function setupAxisToggles() {
       // Save axis checkbox state to localStorage
       saveAxisCheckboxStates();
 
-      // Toggle visibility of the corresponding axis line
-      if (axesLines) {
+      // Toggle visibility of the corresponding axis line or grid
+      if (axis === 'grid') {
+        // Toggle grid visibility
+        if (gridHelper) {
+          gridHelper.visible = isVisible;
+        }
+      } else if (axesLines) {
         const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
         axesLines[axisIndex].visible = isVisible;
       }
@@ -361,8 +392,12 @@ function loadAxisCheckboxStates() {
         const axis = checkbox.dataset.axis;
         if (axis in states) {
           checkbox.checked = states[axis];
-          // Apply the visibility state to the axis line
-          if (axesLines) {
+          // Apply the visibility state to the axis line or grid
+          if (axis === 'grid') {
+            if (gridHelper) {
+              gridHelper.visible = checkbox.checked;
+            }
+          } else if (axesLines) {
             const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
             axesLines[axisIndex].visible = checkbox.checked;
           }
@@ -1175,7 +1210,11 @@ function resetView() {
   document.querySelectorAll('.axis-checkbox').forEach(checkbox => {
     checkbox.checked = true;
     const axis = checkbox.dataset.axis;
-    if (axesLines) {
+    if (axis === 'grid') {
+      if (gridHelper) {
+        gridHelper.visible = true;
+      }
+    } else if (axesLines) {
       const axisIndex = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
       axesLines[axisIndex].visible = true;
     }
