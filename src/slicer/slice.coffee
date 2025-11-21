@@ -1058,7 +1058,8 @@ module.exports =
                         # Use the original currentPath for infill to keep coverage consistent,
                         # but require that an inset path exists as a guard to ensure there is room inside.
                         # Pass hole inner walls for clipping and hole outer walls for travel optimization.
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
+                        # Pass skin areas to exclude them from regular infill (prevents overlap with skin patches).
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls, skinAreas)
 
                     # Generate skin ONLY in the exposed areas.
                     # Pass combined skin walls (holes + fully covered regions) for clipping and hole outer walls for travel path optimization.

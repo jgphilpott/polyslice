@@ -2305,3 +2305,124 @@ describe 'Travel Path Optimization', ->
             expect(Math.abs(smoothedCentroid.y - originalCentroid.y)).toBeLessThan(1)
             undefined
 
+describe 'subtractSkinAreasFromInfill', ->
+
+    it 'returns original boundary when no skin areas provided', ->
+
+        infillBoundary = [
+            { x: 0, y: 0 }
+            { x: 10, y: 0 }
+            { x: 10, y: 10 }
+            { x: 0, y: 10 }
+        ]
+
+        result = helpers.subtractSkinAreasFromInfill(infillBoundary, [])
+
+        expect(result).toHaveLength(1)
+        expect(result[0]).toHaveLength(4)
+        expect(result[0][0].x).toBeCloseTo(0, 5)
+        expect(result[0][0].y).toBeCloseTo(0, 5)
+
+    it 'subtracts a single skin area from infill boundary', ->
+
+        # Infill boundary: 10x10 square.
+        infillBoundary = [
+            { x: 0, y: 0 }
+            { x: 10, y: 0 }
+            { x: 10, y: 10 }
+            { x: 0, y: 10 }
+        ]
+
+        # Skin area: 5x5 square in the center (offset by 2.5 from edges).
+        skinArea = [
+            { x: 2.5, y: 2.5 }
+            { x: 7.5, y: 2.5 }
+            { x: 7.5, y: 7.5 }
+            { x: 2.5, y: 7.5 }
+        ]
+
+        result = helpers.subtractSkinAreasFromInfill(infillBoundary, [skinArea])
+
+        # Result should be a single polygon with a hole.
+        # polygon-clipping returns the outer boundary with the hole subtracted.
+        expect(result.length).toBeGreaterThan(0)
+
+        # The result should have points (outer boundary).
+        expect(result[0].length).toBeGreaterThan(0)
+
+    it 'subtracts multiple skin areas from infill boundary', ->
+
+        # Infill boundary: 20x20 square.
+        infillBoundary = [
+            { x: 0, y: 0 }
+            { x: 20, y: 0 }
+            { x: 20, y: 20 }
+            { x: 0, y: 20 }
+        ]
+
+        # Two skin areas: two 5x5 squares.
+        skinArea1 = [
+            { x: 2, y: 2 }
+            { x: 7, y: 2 }
+            { x: 7, y: 7 }
+            { x: 2, y: 7 }
+        ]
+
+        skinArea2 = [
+            { x: 13, y: 13 }
+            { x: 18, y: 13 }
+            { x: 18, y: 18 }
+            { x: 13, y: 18 }
+        ]
+
+        result = helpers.subtractSkinAreasFromInfill(infillBoundary, [skinArea1, skinArea2])
+
+        # Result should have at least one polygon.
+        expect(result.length).toBeGreaterThan(0)
+
+    it 'returns empty array when skin area covers entire infill boundary', ->
+
+        # Infill boundary: 10x10 square.
+        infillBoundary = [
+            { x: 0, y: 0 }
+            { x: 10, y: 0 }
+            { x: 10, y: 10 }
+            { x: 0, y: 10 }
+        ]
+
+        # Skin area: same 10x10 square (complete coverage).
+        skinArea = [
+            { x: 0, y: 0 }
+            { x: 10, y: 0 }
+            { x: 10, y: 10 }
+            { x: 0, y: 10 }
+        ]
+
+        result = helpers.subtractSkinAreasFromInfill(infillBoundary, [skinArea])
+
+        # Result should be empty when skin covers entire infill.
+        expect(result).toHaveLength(0)
+
+    it 'handles degenerate skin areas gracefully', ->
+
+        # Infill boundary: 10x10 square.
+        infillBoundary = [
+            { x: 0, y: 0 }
+            { x: 10, y: 0 }
+            { x: 10, y: 10 }
+            { x: 0, y: 10 }
+        ]
+
+        # Degenerate skin area: line (not a valid polygon).
+        skinArea = [
+            { x: 5, y: 5 }
+            { x: 5, y: 5 }
+        ]
+
+        result = helpers.subtractSkinAreasFromInfill(infillBoundary, [skinArea])
+
+        # Should return original boundary when skin area is degenerate.
+        expect(result).toHaveLength(1)
+        expect(result[0]).toHaveLength(4)
+
+

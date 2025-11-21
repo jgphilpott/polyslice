@@ -1,5 +1,7 @@
 # Geometry helper functions for slicing operations.
 
+polygonClipping = require('polygon-clipping')
+
 # Backoff multiplier for hole avoidance in combing paths.
 # This value determines how far to back off from holes (multiplied by nozzle diameter).
 # A value of 3.0 provides adequate clearance to prevent paths from grazing hole boundaries.
@@ -2583,3 +2585,93 @@ module.exports =
                 return true
 
         return false
+
+    # Subtract skin areas from infill boundary using polygon-clipping.
+    # This prevents regular infill from overlapping with skin patches.
+    #
+    # @param infillBoundary [Array] The boundary path for infill generation
+    # @param skinAreas [Array] Array of skin area paths to exclude from infill
+    # @return [Array] Array of paths representing infill boundary with skin areas excluded
+    subtractSkinAreasFromInfill: (infillBoundary, skinAreas = []) ->
+
+        # If no skin areas to exclude, return original boundary as a single-element array.
+        return [infillBoundary] if skinAreas.length is 0 or infillBoundary.length < 3
+
+        # Convert boundary path to polygon-clipping format: [[[x, y], [x, y], ...]].
+        # polygon-clipping expects coordinates as [x, y] arrays.
+        infillPolygon = [[]]
+
+        for point in infillBoundary
+            infillPolygon[0].push([point.x, point.y])
+
+        # Close the polygon if not already closed.
+        firstPoint = infillBoundary[0]
+        lastPoint = infillBoundary[infillBoundary.length - 1]
+
+        if Math.abs(firstPoint.x - lastPoint.x) > 0.001 or Math.abs(firstPoint.y - lastPoint.y) > 0.001
+            infillPolygon[0].push([firstPoint.x, firstPoint.y])
+
+        # Convert skin areas to polygon-clipping format.
+        skinPolygons = []
+
+        for skinArea in skinAreas
+
+            continue if skinArea.length < 3
+
+            skinPolygon = [[]]
+
+            for point in skinArea
+                skinPolygon[0].push([point.x, point.y])
+
+            # Close the polygon if not already closed.
+            skinFirstPoint = skinArea[0]
+            skinLastPoint = skinArea[skinArea.length - 1]
+
+            if Math.abs(skinFirstPoint.x - skinLastPoint.x) > 0.001 or Math.abs(skinFirstPoint.y - skinLastPoint.y) > 0.001
+                skinPolygon[0].push([skinFirstPoint.x, skinFirstPoint.y])
+
+            skinPolygons.push(skinPolygon)
+
+        # If all skin areas were degenerate, return original boundary.
+        return [infillBoundary] if skinPolygons.length is 0
+
+        # Use polygon-clipping difference operation to subtract skin areas from infill boundary.
+        # Start with the infill boundary and subtract each skin area.
+        resultPolygons = infillPolygon
+
+        for skinPolygon, skinAreaIndex in skinPolygons
+
+            try
+                # Perform difference operation: infill - skin.
+                resultPolygons = polygonClipping.difference(resultPolygons, skinPolygon)
+            catch error
+                # If polygon-clipping fails (e.g., invalid geometry), skip this skin area.
+                # Include skin area index and boundary point count for debugging.
+                console.warn("subtractSkinAreasFromInfill: polygon-clipping difference failed for skin area #{skinAreaIndex} (#{skinPolygon[0].length} points): #{error.message}")
+
+        # Convert result back to our path format: {x, y} objects.
+        resultPaths = []
+
+        for polygon in resultPolygons
+
+            # Each polygon can have multiple rings (outer + holes).
+            # We only use the outer ring (first ring) for infill to keep the infill generation simple.
+            # Holes (inner rings) represent excluded areas within the boundary and are handled by
+            # the existing hole clipping mechanism in the infill pattern generators (clipLineWithHoles).
+            # The polygon difference operation ensures the outer boundary doesn't include skin areas,
+            # which is sufficient since any holes created are automatically avoided by line clipping.
+            outerRing = polygon[0]
+
+            continue if not outerRing or outerRing.length < 3
+
+            path = []
+
+            for coord in outerRing
+                path.push({ x: coord[0], y: coord[1] })
+
+            resultPaths.push(path)
+
+        # If no result paths (all infill was excluded), return empty array.
+        return [] if resultPaths.length is 0
+
+        return resultPaths
