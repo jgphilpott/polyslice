@@ -80,10 +80,10 @@ module.exports =
         baseSpacing = nozzleDiameter / (infillDensity / 100.0)
 
         # Generate infill for each boundary (may be multiple if skin areas were subtracted).
-        for infillBoundary in infillBoundaries
+        for currentBoundary in infillBoundaries
 
             # Skip degenerate boundaries.
-            continue if infillBoundary.length < 3
+            continue if currentBoundary.length < 3
 
             if infillPattern is 'grid'
 
@@ -93,7 +93,7 @@ module.exports =
                 # This gives 10% in each direction, totaling 20% combined.
                 lineSpacing = baseSpacing * 2.0
 
-                gridPattern.generateGridInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+                gridPattern.generateGridInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
             else if infillPattern is 'triangles'
 
@@ -103,7 +103,7 @@ module.exports =
                 # This gives ~6.67% in each direction, totaling 20% combined.
                 lineSpacing = baseSpacing * 3.0
 
-                trianglesPattern.generateTrianglesInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+                trianglesPattern.generateTrianglesInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
             else if infillPattern is 'hexagons'
 
@@ -113,4 +113,4 @@ module.exports =
                 # This gives ~6.67% in each direction, totaling 20% combined.
                 lineSpacing = baseSpacing * 3.0
 
-                hexagonsPattern.generateHexagonsInfill(slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+                hexagonsPattern.generateHexagonsInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)

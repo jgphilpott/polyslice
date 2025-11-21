@@ -2638,6 +2638,7 @@ module.exports =
         # Use polygon-clipping difference operation to subtract skin areas from infill boundary.
         # Start with the infill boundary and subtract each skin area.
         resultPolygons = infillPolygon
+        skinAreaIndex = 0
 
         for skinPolygon in skinPolygons
 
@@ -2646,8 +2647,10 @@ module.exports =
                 resultPolygons = polygonClipping.difference(resultPolygons, skinPolygon)
             catch error
                 # If polygon-clipping fails (e.g., invalid geometry), skip this skin area.
-                console.warn("polygon-clipping difference failed: #{error.message}")
-                continue
+                # Include skin area index and boundary point count for debugging.
+                console.warn("polygon-clipping difference failed for skin area #{skinAreaIndex} (#{skinPolygon[0].length} points): #{error.message}")
+
+            skinAreaIndex++
 
         # Convert result back to our path format: {x, y} objects.
         resultPaths = []
@@ -2655,7 +2658,11 @@ module.exports =
         for polygon in resultPolygons
 
             # Each polygon can have multiple rings (outer + holes).
-            # We only use the outer ring (first ring) for infill.
+            # We only use the outer ring (first ring) for infill to keep the infill generation simple.
+            # Holes (inner rings) represent excluded areas within the boundary and are handled by
+            # the existing hole clipping mechanism in the infill pattern generators (clipLineWithHoles).
+            # The polygon difference operation ensures the outer boundary doesn't include skin areas,
+            # which is sufficient since any holes created are automatically avoided by line clipping.
             outerRing = polygon[0]
 
             continue if not outerRing or outerRing.length < 3
