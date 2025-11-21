@@ -200,6 +200,17 @@ function createLegend() {
   const legendHTML = `
         <div class="legend-container">
             <div>
+                <div id="settings">
+                    <h3>Settings</h3>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
+                        <span>Thick Lines</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="translucent-lines-checkbox" />
+                        <span>Translucent Lines</span>
+                    </div>
+                </div>
                 <div id="axes-legend">
                     <h3>Axes and Grid</h3>
                     <div class="legend-item">
@@ -221,13 +232,6 @@ function createLegend() {
                         <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="grid" checked />
                         <div class="legend-color" style="background-color: #888888;"></div>
                         <span>Grid Lines</span>
-                    </div>
-                </div>
-                <div id="settings">
-                    <h3>Settings</h3>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
-                        <span>Thick Lines</span>
                     </div>
                 </div>
             </div>
@@ -347,6 +351,7 @@ function setupAxisToggles() {
  */
 function setupSettingsToggles() {
   const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+  const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
 
   // Load saved settings from localStorage
   loadSettingsStates();
@@ -360,6 +365,16 @@ function setupSettingsToggles() {
 
       // Apply thick lines effect to all G-code line segments
       applyThickLinesEffect(isThick);
+    });
+  }
+
+  if (translucentLinesCheckbox) {
+    translucentLinesCheckbox.addEventListener('change', (event) => {
+      const isTranslucent = event.target.checked;
+      // Save settings state to localStorage
+      saveSettingsStates();
+      // Apply translucency to all G-code line segments
+      applyTranslucentLinesEffect(isTranslucent);
     });
   }
 }
@@ -448,8 +463,12 @@ function loadAxisCheckboxStates() {
 function saveSettingsStates() {
   const states = {};
   const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+  const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
   if (thickLinesCheckbox) {
     states.thickLines = thickLinesCheckbox.checked;
+  }
+  if (translucentLinesCheckbox) {
+    states.translucentLines = translucentLinesCheckbox.checked;
   }
   try {
     localStorage.setItem('visualizer-settings-states', JSON.stringify(states));
@@ -467,8 +486,13 @@ function loadSettingsStates() {
     if (saved) {
       const states = JSON.parse(saved);
       const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
+      const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
       if (thickLinesCheckbox && 'thickLines' in states) {
         thickLinesCheckbox.checked = states.thickLines;
+        // Don't apply effect here - it will be applied when G-code loads
+      }
+      if (translucentLinesCheckbox && 'translucentLines' in states) {
+        translucentLinesCheckbox.checked = states.translucentLines;
         // Don't apply effect here - it will be applied when G-code loads
       }
     }
@@ -520,6 +544,37 @@ function applyThickLinesEffect(isThick) {
       if (child.userData.originalTransparent !== undefined) {
         child.material.transparent = child.userData.originalTransparent;
       }
+    }
+  });
+}
+
+/**
+ * Apply or remove translucency to all G-code line segments.
+ * When enabled, sets opacity to 0.5 and transparent=true; when disabled, restores to 1.0.
+ */
+function applyTranslucentLinesEffect(isTranslucent) {
+  if (!gcodeObject) return;
+
+  gcodeObject.traverse(child => {
+    if (!(child instanceof THREE.LineSegments || child instanceof THREE.Line)) return;
+    if (!child.material) return;
+
+    // Preserve original transparency settings at first encounter
+    if (child.userData.originalTransparent === undefined) {
+      child.userData.originalTransparent = !!child.material.transparent;
+    }
+    if (child.userData.originalOpacity === undefined) {
+      child.userData.originalOpacity = (child.material.opacity !== undefined) ? child.material.opacity : 1;
+    }
+
+    if (isTranslucent) {
+      child.material.transparent = true;
+      child.material.opacity = 0.5;
+      child.material.needsUpdate = true;
+    } else {
+      child.material.transparent = child.userData.originalTransparent ?? false;
+      child.material.opacity = 1.0;
+      child.material.needsUpdate = true;
     }
   });
 }
@@ -1134,6 +1189,12 @@ function loadGCode(content, filename) {
   if (thickLinesCheckbox && thickLinesCheckbox.checked) {
     applyThickLinesEffect(true);
   }
+
+  // Apply translucent lines setting if it's enabled
+  const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
+  if (translucentLinesCheckbox && translucentLinesCheckbox.checked) {
+    applyTranslucentLinesEffect(true);
+  }
 }
 
 /**
@@ -1258,6 +1319,11 @@ function resetView() {
   if (thickLinesCheckbox) {
     thickLinesCheckbox.checked = false;
     applyThickLinesEffect(false);
+  }
+  const translucentLinesCheckbox = document.getElementById('translucent-lines-checkbox');
+  if (translucentLinesCheckbox) {
+    translucentLinesCheckbox.checked = false; // default OFF
+    applyTranslucentLinesEffect(false);
   }
 
   // Reset layer sliders to show all layers

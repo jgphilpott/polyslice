@@ -265,20 +265,23 @@ body {
 #legend,
 #axes-legend,
 #settings {
-  background: rgba(0, 0, 0, 0.8);
-  padding: 15px;
+  padding: 10px;
   border-radius: 8px;
   border: 1px solid #ffffff42;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+#legend {
+    height: 240px;
 }
 
 #axes-legend {
-    max-height: 160px;
+    height: 135px;
+    margin-top: 15px;
 }
 
 #settings {
-    margin-top: 15px;
-    max-height: 73px;
-    height: 73px;
+    height: 90px;
 }
 
 #legend h3,
