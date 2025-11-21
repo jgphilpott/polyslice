@@ -2638,9 +2638,8 @@ module.exports =
         # Use polygon-clipping difference operation to subtract skin areas from infill boundary.
         # Start with the infill boundary and subtract each skin area.
         resultPolygons = infillPolygon
-        skinAreaIndex = 0
 
-        for skinPolygon in skinPolygons
+        for skinPolygon, skinAreaIndex in skinPolygons
 
             try
                 # Perform difference operation: infill - skin.
@@ -2649,8 +2648,6 @@ module.exports =
                 # If polygon-clipping fails (e.g., invalid geometry), skip this skin area.
                 # Include skin area index and boundary point count for debugging.
                 console.warn("polygon-clipping difference failed for skin area #{skinAreaIndex} (#{skinPolygon[0].length} points): #{error.message}")
-
-            skinAreaIndex++
 
         # Convert result back to our path format: {x, y} objects.
         resultPaths = []

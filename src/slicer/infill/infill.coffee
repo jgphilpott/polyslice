@@ -41,7 +41,7 @@ module.exports =
         # This prevents regular infill from overlapping with skin patches on mixed layers.
         infillBoundaries = []
 
-        if skinAreas? and skinAreas.length > 0
+        if skinAreas.length > 0
 
             # Use polygon-clipping to subtract skin areas from infill boundary.
             infillBoundaries = helpers.subtractSkinAreasFromInfill(infillBoundary, skinAreas)
