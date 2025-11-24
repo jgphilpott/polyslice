@@ -105,7 +105,7 @@ async function main() {
     bedTemperature: 0,
     layerHeight: 0.2,
     testStrip: false,
-    verbose: true
+    verbose: true,
   });
 
   console.log("Slicing model...");
