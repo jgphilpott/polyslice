@@ -93,10 +93,6 @@ async function main() {
   console.log(`- Vertices: ${pos ? pos.count : "unknown"}`);
   if (pos) console.log(`- Triangles (approx): ${triApprox}\n`);
 
-  // Enable mesh preprocessing for low-poly variants to improve skin infill generation.
-  // This uses Loop subdivision to increase triangle density in sparse regions.
-  const enablePreprocessing = variantSlug === "low-poly" || variantSlug === "very-low-poly";
-
   const slicer = new Polyslice({
     printer,
     filament,
@@ -109,12 +105,10 @@ async function main() {
     bedTemperature: 0,
     layerHeight: 0.2,
     testStrip: false,
-    verbose: true,
-    meshPreprocessing: enablePreprocessing
+    verbose: true
   });
 
   console.log("Slicing model...");
-  console.log(`- Mesh preprocessing: ${enablePreprocessing ? 'enabled' : 'disabled'}`);
   const t0 = Date.now();
   let gcode = slicer.slice(mesh);
   const dt = Date.now() - t0;
