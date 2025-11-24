@@ -1025,14 +1025,17 @@ module.exports =
 
                         fullyCoveredSkinWalls.push(fullyCoveredRegion)
 
+                # Calculate constants used for fully covered region processing.
+                infillGap = nozzleDiameter / 2
+                skinWallInset = nozzleDiameter
+                totalInsetForInfill = skinWallInset + infillGap
+
                 # Calculate expanded versions of fully covered skin walls for skin infill exclusion.
                 # The skin module will shrink these by infillGap (isHole=true processing).
                 # To exclude the full covered region, we need to expand them first.
                 fullyCoveredSkinWallsInset = []
 
                 if fullyCoveredSkinWalls.length > 0
-
-                    infillGap = nozzleDiameter / 2
 
                     for fullyCoveredSkinWall in fullyCoveredSkinWalls
 
@@ -1130,11 +1133,6 @@ module.exports =
                     # but do need a skin wall perimeter, and regular infill will fill the interior.
                     fullyCoveredInfillBoundaries = []
 
-                    # Calculate constants for infill boundary (used for all covered regions).
-                    infillGap = nozzleDiameter / 2
-                    skinWallInset = nozzleDiameter
-                    totalInset = skinWallInset + infillGap
-
                     for fullyCoveredSkinWall in fullyCoveredSkinWalls
 
                         continue if fullyCoveredSkinWall.length < 3
@@ -1156,7 +1154,7 @@ module.exports =
                         if infillDensity > 0
 
                             # Create the infill boundary inside the covered region (inset inward).
-                            coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInset, false)
+                            coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
 
                             if coveredInfillBoundary.length >= 3
                                 fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
