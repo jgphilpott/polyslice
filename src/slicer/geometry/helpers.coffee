@@ -404,10 +404,9 @@ module.exports =
 
             # If the original shape is too small to accommodate an inset of this distance
             # (i.e., diameter/width less than approximately 2 * insetDistance), then
-            # there is no room for an inner wall.
-            # For low-poly meshes, use the theoretical minimum (2 * insetDistance) without
-            # additional margin to maximize geometry coverage.
-            minRequiredDimension = 2 * insetDistance
+            # there is no room for an inner wall. Use a small margin to avoid flicker
+            # across adjacent layers due to floating-point noise.
+            minRequiredDimension = 2 * insetDistance + insetDistance * 0.2
 
             if originalWidth < minRequiredDimension or originalHeight < minRequiredDimension
 
@@ -432,10 +431,10 @@ module.exports =
             # - Holes: inset should be larger (hole boundary expands, shrinking the hole)
             #
             # We expect the bounding box to change by approximately 2 * insetDistance (both sides).
-            # However, due to geometric variations (corners, few vertices, irregular shapes in
-            # low-poly meshes), we use a very lenient threshold. Use 2% to catch only truly
-            # degenerate cases while allowing valid irregular geometry.
-            expectedSizeChange = insetDistance * 2 * 0.02
+            # However, due to geometric variations (corners, few vertices, etc.), we use a lenient threshold.
+            # If the change is not at least 10% of expected, reject it.
+            # This 10% threshold accounts for edge cases like sphere poles or cone tips.
+            expectedSizeChange = insetDistance * 2 * 0.1
 
             if isHole
 
