@@ -990,11 +990,11 @@ module.exports =
                                             smallerArea = Math.min(aboveArea, belowArea)
                                             largerArea = Math.max(aboveArea, belowArea)
                                             sizeRatio = smallerArea / largerArea
-                                            
+
                                             # Filter: size ratio 10-70% (excludes tiny holes and similar-sized regions).
                                             # Only mark as covered when smaller region is from above.
                                             if sizeRatio >= 0.10 and sizeRatio < 0.70 and aboveArea < belowArea
-                                            
+
                                                 fullyCoveredRegions.push(regionAbove)
                                                 break
 
@@ -1026,7 +1026,7 @@ module.exports =
                         fullyCoveredSkinWalls.push(fullyCoveredRegion)
 
                 # Calculate constants used for fully covered region processing.
-                infillGap = nozzleDiameter / 2
+                infillGap = 0
                 skinWallInset = nozzleDiameter
                 totalInsetForInfill = skinWallInset + infillGap
 
