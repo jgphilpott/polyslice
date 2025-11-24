@@ -1048,10 +1048,10 @@ module.exports =
                         continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
-                        # Pass hole skin walls and fully covered skin walls separately.
-                        # The skin module will apply correct offset direction for each:
+                        # Pass hole skin walls and fully covered boundaries separately.
+                        # The skin module will expand both outward to create exclusion zones:
                         # - Hole walls: expanded outward (shrink the hole)
-                        # - Covered area walls: inset inward (shrink the covered region)
+                        # - Covered area boundaries: expanded outward (prevent infill from entering)
                         # This ensures skin infill is only generated in truly exposed areas with proper gaps.
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
 
@@ -1104,10 +1104,10 @@ module.exports =
                         continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
-                        # Pass hole skin walls and fully covered skin walls separately.
-                        # The skin module will apply correct offset direction for each:
+                        # Pass hole skin walls and fully covered boundaries separately.
+                        # The skin module will expand both outward to create exclusion zones:
                         # - Hole walls: expanded outward (shrink the hole)
-                        # - Covered area walls: inset inward (shrink the covered region)
+                        # - Covered area boundaries: expanded outward (prevent infill from entering)
                         # This ensures skin infill is only generated in truly exposed areas with proper gaps.
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
 

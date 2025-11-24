@@ -9,7 +9,7 @@ module.exports =
     # If generateInfill is false, only skin walls are generated (useful for holes).
     # holeSkinWalls: Array of hole skin wall paths to exclude from skin infill.
     # holeOuterWalls: Array of hole outer wall paths for travel path optimization (avoiding holes).
-    # coveredAreaSkinWalls: Array of covered area skin wall paths to exclude from skin infill (inset inward, not outward like holes).
+    # coveredAreaSkinWalls: Array of covered area boundaries to exclude from skin infill (expanded outward, same as holes).
     # isCoveredArea: Boolean indicating if this is a covered area (not a real hole), which affects offset direction.
     generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = [], holeOuterWalls = [], coveredAreaSkinWalls = [], isCoveredArea = false) ->
 
@@ -290,8 +290,8 @@ module.exports =
             if intersections.length >= 2
 
                 # Clip the line segment to the actual infill boundary polygon.
-                # Also exclude hole areas and covered areas by clipping against their skin walls with gap.
-                # Holes are expanded outward, covered areas are inset inward.
+                # Also exclude hole areas and covered areas by clipping against their boundaries with gap.
+                # Both holes and covered areas are expanded outward to create exclusion zones.
                 # This ensures skin infill stays within the boundary and outside holes/covered areas with proper clearance.
                 allExclusionWalls = holeSkinWallsWithGap.concat(coveredAreaSkinWallsWithGap)
                 clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, allExclusionWalls)
