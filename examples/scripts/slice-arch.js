@@ -141,6 +141,7 @@ async function main() {
         testStrip: false,
         verbose: true,
         supportEnabled: false,
+        metadata: false,
         supportType: "normal",
         supportPlacement: "buildPlate",
         supportThreshold: 45
@@ -159,86 +160,104 @@ async function main() {
     console.log(`- Support Threshold: ${slicer.getSupportThreshold()}°`);
     console.log(`- Verbose Comments: ${slicer.getVerbose() ? "Enabled" : "Disabled"}\n`);
 
-    // Slice the model with support generation.
-    console.log("Slicing model with support generation...");
-    const startTime = Date.now();
-    const gcode = slicer.slice(mesh);
-    const endTime = Date.now();
+    // Slice and save outputs
+    if (useStl) {
+        // STL mode: single output to examples/output without '-with-supports'
+        console.log("Slicing STL model...");
+        const startTime = Date.now();
+        const gcode = slicer.slice(mesh);
+        const endTime = Date.now();
+        console.log(`Slicing completed in ${endTime - startTime}ms\n`);
 
-    console.log(`Slicing completed in ${endTime - startTime}ms\n`);
+        // Analyze and save
+        const lines = gcode.split("\n");
+        const layerLines = lines.filter(line => line.includes("LAYER:"));
+        const supportLines = lines.filter(line => line.toLowerCase().includes("support"));
 
-    // Analyze the G-code output.
-    const lines = gcode.split("\n");
-    const layerLines = lines.filter(line => line.includes("LAYER:"));
-    const supportLines = lines.filter(line => line.toLowerCase().includes("support"));
-
-    console.log("G-code Analysis:");
-    console.log(`- Total lines: ${lines.length}`);
-    console.log(`- Layers: ${layerLines.length}`);
-    console.log(`- Support-related lines: ${supportLines.length}\n`);
-
-    // Save G-code to file.
-    const outputDir = path.join(__dirname, "..", "output");
-
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    const baseName = useStl ? "block-with-supports" : "arch-with-supports";
-    const gcodePath = path.join(outputDir, `${baseName}.gcode`);
-    const outputStlPath = path.join(outputDir, `${baseName}.stl`);
-    fs.writeFileSync(gcodePath, gcode);
-
-    // Export STL for the mesh used (mirrors slice-holes behavior)
-    try {
-        await exportMeshAsSTL(mesh, outputStlPath);
-        console.log(`🧊 STL saved to: ${outputStlPath}`);
-    } catch (e) {
-        console.warn(`⚠️  Failed to export STL: ${e.message}`);
-    }
-
-    console.log(`✅ G-code saved to: ${gcodePath}\n`);
-
-    // Display support generation info.
-    if (supportLines.length > 0) {
-    console.log("Support Generation Details:");
-        supportLines.slice(0, 10).forEach(line => {
-            console.log(`  ${line.trim()}`);
-        });
-
-        if (supportLines.length > 10) {
-            console.log(`  ... (${supportLines.length - 10} more support lines)\n`);
+        const outputDir = path.join(__dirname, "..", "output");
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
         }
+        const baseName = "block";
+        const gcodePath = path.join(outputDir, `${baseName}.gcode`);
+        const outputStlPath = path.join(outputDir, `${baseName}.stl`);
+        fs.writeFileSync(gcodePath, gcode);
+
+        try {
+            await exportMeshAsSTL(mesh, outputStlPath);
+            console.log(`🧊 STL saved to: ${outputStlPath}`);
+        } catch (e) {
+            console.warn(`⚠️  Failed to export STL: ${e.message}`);
+        }
+        console.log(`✅ G-code saved to: ${gcodePath}\n`);
+
+        // Brief summary
+        console.log("G-code Analysis:");
+        console.log(`- Total lines: ${lines.length}`);
+        console.log(`- Layers: ${layerLines.length}`);
+        console.log(`- Support-related lines: ${supportLines.length}\n`);
     } else {
-    console.log("⚠️  No support structures detected in G-code\n");
-    }
-
-    // Display some layer information.
-        console.log("Layer Information:");
-    const sampleLayers = layerLines.slice(0, 5);
-    sampleLayers.forEach(line => {
-        console.log(`- ${line.trim()}`);
-    });
-
-    if (layerLines.length > 5) {
-        console.log(`... (${layerLines.length - 5} more layers)\n`);
-    }
-
-        console.log("✅ Support generation example completed successfully!");
-        console.log("\nNotes:");
-        console.log("- If no supports were generated, the model may not have overhangs");
-        if (useStl) {
-            console.log("- The block.test.stl is a simple rectangular block without overhangs");
-            console.log("- Try the strip.test.stl file which may have overhanging features");
-        } else {
-            console.log("- The CSG arch subtracts a cylinder to create a semi-circular opening");
-            console.log("- Tweak ARCH_* params at top to adjust width/height/radius");
+        // CSG mode: produce three orientations into resources/gcode/skin/arch
+        const outputDir = path.join(__dirname, "..", "..", "resources", "gcode", "skin", "arch");
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
         }
-        console.log("\nNext steps:");
-        console.log("- Load the G-code in a visualizer to inspect the sliced model");
-        console.log("- Try different support thresholds (30°, 45°, 60°) to see the effect");
-        console.log("- Create or load models with overhangs to test support generation");
-        console.log("- Experiment with supportPlacement: \"buildPlate\" vs \"everywhere\"");
+
+        const orientations = [
+            { name: "upright", rotY: 0 },
+            { name: "flipped", rotY: Math.PI },
+            { name: "sideways", rotY: Math.PI / 2 },
+        ];
+
+        for (const o of orientations) {
+            // Clone mesh to avoid mutating base orientation
+            const variant = new THREE.Mesh(mesh.geometry.clone(), mesh.material);
+            variant.position.copy(mesh.position);
+            variant.rotation.copy(mesh.rotation);
+            variant.scale.copy(mesh.scale);
+            variant.rotation.y += o.rotY;
+            variant.updateMatrixWorld(true);
+
+            console.log(`Slicing (${o.name})...`);
+            const start = Date.now();
+            const gcode = slicer.slice(variant);
+            const end = Date.now();
+            console.log(`- Done in ${end - start}ms`);
+
+            const outPath = path.join(outputDir, `${o.name}.gcode`);
+            fs.writeFileSync(outPath, gcode);
+            console.log(`✅ Saved: ${outPath}`);
+        }
+
+        // Export a single STL (upright) to examples/output
+        const stlOutDir = path.join(__dirname, "..", "output");
+        if (!fs.existsSync(stlOutDir)) {
+            fs.mkdirSync(stlOutDir, { recursive: true });
+        }
+        const stlPathOut = path.join(stlOutDir, "arch.stl");
+        try {
+            await exportMeshAsSTL(mesh, stlPathOut);
+            console.log(`🧊 STL saved to: ${stlPathOut}`);
+        } catch (e) {
+            console.warn(`⚠️  Failed to export STL: ${e.message}`);
+        }
+    }
+
+    console.log("\n✅ Support generation example completed successfully!");
+    console.log("\nNotes:");
+    console.log("- If no supports were generated, the model may not have overhangs");
+    if (useStl) {
+        console.log("- The block.test.stl is a simple rectangular block without overhangs");
+        console.log("- Try the strip.test.stl file which may have overhanging features");
+    } else {
+        console.log("- The CSG arch subtracts a cylinder to create a semi-circular opening");
+        console.log("- Tweak ARCH_* params at top to adjust width/height/radius");
+    }
+    console.log("\nNext steps:");
+    console.log("- Load the G-code in a visualizer to inspect the sliced model");
+    console.log("- Try different support thresholds (30°, 45°, 60°) to see the effect");
+    console.log("- Create or load models with overhangs to test support generation");
+    console.log("- Experiment with supportPlacement: \"buildPlate\" vs \"everywhere\"");
 }
 
 // Run the main function

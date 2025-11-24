@@ -1,13 +1,18 @@
 /**
- * Example: slice a block "pyramid" built from unit cubes (no STL input).
- * Layers:
+ * Example: slice a block "pyramid" built from unit cubes (no STL input) and a cylindrical stack variant.
+ * Layers (pyramid):
  *   - Top: 1x1 cubes
  *   - Mid: 3x3 cubes
  *   - Base: 5x5 cubes
  *
- * Outputs:
- *   - examples/output/block-pyramid.gcode
- *   - examples/output/block-pyramid.stl
+ * Variants produced (G-code only):
+ *   - block.gcode                (upright pyramid)
+ *   - block-inverted.gcode       (pyramid rotated 180° about Y)
+ *   - cylindrical.gcode          (stack of 3 cylinders: large, medium, small)
+ *   - cylindrical-inverted.gcode (cylindrical variant rotated 180° about Y)
+ *
+ * Output directory:
+ *   resources/gcode/skin/pyramid
  */
 
 const { Polyslice, Printer, Filament } = require("../../src/index");
@@ -79,7 +84,39 @@ async function buildBlockPyramidMesh(cubeSize = 10) {
   const finalMesh = new THREE.Mesh(pyramidMesh.geometry, mat);
   finalMesh.position.set(0, 0, 0);
   finalMesh.updateMatrixWorld();
-//   finalMesh.rotation.y = Math.PI; // flip
+  return finalMesh;
+}
+
+/**
+ * Build a cylindrical "pyramid" (three stacked cylinders decreasing in radius).
+ */
+async function buildCylindricalStackMesh(unit = 5) {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x777777 });
+  const large = new THREE.CylinderGeometry(unit * 5, unit * 5, unit, 64);
+  const largeMesh = new THREE.Mesh(large, mat);
+  largeMesh.position.set(0, 0, 0); // base: centered, height unit
+  largeMesh.updateMatrixWorld();
+  largeMesh.rotation.x = Math.PI / 2;
+
+  const mid = new THREE.CylinderGeometry(unit * 3, unit * 3, unit, 64);
+  const midMesh = new THREE.Mesh(mid, mat);
+  midMesh.position.set(0, 0, unit);
+  midMesh.updateMatrixWorld();
+  midMesh.rotation.x = Math.PI / 2;
+
+  const top = new THREE.CylinderGeometry(unit, unit, unit, 64);
+  const topMesh = new THREE.Mesh(top, mat);
+  topMesh.position.set(0, 0, unit * 2);
+  topMesh.updateMatrixWorld();
+  topMesh.rotation.x = Math.PI / 2;
+
+  // Unite the three cylinders into one mesh
+  const temp = await Polytree.unite(largeMesh, midMesh);
+  const full = await Polytree.unite(temp, topMesh);
+  const finalMesh = new THREE.Mesh(full.geometry, mat);
+  finalMesh.position.set(0, 0, 0);
+  finalMesh.updateMatrixWorld();
+
   return finalMesh;
 }
 
@@ -119,7 +156,8 @@ async function main() {
     layerHeight: 0.2,
     testStrip: false,
     verbose: true,
-    supportEnabled: false
+    supportEnabled: false,
+    metadata: false
   });
 
   console.log("Slicer Configuration:");
@@ -128,41 +166,49 @@ async function main() {
   console.log(`- Infill: ${slicer.getInfillPattern()} ${slicer.getInfillDensity()}%`);
   console.log(`- Verbose: ${slicer.getVerbose() ? "On" : "Off"}\n`);
 
-  // Slice
-  console.log("Slicing pyramid...");
-  const t0 = Date.now();
-  const gcode = slicer.slice(mesh);
-  const dt = Date.now() - t0;
-  console.log(`✅ Sliced in ${dt} ms`);
+  // Build cylinder variant
+  console.log("Building cylindrical stack (three decreasing cylinders)...");
+  const cylMesh = await buildCylindricalStackMesh();
+  const cpos = cylMesh.geometry.attributes.position;
+  console.log("✅ Cylindrical mesh created");
+  console.log(`- Geometry: ${cylMesh.geometry.type}`);
+  console.log(`- Vertices: ${cpos ? cpos.count : "unknown"}`);
+  if (cpos) console.log(`- Triangles (approx): ${(cpos.count / 3) | 0}\n`);
 
-  // Save outputs
-  const outDir = path.join(__dirname, "..", "output");
+  // Output directory for G-code variants
+  const outDir = path.join(__dirname, "..", "..", "resources", "gcode", "skin", "pyramid");
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-  const baseName = "block-pyramid";
-  const gcodePath = path.join(outDir, `${baseName}.gcode`);
-  const stlPath = path.join(outDir, `${baseName}.stl`);
-  fs.writeFileSync(gcodePath, gcode);
+  const variants = [
+    { name: "block", mesh: mesh, rotY: 0 },
+    { name: "block-inverted", mesh: mesh, rotY: Math.PI },
+    { name: "cylindrical", mesh: cylMesh, rotY: 0 },
+    { name: "cylindrical-inverted", mesh: cylMesh, rotY: Math.PI },
+  ];
 
-  try {
-    await exportMeshAsSTL(mesh, stlPath);
-    const gsz = fs.statSync(gcodePath).size;
-    const ssz = fs.statSync(stlPath).size;
-    console.log(`🧾 G-code: ${gcodePath} (${formatBytes(gsz)})`);
-    console.log(`🧊 STL:    ${stlPath} (${formatBytes(ssz)})\n`);
-  } catch (e) {
-    console.warn(`⚠️  STL export failed: ${e.message}`);
-    const gsz = fs.statSync(gcodePath).size;
-    console.log(`🧾 G-code: ${gcodePath} (${formatBytes(gsz)})\n`);
+  for (const v of variants) {
+    console.log(`Slicing variant: ${v.name}`);
+    // Clone geometry + material (avoid mutating originals)
+    const variant = new THREE.Mesh(v.mesh.geometry.clone(), v.mesh.material);
+    variant.position.copy(v.mesh.position);
+    variant.rotation.copy(v.mesh.rotation);
+    variant.scale.copy(v.mesh.scale);
+    variant.rotation.y += v.rotY;
+    variant.updateMatrixWorld(true);
+    const tStart = Date.now();
+    const gcodeLocal = slicer.slice(variant);
+    const tEnd = Date.now();
+    console.log(`- Sliced in ${tEnd - tStart} ms`);
+    const filePath = path.join(outDir, `${v.name}.gcode`);
+    fs.writeFileSync(filePath, gcodeLocal);
+    const size = fs.statSync(filePath).size;
+    const lines = gcodeLocal.split("\n");
+    const layers = lines.filter(l => l.includes("LAYER:")).length;
+    console.log(`- Saved: ${filePath} (${formatBytes(size)})`);
+    console.log(`  Lines: ${lines.length}, Layers: ${layers}`);
   }
 
-  // Quick G-code stats
-  const lines = gcode.split("\n");
-  const layers = lines.filter(l => l.includes("LAYER:")).length;
-  console.log("G-code Summary:");
-  console.log(`- Lines: ${lines.length}`);
-  console.log(`- Layers: ${layers}`);
-  console.log("Done.");
+  console.log("\n✅ All variants sliced successfully.");
 }
 
 // Run

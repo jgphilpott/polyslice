@@ -105,6 +105,7 @@ async function main() {
     bedTemperature: 0,
     layerHeight: 0.2,
     testStrip: false,
+    metadata: false,
     verbose: true
   });
 
@@ -127,9 +128,12 @@ async function main() {
     `; Filament: ${filament.name} (${filament.type})`,
     ""
   ].filter(Boolean).join("\n");
-  gcode = meta + "\n" + gcode;
+  if (slicer.getMetadata()) {
+    gcode = meta + "\n" + gcode;
+  }
 
-  const outDir = path.join(__dirname, "../output");
+  // Save G-code into benchmarks directory
+  const outDir = path.join(__dirname, "..", "..", "resources", "gcode", "benchmarks");
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
   const outBase = `benchy.${variantSlug}.gcode`;
   const outPath = path.join(outDir, outBase);
