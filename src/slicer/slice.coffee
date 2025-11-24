@@ -1108,6 +1108,8 @@ module.exports =
                     # Generate skin walls (perimeter only, no infill) for fully covered regions.
                     # These areas have geometry both above and below, so they don't need skin infill
                     # but do need a skin wall perimeter, and regular infill will fill the interior.
+                    fullyCoveredInfillBoundaries = []
+
                     for fullyCoveredSkinWall in fullyCoveredSkinWalls
 
                         continue if fullyCoveredSkinWall.length < 3
@@ -1122,6 +1124,29 @@ module.exports =
                         # Use isCoveredArea=true to indicate this is a covered area (not a hole or exposed area).
                         # This ensures the correct offset direction for the skin wall.
                         skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], holeOuterWalls, true)
+
+                        # Calculate the boundary for regular infill inside this covered region.
+                        # The skin wall is inset by nozzleDiameter from the boundary.
+                        # We need to inset by another nozzleDiameter/2 for the infill gap.
+                        infillGap = nozzleDiameter / 2
+                        skinWallInset = nozzleDiameter
+                        totalInset = skinWallInset + infillGap
+
+                        # Create the infill boundary inside the covered region (inset inward).
+                        coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInset, false)
+
+                        if coveredInfillBoundary.length >= 3
+                            fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
+
+                    # Generate regular infill for fully covered regions.
+                    # This fills the interior of the covered regions with the regular infill pattern.
+                    if infillDensity > 0 and fullyCoveredInfillBoundaries.length > 0
+
+                        for coveredInfillBoundary in fullyCoveredInfillBoundaries
+
+                            # Generate infill inside this covered region boundary.
+                            # Use empty arrays for holes since we're inside a covered region.
+                            infillModule.generateInfillGCode(slicer, coveredInfillBoundary, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, [], holeOuterWalls, [])
 
             else
 
