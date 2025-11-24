@@ -744,3 +744,126 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             
             # Verify that infill lines don't get too close to the boundary.
             expect(minDistFromBoundary).toBeGreaterThan(expectedMinGap)
+
+        test 'should use covered area boundaries directly without offset for exclusion', ->
+
+            # Test that covered area boundaries are used as-is for skin infill exclusion.
+            # This verifies the fix where we removed the double offset issue.
+            cubeSize = 10
+
+            baseSlab = new THREE.BoxGeometry(5 * cubeSize, 5 * cubeSize, cubeSize)
+            baseSlabMesh = new THREE.Mesh(baseSlab, new THREE.MeshBasicMaterial())
+            baseSlabMesh.position.set(0, 0, 0)
+            baseSlabMesh.updateMatrixWorld()
+
+            topSlab = new THREE.BoxGeometry(3 * cubeSize, 3 * cubeSize, cubeSize)
+            topSlabMesh = new THREE.Mesh(topSlab, new THREE.MeshBasicMaterial())
+            topSlabMesh.position.set(0, 0, cubeSize)
+            topSlabMesh.updateMatrixWorld()
+
+            pyramidMesh = await Polytree.unite(baseSlabMesh, topSlabMesh)
+
+            finalMesh = new THREE.Mesh(pyramidMesh.geometry, pyramidMesh.material)
+            finalMesh.position.set(0, 0, 0)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setShellWallThickness(0.8)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Parse to verify that NO skin infill appears in the covered center area.
+            # The covered area boundary (from layer above) should be used directly
+            # as the exclusion zone, preventing any skin infill from entering.
+            lines = result.split('\n')
+            layer46Started = false
+            layer47Started = false
+            layer46SkinInfillLines = []
+
+            for line in lines
+
+                if line.includes('LAYER: 46')
+                    layer46Started = true
+                else if line.includes('LAYER: 47')
+                    layer47Started = true
+                    break
+                else if layer46Started and line.includes('Moving to skin infill line')
+                    layer46SkinInfillLines.push(line)
+
+            # Count infill in covered center area.
+            centerInfillCount = 0
+
+            for line in layer46SkinInfillLines
+
+                xMatch = line.match(/X([\d.]+)/)
+                yMatch = line.match(/Y([\d.]+)/)
+
+                if xMatch and yMatch
+
+                    xCoord = parseFloat(xMatch[1])
+                    yCoord = parseFloat(yMatch[1])
+
+                    # Covered area is approximately X=[95, 125], Y=[95, 125].
+                    if xCoord > 95 and xCoord < 125 and yCoord > 95 and yCoord < 125
+                        centerInfillCount += 1
+
+            # Verify exact exclusion - no infill in covered area.
+            # This confirms that covered area boundaries are used directly without offset.
+            expect(centerInfillCount).toBe(0)
+
+            # Verify skin infill exists in exposed areas.
+            expect(layer46SkinInfillLines.length).toBeGreaterThan(100)
+
+        test 'should handle multiple covered areas on same layer', ->
+
+            # Test that multiple covered areas are all properly excluded.
+            cubeSize = 10
+
+            # Create base layer with two separate covered regions.
+            baseSlab = new THREE.BoxGeometry(10 * cubeSize, 5 * cubeSize, cubeSize)
+            baseSlabMesh = new THREE.Mesh(baseSlab, new THREE.MeshBasicMaterial())
+            baseSlabMesh.position.set(0, 0, 0)
+            baseSlabMesh.updateMatrixWorld()
+
+            # Two small top slabs creating two covered areas.
+            topSlab1 = new THREE.BoxGeometry(2 * cubeSize, 2 * cubeSize, cubeSize)
+            topSlabMesh1 = new THREE.Mesh(topSlab1, new THREE.MeshBasicMaterial())
+            topSlabMesh1.position.set(-3 * cubeSize, 0, cubeSize)
+            topSlabMesh1.updateMatrixWorld()
+
+            topSlab2 = new THREE.BoxGeometry(2 * cubeSize, 2 * cubeSize, cubeSize)
+            topSlabMesh2 = new THREE.Mesh(topSlab2, new THREE.MeshBasicMaterial())
+            topSlabMesh2.position.set(3 * cubeSize, 0, cubeSize)
+            topSlabMesh2.updateMatrixWorld()
+
+            # Unite all three slabs.
+            tempMesh = await Polytree.unite(baseSlabMesh, topSlabMesh1)
+            pyramidMesh = await Polytree.unite(tempMesh, topSlabMesh2)
+
+            finalMesh = new THREE.Mesh(pyramidMesh.geometry, pyramidMesh.material)
+            finalMesh.position.set(0, 0, 0)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setShellWallThickness(0.8)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Count skin sections - should have multiple for exposed areas and covered areas.
+            skinSectionCount = (result.match(/TYPE: SKIN/g) || []).length
+
+            # Should have skin sections for:
+            # 1. Multiple exposed regions between covered areas
+            # 2. Each covered region
+            # Expect multiple skin sections.
+            expect(skinSectionCount).toBeGreaterThan(3)

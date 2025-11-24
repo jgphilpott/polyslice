@@ -9,8 +9,9 @@ module.exports =
     # If generateInfill is false, only skin walls are generated (useful for holes).
     # holeSkinWalls: Array of hole skin wall paths to exclude from skin infill.
     # holeOuterWalls: Array of hole outer wall paths for travel path optimization (avoiding holes).
+    # coveredAreaSkinWalls: Array of covered area boundaries to exclude from skin infill (used as-is without offset).
     # isCoveredArea: Boolean indicating if this is a covered area (not a real hole), which affects offset direction.
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = [], holeOuterWalls = [], isCoveredArea = false) ->
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = [], holeOuterWalls = [], coveredAreaSkinWalls = [], isCoveredArea = false) ->
 
         return if boundaryPath.length < 3
 
@@ -158,6 +159,19 @@ module.exports =
 
                     holeSkinWallsWithGap.push(holeSkinWallWithGap)
 
+        # Use covered area boundaries directly as exclusion zones.
+        # For covered areas (solid regions fully covered above and below), we use the boundary
+        # from the layer above without any additional offset. This prevents skin infill from
+        # entering the covered region while maintaining precise boundary alignment.
+        coveredAreaSkinWallsWithGap = []
+
+        for coveredAreaSkinWall in coveredAreaSkinWalls
+
+            if coveredAreaSkinWall.length >= 3
+
+                # Use the covered area boundary directly as the exclusion zone.
+                coveredAreaSkinWallsWithGap.push(coveredAreaSkinWall)
+
         # Calculate bounding box of infill area.
         minX = Infinity
         maxX = -Infinity
@@ -272,9 +286,11 @@ module.exports =
             if intersections.length >= 2
 
                 # Clip the line segment to the actual infill boundary polygon.
-                # Also exclude hole areas by clipping against hole skin walls with gap.
-                # This ensures skin infill stays within the boundary and outside holes with proper clearance.
-                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, holeSkinWallsWithGap)
+                # Also exclude hole areas and covered areas by clipping against their boundaries.
+                # Holes are expanded outward by infillGap, covered areas use boundaries as-is.
+                # This ensures skin infill stays within the boundary and outside holes/covered areas with proper clearance.
+                allExclusionWalls = holeSkinWallsWithGap.concat(coveredAreaSkinWallsWithGap)
+                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, allExclusionWalls)
 
                 # Store each clipped segment for later rendering.
                 for segment in clippedSegments
