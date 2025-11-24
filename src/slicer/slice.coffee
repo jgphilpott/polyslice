@@ -1072,10 +1072,12 @@ module.exports =
                                 continue if skinArea.length < 3
 
                                 # Subtract fully covered regions from this skin area.
+                                # Note: subtractSkinAreasFromInfill is a general polygon subtraction utility.
+                                # Here we use it to remove fully covered regions from skin areas.
                                 remainingAreas = helpers.subtractSkinAreasFromInfill(skinArea, fullyCoveredSkinWalls)
 
                                 # Add any remaining areas to the filtered list.
-                                filteredSkinAreas.push(remainingAreas...) if remainingAreas.length > 0
+                                filteredSkinAreas.push remainingAreas... if remainingAreas.length > 0
 
                             actualSkinAreasForInfill = filteredSkinAreas
 
