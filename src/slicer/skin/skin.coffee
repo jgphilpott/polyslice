@@ -170,8 +170,8 @@ module.exports =
 
             if coveredAreaSkinWall.length >= 3
 
-                # Create outset path for the covered area (isHole=true to expand outward).
-                coveredAreaSkinWallWithGap = helpers.createInsetPath(coveredAreaSkinWall, infillGap, true)
+                # Create outset path for the covered area (isHole=false to expand inward).
+                coveredAreaSkinWallWithGap = helpers.createInsetPath(coveredAreaSkinWall, infillGap, false)
 
                 if coveredAreaSkinWallWithGap.length >= 3
 
