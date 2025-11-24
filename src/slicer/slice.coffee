@@ -1025,6 +1025,29 @@ module.exports =
 
                         fullyCoveredSkinWalls.push(fullyCoveredRegion)
 
+                # Calculate constants used for fully covered region processing.
+                infillGap = 0
+                skinWallInset = nozzleDiameter
+                totalInsetForInfill = skinWallInset + infillGap
+
+                # Calculate expanded versions of fully covered skin walls for skin infill exclusion.
+                # The skin module will shrink these by infillGap (isHole=true processing).
+                # To exclude the full covered region, we need to expand them first.
+                fullyCoveredSkinWallsInset = []
+
+                if fullyCoveredSkinWalls.length > 0
+
+                    for fullyCoveredSkinWall in fullyCoveredSkinWalls
+
+                        continue if fullyCoveredSkinWall.length < 3
+
+                        # Expand the boundary outward so after shrinking by infillGap it covers the original region.
+                        # Use isHole=true to expand outward.
+                        expandedPath = helpers.createInsetPath(fullyCoveredSkinWall, infillGap, true)
+
+                        if expandedPath.length >= 3
+                            fullyCoveredSkinWallsInset.push(expandedPath)
+
                 # Combine hole and fully covered skin walls for exclusion.
                 combinedSkinWalls = holeSkinWalls.concat(fullyCoveredSkinWalls)
 
@@ -1042,11 +1065,11 @@ module.exports =
                         continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
-                        # Pass hole skin walls AND fully covered skin walls for infill clipping.
+                        # Pass hole skin walls AND fully covered skin walls (inset) for infill clipping.
                         # Hole skin walls exclude holes from skin infill.
-                        # Fully covered skin walls exclude areas that are covered both above and below.
+                        # Fully covered skin walls (inset) exclude covered regions with proper gap.
                         # This ensures skin infill is only generated in truly exposed areas.
-                        combinedExclusionWalls = holeSkinWalls.concat(fullyCoveredSkinWalls)
+                        combinedExclusionWalls = holeSkinWalls.concat(fullyCoveredSkinWallsInset)
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedExclusionWalls, holeOuterWalls)
 
                 else
@@ -1055,11 +1078,37 @@ module.exports =
                     # This way the skin (printed after) covers the infill pattern on exposed surfaces.
                     if infillDensity > 0 and infillBoundary.length >= 3
 
+                        # Calculate actual skin areas for infill exclusion.
+                        # We need to exclude from infill only the areas where skin is actually generated.
+                        # Fully covered regions are excluded from skin generation but should still get infill.
+                        # Use subtractSkinAreasFromInfill to remove fully covered regions from skin areas.
+                        actualSkinAreasForInfill = skinAreas
+
+                        if fullyCoveredSkinWalls.length > 0
+
+                            # Subtract fully covered regions from each skin area.
+                            # This ensures infill is generated in fully covered regions.
+                            filteredSkinAreas = []
+
+                            for skinArea in skinAreas
+
+                                continue if skinArea.length < 3
+
+                                # Subtract fully covered regions from this skin area.
+                                # Note: subtractSkinAreasFromInfill is a general polygon subtraction utility.
+                                # Here we use it to remove fully covered regions from skin areas.
+                                remainingAreas = helpers.subtractSkinAreasFromInfill(skinArea, fullyCoveredSkinWalls)
+
+                                # Add any remaining areas to the filtered list.
+                                filteredSkinAreas.push remainingAreas... if remainingAreas.length > 0
+
+                            actualSkinAreasForInfill = filteredSkinAreas
+
                         # Use the original currentPath for infill to keep coverage consistent,
                         # but require that an inset path exists as a guard to ensure there is room inside.
                         # Pass hole inner walls for clipping and hole outer walls for travel optimization.
-                        # Pass skin areas to exclude them from regular infill (prevents overlap with skin patches).
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls, skinAreas)
+                        # Pass actual skin areas (excluding fully covered regions) to allow infill in covered areas.
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls, actualSkinAreasForInfill)
 
                     # Generate skin ONLY in the exposed areas.
                     # Pass combined skin walls (holes + fully covered regions) for clipping and hole outer walls for travel path optimization.
@@ -1072,12 +1121,53 @@ module.exports =
                         continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
                         continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
 
-                        # Pass hole skin walls AND fully covered skin walls for infill clipping.
+                        # Pass hole skin walls AND fully covered skin walls (inset) for infill clipping.
                         # Hole skin walls exclude holes from skin infill.
-                        # Fully covered skin walls exclude areas that are covered both above and below.
+                        # Fully covered skin walls (inset) exclude covered regions with proper gap.
                         # This ensures skin infill is only generated in truly exposed areas.
-                        combinedExclusionWalls = holeSkinWalls.concat(fullyCoveredSkinWalls)
+                        combinedExclusionWalls = holeSkinWalls.concat(fullyCoveredSkinWallsInset)
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedExclusionWalls, holeOuterWalls)
+
+                    # Generate skin walls (perimeter only, no infill) for fully covered regions.
+                    # These areas have geometry both above and below, so they don't need skin infill
+                    # but do need a skin wall perimeter, and regular infill will fill the interior.
+                    fullyCoveredInfillBoundaries = []
+
+                    for fullyCoveredSkinWall in fullyCoveredSkinWalls
+
+                        continue if fullyCoveredSkinWall.length < 3
+
+                        # Skip if covered region is completely inside a hole.
+                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeSkinWalls)
+                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeInnerWalls)
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeOuterWalls)
+
+                        # Generate skin wall only (no infill) for this covered region.
+                        # Parameters: isHole=false, generateInfill=false, isCoveredArea=true.
+                        # Use isCoveredArea=true to indicate this is a covered area (not a hole or exposed area).
+                        # This ensures the correct offset direction for the skin wall.
+                        skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], holeOuterWalls, true)
+
+                        # Calculate the boundary for regular infill inside this covered region (if infill is enabled).
+                        # The skin wall is inset by nozzleDiameter from the boundary.
+                        # We need to inset by another nozzleDiameter/2 for the infill gap.
+                        if infillDensity > 0
+
+                            # Create the infill boundary inside the covered region (inset inward).
+                            coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
+
+                            if coveredInfillBoundary.length >= 3
+                                fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
+
+                    # Generate regular infill for fully covered regions.
+                    # This fills the interior of the covered regions with the regular infill pattern.
+                    if fullyCoveredInfillBoundaries.length > 0
+
+                        for coveredInfillBoundary in fullyCoveredInfillBoundaries
+
+                            # Generate infill inside this covered region boundary.
+                            # Use empty arrays for holes since we're inside a covered region.
+                            infillModule.generateInfillGCode(slicer, coveredInfillBoundary, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, [], holeOuterWalls, [])
 
             else
 

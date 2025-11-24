@@ -79,7 +79,7 @@ async function buildBlockPyramidMesh(cubeSize = 10) {
   const finalMesh = new THREE.Mesh(pyramidMesh.geometry, mat);
   finalMesh.position.set(0, 0, 0);
   finalMesh.updateMatrixWorld();
-
+//   finalMesh.rotation.y = Math.PI; // flip
   return finalMesh;
 }
 
