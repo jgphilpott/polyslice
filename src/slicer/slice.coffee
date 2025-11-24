@@ -1105,6 +1105,23 @@ module.exports =
                         combinedExclusionWalls = holeSkinWalls.concat(fullyCoveredSkinWalls)
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, combinedExclusionWalls, holeOuterWalls)
 
+                    # Generate skin walls (perimeter only, no infill) for fully covered regions.
+                    # These areas have geometry both above and below, so they don't need skin infill
+                    # but do need a skin wall perimeter, and regular infill will fill the interior.
+                    for fullyCoveredRegion in fullyCoveredSkinWalls
+
+                        continue if fullyCoveredRegion.length < 3
+
+                        # Skip if covered region is completely inside a hole.
+                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredRegion, holeSkinWalls)
+                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredRegion, holeInnerWalls)
+                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredRegion, holeOuterWalls)
+
+                        # Generate skin wall only (no infill) for this covered region.
+                        # Use isCoveredArea=true to indicate this is a covered area, not a hole.
+                        # This ensures the correct offset direction for the skin wall.
+                        skinModule.generateSkinGCode(slicer, fullyCoveredRegion, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], holeOuterWalls, true)
+
             else
 
                 # No skin needed - generate normal sparse infill only.
