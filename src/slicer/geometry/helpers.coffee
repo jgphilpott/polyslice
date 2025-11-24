@@ -406,7 +406,8 @@ module.exports =
             # (i.e., diameter/width less than approximately 2 * insetDistance), then
             # there is no room for an inner wall. Use a small margin to avoid flicker
             # across adjacent layers due to floating-point noise.
-            minRequiredDimension = 2 * insetDistance + insetDistance * 0.2
+            # Use a minimal margin (5%) to allow low-poly meshes with borderline dimensions.
+            minRequiredDimension = 2 * insetDistance + insetDistance * 0.05
 
             if originalWidth < minRequiredDimension or originalHeight < minRequiredDimension
 
@@ -432,9 +433,9 @@ module.exports =
             #
             # We expect the bounding box to change by approximately 2 * insetDistance (both sides).
             # However, due to geometric variations (corners, few vertices, etc.), we use a lenient threshold.
-            # If the change is not at least 10% of expected, reject it.
-            # This 10% threshold accounts for edge cases like sphere poles or cone tips.
-            expectedSizeChange = insetDistance * 2 * 0.1
+            # For low-poly meshes with irregular contours, use a minimal 5% threshold to avoid
+            # rejecting valid geometry while still catching truly degenerate cases.
+            expectedSizeChange = insetDistance * 2 * 0.05
 
             if isHole
 
