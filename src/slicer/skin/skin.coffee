@@ -21,11 +21,11 @@ module.exports =
 
         # Step 1: Generate skin wall (perimeter pass around skin boundary).
         # Create an inset of full nozzle diameter from the boundary path.
-        # For covered areas (isCoveredArea=true), inset inward (same as isHole=true).
+        # For covered areas (isCoveredArea=true), inset inward (treat as outer boundary).
         # For real holes (isHole=true), outset outward (to shrink the hole).
         # For normal skin boundaries (both false), inset inward.
         skinWallInset = nozzleDiameter
-        offsetDirection = if isCoveredArea then true else isHole
+        offsetDirection = if isCoveredArea then false else isHole
         skinWallPath = helpers.createInsetPath(boundaryPath, skinWallInset, offsetDirection)
 
         if skinWallPath.length >= 3
