@@ -511,3 +511,236 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Verify that skin infill exists in the outer ring (exposed area).
             # This ensures we're not accidentally excluding all infill.
             expect(layer46SkinInfillLines.length).toBeGreaterThan(100)
+
+        test 'should generate skin walls for fully covered regions', ->
+
+            # Test that fully covered regions get skin wall perimeters.
+            # Create a pyramid with overlapping slabs to create fully covered areas.
+            cubeSize = 10
+
+            baseSlab = new THREE.BoxGeometry(5 * cubeSize, 5 * cubeSize, cubeSize)
+            baseSlabMesh = new THREE.Mesh(baseSlab, new THREE.MeshBasicMaterial())
+            baseSlabMesh.position.set(0, 0, 0)
+            baseSlabMesh.updateMatrixWorld()
+
+            topSlab = new THREE.BoxGeometry(3 * cubeSize, 3 * cubeSize, cubeSize)
+            topSlabMesh = new THREE.Mesh(topSlab, new THREE.MeshBasicMaterial())
+            topSlabMesh.position.set(0, 0, cubeSize)
+            topSlabMesh.updateMatrixWorld()
+
+            pyramidMesh = await Polytree.unite(baseSlabMesh, topSlabMesh)
+
+            finalMesh = new THREE.Mesh(pyramidMesh.geometry, pyramidMesh.material)
+            finalMesh.position.set(0, 0, 0)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setShellWallThickness(0.8)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Layer 46 should have skin type sections for both exposed areas and covered regions.
+            # Parse G-code to count skin sections with walls.
+            lines = result.split('\n')
+            layer46Started = false
+            layer47Started = false
+            skinSectionCount = 0
+            inSkinSection = false
+
+            for line in lines
+
+                if line.includes('LAYER: 46')
+                    layer46Started = true
+                else if line.includes('LAYER: 47')
+                    layer47Started = true
+                    break
+                else if layer46Started
+                    if line.includes('TYPE: SKIN')
+                        inSkinSection = true
+                        skinSectionCount += 1
+                    else if inSkinSection and line.includes('TYPE:')
+                        inSkinSection = false
+
+            # Should have multiple skin sections:
+            # 1. For the exposed outer ring
+            # 2. For the fully covered center region(s)
+            # Expect at least 2 skin sections (may be more depending on how regions are split).
+            expect(skinSectionCount).toBeGreaterThanOrEqual(2)
+
+        test 'should generate regular infill inside fully covered region walls', ->
+
+            # Test that regular infill is generated inside fully covered regions.
+            cubeSize = 10
+
+            baseSlab = new THREE.BoxGeometry(5 * cubeSize, 5 * cubeSize, cubeSize)
+            baseSlabMesh = new THREE.Mesh(baseSlab, new THREE.MeshBasicMaterial())
+            baseSlabMesh.position.set(0, 0, 0)
+            baseSlabMesh.updateMatrixWorld()
+
+            topSlab = new THREE.BoxGeometry(3 * cubeSize, 3 * cubeSize, cubeSize)
+            topSlabMesh = new THREE.Mesh(topSlab, new THREE.MeshBasicMaterial())
+            topSlabMesh.position.set(0, 0, cubeSize)
+            topSlabMesh.updateMatrixWorld()
+
+            pyramidMesh = await Polytree.unite(baseSlabMesh, topSlabMesh)
+
+            finalMesh = new THREE.Mesh(pyramidMesh.geometry, pyramidMesh.material)
+            finalMesh.position.set(0, 0, 0)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer with infill enabled.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(20)  # Enable infill.
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Layer 46 should have regular infill in the covered center area.
+            # Parse G-code to find infill extrusion lines in TYPE: FILL sections.
+            lines = result.split('\n')
+            layer46Started = false
+            layer47Started = false
+            inFillSection = false
+            layer46FillLines = []
+
+            for line in lines
+
+                if line.includes('LAYER: 46')
+                    layer46Started = true
+                else if line.includes('LAYER: 47')
+                    layer47Started = true
+                    break
+                else if layer46Started
+                    if line.includes('TYPE: FILL')
+                        inFillSection = true
+                    else if line.includes('TYPE:')
+                        inFillSection = false
+                    else if inFillSection and line.includes('G1') and line.includes(' E')
+                        # This is an extrusion line in a fill section.
+                        layer46FillLines.push(line)
+
+            # Count infill lines in the covered center area (95-125 in X and Y).
+            centerFillCount = 0
+
+            for line in layer46FillLines
+
+                xMatch = line.match(/X([\d.]+)/)
+                yMatch = line.match(/Y([\d.]+)/)
+
+                if xMatch and yMatch
+
+                    xCoord = parseFloat(xMatch[1])
+                    yCoord = parseFloat(yMatch[1])
+
+                    # Check if in center covered area.
+                    if xCoord > 95 and xCoord < 125 and yCoord > 95 and yCoord < 125
+                        centerFillCount += 1
+
+            # Verify that regular infill IS generated in the covered center area.
+            # This ensures structural support in fully covered regions.
+            expect(centerFillCount).toBeGreaterThan(0)
+
+            # Also verify that we found some fill lines total.
+            expect(layer46FillLines.length).toBeGreaterThan(0)
+
+        test 'should maintain proper gap between skin walls and infill in fully covered regions', ->
+
+            # Test that the gap between fully covered region walls and infill is correct.
+            cubeSize = 10
+
+            baseSlab = new THREE.BoxGeometry(5 * cubeSize, 5 * cubeSize, cubeSize)
+            baseSlabMesh = new THREE.Mesh(baseSlab, new THREE.MeshBasicMaterial())
+            baseSlabMesh.position.set(0, 0, 0)
+            baseSlabMesh.updateMatrixWorld()
+
+            topSlab = new THREE.BoxGeometry(3 * cubeSize, 3 * cubeSize, cubeSize)
+            topSlabMesh = new THREE.Mesh(topSlab, new THREE.MeshBasicMaterial())
+            topSlabMesh.position.set(0, 0, cubeSize)
+            topSlabMesh.updateMatrixWorld()
+
+            pyramidMesh = await Polytree.unite(baseSlabMesh, topSlabMesh)
+
+            finalMesh = new THREE.Mesh(pyramidMesh.geometry, pyramidMesh.material)
+            finalMesh.position.set(0, 0, 0)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setShellWallThickness(0.8)
+            slicer.setNozzleDiameter(0.4)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # The covered region boundary is at the 3x3 slab edge.
+            # The 3x3 slab covers X=[95, 125], Y=[95, 125].
+            # With user's checkpoint setting infillGap=0, the gap is just skinWallInset.
+            # Parse layer 46 to find fill lines near the covered region boundary.
+            lines = result.split('\n')
+            layer46Started = false
+            layer47Started = false
+            inFillSection = false
+            layer46FillLines = []
+
+            for line in lines
+
+                if line.includes('LAYER: 46')
+                    layer46Started = true
+                else if line.includes('LAYER: 47')
+                    layer47Started = true
+                    break
+                else if layer46Started
+                    if line.includes('TYPE: FILL')
+                        inFillSection = true
+                    else if line.includes('TYPE:')
+                        inFillSection = false
+                    else if inFillSection and line.includes('G1') and line.includes(' E')
+                        layer46FillLines.push(line)
+
+            # Find infill lines closest to the covered region boundary (X or Y near 95 or 125).
+            minDistFromBoundary = Infinity
+
+            for line in layer46FillLines
+
+                xMatch = line.match(/X([\d.]+)/)
+                yMatch = line.match(/Y([\d.]+)/)
+
+                if xMatch and yMatch
+
+                    xCoord = parseFloat(xMatch[1])
+                    yCoord = parseFloat(yMatch[1])
+
+                    # Check distance from boundaries.
+                    distFromLeft = Math.abs(xCoord - 95)
+                    distFromRight = Math.abs(xCoord - 125)
+                    distFromBottom = Math.abs(yCoord - 95)
+                    distFromTop = Math.abs(yCoord - 125)
+
+                    minDist = Math.min(distFromLeft, distFromRight, distFromBottom, distFromTop)
+
+                    if minDist < minDistFromBoundary
+                        minDistFromBoundary = minDist
+
+            # With the user's checkpoint (infillGap=0), the gap should be just skinWallInset.
+            # skinWallInset = 0.4mm (nozzleDiameter).
+            # The test should verify that infill respects this gap.
+            # Allow tolerance for path generation and discretization.
+            expectedMinGap = 0.3  # Should be at least some gap from boundary.
+            
+            # Verify that infill lines don't get too close to the boundary.
+            expect(minDistFromBoundary).toBeGreaterThan(expectedMinGap)
