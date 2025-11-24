@@ -578,7 +578,8 @@ module.exports =
                     # Generate skin wall for the hole (outward inset).
                     # Pass generateInfill=false to skip infill (only walls).
                     # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls)
+                    # Pass empty coveredAreaSkinWalls array and isCoveredArea=false since this is a hole.
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls, [], false)
 
                     # Update lastPathEndPoint with skin wall end position.
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
