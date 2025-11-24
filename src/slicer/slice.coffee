@@ -1110,6 +1110,11 @@ module.exports =
                     # but do need a skin wall perimeter, and regular infill will fill the interior.
                     fullyCoveredInfillBoundaries = []
 
+                    # Calculate constants for infill boundary (used for all covered regions).
+                    infillGap = nozzleDiameter / 2
+                    skinWallInset = nozzleDiameter
+                    totalInset = skinWallInset + infillGap
+
                     for fullyCoveredSkinWall in fullyCoveredSkinWalls
 
                         continue if fullyCoveredSkinWall.length < 3
@@ -1125,22 +1130,20 @@ module.exports =
                         # This ensures the correct offset direction for the skin wall.
                         skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], holeOuterWalls, true)
 
-                        # Calculate the boundary for regular infill inside this covered region.
+                        # Calculate the boundary for regular infill inside this covered region (if infill is enabled).
                         # The skin wall is inset by nozzleDiameter from the boundary.
                         # We need to inset by another nozzleDiameter/2 for the infill gap.
-                        infillGap = nozzleDiameter / 2
-                        skinWallInset = nozzleDiameter
-                        totalInset = skinWallInset + infillGap
+                        if infillDensity > 0
 
-                        # Create the infill boundary inside the covered region (inset inward).
-                        coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInset, false)
+                            # Create the infill boundary inside the covered region (inset inward).
+                            coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInset, false)
 
-                        if coveredInfillBoundary.length >= 3
-                            fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
+                            if coveredInfillBoundary.length >= 3
+                                fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
 
                     # Generate regular infill for fully covered regions.
                     # This fills the interior of the covered regions with the regular infill pattern.
-                    if infillDensity > 0 and fullyCoveredInfillBoundaries.length > 0
+                    if fullyCoveredInfillBoundaries.length > 0
 
                         for coveredInfillBoundary in fullyCoveredInfillBoundaries
 
