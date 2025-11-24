@@ -162,7 +162,8 @@ module.exports =
         # Create expanded versions of covered area boundaries to maintain the same gap.
         # For covered areas (which are solid regions, not holes), we expand them outward
         # to create an exclusion zone. This prevents skin infill from entering the covered region.
-        # Use isHole=true to expand outward (same as holes).
+        # Use isHole=true for the geometric operation (expands outward), even though semantically
+        # these are not holes - we're expanding the covered area boundary outward to exclude it.
         coveredAreaSkinWallsWithGap = []
 
         for coveredAreaSkinWall in coveredAreaSkinWalls

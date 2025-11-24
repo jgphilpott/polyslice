@@ -1031,9 +1031,6 @@ module.exports =
                 skinWallInset = nozzleDiameter
                 totalInsetForInfill = skinWallInset + infillGap
 
-                # Combine hole and fully covered skin walls for exclusion.
-                combinedSkinWalls = holeSkinWalls.concat(fullyCoveredSkinWalls)
-
                 if isAbsoluteTopOrBottom
 
                     # Absolute top/bottom layers: ONLY skin (no infill).
