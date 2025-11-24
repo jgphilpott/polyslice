@@ -1055,11 +1055,35 @@ module.exports =
                     # This way the skin (printed after) covers the infill pattern on exposed surfaces.
                     if infillDensity > 0 and infillBoundary.length >= 3
 
+                        # Calculate actual skin areas for infill exclusion.
+                        # We need to exclude from infill only the areas where skin is actually generated.
+                        # Fully covered regions are excluded from skin generation but should still get infill.
+                        # Use subtractSkinAreasFromInfill to remove fully covered regions from skin areas.
+                        actualSkinAreasForInfill = skinAreas
+
+                        if fullyCoveredSkinWalls.length > 0
+
+                            # Subtract fully covered regions from each skin area.
+                            # This ensures infill is generated in fully covered regions.
+                            filteredSkinAreas = []
+
+                            for skinArea in skinAreas
+
+                                continue if skinArea.length < 3
+
+                                # Subtract fully covered regions from this skin area.
+                                remainingAreas = helpers.subtractSkinAreasFromInfill(skinArea, fullyCoveredSkinWalls)
+
+                                # Add any remaining areas to the filtered list.
+                                filteredSkinAreas.push(remainingAreas...) if remainingAreas.length > 0
+
+                            actualSkinAreasForInfill = filteredSkinAreas
+
                         # Use the original currentPath for infill to keep coverage consistent,
                         # but require that an inset path exists as a guard to ensure there is room inside.
                         # Pass hole inner walls for clipping and hole outer walls for travel optimization.
-                        # Pass skin areas to exclude them from regular infill (prevents overlap with skin patches).
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls, skinAreas)
+                        # Pass actual skin areas (excluding fully covered regions) to allow infill in covered areas.
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls, actualSkinAreasForInfill)
 
                     # Generate skin ONLY in the exposed areas.
                     # Pass combined skin walls (holes + fully covered regions) for clipping and hole outer walls for travel path optimization.
