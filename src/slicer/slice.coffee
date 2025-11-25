@@ -3,7 +3,10 @@
 Polytree = require('@jgphilpott/polytree')
 
 coders = require('./gcode/coders')
-helpers = require('./geometry/helpers')
+primitives = require('./utils/primitives')
+pathsUtils = require('./utils/paths')
+clipping = require('./utils/clipping')
+coverage = require('./geometry/coverage')
 
 infillModule = require('./infill/infill')
 skinModule = require('./skin/skin')
@@ -116,7 +119,7 @@ module.exports =
             currentZ = adjustedMinZ + layerIndex * layerHeight
 
             # Convert Polytree line segments to closed paths.
-            layerPaths = helpers.connectSegmentsToPaths(layerSegments)
+            layerPaths = pathsUtils.connectSegmentsToPaths(layerSegments)
 
             # Generate support structures if enabled.
             # Support generation currently checks supportEnabled flag internally.
@@ -176,7 +179,7 @@ module.exports =
                 continue if i is j
 
                 # Test if a sample point from path i is inside path j.
-                if paths[i].length > 0 and helpers.pointInPolygon(paths[i][0], paths[j])
+                if paths[i].length > 0 and primitives.pointInPolygon(paths[i][0], paths[j])
 
                     isHole = true
 
@@ -211,7 +214,7 @@ module.exports =
 
             # Create initial offset for the outer wall by half nozzle diameter.
             outerWallOffset = nozzleDiameter / 2
-            currentPath = helpers.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
+            currentPath = pathsUtils.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
 
             # Skip if offset path is degenerate.
             continue if currentPath.length < 3
@@ -247,7 +250,7 @@ module.exports =
                 continue if not outerWall2 or outerWall2.length < 3
 
                 # Calculate minimum distance between these two outer walls.
-                minDistance = helpers.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
+                minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
 
                 # If the gap between outer walls is less than one nozzle diameter,
                 # mark both paths as having insufficient spacing for inner walls.
@@ -265,7 +268,7 @@ module.exports =
 
             # Create initial offset for the outer wall.
             outerWallOffset = nozzleDiameter / 2
-            currentPath = helpers.createInsetPath(path, outerWallOffset, isHole)
+            currentPath = pathsUtils.createInsetPath(path, outerWallOffset, isHole)
 
             return null if currentPath.length < 3
 
@@ -278,7 +281,7 @@ module.exports =
                     if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
                         break
 
-                    testInsetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
                     if testInsetPath.length < 3
                         break
@@ -286,7 +289,7 @@ module.exports =
                 # Create inset for next wall if not the last wall.
                 if wallIndex < wallCount - 1
 
-                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
                     break if insetPath.length < 3
 
@@ -325,7 +328,7 @@ module.exports =
                 continue if not innermostWall2 or innermostWall2.length < 3
 
                 # Calculate minimum distance between innermost walls.
-                minDistance = helpers.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
+                minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
 
                 # For skin walls, we need space for BOTH skin walls (one from each path).
                 # Each skin wall requires one nozzle diameter, so total threshold is 2 * nozzle diameter.
@@ -350,7 +353,7 @@ module.exports =
             # For outer boundaries: inset by half nozzle (shrinks the boundary inward).
             # For holes: outset by half nozzle (enlarges the hole path outward).
             outerWallOffset = nozzleDiameter / 2
-            currentPath = helpers.createInsetPath(path, outerWallOffset, isHole)
+            currentPath = pathsUtils.createInsetPath(path, outerWallOffset, isHole)
 
             # If the offset path is degenerate, skip this path entirely.
             return null if currentPath.length < 3
@@ -379,7 +382,7 @@ module.exports =
 
                     # Check if the next inset would be degenerate (too small to print).
                     # The createInsetPath function already has sophisticated validation.
-                    testInsetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
                     # If the inset path is degenerate, there's no room for this wall.
                     if testInsetPath.length < 3
@@ -423,7 +426,7 @@ module.exports =
                 # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
 
-                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
                     # Stop if inset path becomes degenerate.
                     break if insetPath.length < 3
@@ -443,7 +446,7 @@ module.exports =
                 # Calculate the skin wall path for this hole.
                 # This is an inset of full nozzle diameter from the innermost wall.
                 skinWallInset = nozzleDiameter
-                skinWallPath = helpers.createInsetPath(currentPath, skinWallInset, isHole)
+                skinWallPath = pathsUtils.createInsetPath(currentPath, skinWallInset, isHole)
 
                 if skinWallPath.length >= 3
 
@@ -633,7 +636,7 @@ module.exports =
             # Determine a safe boundary for infill by insetting one nozzle width.
             # If we cannot inset (no room inside the last wall), we should not generate infill.
             # Pass isHole parameter to ensure correct inset direction for holes.
-            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
+            infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
 
             # Determine if this region needs skin and calculate exposed areas.
             needsSkin = false
@@ -726,7 +729,7 @@ module.exports =
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>90% coverage).
-                        continue if helpers.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+                        continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Pass hole skin walls and fully covered boundaries separately.
                         # The skin module handles them differently:
@@ -760,7 +763,7 @@ module.exports =
                                 # Subtract fully covered regions from this skin area.
                                 # Note: subtractSkinAreasFromInfill is a general polygon subtraction utility.
                                 # Here we use it to remove fully covered regions from skin areas.
-                                remainingAreas = helpers.subtractSkinAreasFromInfill(skinArea, fullyCoveredSkinWalls)
+                                remainingAreas = clipping.subtractSkinAreasFromInfill(skinArea, fullyCoveredSkinWalls)
 
                                 # Add any remaining areas to the filtered list.
                                 filteredSkinAreas.push remainingAreas... if remainingAreas.length > 0
@@ -778,7 +781,7 @@ module.exports =
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>90% coverage).
-                        continue if helpers.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+                        continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Pass hole skin walls and fully covered boundaries separately.
                         # The skin module handles them differently:
@@ -797,7 +800,7 @@ module.exports =
                         continue if fullyCoveredSkinWall.length < 3
 
                         # Skip if covered region is completely inside a hole.
-                        continue if helpers.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+                        continue if coverage.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Generate skin wall only (no infill) for this covered region.
                         # Parameters: isHole=false, generateInfill=false, coveredAreaSkinWalls=[], isCoveredArea=true.
@@ -811,7 +814,7 @@ module.exports =
                         if infillDensity > 0
 
                             # Create the infill boundary inside the covered region (inset inward).
-                            coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
+                            coveredInfillBoundary = pathsUtils.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
 
                             if coveredInfillBoundary.length >= 3
 

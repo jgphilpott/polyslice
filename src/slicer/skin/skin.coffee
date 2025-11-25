@@ -1,7 +1,9 @@
 # Skin generation module for Polyslice.
 
 coders = require('../gcode/coders')
-helpers = require('../geometry/helpers')
+clipping = require('../utils/clipping')
+paths = require('../utils/paths')
+combing = require('../geometry/combing')
 
 module.exports =
 
@@ -27,7 +29,7 @@ module.exports =
         # For normal skin boundaries (both false), inset inward.
         skinWallInset = nozzleDiameter
         offsetDirection = if isCoveredArea then false else isHole
-        skinWallPath = helpers.createInsetPath(boundaryPath, skinWallInset, offsetDirection)
+        skinWallPath = paths.createInsetPath(boundaryPath, skinWallInset, offsetDirection)
 
         if skinWallPath.length >= 3
 
@@ -59,7 +61,7 @@ module.exports =
 
                 # Find combing path that avoids crossing holes.
                 # Pass boundaryPath as the boundary constraint.
-                combingPath = helpers.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath, nozzleDiameter)
+                combingPath = combing.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath, nozzleDiameter)
 
                 # Generate travel moves for each segment of the combing path.
                 travelSpeedMmMin = slicer.getTravelSpeed() * 60
@@ -139,7 +141,7 @@ module.exports =
 
         # Create inset boundary for infill area.
         # Pass isHole parameter to ensure correct inset direction for holes.
-        infillBoundary = helpers.createInsetPath(boundaryPath, infillInset, isHole)
+        infillBoundary = paths.createInsetPath(boundaryPath, infillInset, isHole)
 
         return if infillBoundary.length < 3
 
@@ -153,7 +155,7 @@ module.exports =
             if holeSkinWall.length >= 3
 
                 # Create outset path for the hole (isHole=true means it will shrink the hole).
-                holeSkinWallWithGap = helpers.createInsetPath(holeSkinWall, infillGap, true)
+                holeSkinWallWithGap = paths.createInsetPath(holeSkinWall, infillGap, true)
 
                 if holeSkinWallWithGap.length >= 3
 
@@ -290,7 +292,7 @@ module.exports =
                 # Holes are expanded outward by infillGap, covered areas use boundaries as-is.
                 # This ensures skin infill stays within the boundary and outside holes/covered areas with proper clearance.
                 allExclusionWalls = holeSkinWallsWithGap.concat(coveredAreaSkinWallsWithGap)
-                clippedSegments = helpers.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, allExclusionWalls)
+                clippedSegments = clipping.clipLineWithHoles(intersections[0], intersections[1], infillBoundary, allExclusionWalls)
 
                 # Store each clipped segment for later rendering.
                 for segment in clippedSegments
@@ -356,7 +358,7 @@ module.exports =
 
             # Move to start of line (travel move with combing).
             # Find a path that avoids crossing holes.
-            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
+            combingPath = combing.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
 
             # Generate travel moves for each segment of the combing path.
             for i in [0...combingPath.length - 1]

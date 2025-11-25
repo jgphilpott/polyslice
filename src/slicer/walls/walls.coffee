@@ -1,7 +1,7 @@
 # Wall generation module for Polyslice.
 
 coders = require('../gcode/coders')
-helpers = require('../geometry/helpers')
+combing = require('../geometry/combing')
 
 module.exports =
 
@@ -30,7 +30,7 @@ module.exports =
 
         if lastEndPoint? and holeOuterWalls.length > 0
 
-            startIndex = helpers.findOptimalStartPoint(path, lastEndPoint, holeOuterWalls, boundary, nozzleDiameter)
+            startIndex = combing.findOptimalStartPoint(path, lastEndPoint, holeOuterWalls, boundary, nozzleDiameter)
 
         # Get the starting point for this wall.
         firstPoint = path[startIndex]
@@ -43,7 +43,7 @@ module.exports =
 
             # Find combing path that avoids crossing holes.
             nozzleDiameter = slicer.getNozzleDiameter()
-            combingPath = helpers.findCombingPath(lastEndPoint, targetPoint, holeOuterWalls, boundary, nozzleDiameter)
+            combingPath = combing.findCombingPath(lastEndPoint, targetPoint, holeOuterWalls, boundary, nozzleDiameter)
 
             # Generate travel moves for each segment of the combing path.
             # Convert speed from mm/s to mm/min for G-code.

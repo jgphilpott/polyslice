@@ -1,7 +1,9 @@
 # Exposure detection module for Polyslice.
 # Handles detection of exposed surfaces that need skin layers.
 
-helpers = require('../../geometry/helpers')
+bounds = require('../../utils/bounds')
+paths = require('../../utils/paths')
+coverage = require('../../geometry/coverage')
 
 module.exports =
 
@@ -42,8 +44,8 @@ module.exports =
 
             if checkSegments? and checkSegments.length > 0
 
-                checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                holeExistsAbove = helpers.doesHoleExistInLayer(path, checkPaths)
+                checkPaths = paths.connectSegmentsToPaths(checkSegments)
+                holeExistsAbove = coverage.doesHoleExistInLayer(path, checkPaths)
 
                 return not holeExistsAbove
 
@@ -74,8 +76,8 @@ module.exports =
 
             if checkSegments? and checkSegments.length > 0
 
-                checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-                holeExistsBelow = helpers.doesHoleExistInLayer(path, checkPaths)
+                checkPaths = paths.connectSegmentsToPaths(checkSegments)
+                holeExistsBelow = coverage.doesHoleExistInLayer(path, checkPaths)
 
                 return not holeExistsBelow
 
@@ -114,13 +116,13 @@ module.exports =
 
             if checkSegments? and checkSegments.length > 0
 
-                checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                checkPaths = paths.connectSegmentsToPaths(checkSegments)
 
                 # Store covering regions for fully covered area detection.
                 coveringRegionsAbove.push(checkPaths...)
 
                 # Calculate exposed areas not covered by layer ahead.
-                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, resolution)
+                checkExposedAreas = coverage.calculateExposedAreas(currentPath, checkPaths, resolution)
 
                 if checkExposedAreas.length > 0
                     exposedAreas.push(checkExposedAreas...)
@@ -144,13 +146,13 @@ module.exports =
 
             if checkSegments? and checkSegments.length > 0
 
-                checkPaths = helpers.connectSegmentsToPaths(checkSegments)
+                checkPaths = paths.connectSegmentsToPaths(checkSegments)
 
                 # Store covering regions for fully covered area detection.
                 coveringRegionsBelow.push(checkPaths...)
 
                 # Calculate exposed areas not covered by layer behind.
-                checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, resolution)
+                checkExposedAreas = coverage.calculateExposedAreas(currentPath, checkPaths, resolution)
 
                 if checkExposedAreas.length > 0
                     exposedAreas.push(checkExposedAreas...)
@@ -182,7 +184,7 @@ module.exports =
 
         fullyCoveredRegions = []
 
-        currentPathBounds = helpers.calculatePathBounds(currentPath)
+        currentPathBounds = bounds.calculatePathBounds(currentPath)
 
         return fullyCoveredRegions if not currentPathBounds?
         return fullyCoveredRegions if coveringRegionsAbove.length is 0
@@ -196,7 +198,7 @@ module.exports =
 
             continue if regionAbove.length < 3
 
-            boundsAbove = helpers.calculatePathBounds(regionAbove)
+            boundsAbove = bounds.calculatePathBounds(regionAbove)
             continue unless boundsAbove?
 
             aboveWidth = boundsAbove.maxX - boundsAbove.minX
@@ -207,7 +209,7 @@ module.exports =
 
                 continue if regionBelow.length < 3
 
-                boundsBelow = helpers.calculatePathBounds(regionBelow)
+                boundsBelow = bounds.calculatePathBounds(regionBelow)
                 continue unless boundsBelow?
 
                 belowWidth = boundsBelow.maxX - boundsBelow.minX
@@ -262,13 +264,13 @@ module.exports =
 
         return fullyCoveredSkinWalls if fullyCoveredRegions.length is 0
 
-        currentPathBounds = helpers.calculatePathBounds(currentPath)
+        currentPathBounds = bounds.calculatePathBounds(currentPath)
 
         for fullyCoveredRegion in fullyCoveredRegions
 
             continue if fullyCoveredRegion.length < 3
 
-            coveredBounds = helpers.calculatePathBounds(fullyCoveredRegion)
+            coveredBounds = bounds.calculatePathBounds(fullyCoveredRegion)
 
             # Skip regions >= 90% of current path (same geometry).
             if currentPathBounds? and coveredBounds?

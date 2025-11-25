@@ -1,7 +1,8 @@
 # Infill generation module for Polyslice.
 
 coders = require('../gcode/coders')
-helpers = require('../geometry/helpers')
+clipping = require('../utils/clipping')
+paths = require('../utils/paths')
 
 gridPattern = require('./patterns/grid')
 trianglesPattern = require('./patterns/triangles')
@@ -31,7 +32,7 @@ module.exports =
 
         # Create inset boundary for infill area (half nozzle diameter gap from innermost wall).
         infillGap = nozzleDiameter / 2
-        infillBoundary = helpers.createInsetPath(boundaryPath, infillGap)
+        infillBoundary = paths.createInsetPath(boundaryPath, infillGap)
 
         # If infill boundary is too small (empty or invalid), skip infill generation entirely.
         # This prevents printing "; TYPE: FILL" markers without any actual infill lines.
@@ -44,7 +45,7 @@ module.exports =
         if skinAreas.length > 0
 
             # Use polygon-clipping to subtract skin areas from infill boundary.
-            infillBoundaries = helpers.subtractSkinAreasFromInfill(infillBoundary, skinAreas)
+            infillBoundaries = clipping.subtractSkinAreasFromInfill(infillBoundary, skinAreas)
 
             # If all infill was excluded by skin areas, skip infill generation.
             return if infillBoundaries.length is 0
@@ -66,7 +67,7 @@ module.exports =
             if holeWall.length >= 3
 
                 # Create outset path for the hole (isHole=true means it will shrink the hole).
-                holeWallWithGap = helpers.createInsetPath(holeWall, infillGap, true)
+                holeWallWithGap = paths.createInsetPath(holeWall, infillGap, true)
 
                 if holeWallWithGap.length >= 3
 
