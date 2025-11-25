@@ -1,7 +1,6 @@
 # Main slicing method for Polyslice.
 
 Polytree = require('@jgphilpott/polytree')
-LoopSubdivision = require('three-subdivide').LoopSubdivision
 
 coders = require('./gcode/coders')
 helpers = require('./geometry/helpers')
@@ -10,6 +9,8 @@ infillModule = require('./infill/infill')
 skinModule = require('./skin/skin')
 wallsModule = require('./walls/walls')
 supportModule = require('./support/support')
+exposureModule = require('./skin/exposure/exposure')
+preprocessingModule = require('./preprocessing/preprocessing')
 
 module.exports =
 
@@ -20,7 +21,7 @@ module.exports =
         slicer.gcode = ""
 
         # Extract mesh from scene if provided.
-        mesh = @extractMesh(scene)
+        mesh = preprocessingModule.extractMesh(scene)
 
         # If no mesh provided, just generate basic initialization sequence.
         if not mesh
@@ -79,7 +80,7 @@ module.exports =
         # This uses Loop subdivision to add more triangles in sparse regions,
         # helping to fill gaps that would otherwise cause missing segments during slicing.
         if slicer.getMeshPreprocessing and slicer.getMeshPreprocessing()
-            mesh = @preprocessMesh(mesh)
+            mesh = preprocessingModule.preprocessMesh(mesh)
 
         # Use Polytree to slice the mesh into layers with adjusted starting position.
         allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
@@ -135,138 +136,6 @@ module.exports =
         slicer.gcode += coders.codePostPrint(slicer)
 
         return slicer.gcode
-
-    # Extract mesh from scene object.
-    extractMesh: (scene) ->
-
-        return null if not scene
-
-        # If scene is already a mesh, return it.
-        if scene.isMesh then return scene
-
-        # If scene has children, find first mesh.
-        if scene.children and scene.children.length > 0
-
-            for child in scene.children
-
-                if child.isMesh then return child
-
-        # If scene has a mesh property.
-        if scene.mesh and scene.mesh.isMesh
-
-            return scene.mesh
-
-        return null
-
-    # Preprocess mesh to improve triangle density in sparse regions.
-    # This helps fill gaps that would otherwise cause missing segments during slicing.
-    #
-    # @param mesh [THREE.Mesh] The mesh to preprocess
-    # @return [THREE.Mesh] Preprocessed mesh with improved geometry
-    preprocessMesh: (mesh) ->
-
-        # Initialize THREE.js if not already available.
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
-
-        # Get the geometry from the mesh.
-        geometry = mesh.geometry
-
-        return mesh if not geometry or not geometry.isBufferGeometry
-
-        # Analyze geometry to determine if subdivision is needed.
-        # Check triangle density distribution to identify sparse regions.
-        needsSubdivision = @analyzeGeometryDensity(geometry)
-
-        if needsSubdivision
-
-            # Apply edge subdivision to increase triangle count in sparse regions.
-            subdividedGeometry = @subdivideGeometry(geometry)
-
-            # Create new mesh with subdivided geometry.
-            subdividedMesh = new THREE.Mesh(subdividedGeometry, mesh.material)
-
-            # Copy transform properties from original mesh.
-            subdividedMesh.position.copy(mesh.position)
-            subdividedMesh.rotation.copy(mesh.rotation)
-            subdividedMesh.scale.copy(mesh.scale)
-            subdividedMesh.updateMatrixWorld()
-
-            return subdividedMesh
-
-        return mesh
-
-    # Analyze geometry to determine if it needs subdivision.
-    # Returns true if geometry has regions with low triangle density.
-    #
-    # @param geometry [THREE.BufferGeometry] The geometry to analyze
-    # @return [Boolean] True if subdivision is recommended
-    analyzeGeometryDensity: (geometry) ->
-
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
-
-        positionAttribute = geometry.getAttribute('position')
-        return false if not positionAttribute
-
-        # Get bounding box to calculate volume.
-        geometry.computeBoundingBox()
-        bbox = geometry.boundingBox
-
-        return false if not bbox
-
-        # Calculate bounding box volume.
-        size = new THREE.Vector3()
-        bbox.getSize(size)
-        volume = size.x * size.y * size.z
-
-        return false if volume <= 0
-
-        # Count triangles.
-        triangleCount = if geometry.index
-            Math.floor(geometry.index.count / 3)
-        else
-            Math.floor(positionAttribute.count / 3)
-
-        # Calculate triangle density (triangles per cubic unit).
-        density = triangleCount / volume
-
-        # Heuristic: If density is less than 5 triangles per cubic mm,
-        # the mesh may benefit from subdivision.
-        # This is an extremely conservative threshold that will only apply to
-        # very sparse meshes like Benchy (which has ~5 triangles/mm³).
-        # Most test geometries and properly designed models have much higher density
-        # (e.g., simple test cubes have 100-1000+ triangles/mm³).
-        DENSITY_THRESHOLD = 5
-
-        return density < DENSITY_THRESHOLD
-
-    # Subdivide geometry to increase triangle density.
-    # Uses Loop subdivision algorithm via three-subdivide package.
-    #
-    # @param geometry [THREE.BufferGeometry] The geometry to subdivide
-    # @return [THREE.BufferGeometry] Subdivided geometry
-    subdivideGeometry: (geometry) ->
-
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
-
-        # Use Loop subdivision with 1 iteration (static method).
-        # Loop subdivision is a smooth subdivision scheme that:
-        # - Splits each triangle into 4 smaller triangles
-        # - Smooths the mesh by repositioning vertices
-        # - Maintains the overall shape while adding detail
-        #
-        # iterations=1 provides a good balance:
-        # - 4x triangle count (225k -> 900k for Benchy)
-        # - Significant improvement in sparse regions
-        # - Reasonable computation time
-        params = {
-            split: true           # Split coplanar faces for uniform subdivision
-            uvSmooth: false       # Don't average UVs (avoid tearing)
-            preserveEdges: false  # Allow smooth subdivision
-            flatOnly: false       # Subdivide all faces
-            maxTriangles: Infinity # No triangle limit
-        }
-
-        return LoopSubdivision.modify(geometry, 1, params)
 
     # Generate G-code for a single layer.
     generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0, allLayers = [], layerSegments = []) ->
@@ -709,70 +578,8 @@ module.exports =
                 else if slicer.getExposureDetection()
 
                     # For middle layers with exposure detection enabled:
-                    # Only generate skin walls if this hole represents an actual exposure (cavity).
-                    # Check if the hole exists in the layer skinLayerCount steps above and below.
-                    # If the hole exists in both directions, it's a vertical hole (not exposed).
-                    # If the hole is missing in either direction, it's a cavity (exposed).
-                    holeExposedAbove = false
-                    holeExposedBelow = false
-
-                    # Check if hole exists in layer above.
-                    checkIdxAbove = layerIndex + skinLayerCount
-
-                    if checkIdxAbove < totalLayers
-
-                        checkSegments = allLayers[checkIdxAbove]
-
-                        if checkSegments? and checkSegments.length > 0
-
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                            # Check if this hole path exists in the layer above.
-                            # A hole "exists" if there's a corresponding hole path in the check layer.
-                            holeExistsAbove = helpers.doesHoleExistInLayer(path, checkPaths)
-
-                            # If hole doesn't exist above, this hole is exposed from above.
-                            holeExposedAbove = not holeExistsAbove
-
-                        else
-
-                            # No geometry above means hole is exposed from above.
-                            holeExposedAbove = true
-
-                    else
-
-                        # Near top of model - hole is exposed from above.
-                        holeExposedAbove = true
-
-                    # Check if hole exists in layer below.
-                    checkIdxBelow = layerIndex - skinLayerCount
-
-                    if checkIdxBelow >= 0
-
-                        checkSegments = allLayers[checkIdxBelow]
-
-                        if checkSegments? and checkSegments.length > 0
-
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                            # Check if this hole path exists in the layer below.
-                            holeExistsBelow = helpers.doesHoleExistInLayer(path, checkPaths)
-
-                            # If hole doesn't exist below, this hole is exposed from below.
-                            holeExposedBelow = not holeExistsBelow
-
-                        else
-
-                            # No geometry below means hole is exposed from below.
-                            holeExposedBelow = true
-
-                    else
-
-                        # Near bottom of model - hole is exposed from below.
-                        holeExposedBelow = true
-
-                    # Generate skin walls only if hole is exposed in at least one direction.
-                    shouldGenerateSkinWalls = holeExposedAbove or holeExposedBelow
+                    # Use the exposure module to determine if this hole is exposed.
+                    shouldGenerateSkinWalls = exposureModule.shouldGenerateHoleSkinWalls(path, layerIndex, skinLayerCount, totalLayers, allLayers)
 
             innermostWall = generateWallsForPath(path, pathIndex, true, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
@@ -838,74 +645,20 @@ module.exports =
                 # When disabled, only top and bottom layers get skin (simpler but less optimal).
                 if slicer.getExposureDetection()
 
-                    # ENABLED: Exposure detection algorithm
-                    # For the current layer, calculate what parts won't be covered by the layer exactly
-                    # skinLayerCount steps ahead/behind. Each layer independently calculates its exposed area.
-                    # Check BOTH directions to detect overhangs (exposure from above) AND cavities/holes (exposure from below).
-                    exposedAreas = []
+                    # ENABLED: Exposure detection algorithm.
+                    # Use the exposure module to calculate exposed areas.
+                    exposureResult = exposureModule.calculateExposedAreasForLayer(
+                        currentPath,
+                        layerIndex,
+                        skinLayerCount,
+                        totalLayers,
+                        allLayers,
+                        slicer.getExposureDetectionResolution()
+                    )
 
-                    # Check the layer exactly skinLayerCount steps AHEAD (above).
-                    checkIdxAbove = layerIndex + skinLayerCount
-
-                    if checkIdxAbove < totalLayers
-
-                        checkSegments = allLayers[checkIdxAbove]
-
-                        if checkSegments? and checkSegments.length > 0
-
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                            # Store covering regions for fully covered area detection.
-                            coveringRegionsAbove.push(checkPaths...)
-
-                            # Calculate exposed areas not covered by layer ahead.
-                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-
-                            if checkExposedAreas.length > 0
-                                exposedAreas.push(checkExposedAreas...)
-
-                        else
-
-                            # No geometry at the layer ahead means current layer is exposed
-                            exposedAreas.push(currentPath)
-
-                    else
-
-                        # We're within skinLayerCount of the top - current layer will be exposed
-                        exposedAreas.push(currentPath)
-
-                    # Check behind to detect cavities and holes.
-                    checkIdxBelow = layerIndex - skinLayerCount
-
-                    if checkIdxBelow >= 0
-
-                        checkSegments = allLayers[checkIdxBelow]
-
-                        if checkSegments? and checkSegments.length > 0
-
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                            # Store covering regions for fully covered area detection.
-                            coveringRegionsBelow.push(checkPaths...)
-
-                            # Calculate exposed areas not covered by layer behind.
-                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-
-                            if checkExposedAreas.length > 0
-                                exposedAreas.push(checkExposedAreas...)
-
-                        else
-
-                            # No geometry at the layer behind means current layer is exposed
-                            exposedAreas.push(currentPath)
-
-                    else
-
-                        # We're within skinLayerCount of the bottom - current layer will be exposed
-                        exposedAreas.push(currentPath)
-
-                    # Use calculated exposed areas for skin generation on current layer
-                    skinAreas = exposedAreas
+                    skinAreas = exposureResult.exposedAreas
+                    coveringRegionsAbove = exposureResult.coveringRegionsAbove
+                    coveringRegionsBelow = exposureResult.coveringRegionsBelow
                     needsSkin = skinAreas.length > 0
 
                 else
@@ -933,98 +686,10 @@ module.exports =
 
                 # Identify fully covered areas to exclude from skin infill.
                 # A fully covered area has geometry both above AND below.
-                fullyCoveredRegions = []
-
-                currentPathBounds = helpers.calculatePathBounds(currentPath)
-
-                if currentPathBounds? and coveringRegionsAbove.length > 0 and coveringRegionsBelow.length > 0
-
-                    currentWidth = currentPathBounds.maxX - currentPathBounds.minX
-                    currentHeight = currentPathBounds.maxY - currentPathBounds.minY
-                    currentArea = currentWidth * currentHeight
-
-                    for regionAbove in coveringRegionsAbove
-
-                        continue if regionAbove.length < 3
-
-                        boundsAbove = helpers.calculatePathBounds(regionAbove)
-                        continue unless boundsAbove?
-
-                        aboveWidth = boundsAbove.maxX - boundsAbove.minX
-                        aboveHeight = boundsAbove.maxY - boundsAbove.minY
-                        aboveArea = aboveWidth * aboveHeight
-
-                        for regionBelow in coveringRegionsBelow
-
-                            continue if regionBelow.length < 3
-
-                            boundsBelow = helpers.calculatePathBounds(regionBelow)
-                            continue unless boundsBelow?
-
-                            belowWidth = boundsBelow.maxX - boundsBelow.minX
-                            belowHeight = boundsBelow.maxY - boundsBelow.minY
-                            belowArea = belowWidth * belowHeight
-
-                            # Check for overlap between regions.
-                            overlapMinX = Math.max(boundsAbove.minX, boundsBelow.minX)
-                            overlapMaxX = Math.min(boundsAbove.maxX, boundsBelow.maxX)
-                            overlapMinY = Math.max(boundsAbove.minY, boundsBelow.minY)
-                            overlapMaxY = Math.min(boundsAbove.maxY, boundsBelow.maxY)
-
-                            if overlapMinX < overlapMaxX and overlapMinY < overlapMaxY
-
-                                overlapWidth = overlapMaxX - overlapMinX
-                                overlapHeight = overlapMaxY - overlapMinY
-                                overlapArea = overlapWidth * overlapHeight
-
-                                if aboveArea > 0 and currentArea > 0
-
-                                    # Check if overlap is substantial (≥50% of regionAbove).
-                                    if (overlapArea / aboveArea) >= 0.5
-
-                                        aboveRatio = aboveArea / currentArea
-                                        belowRatio = belowArea / currentArea
-
-                                        # Check if at least one region is smaller than current layer (step/transition).
-                                        if aboveRatio < 0.9 or belowRatio < 0.9
-
-                                            smallerArea = Math.min(aboveArea, belowArea)
-                                            largerArea = Math.max(aboveArea, belowArea)
-                                            sizeRatio = smallerArea / largerArea
-
-                                            # Filter: size ratio 10-55% (excludes tiny holes and similar-sized regions).
-                                            # Only mark as covered when smaller region is from above.
-                                            if sizeRatio >= 0.10 and sizeRatio < 0.55 and aboveArea < belowArea
-
-                                                fullyCoveredRegions.push(regionAbove)
-                                                break
+                fullyCoveredRegions = exposureModule.identifyFullyCoveredRegions(currentPath, coveringRegionsAbove, coveringRegionsBelow)
 
                 # Process fully covered regions for skin infill exclusion.
-                fullyCoveredSkinWalls = []
-
-                if fullyCoveredRegions.length > 0
-
-                    currentPathBounds = helpers.calculatePathBounds(currentPath)
-
-                    for fullyCoveredRegion in fullyCoveredRegions
-
-                        continue if fullyCoveredRegion.length < 3
-
-                        coveredBounds = helpers.calculatePathBounds(fullyCoveredRegion)
-
-                        # Skip regions >= 90% of current path (same geometry).
-                        if currentPathBounds? and coveredBounds?
-
-                            currentWidth = currentPathBounds.maxX - currentPathBounds.minX
-                            currentHeight = currentPathBounds.maxY - currentPathBounds.minY
-                            coveredWidth = coveredBounds.maxX - coveredBounds.minX
-                            coveredHeight = coveredBounds.maxY - coveredBounds.minY
-
-                            if coveredWidth >= currentWidth * 0.9 and coveredHeight >= currentHeight * 0.9
-
-                                continue
-
-                        fullyCoveredSkinWalls.push(fullyCoveredRegion)
+                fullyCoveredSkinWalls = exposureModule.filterFullyCoveredSkinWalls(fullyCoveredRegions, currentPath)
 
                 # Calculate constants used for fully covered region processing.
                 infillGap = 0
