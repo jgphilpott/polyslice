@@ -1,9 +1,9 @@
 ---
-name: slice-benchmarks
+name: benchmarks-agent
 description: Run slicing examples on this repo and report timings, sizes, layers, and artifacts.
 ---
 
-# Slice Benchmarks Agent
+# Benchmarks Agent
 
 A lightweight, repo-scoped agent you can select in Copilot Chat to run repeatable slicing checks against example scripts and summarize results.
 
@@ -46,9 +46,9 @@ A lightweight, repo-scoped agent you can select in Copilot Chat to run repeatabl
 - Large, long-running comparisons should be split or delegated when over ~10 min.
 
 ## example-prompts
-- "@slice-benchmarks benchmark current PR"
-- "@slice-benchmarks benchmark patterns=grid densities=10,20 models=holes"
-- "@slice-benchmarks compare main vs copilot/implement-travel-path-combing"
+- "@benchmarks-agent benchmark current PR"
+- "@benchmarks-agent benchmark patterns=grid densities=10,20 models=holes"
+- "@benchmarks-agent compare main vs copilot/implement-travel-path-combing"
 
 ## notes
 - This agent assumes Node >= 14 and uses the repo’s scripts and dependencies.
