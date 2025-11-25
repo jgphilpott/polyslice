@@ -990,6 +990,33 @@ module.exports =
 
         return false
 
+    # Check if an area is inside any of the provided hole wall arrays.
+    # This is a convenience function that checks against multiple wall types.
+    # Used to skip generating skin/infill that would be entirely within holes.
+    #
+    # @param area [Array] The area to check (array of points).
+    # @param holeSkinWalls [Array] Skin wall paths of holes.
+    # @param holeInnerWalls [Array] Inner wall paths of holes.
+    # @param holeOuterWalls [Array] Outer wall paths of holes.
+    # @return [Boolean] True if area is inside any hole wall.
+    isAreaInsideAnyHoleWall: (area, holeSkinWalls = [], holeInnerWalls = [], holeOuterWalls = []) ->
+
+        return false if not area or area.length < 3
+
+        # Check against skin walls.
+        if holeSkinWalls.length > 0 and @isSkinAreaInsideHole(area, holeSkinWalls)
+            return true
+
+        # Check against inner walls.
+        if holeInnerWalls.length > 0 and @isSkinAreaInsideHole(area, holeInnerWalls)
+            return true
+
+        # Check against outer walls.
+        if holeOuterWalls.length > 0 and @isSkinAreaInsideHole(area, holeOuterWalls)
+            return true
+
+        return false
+
     # Calculate the exposed (uncovered) areas of a region.
     # Returns an array of polygons representing the exposed portions.
     # Uses dense sampling to identify uncovered areas and groups them into regions.

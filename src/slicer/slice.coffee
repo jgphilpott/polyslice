@@ -704,11 +704,7 @@ module.exports =
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>90% coverage).
-                        # Check against skin walls, inner walls and outer walls to prevent patches inside holes.
-                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
-                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
-                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+                        continue if helpers.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Pass hole skin walls and fully covered boundaries separately.
                         # The skin module handles them differently:
@@ -760,11 +756,7 @@ module.exports =
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>90% coverage).
-                        # Check against all types of walls to prevent patches inside holes.
-                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
-                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
-                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+                        continue if helpers.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Pass hole skin walls and fully covered boundaries separately.
                         # The skin module handles them differently:
@@ -783,9 +775,7 @@ module.exports =
                         continue if fullyCoveredSkinWall.length < 3
 
                         # Skip if covered region is completely inside a hole.
-                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeSkinWalls)
-                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeInnerWalls)
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeOuterWalls)
+                        continue if helpers.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Generate skin wall only (no infill) for this covered region.
                         # Parameters: isHole=false, generateInfill=false, coveredAreaSkinWalls=[], isCoveredArea=true.
