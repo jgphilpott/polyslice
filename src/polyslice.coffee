@@ -75,7 +75,7 @@ class Polyslice
 
         # Infill settings for interior structure and strength.
         @infillDensity = options.infillDensity ?= 20 # Number 0-100 (percentage).
-        @infillPattern = options.infillPattern ?= "grid" # String ['grid', 'triangles', 'hexagons'].
+        @infillPattern = options.infillPattern ?= "hexagons" # String ['grid', 'triangles', 'hexagons'].
         @shellSkinThickness = conversions.lengthToInternal(options.shellSkinThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
         @shellWallThickness = conversions.lengthToInternal(options.shellWallThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
         @exposureDetection = options.exposureDetection ?= true # Boolean - enable adaptive skin layer generation for exposed surfaces.
@@ -85,7 +85,7 @@ class Polyslice
         @supportEnabled = options.supportEnabled ?= false # Boolean.
         @supportType = options.supportType ?= "normal" # String ['normal', 'tree'].
         @supportPlacement = options.supportPlacement ?= "buildPlate" # String ['everywhere', 'buildPlate'].
-        @supportThreshold = conversions.angleToInternal(options.supportThreshold ?= 45, this.angleUnit) # Number (degrees internal).
+        @supportThreshold = conversions.angleToInternal(options.supportThreshold ?= 55, this.angleUnit) # Number (degrees internal).
 
         # Build plate adhesion settings for first layer stability.
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
@@ -312,7 +312,7 @@ class Polyslice
     setInfillDensity: (density = 20) ->
         accessors.setInfillDensity(this, density)
 
-    setInfillPattern: (pattern = "grid") ->
+    setInfillPattern: (pattern = "hexagons") ->
         accessors.setInfillPattern(this, pattern)
 
     setShellSkinThickness: (thickness = 0.8) ->
@@ -336,7 +336,7 @@ class Polyslice
     setSupportPlacement: (placement = "buildPlate") ->
         accessors.setSupportPlacement(this, placement)
 
-    setSupportThreshold: (angle = 45) ->
+    setSupportThreshold: (angle = 55) ->
         accessors.setSupportThreshold(this, angle)
 
     setAdhesionEnabled: (enabled = false) ->
