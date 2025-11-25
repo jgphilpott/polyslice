@@ -54,7 +54,7 @@ Please provide a brief description of why you're sharing this configuration (e.g
 ### Infill Settings:
 
 - **Infill Density**: [0-100] (default: 20)
-- **Infill Pattern**: grid/lines/triangles/cubic/gyroid/honeycomb (default: grid)
+- **Infill Pattern**: grid/triangles/hexagons
 - **Shell Horizontal Thickness**: [value] (default: 0.8)
 - **Shell Vertical Thickness**: [value] (default: 0.8)
 

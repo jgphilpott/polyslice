@@ -11,7 +11,7 @@ These guidelines ensure consistent unit handling throughout the Polyslice codeba
 Polyslice uses standardized units internally for consistency and G-code generation:
 
 - **Time**: milliseconds
-- **Distance/Length**: millimeters  
+- **Distance/Length**: millimeters
 - **Speed**: millimeters per second
 - **Temperature**: celsius
 - **Volume**: millimeters cubed
@@ -26,7 +26,7 @@ Polyslice uses standardized units internally for consistency and G-code generati
 Users can configure different unit scales via constructor options or setters:
 
 - **timeUnit**: 'milliseconds' | 'seconds'
-- **lengthUnit**: 'millimeters' | 'inches' 
+- **lengthUnit**: 'millimeters' | 'inches'
 - **speedUnit**: 'millimeterSecond' | 'inchSecond' | 'meterSecond' | etc.
 - **temperatureUnit**: 'celsius' | 'fahrenheit' | 'kelvin'
 - **volumeUnit**: 'millimeterCu' | 'inchCu' | 'centimeterCu' | etc.
@@ -43,7 +43,7 @@ Users can configure different unit scales via constructor options or setters:
 - Convert to internal storage units using `@jgphilpott/polyconvert`
 - Store internally in standard units (ms, mm, °C)
 
-### Getter Methods  
+### Getter Methods
 - Retrieve values from internal storage (always in standard units)
 - Convert to user's configured unit scale using `@jgphilpott/polyconvert`
 - Return values in the user's expected units
@@ -66,7 +66,7 @@ convert = require('@jgphilpott/polyconvert')
 celsius = convert.temperature.fahrenheit.celsius(fahrenheitValue)
 fahrenheit = convert.temperature.celsius.fahrenheit(celsiusValue)
 
-# Length conversions  
+# Length conversions
 millimeters = convert.length.inch.millimeter(inchValue)
 inches = convert.length.millimeter.inch(millimeterValue)
 
@@ -75,7 +75,7 @@ mmPerSecond = convert.speed.inchSecond.millimeterSecond(inchPerSecondValue)
 inchPerSecond = convert.speed.millimeterSecond.inchSecond(mmPerSecondValue)
 
 # Time conversions
-milliseconds = convert.time.second.millisecond(secondValue)  
+milliseconds = convert.time.second.millisecond(secondValue)
 seconds = convert.time.millisecond.second(millisecondValue)
 
 # Volume conversions
@@ -126,7 +126,7 @@ slicer.setTemperatureUnit('fahrenheit')
 slicer.setNozzleTemperature(400) # User input: 400°F
 # Internally stored as: ~204.4°C
 
-# User gets temperature in Fahrenheit (configured unit) 
+# User gets temperature in Fahrenheit (configured unit)
 temp = slicer.getNozzleTemperature() # Returns: 400°F
 # Retrieved from internal: ~204.4°C and converted back
 
