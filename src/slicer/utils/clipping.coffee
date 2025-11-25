@@ -60,12 +60,16 @@ module.exports =
 
                 # Only add if not already added as an endpoint (with small tolerance).
                 isNew = true
+
                 for existing in intersections
+
                     if Math.abs(existing.t - t) < 0.0001
+
                         isNew = false
                         break
 
                 if isNew
+
                     intersections.push({ point: intersection, t: t, isEndpoint: false })
 
         # Return empty if no intersections found.
@@ -129,6 +133,7 @@ module.exports =
 
                     # If both endpoints are inside the hole, the entire segment is excluded.
                     if startInHole and endInHole
+
                         continue
 
                     # If neither endpoint is in the hole, check for intersections.
@@ -287,6 +292,7 @@ module.exports =
         infillPolygon = [[]]
 
         for point in infillBoundary
+
             infillPolygon[0].push([point.x, point.y])
 
         # Close the polygon if not already closed.
@@ -294,6 +300,7 @@ module.exports =
         lastPoint = infillBoundary[infillBoundary.length - 1]
 
         if Math.abs(firstPoint.x - lastPoint.x) > 0.001 or Math.abs(firstPoint.y - lastPoint.y) > 0.001
+
             infillPolygon[0].push([firstPoint.x, firstPoint.y])
 
         # Convert skin areas to polygon-clipping format.
@@ -306,6 +313,7 @@ module.exports =
             skinPolygon = [[]]
 
             for point in skinArea
+
                 skinPolygon[0].push([point.x, point.y])
 
             # Close the polygon if not already closed.
@@ -313,6 +321,7 @@ module.exports =
             skinLastPoint = skinArea[skinArea.length - 1]
 
             if Math.abs(skinFirstPoint.x - skinLastPoint.x) > 0.001 or Math.abs(skinFirstPoint.y - skinLastPoint.y) > 0.001
+
                 skinPolygon[0].push([skinFirstPoint.x, skinFirstPoint.y])
 
             skinPolygons.push(skinPolygon)
@@ -327,9 +336,12 @@ module.exports =
         for skinPolygon, skinAreaIndex in skinPolygons
 
             try
+
                 # Perform difference operation: infill - skin.
                 resultPolygons = polygonClipping.difference(resultPolygons, skinPolygon)
+
             catch error
+
                 # If polygon-clipping fails (e.g., invalid geometry), skip this skin area.
                 console.warn("subtractSkinAreasFromInfill: polygon-clipping difference failed for skin area #{skinAreaIndex} (#{skinPolygon[0].length} points): #{error.message}")
 
@@ -347,6 +359,7 @@ module.exports =
             path = []
 
             for coord in outerRing
+
                 path.push({ x: coord[0], y: coord[1] })
 
             resultPaths.push(path)

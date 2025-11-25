@@ -1,5 +1,5 @@
 /**
- * Polyslice - An FDM slicer designed specifically for three.js
+ * Polyslice - An AI powered slicer designed specifically for three.js
  *
  * Main entry point for the polyslice package.
  *

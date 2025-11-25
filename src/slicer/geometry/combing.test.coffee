@@ -226,7 +226,7 @@ describe 'Combing', ->
             expect(path[0]).toEqual(start)
             expect(path[path.length - 1]).toEqual(end)
 
-        test 'should use A* pathfinding for complex hole configurations', ->
+        test 'should use A* wayfinding for complex hole configurations', ->
 
             # Create multiple holes in a grid pattern that requires multi-waypoint routing.
             hole1 = [

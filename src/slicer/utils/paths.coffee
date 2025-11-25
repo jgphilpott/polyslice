@@ -30,42 +30,42 @@ module.exports =
 
         # Helper to select best candidate using leftmost-turn heuristic.
         selectBestCandidate = (candidates, prevPoint, currentPoint) =>
-        
+
             return null if candidates.length is 0
             return candidates[0] if candidates.length is 1
-            
+
             # Calculate current direction.
             currentDirX = currentPoint.x - prevPoint.x
             currentDirY = currentPoint.y - prevPoint.y
             currentLen = Math.sqrt(currentDirX * currentDirX + currentDirY * currentDirY)
-            
+
             return candidates[0] if currentLen <= 0.0001
-            
+
             currentDirX /= currentLen
             currentDirY /= currentLen
-            
+
             bestCandidate = null
             bestCrossProduct = -Infinity
-            
+
             for candidate in candidates
-            
+
                 nextDirX = candidate.nextPoint.x - currentPoint.x
                 nextDirY = candidate.nextPoint.y - currentPoint.y
                 nextLen = Math.sqrt(nextDirX * nextDirX + nextDirY * nextDirY)
-                
+
                 if nextLen > 0.0001
-                
+
                     nextDirX /= nextLen
                     nextDirY /= nextLen
-                    
+
                     # Cross product: positive = left turn (CCW), negative = right turn (CW).
                     crossProduct = currentDirX * nextDirY - currentDirY * nextDirX
-                    
+
                     if crossProduct > bestCrossProduct
-                    
+
                         bestCrossProduct = crossProduct
                         bestCandidate = candidate
-            
+
             return bestCandidate ? candidates[0]
 
         # Bidirectional greedy path connection.
@@ -119,14 +119,14 @@ module.exports =
                 break if candidates.length is 0
 
                 bestCandidate = selectBestCandidate(candidates, prevPoint, lastPoint)
-                
+
                 if bestCandidate?
-                
+
                     currentPath.push(bestCandidate.nextPoint)
                     usedSegments.add(bestCandidate.index)
-                    
+
                 else
-                
+
                     break
 
             # Extend backward (from start).
@@ -166,14 +166,14 @@ module.exports =
                 break if candidates.length is 0
 
                 bestCandidate = selectBestCandidate(candidates, secondPoint, firstPoint)
-                
+
                 if bestCandidate?
-                
+
                     currentPath.unshift(bestCandidate.nextPoint)
                     usedSegments.add(bestCandidate.index)
-                    
+
                 else
-                
+
                     break
 
             # Only add paths with at least 3 points and remove duplicate last point if it matches first.
@@ -361,6 +361,7 @@ module.exports =
             originalMaxY = -Infinity
 
             for point in simplifiedPath
+
                 originalMinX = Math.min(originalMinX, point.x)
                 originalMaxX = Math.max(originalMaxX, point.x)
                 originalMinY = Math.min(originalMinY, point.y)
@@ -381,6 +382,7 @@ module.exports =
             insetMaxY = -Infinity
 
             for point in insetPath
+
                 insetMinX = Math.min(insetMinX, point.x)
                 insetMaxX = Math.max(insetMaxX, point.x)
                 insetMinY = Math.min(insetMinY, point.y)

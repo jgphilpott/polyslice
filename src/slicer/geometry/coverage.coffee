@@ -269,6 +269,7 @@ module.exports =
                     perimeterTotalCount++
 
                     if exposedGrid[i][j]?
+
                         perimeterExposedCount++
 
         if perimeterTotalCount > 0 and (perimeterExposedCount / perimeterTotalCount) > 0.8 and exposedCount > 0
@@ -303,6 +304,7 @@ module.exports =
                         exposedPoly = @marchingSquares(exposedGrid, region, testBounds, gridSize, testRegion[0].z)
 
                         if exposedPoly.length > 0
+
                             exposedAreas.push(exposedPoly)
 
         return if exposedAreas.length > 0 then exposedAreas else [testRegion]
@@ -441,7 +443,9 @@ module.exports =
         stack = [{ i: startI, j: startJ }]
 
         while stack.length > 0
+
             pos = stack.pop()
+
             i = pos.i
             j = pos.j
 
@@ -465,19 +469,24 @@ module.exports =
         return [] if not region or region.length is 0
 
         regionSet = new Set()
+
         for cell in region
+
             regionSet.add("#{cell.i},#{cell.j}")
 
         width = testBounds.maxX - testBounds.minX
         height = testBounds.maxY - testBounds.minY
+
         cellWidth = width / gridSize
         cellHeight = height / gridSize
 
         isExposed = (i, j) ->
+
             return false if i < 0 or i >= gridSize or j < 0 or j >= gridSize
             return regionSet.has("#{i},#{j}")
 
         gridToWorld = (i, j) ->
+
             x: testBounds.minX + (i / gridSize) * width
             y: testBounds.minY + (j / gridSize) * height
             z: z
@@ -486,6 +495,7 @@ module.exports =
         vertices = []
 
         for cell in region
+
             i = cell.i
             j = cell.j
 
@@ -496,10 +506,15 @@ module.exports =
                 isExposed(i - 1, j)
                 isExposed(i, j)
             ]
+
             exposedCount = adjacentCells.filter((x) -> x).length
+
             if exposedCount > 0 and exposedCount < 4
+
                 key = "#{i},#{j}"
+
                 if not vertexSet.has(key)
+
                     vertexSet.add(key)
                     vertices.push({ i: i, j: j, point: gridToWorld(i, j) })
 
@@ -509,10 +524,15 @@ module.exports =
                 isExposed(i, j)
                 isExposed(i + 1, j)
             ]
+
             exposedCount = adjacentCells.filter((x) -> x).length
+
             if exposedCount > 0 and exposedCount < 4
+
                 key = "#{i + 1},#{j}"
+
                 if not vertexSet.has(key)
+
                     vertexSet.add(key)
                     vertices.push({ i: i + 1, j: j, point: gridToWorld(i + 1, j) })
 
@@ -522,10 +542,15 @@ module.exports =
                 isExposed(i - 1, j + 1)
                 isExposed(i, j + 1)
             ]
+
             exposedCount = adjacentCells.filter((x) -> x).length
+
             if exposedCount > 0 and exposedCount < 4
+
                 key = "#{i},#{j + 1}"
+
                 if not vertexSet.has(key)
+
                     vertexSet.add(key)
                     vertices.push({ i: i, j: j + 1, point: gridToWorld(i, j + 1) })
 
@@ -535,10 +560,15 @@ module.exports =
                 isExposed(i, j + 1)
                 isExposed(i + 1, j + 1)
             ]
+
             exposedCount = adjacentCells.filter((x) -> x).length
+
             if exposedCount > 0 and exposedCount < 4
+
                 key = "#{i + 1},#{j + 1}"
+
                 if not vertexSet.has(key)
+
                     vertexSet.add(key)
                     vertices.push({ i: i + 1, j: j + 1, point: gridToWorld(i + 1, j + 1) })
 
@@ -547,15 +577,20 @@ module.exports =
         # Sort vertices by angle from centroid.
         centroidI = 0
         centroidJ = 0
+
         for vertex in vertices
+
             centroidI += vertex.i
             centroidJ += vertex.j
+
         centroidI /= vertices.length
         centroidJ /= vertices.length
 
         sortedVertices = vertices.slice().sort (a, b) ->
+
             angleA = Math.atan2(a.j - centroidJ, a.i - centroidI)
             angleB = Math.atan2(b.j - centroidJ, b.i - centroidI)
+
             return angleA - angleB
 
         contour = sortedVertices.map((v) -> v.point)
@@ -565,17 +600,24 @@ module.exports =
         epsilon = Math.min(cellWidth, cellHeight) * 0.01
 
         for i in [0...contour.length]
+
             point = contour[i]
 
             if simplifiedContour.length is 0
+
                 simplifiedContour.push(point)
+
             else
+
                 lastPoint = simplifiedContour[simplifiedContour.length - 1]
+
                 dx = point.x - lastPoint.x
                 dy = point.y - lastPoint.y
+
                 dist = Math.sqrt(dx * dx + dy * dy)
 
                 if dist > epsilon
+
                     simplifiedContour.push(point)
 
         return [] if simplifiedContour.length < 3
@@ -689,6 +731,7 @@ module.exports =
 
             dx = holeCentroidX - layerHoleCentroidX
             dy = holeCentroidY - layerHoleCentroidY
+
             centroidDistance = Math.sqrt(dx * dx + dy * dy)
 
             layerHoleWidth = layerHoleBounds.maxX - layerHoleBounds.minX

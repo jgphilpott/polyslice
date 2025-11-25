@@ -80,6 +80,7 @@ module.exports =
         # This uses Loop subdivision to add more triangles in sparse regions,
         # helping to fill gaps that would otherwise cause missing segments during slicing.
         if slicer.getMeshPreprocessing and slicer.getMeshPreprocessing()
+
             mesh = preprocessingModule.preprocessMesh(mesh)
 
         # Use Polytree to slice the mesh into layers with adjusted starting position.
@@ -220,9 +221,12 @@ module.exports =
 
             # Store hole outer walls for combing path avoidance.
             if pathIsHole[pathIndex]
+
                 pathToHoleIndex[pathIndex] = holeOuterWalls.length
                 holeOuterWalls.push(currentPath)
+
             else
+
                 # Store outer boundary for combing constraint.
                 outerBoundaryPath = path
 
@@ -248,6 +252,7 @@ module.exports =
                 # If the gap between outer walls is less than one nozzle diameter,
                 # mark both paths as having insufficient spacing for inner walls.
                 if minDistance < nozzleDiameter
+
                     pathsWithInsufficientSpacingForInnerWalls[pathIndex1] = true
                     pathsWithInsufficientSpacingForInnerWalls[pathIndex2] = true
 
@@ -297,12 +302,15 @@ module.exports =
             innermostWall = calculateInnermostWall(path, pathIndex, pathIsHole[pathIndex])
 
             if innermostWall and innermostWall.length >= 3
+
                 allInnermostWalls[pathIndex] = innermostWall
 
         # Check spacing between innermost walls to determine if skin walls can be generated.
         # Inherit flags from inner wall spacing check first.
         for pathIndex in [0...paths.length]
+
             if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
+
                 pathsWithInsufficientSpacingForSkinWalls[pathIndex] = true
 
         # Then check spacing between actual innermost walls.
@@ -325,6 +333,7 @@ module.exports =
 
                 # If insufficient spacing, mark both paths.
                 if minDistance < skinWallThreshold
+
                     pathsWithInsufficientSpacingForSkinWalls[pathIndex1] = true
                     pathsWithInsufficientSpacingForSkinWalls[pathIndex2] = true
 
@@ -366,8 +375,7 @@ module.exports =
 
                     # First, check if this path was flagged as having insufficient spacing for inner walls.
                     # If so, skip inner wall generation entirely.
-                    if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
-                        break
+                    if pathsWithInsufficientSpacingForInnerWalls[pathIndex] then break
 
                     # Check if the next inset would be degenerate (too small to print).
                     # The createInsetPath function already has sophisticated validation.
@@ -375,8 +383,8 @@ module.exports =
 
                     # If the inset path is degenerate, there's no room for this wall.
                     if testInsetPath.length < 3
-                        # No room for inner walls - stop generating walls for this path.
-                        break
+
+                        break # No room for inner walls - stop generating walls for this path.
 
                 # Use combing for all walls to avoid crossing holes, even between concentric walls.
                 # The lastPathEndPoint is updated after each wall, so it always reflects the current nozzle position.
@@ -388,14 +396,19 @@ module.exports =
                 excludeDestinationHole = false
 
                 if isHole and pathToHoleIndex[pathIndex]? and lastPathEndPoint?
+
                     # Only exclude if we're on the same layer.
                     if lastPathEndPoint.z is z
+
                         excludeDestinationHole = true
 
                 if excludeDestinationHole
+
                     currentHoleIdx = pathToHoleIndex[pathIndex]
                     combingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+
                 else
+
                     combingHoleWalls = holeOuterWalls
 
                 # Generate this wall with combing path support.
@@ -439,9 +452,12 @@ module.exports =
                     # For combing, exclude the current hole (destination).
                     # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
                     if pathToHoleIndex[pathIndex]?
+
                         currentHoleIdx = pathToHoleIndex[pathIndex]
                         skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+
                     else
+
                         skinCombingHoleWalls = holeOuterWalls
 
                     # Generate skin wall for the hole (outward inset).
@@ -464,6 +480,7 @@ module.exports =
             sumY = 0
 
             for point in path
+
                 sumX += point.x
                 sumY += point.y
 
@@ -536,6 +553,7 @@ module.exports =
                     distance = calculateDistance(lastPathEndPoint, holeCentroid)
 
                     if distance < nearestDistance
+
                         nearestDistance = distance
                         nearestIndex = holeIdx
 
@@ -546,6 +564,7 @@ module.exports =
 
                 # Remove from remaining list.
                 remainingHoleIndices = remainingHoleIndices.filter((idx) -> idx isnt nearestIndex)
+
             else
 
                 # Fallback: just take the first remaining hole.
@@ -630,10 +649,13 @@ module.exports =
                 # Check if this path has insufficient spacing for skin walls.
                 # If so, skip skin generation even on top/bottom layers.
                 if not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+
                     needsSkin = true
                     skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
                     isAbsoluteTopOrBottom = true # Mark as absolute top/bottom
+
                 else
+
                     needsSkin = false
                     skinAreas = []
                     skinSuppressedDueToSpacing = true # Mark that spacing is the reason
@@ -792,6 +814,7 @@ module.exports =
                             coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
 
                             if coveredInfillBoundary.length >= 3
+
                                 fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
 
                     # Generate regular infill for fully covered regions.

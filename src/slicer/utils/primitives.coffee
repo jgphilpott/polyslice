@@ -125,9 +125,11 @@ module.exports =
 
         dx = segEnd.x - segStart.x
         dy = segEnd.y - segStart.y
+
         lengthSq = dx * dx + dy * dy
 
         if lengthSq < 0.001
+
             # Degenerate segment, return distance to start point.
             return Math.sqrt((px - segStart.x) ** 2 + (py - segStart.y) ** 2)
 
@@ -141,7 +143,7 @@ module.exports =
         # Return distance.
         return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2)
 
-    # Manhattan distance heuristic (used for A* pathfinding).
+    # Manhattan distance heuristic (used for A* wayfinding).
     manhattanDistance: (x1, y1, x2, y2) ->
 
         Math.abs(x2 - x1) + Math.abs(y2 - y1)
@@ -163,6 +165,7 @@ module.exports =
 
                 dx = intersection.x - existing.x
                 dy = intersection.y - existing.y
+
                 distSq = dx * dx + dy * dy
 
                 if distSq < epsilon * epsilon
@@ -181,15 +184,18 @@ module.exports =
 
         # Check if either endpoint is inside.
         if @pointInPolygon(start, polygon) or @pointInPolygon(end, polygon)
+
             return true
 
         # Check if line intersects any edge.
         for i in [0...polygon.length]
+
             nextIdx = if i is polygon.length - 1 then 0 else i + 1
             edgeStart = polygon[i]
             edgeEnd = polygon[nextIdx]
 
             if @lineSegmentIntersection(start, end, edgeStart, edgeEnd)
+
                 return true
 
         return false

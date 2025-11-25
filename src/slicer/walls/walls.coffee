@@ -25,7 +25,7 @@ module.exports =
 
         # Find the optimal starting point along the path.
         # If we have a last end point and holes to avoid, find the point that's easiest to reach.
-        # This avoids complex pathfinding by choosing an accessible starting point.
+        # This avoids complex wayfinding by choosing an accessible starting point.
         startIndex = 0
 
         if lastEndPoint? and holeOuterWalls.length > 0

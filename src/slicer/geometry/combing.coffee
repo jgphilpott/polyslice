@@ -1,5 +1,5 @@
 # Travel path optimization (combing) to avoid crossing holes during moves.
-# Includes A* pathfinding and various path optimization strategies.
+# Includes A* wayfinding and various path optimization strategies.
 
 primitives = require('../utils/primitives')
 
@@ -45,43 +45,57 @@ module.exports =
             # Check if path passes too close to hole center.
             centerX = 0
             centerY = 0
+
             for point in holePolygon
+
                 centerX += point.x
                 centerY += point.y
+
             centerX /= holePolygon.length
             centerY /= holePolygon.length
 
             totalDist = 0
+
             for point in holePolygon
+
                 dx = point.x - centerX
                 dy = point.y - centerY
+
                 totalDist += Math.sqrt(dx * dx + dy * dy)
+
             avgRadius = totalDist / holePolygon.length
 
             dx = endPoint.x - startPoint.x
             dy = endPoint.y - startPoint.y
+
             lengthSq = dx * dx + dy * dy
 
             if lengthSq > 0.001
+
                 t = Math.max(0, Math.min(1, ((centerX - startPoint.x) * dx + (centerY - startPoint.y) * dy) / lengthSq))
+
                 closestX = startPoint.x + t * dx
                 closestY = startPoint.y + t * dy
+
                 distToCenter = Math.sqrt((closestX - centerX) ** 2 + (closestY - centerY) ** 2)
 
                 if distToCenter < avgRadius + margin
+
                     return true
 
         return false
 
-    # Find a travel path that avoids crossing holes using A* pathfinding.
+    # Find a travel path that avoids crossing holes using A* wayfinding.
     findCombingPath: (start, end, holePolygons = [], boundary = null, nozzleDiameter = 0.4) ->
 
         if holePolygons.length is 0
+
             return [start, end]
 
         crosses = @travelPathCrossesHoles(start, end, holePolygons)
 
         if not crosses
+
             return [start, end]
 
         # Apply back-off strategy.
@@ -95,9 +109,11 @@ module.exports =
             path = [startSegment[0]]
 
             if startSegment.length > 1
+
                 path.push(startSegment[1])
 
             if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
+
                 path.push(adjustedEnd)
 
             @addSafeEndpoint(path, adjustedEnd, end, holePolygons)
@@ -113,31 +129,37 @@ module.exports =
             fullPath = [startSegment[0]]
 
             if startSegment.length > 1
+
                 fullPath.push(startSegment[1])
 
             for waypoint, i in simplePath when i > 0 and i < simplePath.length - 1
+
                 fullPath.push(waypoint)
 
             if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
+
                 fullPath.push(adjustedEnd)
 
             @addSafeEndpoint(fullPath, adjustedEnd, end, holePolygons)
 
             return fullPath
 
-        # Use A* pathfinding.
+        # Use A* wayfinding.
         astarPath = @findAStarCombingPath(adjustedStart, adjustedEnd, holePolygons, boundary)
 
         startSegment = @buildSafePathSegment(start, adjustedStart, holePolygons)
         fullPath = [startSegment[0]]
 
         if startSegment.length > 1
+
             fullPath.push(startSegment[1])
 
         for waypoint, i in astarPath when i > 0 and i < astarPath.length - 1
+
             fullPath.push(waypoint)
 
         if not @pointsEqual(adjustedStart, adjustedEnd, 0.001)
+
             fullPath.push(adjustedEnd)
 
         @addSafeEndpoint(fullPath, adjustedEnd, end, holePolygons)
@@ -156,6 +178,7 @@ module.exports =
             centerY = 0
 
             for p in hole
+
                 centerX += p.x
                 centerY += p.y
 
@@ -164,29 +187,35 @@ module.exports =
 
             dx = point.x - centerX
             dy = point.y - centerY
+
             distToCenter = Math.sqrt(dx * dx + dy * dy)
 
             maxRadius = 0
 
             for p in hole
+
                 pDx = p.x - centerX
                 pDy = p.y - centerY
+
                 dist = Math.sqrt(pDx * pDx + pDy * pDy)
                 maxRadius = Math.max(maxRadius, dist)
 
             distToBoundary = distToCenter - maxRadius
 
             if distToBoundary < closestDistance
+
                 closestDistance = distToBoundary
                 closestHole = { center: { x: centerX, y: centerY }, radius: maxRadius }
 
         if closestDistance > backOffDistance * 2
+
             return point
 
         if closestHole?
 
             dx = point.x - closestHole.center.x
             dy = point.y - closestHole.center.y
+
             dist = Math.sqrt(dx * dx + dy * dy)
 
             if dist > 0.001
@@ -196,27 +225,33 @@ module.exports =
 
                 newX = point.x + dirX * backOffDistance
                 newY = point.y + dirY * backOffDistance
+
                 newPoint = { x: newX, y: newY }
 
                 if boundary? and not primitives.pointInPolygon(newPoint, boundary)
+
                     return point
 
                 for hole in holePolygons
+
                     if primitives.pointInPolygon(newPoint, hole)
+
                         return point
 
                 return newPoint
 
         return point
 
-    # Simple heuristic pathfinding (single waypoint).
+    # Simple heuristic wayfinding (single waypoint).
     findSimpleCombingPath: (start, end, holePolygons, boundary) ->
 
         dx = end.x - start.x
         dy = end.y - start.y
+
         pathLength = Math.sqrt(dx * dx + dy * dy)
 
         if pathLength < 0.001
+
             return [start, end]
 
         perpX1 = -dy / pathLength
@@ -230,23 +265,26 @@ module.exports =
 
                 midX = (start.x + end.x) / 2
                 midY = (start.y + end.y) / 2
+
                 waypointX = midX + perpX * offset
                 waypointY = midY + perpY * offset
 
                 waypoint = { x: waypointX, y: waypointY }
 
                 if boundary? and not primitives.pointInPolygon(waypoint, boundary)
+
                     continue
 
                 leg1Clear = not @travelPathCrossesHoles(start, waypoint, holePolygons)
                 leg2Clear = not @travelPathCrossesHoles(waypoint, end, holePolygons)
 
                 if leg1Clear and leg2Clear
+
                     return [start, waypoint, end]
 
         return [start, end]
 
-    # A* pathfinding to find multi-waypoint path around holes.
+    # A* wayfinding to find multi-waypoint path around holes.
     findAStarCombingPath: (start, end, holePolygons, boundary) ->
 
         gridSize = 2.0
@@ -259,16 +297,19 @@ module.exports =
         if boundary?
 
             for p in boundary
+
                 minX = Math.min(minX, p.x)
                 maxX = Math.max(maxX, p.x)
                 minY = Math.min(minY, p.y)
                 maxY = Math.max(maxY, p.y)
 
         pointToGrid = (p) =>
+
             gx: Math.floor((p.x - minX) / gridSize)
             gy: Math.floor((p.y - minY) / gridSize)
 
         gridToPoint = (gx, gy) =>
+
             x: minX + (gx + 0.5) * gridSize
             y: minY + (gy + 0.5) * gridSize
 
@@ -277,19 +318,27 @@ module.exports =
         margin = 0.5
 
         for hole in holePolygons
+
             centerX = 0
             centerY = 0
+
             for p in hole
+
                 centerX += p.x
                 centerY += p.y
+
             centerX /= hole.length
             centerY /= hole.length
 
             totalDist = 0
+
             for p in hole
+
                 dx = p.x - centerX
                 dy = p.y - centerY
+
                 totalDist += Math.sqrt(dx * dx + dy * dy)
+
             avgRadius = totalDist / hole.length
 
             holeCentersAndRadii.push({ centerX, centerY, avgRadius, hole })
@@ -299,17 +348,22 @@ module.exports =
             point = gridToPoint(gx, gy)
 
             if boundary? and not primitives.pointInPolygon(point, boundary)
+
                 return false
 
             for holeData in holeCentersAndRadii
+
                 if primitives.pointInPolygon(point, holeData.hole)
+
                     return false
 
                 dx = point.x - holeData.centerX
                 dy = point.y - holeData.centerY
+
                 distToCenter = Math.sqrt(dx * dx + dy * dy)
 
                 if distToCenter < holeData.avgRadius + margin
+
                     return false
 
             return true
@@ -343,6 +397,7 @@ module.exports =
                 key = makeKey(node.gx, node.gy)
 
                 if fScore[key]? and fScore[key] < lowestF
+
                     lowestF = fScore[key]
                     current = node
 
@@ -368,11 +423,14 @@ module.exports =
                 removeIdx = -1
 
                 for node, idx in openSet
+
                     if node.gx is current.gx and node.gy is current.gy
+
                         removeIdx = idx
                         break
 
                 if removeIdx >= 0
+
                     openSet.splice(removeIdx, 1)
 
                 neighbors = [
@@ -407,25 +465,33 @@ module.exports =
                         alreadyInOpen = false
 
                         for node in openSet
+
                             if node.gx is neighbor.gx and node.gy is neighbor.gy
+
                                 alreadyInOpen = true
                                 break
 
                         if not alreadyInOpen
+
                             openSet.push(neighbor)
 
         # Fallback using boundary waypoints.
         if boundary? and boundary.length >= 4
+
             startQuadrant = @getQuadrant(start, boundary)
             endQuadrant = @getQuadrant(end, boundary)
 
             if startQuadrant isnt endQuadrant
+
                 cornerWaypoint = @findBoundaryCorner(startQuadrant, endQuadrant, boundary)
+
                 if cornerWaypoint?
+
                     seg1Safe = not @travelPathCrossesHoles(start, cornerWaypoint, holePolygons)
                     seg2Safe = not @travelPathCrossesHoles(cornerWaypoint, end, holePolygons)
 
                     if seg1Safe and seg2Safe
+
                         return [start, cornerWaypoint, end]
 
         return [start, end]
@@ -435,9 +501,12 @@ module.exports =
 
         centerX = 0
         centerY = 0
+
         for p in boundary
+
             centerX += p.x
             centerY += p.y
+
         centerX /= boundary.length
         centerY /= boundary.length
 
@@ -455,6 +524,7 @@ module.exports =
         maxY = -Infinity
 
         for p in boundary
+
             minX = Math.min(minX, p.x)
             maxX = Math.max(maxX, p.x)
             minY = Math.min(minY, p.y)
@@ -568,6 +638,7 @@ module.exports =
 
                 dx = point.x - fromPoint.x
                 dy = point.y - fromPoint.y
+
                 distSq = dx * dx + dy * dy
 
                 if distSq < minDistSq
@@ -584,6 +655,7 @@ module.exports =
 
             dx = point.x - fromPoint.x
             dy = point.y - fromPoint.y
+
             straightDist = Math.sqrt(dx * dx + dy * dy)
 
             crossesHoles = @travelPathCrossesHoles(fromPoint, point, holePolygons)
