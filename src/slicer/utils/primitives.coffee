@@ -3,7 +3,9 @@
 
 module.exports =
 
-    # Check if two points are within epsilon distance.
+    # Check if two points are within epsilon distance using squared comparison.
+    # More efficient than pointsEqual because it avoids the sqrt operation.
+    # Use this when you need fast comparison in tight loops.
     pointsMatch: (p1, p2, epsilon) ->
 
         dx = p1.x - p2.x
@@ -13,7 +15,9 @@ module.exports =
 
         return distSq < epsilon * epsilon
 
-    # Check if two points are equal within tolerance.
+    # Check if two points are equal within tolerance using actual distance.
+    # Less efficient but may be clearer when the epsilon is an actual distance.
+    # Use pointsMatch when performance matters.
     pointsEqual: (p1, p2, epsilon) ->
 
         dx = p1.x - p2.x

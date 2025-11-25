@@ -221,9 +221,11 @@ module.exports =
         exposedCount = 0
         totalValidPoints = 0
 
-        for row in exposedGrid
+        for i in [0...gridSize]
 
-            for point in row
+            for j in [0...gridSize]
+
+                point = exposedGrid[i][j]
 
                 if point?
 
@@ -231,9 +233,6 @@ module.exports =
                     totalValidPoints++
 
                 else
-
-                    i = exposedGrid.indexOf(row)
-                    j = row.indexOf(point)
 
                     xRatio = (i + 0.5) / gridSize
                     yRatio = (j + 0.5) / gridSize

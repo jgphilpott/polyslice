@@ -4,6 +4,9 @@
 primitives = require('./primitives')
 bounds = require('./bounds')
 
+# Minimum number of corners needed for proper rectangular insets.
+MIN_SIMPLIFIED_CORNERS = 4
+
 module.exports =
 
     # Convert Polytree line segments (Line3 objects) to closed paths.
@@ -234,8 +237,8 @@ module.exports =
             # If direction changes significantly, this is a real corner.
             if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
 
-        # If simplification resulted in < 4 points, use original path.
-        if simplifiedPath.length < 4 then simplifiedPath = path
+        # If simplification resulted in too few points, use original path.
+        if simplifiedPath.length < MIN_SIMPLIFIED_CORNERS then simplifiedPath = path
 
         # Step 2: Create inset using the simplified path.
         insetPath = []

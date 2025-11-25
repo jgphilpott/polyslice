@@ -4,6 +4,8 @@
 primitives = require('../utils/primitives')
 
 # Backoff multiplier for hole avoidance in combing paths.
+# This value is multiplied by nozzle diameter to determine the backoff distance.
+# A value of 3.0 provides adequate clearance (e.g., 3.0 * 0.4mm = 1.2mm backoff).
 BACKOFF_MULTIPLIER = 3.0
 
 module.exports =
