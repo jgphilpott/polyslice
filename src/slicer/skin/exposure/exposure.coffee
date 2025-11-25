@@ -17,6 +17,7 @@ module.exports =
     shouldGenerateHoleSkinWalls: (path, layerIndex, skinLayerCount, totalLayers, allLayers) ->
 
         return false if not path or path.length < 3
+        return false if not allLayers or not Array.isArray(allLayers) or allLayers.length is 0
 
         holeExposedAbove = @isHoleExposedAbove(path, layerIndex, skinLayerCount, totalLayers, allLayers)
         holeExposedBelow = @isHoleExposedBelow(path, layerIndex, skinLayerCount, allLayers)

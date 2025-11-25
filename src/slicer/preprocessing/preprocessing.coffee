@@ -105,6 +105,13 @@ module.exports =
         # - 4x triangle count (225k -> 900k for Benchy).
         # - Significant improvement in sparse regions.
         # - Reasonable computation time.
+        #
+        # Parameter rationale:
+        # - split: true - ensures uniform subdivision across coplanar faces.
+        # - uvSmooth: false - prevents UV coordinate averaging which causes texture tearing.
+        # - preserveEdges: false - allows smooth subdivision (edge preservation makes sharper creases).
+        # - flatOnly: false - subdivides all faces, not just flat ones.
+        # - maxTriangles: Infinity - no limit, as we control subdivision via density threshold.
         params = {
             split: true           # Split coplanar faces for uniform subdivision.
             uvSmooth: false       # Don't average UVs (avoid tearing).
