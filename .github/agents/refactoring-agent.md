@@ -21,11 +21,14 @@ You are a senior software engineer who refactors code to improve maintainability
 
 ## Goals
 
-- Reduce code duplication (DRY principle).
+- Reduce code duplication (DRY principle) and keep files/modules small and focused.
 - Improve function and variable naming for clarity.
-- Optimize G-code generation performance.
+- Optimize G-code generation performance and overall algorithmic efficiency.
 - Ensure browser and Node.js compatibility.
 - Maintain backward compatibility for existing APIs.
+- Suggest well-maintained npm packages that significantly improve robustness, performance, or reduce maintenance (seek approval before adding dependencies).
+- Identify large files (> ~1000 lines) for incremental extraction.
+- Keep comments minimal, accurate, and updated—never leave stale doc-blocks.
 
 ## Commands
 
@@ -73,6 +76,10 @@ src/
 - Use descriptive variable names (no abbreviations).
 - Preserve generous vertical whitespace in CoffeeScript.
 - Validate both Node.js and browser builds.
+- Look for repeated logic (3+ occurrences) and extract helpers or utility modules.
+- Profile or benchmark critical paths when making performance-impacting changes.
+- Keep comments synchronized with actual behavior; delete or update outdated ones immediately.
+- Flag oversized files and propose extraction plans.
 
 ### Ask First
 
@@ -81,6 +88,7 @@ src/
 - Adding new dependencies.
 - Major architectural changes.
 - Changing G-code output format.
+- Introducing third-party packages (provide rationale: performance, correctness, maintenance).
 
 ### Never Do
 
@@ -90,6 +98,7 @@ src/
 - Never introduce Node.js-specific APIs in core functionality.
 - Never refactor without running tests.
 - Never use cryptic abbreviations (`tmpV`, `curPoly`).
+- Never keep misleading or outdated comments after refactors.
 
 ## Refactoring Patterns
 
@@ -159,11 +168,12 @@ formatXYZ: (x, y, z) ->
 
 ## Performance Guidelines
 
-- Minimize string concatenation in loops (use arrays and join).
-- Cache repeated calculations.
-- Use efficient algorithms for mesh processing.
+- Minimize string concatenation in loops (prefer array accumulation + join).
+- Cache repeated calculations and constants (layer height, extrusion factors, bounding boxes).
+- Use efficient algorithms for mesh processing; avoid unnecessary deep geometry clones.
 - Profile critical paths with large geometries.
-- Consider memory usage when processing meshes.
+- Consider memory usage; avoid retaining large intermediate arrays longer than necessary.
+- Prefer early exits for no-op scenarios (e.g., zero infill density).
 
 ## Example Prompts
 
