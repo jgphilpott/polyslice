@@ -136,8 +136,8 @@ describe 'Polyslice', ->
 
     describe 'Printer and Filament Integration', ->
 
-        Printer = require('./config/printer')
-        Filament = require('./config/filament')
+        Printer = require('./config/printer/printer')
+        Filament = require('./config/filament/filament')
 
         test 'should initialize with null printer and filament by default', ->
 
