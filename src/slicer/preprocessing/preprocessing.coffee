@@ -49,6 +49,8 @@ module.exports =
     # @return [Boolean] True if subdivision is recommended.
     analyzeGeometryDensity: (geometry) ->
 
+        return false if not geometry
+
         THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
 
         positionAttribute = geometry.getAttribute('position')
