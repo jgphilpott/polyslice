@@ -258,8 +258,8 @@ describe 'G-code Generation (Coders)', ->
 
         test 'should generate metadata header', ->
 
-            Printer = require('../../config/printer')
-            Filament = require('../../config/filament')
+            Printer = require('../../config/printer/printer')
+            Filament = require('../../config/filament/filament')
 
             printer = new Printer('Ender3')
             filament = new Filament('GenericPLA')

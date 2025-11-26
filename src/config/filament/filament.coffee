@@ -126,6 +126,7 @@ class Filament
     setType: (type) ->
 
         if typeof type is 'string'
+
             this.type = type
 
         return this
@@ -133,6 +134,7 @@ class Filament
     setName: (name) ->
 
         if typeof name is 'string'
+
             this.name = name
 
         return this
@@ -140,6 +142,7 @@ class Filament
     setDescription: (description) ->
 
         if typeof description is 'string'
+
             this.description = description
 
         return this
@@ -147,6 +150,7 @@ class Filament
     setBrand: (brand) ->
 
         if typeof brand is 'string'
+
             this.brand = brand
 
         return this
@@ -154,6 +158,7 @@ class Filament
     setColor: (color) ->
 
         if typeof color is 'string'
+
             this.color = color
 
         return this
@@ -161,6 +166,7 @@ class Filament
     setDiameter: (diameter) ->
 
         if typeof diameter is 'number' and diameter > 0
+
             this.diameter = diameter
 
         return this
@@ -168,6 +174,7 @@ class Filament
     setDensity: (density) ->
 
         if typeof density is 'number' and density > 0
+
             this.density = density
 
         return this
@@ -175,6 +182,7 @@ class Filament
     setWeight: (weight) ->
 
         if typeof weight is 'number' and weight > 0
+
             this.weight = weight
 
         return this
@@ -182,6 +190,7 @@ class Filament
     setCost: (cost) ->
 
         if typeof cost is 'number' and cost >= 0
+
             this.cost = cost
 
         return this
@@ -189,6 +198,7 @@ class Filament
     setFan: (fan) ->
 
         if typeof fan is 'number' and fan >= 0 and fan <= 100
+
             this.fan = fan
 
         return this
@@ -196,6 +206,7 @@ class Filament
     setBedTemperature: (temp) ->
 
         if typeof temp is 'number' and temp >= 0
+
             this.temperature.bed = temp
 
         return this
@@ -203,6 +214,7 @@ class Filament
     setNozzleTemperature: (temp) ->
 
         if typeof temp is 'number' and temp >= 0
+
             this.temperature.nozzle = temp
 
         return this
@@ -210,6 +222,7 @@ class Filament
     setStandbyTemperature: (temp) ->
 
         if typeof temp is 'number' and temp >= 0
+
             this.temperature.standby = temp
 
         return this
@@ -217,6 +230,7 @@ class Filament
     setRetractionSpeed: (speed) ->
 
         if typeof speed is 'number' and speed >= 0
+
             this.retraction.speed = speed
 
         return this
@@ -224,6 +238,7 @@ class Filament
     setRetractionDistance: (distance) ->
 
         if typeof distance is 'number' and distance >= 0
+
             this.retraction.distance = distance
 
         return this

@@ -8,8 +8,8 @@
  */
 
 const Polyslice = require('./polyslice');
-const Printer = require('./config/printer');
-const Filament = require('./config/filament');
+const Printer = require('./config/printer/printer');
+const Filament = require('./config/filament/filament');
 const Loader = require('./loaders/loader');
 const Exporter = require('./exporters/exporter');
 

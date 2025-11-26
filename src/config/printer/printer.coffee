@@ -111,12 +111,15 @@ class Printer
     setSize: (x, y, z) ->
 
         if typeof x is 'number' and x > 0
+
             this.size.x = x
 
         if typeof y is 'number' and y > 0
+
             this.size.y = y
 
         if typeof z is 'number' and z > 0
+
             this.size.z = z
 
         return this
@@ -124,6 +127,7 @@ class Printer
     setSizeX: (x) ->
 
         if typeof x is 'number' and x > 0
+
             this.size.x = x
 
         return this
@@ -131,6 +135,7 @@ class Printer
     setSizeY: (y) ->
 
         if typeof y is 'number' and y > 0
+
             this.size.y = y
 
         return this
@@ -138,6 +143,7 @@ class Printer
     setSizeZ: (z) ->
 
         if typeof z is 'number' and z > 0
+
             this.size.z = z
 
         return this
@@ -145,6 +151,7 @@ class Printer
     setShape: (shape) ->
 
         if shape in ['rectangular', 'circular']
+
             this.shape = shape
 
         return this
@@ -152,6 +159,7 @@ class Printer
     setCentred: (centred) ->
 
         if typeof centred is 'boolean'
+
             this.centred = centred
 
         return this
@@ -159,6 +167,7 @@ class Printer
     setHeatedVolume: (heated) ->
 
         if typeof heated is 'boolean'
+
             this.heated.volume = heated
 
         return this
@@ -166,6 +175,7 @@ class Printer
     setHeatedBed: (heated) ->
 
         if typeof heated is 'boolean'
+
             this.heated.bed = heated
 
         return this
@@ -175,12 +185,15 @@ class Printer
         if index >= 0 and index < this.nozzles.length
 
             if typeof filament is 'number' and filament > 0
+
                 this.nozzles[index].filament = filament
 
             if typeof diameter is 'number' and diameter > 0
+
                 this.nozzles[index].diameter = diameter
 
             if typeof gantry is 'number' and gantry > 0
+
                 this.nozzles[index].gantry = gantry
 
         return this
@@ -198,6 +211,7 @@ class Printer
     removeNozzle: (index) ->
 
         if index >= 0 and index < this.nozzles.length
+
             this.nozzles.splice(index, 1)
 
         return this
