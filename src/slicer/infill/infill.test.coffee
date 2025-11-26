@@ -14,9 +14,9 @@ describe 'Infill Orchestration', ->
 
     describe 'Infill Pattern Selection', ->
 
-        test 'should default to grid pattern', ->
+        test 'should default to hexagons pattern', ->
 
-            expect(slicer.getInfillPattern()).toBe('grid')
+            expect(slicer.getInfillPattern()).toBe('hexagons')
 
         test 'should set grid pattern', ->
 

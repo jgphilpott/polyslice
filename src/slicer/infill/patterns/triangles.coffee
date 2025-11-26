@@ -1,7 +1,9 @@
 # Triangles infill pattern implementation for Polyslice.
 
 coders = require('../../gcode/coders')
-helpers = require('../../geometry/helpers')
+primitives = require('../../utils/primitives')
+clipping = require('../../utils/clipping')
+combing = require('../../geometry/combing')
 
 module.exports =
 
@@ -107,7 +109,7 @@ module.exports =
             if intersections.length >= 2
 
                 # Remove duplicate points using the helper function.
-                uniqueIntersections = helpers.deduplicateIntersections(intersections)
+                uniqueIntersections = primitives.deduplicateIntersections(intersections)
 
                 # Only proceed if we have exactly 2 distinct intersection points.
                 if uniqueIntersections.length is 2
@@ -115,7 +117,7 @@ module.exports =
                     # Clip the line segment to the actual infill boundary polygon.
                     # Also exclude hole areas by clipping against hole inner walls.
                     # This ensures infill stays within the boundary and outside holes.
-                    clippedSegments = helpers.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
+                    clippedSegments = clipping.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
 
                     # Store each clipped segment for later rendering.
                     for segment in clippedSegments
@@ -186,7 +188,7 @@ module.exports =
             if intersections.length >= 2
 
                 # Remove duplicate points using the helper function.
-                uniqueIntersections = helpers.deduplicateIntersections(intersections)
+                uniqueIntersections = primitives.deduplicateIntersections(intersections)
 
                 # Only proceed if we have exactly 2 distinct intersection points.
                 if uniqueIntersections.length is 2
@@ -194,7 +196,7 @@ module.exports =
                     # Clip the line segment to the actual infill boundary polygon.
                     # Also exclude hole areas by clipping against hole inner walls.
                     # This ensures infill stays within the boundary and outside holes.
-                    clippedSegments = helpers.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
+                    clippedSegments = clipping.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
 
                     # Store each clipped segment for later rendering.
                     for segment in clippedSegments
@@ -265,7 +267,7 @@ module.exports =
             if intersections.length >= 2
 
                 # Remove duplicate points using the helper function.
-                uniqueIntersections = helpers.deduplicateIntersections(intersections)
+                uniqueIntersections = primitives.deduplicateIntersections(intersections)
 
                 # Only proceed if we have exactly 2 distinct intersection points.
                 if uniqueIntersections.length is 2
@@ -273,7 +275,7 @@ module.exports =
                     # Clip the line segment to the actual infill boundary polygon.
                     # Also exclude hole areas by clipping against hole inner walls.
                     # This ensures infill stays within the boundary and outside holes.
-                    clippedSegments = helpers.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
+                    clippedSegments = clipping.clipLineWithHoles(uniqueIntersections[0], uniqueIntersections[1], infillBoundary, holeInnerWalls)
 
                     # Store each clipped segment for later rendering.
                     for segment in clippedSegments
@@ -339,7 +341,7 @@ module.exports =
 
             # Move to start of line (travel move with combing).
             # Find a path that avoids crossing holes.
-            combingPath = helpers.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
+            combingPath = combing.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
             
             # Generate travel moves for each segment of the combing path
             for i in [0...combingPath.length - 1]

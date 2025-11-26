@@ -1,15 +1,19 @@
 # Main slicing method for Polyslice.
 
 Polytree = require('@jgphilpott/polytree')
-LoopSubdivision = require('three-subdivide').LoopSubdivision
 
 coders = require('./gcode/coders')
-helpers = require('./geometry/helpers')
+primitives = require('./utils/primitives')
+pathsUtils = require('./utils/paths')
+clipping = require('./utils/clipping')
+coverage = require('./geometry/coverage')
 
 infillModule = require('./infill/infill')
 skinModule = require('./skin/skin')
 wallsModule = require('./walls/walls')
 supportModule = require('./support/support')
+exposureModule = require('./skin/exposure/exposure')
+preprocessingModule = require('./preprocessing/preprocessing')
 
 module.exports =
 
@@ -20,7 +24,7 @@ module.exports =
         slicer.gcode = ""
 
         # Extract mesh from scene if provided.
-        mesh = @extractMesh(scene)
+        mesh = preprocessingModule.extractMesh(scene)
 
         # If no mesh provided, just generate basic initialization sequence.
         if not mesh
@@ -79,7 +83,8 @@ module.exports =
         # This uses Loop subdivision to add more triangles in sparse regions,
         # helping to fill gaps that would otherwise cause missing segments during slicing.
         if slicer.getMeshPreprocessing and slicer.getMeshPreprocessing()
-            mesh = @preprocessMesh(mesh)
+
+            mesh = preprocessingModule.preprocessMesh(mesh)
 
         # Use Polytree to slice the mesh into layers with adjusted starting position.
         allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
@@ -114,7 +119,7 @@ module.exports =
             currentZ = adjustedMinZ + layerIndex * layerHeight
 
             # Convert Polytree line segments to closed paths.
-            layerPaths = helpers.connectSegmentsToPaths(layerSegments)
+            layerPaths = pathsUtils.connectSegmentsToPaths(layerSegments)
 
             # Generate support structures if enabled.
             # Support generation currently checks supportEnabled flag internally.
@@ -135,138 +140,6 @@ module.exports =
         slicer.gcode += coders.codePostPrint(slicer)
 
         return slicer.gcode
-
-    # Extract mesh from scene object.
-    extractMesh: (scene) ->
-
-        return null if not scene
-
-        # If scene is already a mesh, return it.
-        if scene.isMesh then return scene
-
-        # If scene has children, find first mesh.
-        if scene.children and scene.children.length > 0
-
-            for child in scene.children
-
-                if child.isMesh then return child
-
-        # If scene has a mesh property.
-        if scene.mesh and scene.mesh.isMesh
-
-            return scene.mesh
-
-        return null
-
-    # Preprocess mesh to improve triangle density in sparse regions.
-    # This helps fill gaps that would otherwise cause missing segments during slicing.
-    #
-    # @param mesh [THREE.Mesh] The mesh to preprocess
-    # @return [THREE.Mesh] Preprocessed mesh with improved geometry
-    preprocessMesh: (mesh) ->
-
-        # Initialize THREE.js if not already available.
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
-
-        # Get the geometry from the mesh.
-        geometry = mesh.geometry
-
-        return mesh if not geometry or not geometry.isBufferGeometry
-
-        # Analyze geometry to determine if subdivision is needed.
-        # Check triangle density distribution to identify sparse regions.
-        needsSubdivision = @analyzeGeometryDensity(geometry)
-
-        if needsSubdivision
-
-            # Apply edge subdivision to increase triangle count in sparse regions.
-            subdividedGeometry = @subdivideGeometry(geometry)
-
-            # Create new mesh with subdivided geometry.
-            subdividedMesh = new THREE.Mesh(subdividedGeometry, mesh.material)
-
-            # Copy transform properties from original mesh.
-            subdividedMesh.position.copy(mesh.position)
-            subdividedMesh.rotation.copy(mesh.rotation)
-            subdividedMesh.scale.copy(mesh.scale)
-            subdividedMesh.updateMatrixWorld()
-
-            return subdividedMesh
-
-        return mesh
-
-    # Analyze geometry to determine if it needs subdivision.
-    # Returns true if geometry has regions with low triangle density.
-    #
-    # @param geometry [THREE.BufferGeometry] The geometry to analyze
-    # @return [Boolean] True if subdivision is recommended
-    analyzeGeometryDensity: (geometry) ->
-
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
-
-        positionAttribute = geometry.getAttribute('position')
-        return false if not positionAttribute
-
-        # Get bounding box to calculate volume.
-        geometry.computeBoundingBox()
-        bbox = geometry.boundingBox
-
-        return false if not bbox
-
-        # Calculate bounding box volume.
-        size = new THREE.Vector3()
-        bbox.getSize(size)
-        volume = size.x * size.y * size.z
-
-        return false if volume <= 0
-
-        # Count triangles.
-        triangleCount = if geometry.index
-            Math.floor(geometry.index.count / 3)
-        else
-            Math.floor(positionAttribute.count / 3)
-
-        # Calculate triangle density (triangles per cubic unit).
-        density = triangleCount / volume
-
-        # Heuristic: If density is less than 5 triangles per cubic mm,
-        # the mesh may benefit from subdivision.
-        # This is an extremely conservative threshold that will only apply to
-        # very sparse meshes like Benchy (which has ~5 triangles/mm³).
-        # Most test geometries and properly designed models have much higher density
-        # (e.g., simple test cubes have 100-1000+ triangles/mm³).
-        DENSITY_THRESHOLD = 5
-
-        return density < DENSITY_THRESHOLD
-
-    # Subdivide geometry to increase triangle density.
-    # Uses Loop subdivision algorithm via three-subdivide package.
-    #
-    # @param geometry [THREE.BufferGeometry] The geometry to subdivide
-    # @return [THREE.BufferGeometry] Subdivided geometry
-    subdivideGeometry: (geometry) ->
-
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
-
-        # Use Loop subdivision with 1 iteration (static method).
-        # Loop subdivision is a smooth subdivision scheme that:
-        # - Splits each triangle into 4 smaller triangles
-        # - Smooths the mesh by repositioning vertices
-        # - Maintains the overall shape while adding detail
-        #
-        # iterations=1 provides a good balance:
-        # - 4x triangle count (225k -> 900k for Benchy)
-        # - Significant improvement in sparse regions
-        # - Reasonable computation time
-        params = {
-            split: true           # Split coplanar faces for uniform subdivision
-            uvSmooth: false       # Don't average UVs (avoid tearing)
-            preserveEdges: false  # Allow smooth subdivision
-            flatOnly: false       # Subdivide all faces
-            maxTriangles: Infinity # No triangle limit
-        }
-
-        return LoopSubdivision.modify(geometry, 1, params)
 
     # Generate G-code for a single layer.
     generateLayerGCode: (slicer, paths, z, layerIndex, centerOffsetX = 0, centerOffsetY = 0, totalLayers = 0, allLayers = [], layerSegments = []) ->
@@ -306,7 +179,7 @@ module.exports =
                 continue if i is j
 
                 # Test if a sample point from path i is inside path j.
-                if paths[i].length > 0 and helpers.pointInPolygon(paths[i][0], paths[j])
+                if paths[i].length > 0 and primitives.pointInPolygon(paths[i][0], paths[j])
 
                     isHole = true
 
@@ -341,7 +214,7 @@ module.exports =
 
             # Create initial offset for the outer wall by half nozzle diameter.
             outerWallOffset = nozzleDiameter / 2
-            currentPath = helpers.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
+            currentPath = pathsUtils.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
 
             # Skip if offset path is degenerate.
             continue if currentPath.length < 3
@@ -351,9 +224,12 @@ module.exports =
 
             # Store hole outer walls for combing path avoidance.
             if pathIsHole[pathIndex]
+
                 pathToHoleIndex[pathIndex] = holeOuterWalls.length
                 holeOuterWalls.push(currentPath)
+
             else
+
                 # Store outer boundary for combing constraint.
                 outerBoundaryPath = path
 
@@ -374,11 +250,12 @@ module.exports =
                 continue if not outerWall2 or outerWall2.length < 3
 
                 # Calculate minimum distance between these two outer walls.
-                minDistance = helpers.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
+                minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
 
                 # If the gap between outer walls is less than one nozzle diameter,
                 # mark both paths as having insufficient spacing for inner walls.
                 if minDistance < nozzleDiameter
+
                     pathsWithInsufficientSpacingForInnerWalls[pathIndex1] = true
                     pathsWithInsufficientSpacingForInnerWalls[pathIndex2] = true
 
@@ -391,7 +268,7 @@ module.exports =
 
             # Create initial offset for the outer wall.
             outerWallOffset = nozzleDiameter / 2
-            currentPath = helpers.createInsetPath(path, outerWallOffset, isHole)
+            currentPath = pathsUtils.createInsetPath(path, outerWallOffset, isHole)
 
             return null if currentPath.length < 3
 
@@ -404,7 +281,7 @@ module.exports =
                     if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
                         break
 
-                    testInsetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
                     if testInsetPath.length < 3
                         break
@@ -412,7 +289,7 @@ module.exports =
                 # Create inset for next wall if not the last wall.
                 if wallIndex < wallCount - 1
 
-                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
                     break if insetPath.length < 3
 
@@ -428,12 +305,15 @@ module.exports =
             innermostWall = calculateInnermostWall(path, pathIndex, pathIsHole[pathIndex])
 
             if innermostWall and innermostWall.length >= 3
+
                 allInnermostWalls[pathIndex] = innermostWall
 
         # Check spacing between innermost walls to determine if skin walls can be generated.
         # Inherit flags from inner wall spacing check first.
         for pathIndex in [0...paths.length]
+
             if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
+
                 pathsWithInsufficientSpacingForSkinWalls[pathIndex] = true
 
         # Then check spacing between actual innermost walls.
@@ -448,7 +328,7 @@ module.exports =
                 continue if not innermostWall2 or innermostWall2.length < 3
 
                 # Calculate minimum distance between innermost walls.
-                minDistance = helpers.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
+                minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
 
                 # For skin walls, we need space for BOTH skin walls (one from each path).
                 # Each skin wall requires one nozzle diameter, so total threshold is 2 * nozzle diameter.
@@ -456,6 +336,7 @@ module.exports =
 
                 # If insufficient spacing, mark both paths.
                 if minDistance < skinWallThreshold
+
                     pathsWithInsufficientSpacingForSkinWalls[pathIndex1] = true
                     pathsWithInsufficientSpacingForSkinWalls[pathIndex2] = true
 
@@ -472,7 +353,7 @@ module.exports =
             # For outer boundaries: inset by half nozzle (shrinks the boundary inward).
             # For holes: outset by half nozzle (enlarges the hole path outward).
             outerWallOffset = nozzleDiameter / 2
-            currentPath = helpers.createInsetPath(path, outerWallOffset, isHole)
+            currentPath = pathsUtils.createInsetPath(path, outerWallOffset, isHole)
 
             # If the offset path is degenerate, skip this path entirely.
             return null if currentPath.length < 3
@@ -497,17 +378,16 @@ module.exports =
 
                     # First, check if this path was flagged as having insufficient spacing for inner walls.
                     # If so, skip inner wall generation entirely.
-                    if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
-                        break
+                    if pathsWithInsufficientSpacingForInnerWalls[pathIndex] then break
 
                     # Check if the next inset would be degenerate (too small to print).
                     # The createInsetPath function already has sophisticated validation.
-                    testInsetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
                     # If the inset path is degenerate, there's no room for this wall.
                     if testInsetPath.length < 3
-                        # No room for inner walls - stop generating walls for this path.
-                        break
+
+                        break # No room for inner walls - stop generating walls for this path.
 
                 # Use combing for all walls to avoid crossing holes, even between concentric walls.
                 # The lastPathEndPoint is updated after each wall, so it always reflects the current nozzle position.
@@ -519,14 +399,19 @@ module.exports =
                 excludeDestinationHole = false
 
                 if isHole and pathToHoleIndex[pathIndex]? and lastPathEndPoint?
+
                     # Only exclude if we're on the same layer.
                     if lastPathEndPoint.z is z
+
                         excludeDestinationHole = true
 
                 if excludeDestinationHole
+
                     currentHoleIdx = pathToHoleIndex[pathIndex]
                     combingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+
                 else
+
                     combingHoleWalls = holeOuterWalls
 
                 # Generate this wall with combing path support.
@@ -541,7 +426,7 @@ module.exports =
                 # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
 
-                    insetPath = helpers.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
                     # Stop if inset path becomes degenerate.
                     break if insetPath.length < 3
@@ -561,7 +446,7 @@ module.exports =
                 # Calculate the skin wall path for this hole.
                 # This is an inset of full nozzle diameter from the innermost wall.
                 skinWallInset = nozzleDiameter
-                skinWallPath = helpers.createInsetPath(currentPath, skinWallInset, isHole)
+                skinWallPath = pathsUtils.createInsetPath(currentPath, skinWallInset, isHole)
 
                 if skinWallPath.length >= 3
 
@@ -570,9 +455,12 @@ module.exports =
                     # For combing, exclude the current hole (destination).
                     # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
                     if pathToHoleIndex[pathIndex]?
+
                         currentHoleIdx = pathToHoleIndex[pathIndex]
                         skinCombingHoleWalls = holeOuterWalls[0...currentHoleIdx].concat(holeOuterWalls[currentHoleIdx+1...])
+
                     else
+
                         skinCombingHoleWalls = holeOuterWalls
 
                     # Generate skin wall for the hole (outward inset).
@@ -595,6 +483,7 @@ module.exports =
             sumY = 0
 
             for point in path
+
                 sumX += point.x
                 sumY += point.y
 
@@ -667,6 +556,7 @@ module.exports =
                     distance = calculateDistance(lastPathEndPoint, holeCentroid)
 
                     if distance < nearestDistance
+
                         nearestDistance = distance
                         nearestIndex = holeIdx
 
@@ -677,6 +567,7 @@ module.exports =
 
                 # Remove from remaining list.
                 remainingHoleIndices = remainingHoleIndices.filter((idx) -> idx isnt nearestIndex)
+
             else
 
                 # Fallback: just take the first remaining hole.
@@ -709,70 +600,8 @@ module.exports =
                 else if slicer.getExposureDetection()
 
                     # For middle layers with exposure detection enabled:
-                    # Only generate skin walls if this hole represents an actual exposure (cavity).
-                    # Check if the hole exists in the layer skinLayerCount steps above and below.
-                    # If the hole exists in both directions, it's a vertical hole (not exposed).
-                    # If the hole is missing in either direction, it's a cavity (exposed).
-                    holeExposedAbove = false
-                    holeExposedBelow = false
-
-                    # Check if hole exists in layer above.
-                    checkIdxAbove = layerIndex + skinLayerCount
-
-                    if checkIdxAbove < totalLayers
-
-                        checkSegments = allLayers[checkIdxAbove]
-
-                        if checkSegments? and checkSegments.length > 0
-
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                            # Check if this hole path exists in the layer above.
-                            # A hole "exists" if there's a corresponding hole path in the check layer.
-                            holeExistsAbove = helpers.doesHoleExistInLayer(path, checkPaths)
-
-                            # If hole doesn't exist above, this hole is exposed from above.
-                            holeExposedAbove = not holeExistsAbove
-
-                        else
-
-                            # No geometry above means hole is exposed from above.
-                            holeExposedAbove = true
-
-                    else
-
-                        # Near top of model - hole is exposed from above.
-                        holeExposedAbove = true
-
-                    # Check if hole exists in layer below.
-                    checkIdxBelow = layerIndex - skinLayerCount
-
-                    if checkIdxBelow >= 0
-
-                        checkSegments = allLayers[checkIdxBelow]
-
-                        if checkSegments? and checkSegments.length > 0
-
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                            # Check if this hole path exists in the layer below.
-                            holeExistsBelow = helpers.doesHoleExistInLayer(path, checkPaths)
-
-                            # If hole doesn't exist below, this hole is exposed from below.
-                            holeExposedBelow = not holeExistsBelow
-
-                        else
-
-                            # No geometry below means hole is exposed from below.
-                            holeExposedBelow = true
-
-                    else
-
-                        # Near bottom of model - hole is exposed from below.
-                        holeExposedBelow = true
-
-                    # Generate skin walls only if hole is exposed in at least one direction.
-                    shouldGenerateSkinWalls = holeExposedAbove or holeExposedBelow
+                    # Use the exposure module to determine if this hole is exposed.
+                    shouldGenerateSkinWalls = exposureModule.shouldGenerateHoleSkinWalls(path, layerIndex, skinLayerCount, totalLayers, allLayers)
 
             innermostWall = generateWallsForPath(path, pathIndex, true, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
@@ -807,7 +636,7 @@ module.exports =
             # Determine a safe boundary for infill by insetting one nozzle width.
             # If we cannot inset (no room inside the last wall), we should not generate infill.
             # Pass isHole parameter to ensure correct inset direction for holes.
-            infillBoundary = helpers.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
+            infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
 
             # Determine if this region needs skin and calculate exposed areas.
             needsSkin = false
@@ -823,10 +652,13 @@ module.exports =
                 # Check if this path has insufficient spacing for skin walls.
                 # If so, skip skin generation even on top/bottom layers.
                 if not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+
                     needsSkin = true
                     skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
                     isAbsoluteTopOrBottom = true # Mark as absolute top/bottom
+
                 else
+
                     needsSkin = false
                     skinAreas = []
                     skinSuppressedDueToSpacing = true # Mark that spacing is the reason
@@ -838,74 +670,20 @@ module.exports =
                 # When disabled, only top and bottom layers get skin (simpler but less optimal).
                 if slicer.getExposureDetection()
 
-                    # ENABLED: Exposure detection algorithm
-                    # For the current layer, calculate what parts won't be covered by the layer exactly
-                    # skinLayerCount steps ahead/behind. Each layer independently calculates its exposed area.
-                    # Check BOTH directions to detect overhangs (exposure from above) AND cavities/holes (exposure from below).
-                    exposedAreas = []
+                    # ENABLED: Exposure detection algorithm.
+                    # Use the exposure module to calculate exposed areas.
+                    exposureResult = exposureModule.calculateExposedAreasForLayer(
+                        currentPath,
+                        layerIndex,
+                        skinLayerCount,
+                        totalLayers,
+                        allLayers,
+                        slicer.getExposureDetectionResolution()
+                    )
 
-                    # Check the layer exactly skinLayerCount steps AHEAD (above).
-                    checkIdxAbove = layerIndex + skinLayerCount
-
-                    if checkIdxAbove < totalLayers
-
-                        checkSegments = allLayers[checkIdxAbove]
-
-                        if checkSegments? and checkSegments.length > 0
-
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                            # Store covering regions for fully covered area detection.
-                            coveringRegionsAbove.push(checkPaths...)
-
-                            # Calculate exposed areas not covered by layer ahead.
-                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-
-                            if checkExposedAreas.length > 0
-                                exposedAreas.push(checkExposedAreas...)
-
-                        else
-
-                            # No geometry at the layer ahead means current layer is exposed
-                            exposedAreas.push(currentPath)
-
-                    else
-
-                        # We're within skinLayerCount of the top - current layer will be exposed
-                        exposedAreas.push(currentPath)
-
-                    # Check behind to detect cavities and holes.
-                    checkIdxBelow = layerIndex - skinLayerCount
-
-                    if checkIdxBelow >= 0
-
-                        checkSegments = allLayers[checkIdxBelow]
-
-                        if checkSegments? and checkSegments.length > 0
-
-                            checkPaths = helpers.connectSegmentsToPaths(checkSegments)
-
-                            # Store covering regions for fully covered area detection.
-                            coveringRegionsBelow.push(checkPaths...)
-
-                            # Calculate exposed areas not covered by layer behind.
-                            checkExposedAreas = helpers.calculateExposedAreas(currentPath, checkPaths, slicer.getExposureDetectionResolution())
-
-                            if checkExposedAreas.length > 0
-                                exposedAreas.push(checkExposedAreas...)
-
-                        else
-
-                            # No geometry at the layer behind means current layer is exposed
-                            exposedAreas.push(currentPath)
-
-                    else
-
-                        # We're within skinLayerCount of the bottom - current layer will be exposed
-                        exposedAreas.push(currentPath)
-
-                    # Use calculated exposed areas for skin generation on current layer
-                    skinAreas = exposedAreas
+                    skinAreas = exposureResult.exposedAreas
+                    coveringRegionsAbove = exposureResult.coveringRegionsAbove
+                    coveringRegionsBelow = exposureResult.coveringRegionsBelow
                     needsSkin = skinAreas.length > 0
 
                 else
@@ -933,98 +711,10 @@ module.exports =
 
                 # Identify fully covered areas to exclude from skin infill.
                 # A fully covered area has geometry both above AND below.
-                fullyCoveredRegions = []
-
-                currentPathBounds = helpers.calculatePathBounds(currentPath)
-
-                if currentPathBounds? and coveringRegionsAbove.length > 0 and coveringRegionsBelow.length > 0
-
-                    currentWidth = currentPathBounds.maxX - currentPathBounds.minX
-                    currentHeight = currentPathBounds.maxY - currentPathBounds.minY
-                    currentArea = currentWidth * currentHeight
-
-                    for regionAbove in coveringRegionsAbove
-
-                        continue if regionAbove.length < 3
-
-                        boundsAbove = helpers.calculatePathBounds(regionAbove)
-                        continue unless boundsAbove?
-
-                        aboveWidth = boundsAbove.maxX - boundsAbove.minX
-                        aboveHeight = boundsAbove.maxY - boundsAbove.minY
-                        aboveArea = aboveWidth * aboveHeight
-
-                        for regionBelow in coveringRegionsBelow
-
-                            continue if regionBelow.length < 3
-
-                            boundsBelow = helpers.calculatePathBounds(regionBelow)
-                            continue unless boundsBelow?
-
-                            belowWidth = boundsBelow.maxX - boundsBelow.minX
-                            belowHeight = boundsBelow.maxY - boundsBelow.minY
-                            belowArea = belowWidth * belowHeight
-
-                            # Check for overlap between regions.
-                            overlapMinX = Math.max(boundsAbove.minX, boundsBelow.minX)
-                            overlapMaxX = Math.min(boundsAbove.maxX, boundsBelow.maxX)
-                            overlapMinY = Math.max(boundsAbove.minY, boundsBelow.minY)
-                            overlapMaxY = Math.min(boundsAbove.maxY, boundsBelow.maxY)
-
-                            if overlapMinX < overlapMaxX and overlapMinY < overlapMaxY
-
-                                overlapWidth = overlapMaxX - overlapMinX
-                                overlapHeight = overlapMaxY - overlapMinY
-                                overlapArea = overlapWidth * overlapHeight
-
-                                if aboveArea > 0 and currentArea > 0
-
-                                    # Check if overlap is substantial (≥50% of regionAbove).
-                                    if (overlapArea / aboveArea) >= 0.5
-
-                                        aboveRatio = aboveArea / currentArea
-                                        belowRatio = belowArea / currentArea
-
-                                        # Check if at least one region is smaller than current layer (step/transition).
-                                        if aboveRatio < 0.9 or belowRatio < 0.9
-
-                                            smallerArea = Math.min(aboveArea, belowArea)
-                                            largerArea = Math.max(aboveArea, belowArea)
-                                            sizeRatio = smallerArea / largerArea
-
-                                            # Filter: size ratio 10-55% (excludes tiny holes and similar-sized regions).
-                                            # Only mark as covered when smaller region is from above.
-                                            if sizeRatio >= 0.10 and sizeRatio < 0.55 and aboveArea < belowArea
-
-                                                fullyCoveredRegions.push(regionAbove)
-                                                break
+                fullyCoveredRegions = exposureModule.identifyFullyCoveredRegions(currentPath, coveringRegionsAbove, coveringRegionsBelow)
 
                 # Process fully covered regions for skin infill exclusion.
-                fullyCoveredSkinWalls = []
-
-                if fullyCoveredRegions.length > 0
-
-                    currentPathBounds = helpers.calculatePathBounds(currentPath)
-
-                    for fullyCoveredRegion in fullyCoveredRegions
-
-                        continue if fullyCoveredRegion.length < 3
-
-                        coveredBounds = helpers.calculatePathBounds(fullyCoveredRegion)
-
-                        # Skip regions >= 90% of current path (same geometry).
-                        if currentPathBounds? and coveredBounds?
-
-                            currentWidth = currentPathBounds.maxX - currentPathBounds.minX
-                            currentHeight = currentPathBounds.maxY - currentPathBounds.minY
-                            coveredWidth = coveredBounds.maxX - coveredBounds.minX
-                            coveredHeight = coveredBounds.maxY - coveredBounds.minY
-
-                            if coveredWidth >= currentWidth * 0.9 and coveredHeight >= currentHeight * 0.9
-
-                                continue
-
-                        fullyCoveredSkinWalls.push(fullyCoveredRegion)
+                fullyCoveredSkinWalls = exposureModule.filterFullyCoveredSkinWalls(fullyCoveredRegions, currentPath)
 
                 # Calculate constants used for fully covered region processing.
                 infillGap = 0
@@ -1039,11 +729,7 @@ module.exports =
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>90% coverage).
-                        # Check against skin walls, inner walls and outer walls to prevent patches inside holes.
-                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
-                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
-                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+                        continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Pass hole skin walls and fully covered boundaries separately.
                         # The skin module handles them differently:
@@ -1077,7 +763,7 @@ module.exports =
                                 # Subtract fully covered regions from this skin area.
                                 # Note: subtractSkinAreasFromInfill is a general polygon subtraction utility.
                                 # Here we use it to remove fully covered regions from skin areas.
-                                remainingAreas = helpers.subtractSkinAreasFromInfill(skinArea, fullyCoveredSkinWalls)
+                                remainingAreas = clipping.subtractSkinAreasFromInfill(skinArea, fullyCoveredSkinWalls)
 
                                 # Add any remaining areas to the filtered list.
                                 filteredSkinAreas.push remainingAreas... if remainingAreas.length > 0
@@ -1095,11 +781,7 @@ module.exports =
                     for skinArea in skinAreas
 
                         # Skip if skin area is completely inside a hole (>90% coverage).
-                        # Check against all types of walls to prevent patches inside holes.
-                        # This prevents printing skin patch walls inside holes when the hole is larger than the patch.
-                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeSkinWalls)
-                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeInnerWalls)
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(skinArea, holeOuterWalls)
+                        continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Pass hole skin walls and fully covered boundaries separately.
                         # The skin module handles them differently:
@@ -1118,9 +800,7 @@ module.exports =
                         continue if fullyCoveredSkinWall.length < 3
 
                         # Skip if covered region is completely inside a hole.
-                        continue if holeSkinWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeSkinWalls)
-                        continue if holeInnerWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeInnerWalls)
-                        continue if holeOuterWalls.length > 0 and helpers.isSkinAreaInsideHole(fullyCoveredSkinWall, holeOuterWalls)
+                        continue if coverage.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # Generate skin wall only (no infill) for this covered region.
                         # Parameters: isHole=false, generateInfill=false, coveredAreaSkinWalls=[], isCoveredArea=true.
@@ -1134,9 +814,10 @@ module.exports =
                         if infillDensity > 0
 
                             # Create the infill boundary inside the covered region (inset inward).
-                            coveredInfillBoundary = helpers.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
+                            coveredInfillBoundary = pathsUtils.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
 
                             if coveredInfillBoundary.length >= 3
+
                                 fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
 
                     # Generate regular infill for fully covered regions.

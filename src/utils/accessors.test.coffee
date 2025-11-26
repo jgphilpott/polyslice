@@ -267,8 +267,8 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setSupportType('invalid')
             expect(slicer.getSupportType()).toBe('tree')
 
-            # Test support threshold (default 45 degrees).
-            expect(slicer.getSupportThreshold()).toBe(45)
+            # Test support threshold (default 55 degrees).
+            expect(slicer.getSupportThreshold()).toBe(55)
 
             slicer.setSupportThreshold(60)
             expect(slicer.getSupportThreshold()).toBe(60)

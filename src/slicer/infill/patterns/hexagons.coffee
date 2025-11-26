@@ -1,7 +1,8 @@
 # Hexagons infill pattern implementation for Polyslice.
 
 coders = require('../../gcode/coders')
-helpers = require('../../geometry/helpers')
+clipping = require('../../utils/clipping')
+combing = require('../../geometry/combing')
 
 module.exports =
 
@@ -132,7 +133,7 @@ module.exports =
                         # Clip edge to the actual infill boundary polygon.
                         # Also exclude hole areas by clipping against hole inner walls.
                         # This ensures infill stays within the boundary and outside holes.
-                        clippedSegments = helpers.clipLineWithHoles(v1, v2, infillBoundary, holeInnerWalls)
+                        clippedSegments = clipping.clipLineWithHoles(v1, v2, infillBoundary, holeInnerWalls)
 
                         # Process each clipped segment (usually just one for convex shapes).
                         for clippedSegment in clippedSegments
@@ -217,8 +218,8 @@ module.exports =
 
                     # Check if travel to this edge would cross holes.
                     # Use hole outer walls which represent the complete boundary of holes.
-                    crossesHole0 = helpers.travelPathCrossesHoles(lastEndPoint, edge.start, holeOuterWalls)
-                    crossesHole1 = helpers.travelPathCrossesHoles(lastEndPoint, edge.end, holeOuterWalls)
+                    crossesHole0 = combing.travelPathCrossesHoles(lastEndPoint, edge.start, holeOuterWalls)
+                    crossesHole1 = combing.travelPathCrossesHoles(lastEndPoint, edge.end, holeOuterWalls)
 
                     # Prefer edges that don't cross holes. If both best and current cross holes
                     # (or both don't), then choose based on distance.
@@ -325,7 +326,7 @@ module.exports =
 
                     # First segment: travel move to start with combing.
                     # Find a path that avoids crossing holes.
-                    combingPath = helpers.findCombingPath(lastEndPoint or segment.start, segment.start, holeOuterWalls, infillBoundary, nozzleDiameter)
+                    combingPath = combing.findCombingPath(lastEndPoint or segment.start, segment.start, holeOuterWalls, infillBoundary, nozzleDiameter)
 
                     # Generate travel moves for each segment of the combing path
                     for i in [0...combingPath.length - 1]

@@ -45,7 +45,7 @@ describe 'Polyslice', ->
 
             # Test new infill settings
             expect(slicer.getInfillDensity()).toBe(20)
-            expect(slicer.getInfillPattern()).toBe('grid')
+            expect(slicer.getInfillPattern()).toBe('hexagons')
             expect(slicer.getShellSkinThickness()).toBe(0.8)
             expect(slicer.getShellWallThickness()).toBe(0.8)
 

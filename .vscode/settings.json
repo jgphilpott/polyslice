@@ -21,7 +21,8 @@
         "polytree",
         "srcset",
         "unretract",
-        "usbserial"
+        "usbserial",
+        "wayfinding"
     ],
     "files.exclude": {}
 }

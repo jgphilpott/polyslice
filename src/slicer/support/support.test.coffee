@@ -98,8 +98,8 @@ describe 'Support Module', ->
 
             slicer.setSupportEnabled(true)
 
-            # Default threshold is 45 degrees.
-            expect(slicer.getSupportThreshold()).toBe(45)
+            # Default threshold is 55 degrees.
+            expect(slicer.getSupportThreshold()).toBe(55)
 
             # Set custom threshold.
             slicer.setSupportThreshold(60)

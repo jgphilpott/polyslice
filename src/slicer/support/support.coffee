@@ -1,7 +1,6 @@
 # Support generation module for Polyslice.
 
 coders = require('../gcode/coders')
-helpers = require('../geometry/helpers')
 
 module.exports =
 

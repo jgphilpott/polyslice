@@ -1,6 +1,6 @@
-# Comprehensive tests for exposure detection algorithm
+# Comprehensive tests for exposure detection algorithm.
 
-Polyslice = require('../index')
+Polyslice = require('../../../index')
 
 THREE = require('three')
 

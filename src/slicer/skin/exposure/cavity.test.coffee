@@ -1,6 +1,6 @@
 # Tests for exposure detection of cavities and holes (Issue: dome cavity detection).
 
-Polyslice = require('../index')
+Polyslice = require('../../../index')
 
 THREE = require('three')
 
