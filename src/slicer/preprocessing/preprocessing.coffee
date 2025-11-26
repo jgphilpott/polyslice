@@ -48,7 +48,6 @@ module.exports =
     # @param geometry [THREE.BufferGeometry] The geometry to analyze.
     # @return [Boolean] True if subdivision is recommended.
     analyzeGeometryDensity: (geometry) ->
-
         return false if not geometry
 
         THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
