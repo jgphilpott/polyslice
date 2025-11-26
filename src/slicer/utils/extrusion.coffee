@@ -1,18 +1,7 @@
-# Helper utility methods for Polyslice.
+# Extrusion calculation utilities for Polyslice.
+# Used for calculating filament extrusion amounts.
 
 module.exports =
-
-    # Check if coordinates are within build plate bounds.
-    isWithinBounds: (slicer, x, y) ->
-
-        if typeof x isnt "number" or typeof y isnt "number"
-
-            return false
-
-        halfWidth = slicer.getBuildPlateWidth() / 2
-        halfLength = slicer.getBuildPlateLength() / 2
-
-        return x >= -halfWidth and x <= halfWidth and y >= -halfLength and y <= halfLength
 
     # Calculate extrusion amount based on distance, layer height, and settings.
     calculateExtrusion: (slicer, distance, lineWidth = null) ->

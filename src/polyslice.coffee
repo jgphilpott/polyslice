@@ -1,4 +1,5 @@
-helpers = require('./utils/helpers')
+bounds = require('./slicer/utils/bounds')
+extrusion = require('./slicer/utils/extrusion')
 accessors = require('./utils/accessors')
 conversions = require('./utils/conversions')
 
@@ -482,10 +483,10 @@ class Polyslice
     # Helper method delegates:
 
     isWithinBounds: (x, y) ->
-        helpers.isWithinBounds(this, x, y)
+        bounds.isWithinBounds(this, x, y)
 
     calculateExtrusion: (distance, lineWidth) ->
-        helpers.calculateExtrusion(this, distance, lineWidth)
+        extrusion.calculateExtrusion(this, distance, lineWidth)
 
     # Main slicing method delegate:
 

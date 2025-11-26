@@ -1,8 +1,35 @@
 # Tests for bounding box calculations.
 
 bounds = require('./bounds')
+Polyslice = require('../../index')
 
 describe 'Bounds', ->
+
+    describe 'isWithinBounds', ->
+
+        slicer = null
+
+        beforeEach ->
+
+            slicer = new Polyslice()
+
+        test 'should check build plate bounds', ->
+
+            # Within bounds.
+            expect(bounds.isWithinBounds(slicer, 0, 0)).toBe(true)
+            expect(bounds.isWithinBounds(slicer, 100, 100)).toBe(true)
+            expect(bounds.isWithinBounds(slicer, -100, -100)).toBe(true)
+            expect(bounds.isWithinBounds(slicer, 110, 110)).toBe(true) # Exactly at edge.
+
+            # Outside bounds.
+            expect(bounds.isWithinBounds(slicer, 111, 0)).toBe(false)
+            expect(bounds.isWithinBounds(slicer, 0, 111)).toBe(false)
+            expect(bounds.isWithinBounds(slicer, -111, 0)).toBe(false)
+            expect(bounds.isWithinBounds(slicer, 0, -111)).toBe(false)
+
+            # Invalid inputs.
+            expect(bounds.isWithinBounds(slicer, '100', 100)).toBe(false)
+            expect(bounds.isWithinBounds(slicer, 100, null)).toBe(false)
 
     describe 'calculatePathBounds', ->
 
