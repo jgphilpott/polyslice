@@ -268,12 +268,14 @@ class Exporter
         return new Promise (resolve, reject) =>
 
             if not @connected
+
                 reject(new Error('Not connected to serial port'))
                 return
 
             try
 
                 lines = gcode.split('\n').filter (line) ->
+
                     line.trim().length > 0
 
                 delay = options.delay or 0
@@ -316,6 +318,7 @@ class Exporter
         return new Promise (resolve, reject) =>
 
             if not @connected
+
                 reject(new Error('Not connected to serial port'))
                 return
 

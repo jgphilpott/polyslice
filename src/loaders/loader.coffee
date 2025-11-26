@@ -313,4 +313,3 @@ if typeof module isnt 'undefined' and module.exports
 if typeof window isnt 'undefined'
 
     window.PolysliceLoader = loader
-
