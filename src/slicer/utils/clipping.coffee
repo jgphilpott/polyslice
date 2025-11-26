@@ -32,9 +32,11 @@ module.exports =
         lineEndInside = primitives.pointInPolygon(lineEnd, polygon)
 
         if lineStartInside
+
             intersections.push({ point: lineStart, t: 0, isEndpoint: true })
 
         if lineEndInside
+
             intersections.push({ point: lineEnd, t: 1, isEndpoint: true })
 
         # Find intersections with polygon edges.
@@ -272,6 +274,7 @@ module.exports =
 
             dx = segment.end.x - segment.start.x
             dy = segment.end.y - segment.start.y
+
             length = Math.sqrt(dx * dx + dy * dy)
 
             if length >= minSegmentLength

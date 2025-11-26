@@ -1,7 +1,7 @@
 {
   "name": "@jgphilpott/polyslice",
   "version": "25.11.1",
-  "description": "An FDM slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
+  "description": "An AI powered slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "browser": "dist/index.browser.js",

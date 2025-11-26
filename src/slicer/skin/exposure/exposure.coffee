@@ -160,6 +160,7 @@ module.exports =
                 checkExposedAreas = coverage.calculateExposedAreas(currentPath, checkPaths, resolution)
 
                 if checkExposedAreas.length > 0
+
                     exposedAreas.push(checkExposedAreas...)
 
             else

@@ -7,7 +7,7 @@
 
 # About
 
-The [Web G-code Sender](https://jgphilpott.github.io/polyslice/examples/serial/browser/sender.html) is a mini app that was built as a development aid for [Polyslice](https://github.com/jgphilpott/polyslice), an FDM slicer designed specifically for [three.js](https://github.com/mrdoob/three.js). The app can connect to a 3D printer via a serial port (USB or Bluetooth) to send G-codes and read the printers response data.
+The [Web G-code Sender](https://jgphilpott.github.io/polyslice/examples/serial/browser/sender.html) is a mini app that was built as a development aid for [Polyslice](https://github.com/jgphilpott/polyslice), an AI powered slicer designed specifically for [three.js](https://github.com/mrdoob/three.js). The app can connect to a 3D printer via a serial port (USB or Bluetooth) to send G-codes and read the printers response data.
 
 Various [other apps](https://github.com/kliment/Printrun) exist that do the same thing but [I](https://github.com/jgphilpott) wanted something browser based for a more seamless user experience, no download or installation should be necessary. Furthermore, I wanted more *raw* access to the API so that I could integrate this functionality into my own applications and not be limited by another developers GUI.
 

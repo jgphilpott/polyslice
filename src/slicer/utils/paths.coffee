@@ -88,6 +88,7 @@ module.exports =
             while iterations < maxIterations
 
                 iterations++
+
                 lastPoint = currentPath[currentPath.length - 1]
                 prevPoint = currentPath[currentPath.length - 2]
 
