@@ -34,40 +34,32 @@ npm install @jgphilpott/polyslice
 
 ## Quick Start
 
-### Node.js
-
 ```javascript
-const Polyslice = require('@jgphilpott/polyslice');
+// Require THREE, Polyslice, Printer and Filament (omit for browser)
+const THREE = require("three");
+const { Polyslice, Printer, Filament } = require("@jgphilpott/polyslice");
 
-// Create a slicer instance.
+// Create printer and filament objects
+const printer = new Printer("Ender5");
+const filament = new Filament("GenericPLA");
+
+// Create slicer instance with printer, filament and other configs
 const slicer = new Polyslice({
-  nozzleTemperature: 200,
-  bedTemperature: 60,
-  fanSpeed: 100
+  printer: printer,
+  filament: filament,
+  infillPattern: "triangles",
+  infillDensity: 30,
+  testStrip: true,
+  verbose: true
 });
 
-// Generate some G-code.
-const gcode = slicer.codeAutohome() +
-              slicer.codeNozzleTemperature(200, false) +
-              slicer.codeLinearMovement(10, 10, 0.2, 0.1, 1500);
+// Create a 1cm cube (10mm x 10mm x 10mm)
+const geometry = new THREE.BoxGeometry(10, 10, 10);
+const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+const cube = new THREE.Mesh(geometry, material);
 
-console.log(gcode);
-```
-
-### Browser
-
-```javascript
-// Polyslice is available as a global variable.
-const slicer = new Polyslice({
-  nozzleTemperature: 200,
-  bedTemperature: 60,
-  fanSpeed: 100
-});
-
-// Generate some G-code.
-const gcode = slicer.codeAutohome() +
-              slicer.codeNozzleTemperature(200, false) +
-              slicer.codeLinearMovement(10, 10, 0.2, 0.1, 1500);
+// Slice the cube and generate G-code
+const gcode = slicer.slice(cube);
 
 console.log(gcode);
 ```
