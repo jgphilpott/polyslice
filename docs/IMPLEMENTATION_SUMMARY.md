@@ -1,4 +1,4 @@
-# Implementation Summary: Slice Function for 1cm Cube
+# Implementation Summary: Polyslice Slicing Engine
 
 ## Overview
 
@@ -11,35 +11,48 @@ This document summarizes the implementation of the main `slice()` function in Po
 A complete layer-by-layer slicing algorithm that:
 
 1. **Extracts meshes** from three.js Scene objects or uses Mesh objects directly
-2. **Calculates bounding box** to determine Z-range for slicing
-3. **Slices each layer** by intersecting triangles with horizontal planes
-4. **Connects edge segments** into closed paths for each layer
-5. **Generates G-code** with proper initialization, heating, and movement commands
-6. **Calculates extrusion** based on distance, layer height, nozzle diameter, and filament diameter
+2. **Preprocesses meshes** with optional Loop subdivision for sparse geometries
+3. **Calculates bounding box** to determine Z-range for slicing
+4. **Slices each layer** using Polytree's optimized spatial queries
+5. **Generates walls** with configurable shell thickness
+6. **Generates infill** with multiple pattern options (grid, triangles, hexagons)
+7. **Generates skin layers** with adaptive exposure detection
+8. **Optimizes travel paths** using combing to avoid crossing holes
+9. **Calculates extrusion** based on distance, layer height, nozzle diameter, and filament diameter
 
 ### Key Features
 
 - ✅ **Layer-by-layer slicing**: Automatic layer calculation based on mesh height
-- ✅ **Perimeter generation**: Closed path generation for each layer
+- ✅ **Wall generation**: Multiple perimeter walls with configurable thickness
+- ✅ **Infill patterns**: Grid, triangles, and hexagons with configurable density
+- ✅ **Skin layers**: Top/bottom solid layers with exposure detection
+- ✅ **Travel path combing**: Avoid crossing holes during travel moves
 - ✅ **Full G-code initialization**: Autohome, workspace plane, heating sequences
 - ✅ **Temperature control**: Bed and nozzle heating with wait commands
 - ✅ **Fan control**: Proper fan on/off sequences
 - ✅ **Extrusion calculation**: Accurate extrusion amounts based on printer settings
 - ✅ **Scene support**: Can slice from Scene or Mesh objects
+- ✅ **Polytree integration**: Optimized spatial queries for efficient slicing
 - ✅ **Edge case handling**: Handles empty scenes, null inputs gracefully
 
 ### Test Coverage
 
-**10 comprehensive tests** covering:
+Comprehensive test suite covering:
+
 - Basic slicing with autohome
 - Cube slicing with proper G-code structure
 - Scene extraction and mesh finding
 - Movement command generation
 - Different layer heights
 - Temperature configuration
+- Wall generation
+- Infill patterns
+- Skin layers
+- Exposure detection
+- Travel path optimization
 - Edge cases (empty/null scenes)
 
-**All 187 tests in the project pass**, including the new slicing tests.
+**All tests pass.**
 
 ## Example Usage
 
@@ -120,40 +133,88 @@ Uses Polytree's optimized slicing functions:
 1. Convert Polytree's Line3 segments to simple edge format
 2. Start with an unused edge segment
 3. Find connecting edges by matching endpoints (within 0.001mm tolerance)
-4. Build path by following connections
+4. Build path by following connections using leftmost-turn heuristic
 5. Continue until path closes or no more connecting edges
 6. Only keep paths with 3+ points
+
+### Wall Generation
+
+1. Detect which paths are holes (contained within other paths)
+2. Calculate number of walls based on shell thickness and nozzle diameter
+3. Generate walls from outer to inner with proper inset calculations
+4. Handle spacing validation to avoid wall interference
+
+### Infill Generation
+
+1. Create infill boundary by insetting from innermost wall
+2. Generate pattern lines (grid, triangles, or hexagons)
+3. Clip lines against boundary polygon and hole polygons
+4. Apply combing for travel moves to avoid crossing holes
+
+### Skin Layer Generation
+
+1. Detect exposed surfaces using coverage analysis
+2. Generate skin infill (100% density) on top/bottom layers
+3. Use exposure detection for adaptive skin on middle layers
+4. Clip skin against hole boundaries with proper gaps
 
 ### Build Plate Centering
 
 1. Calculate center offset: `centerX = buildPlateWidth / 2`, `centerY = buildPlateLength / 2`
 2. Apply offset during G-code generation: `offsetX = point.x + centerX`
 3. Default build plate: 220mm x 220mm (center at X110, Y110)
-4. Coordinates now properly centered on build plate instead of origin
+4. Coordinates properly centered on build plate
 
 ### Extrusion Calculation
 
-Uses the formula from `helpers.calculateExtrusion()`:
+Uses the formula from `extrusion.calculateExtrusion()`:
 ```
 lineArea = width * layerHeight
 filamentArea = π * (filamentDiameter/2)²
 extrusionLength = (lineArea * distance * extrusionMultiplier) / filamentArea
 ```
 
-## Files Changed
+## Files Structure
 
-1. **src/slicer/slice.coffee** - Main slicing implementation (~400 lines)
-2. **src/slicer/slice.test.coffee** - Comprehensive test suite (10 tests)
-3. **examples/scripts/slice-cube.js** - Working example demonstrating slicing
-4. **docs/SLICING.md** - Complete documentation of slicing functionality
-5. **docs/POLYTREE_INTEGRATION.md** - Notes on future Polytree integration
-6. **.gitignore** - Added examples/output/ to ignore generated files
+### Core Slicing Files
+- **`src/slicer/slice.coffee`** - Main slicing implementation
+
+### Wall Generation
+- **`src/slicer/walls/walls.coffee`** - Wall G-code generation
+
+### Infill Generation
+- **`src/slicer/infill/infill.coffee`** - Infill coordination
+- **`src/slicer/infill/patterns/grid.coffee`** - Grid pattern
+- **`src/slicer/infill/patterns/triangles.coffee`** - Triangle pattern
+- **`src/slicer/infill/patterns/hexagons.coffee`** - Hexagon pattern
+
+### Skin Generation
+- **`src/slicer/skin/skin.coffee`** - Skin layer generation
+- **`src/slicer/skin/exposure/exposure.coffee`** - Exposure detection
+
+### Geometry Utilities
+- **`src/slicer/utils/paths.coffee`** - Path manipulation
+- **`src/slicer/utils/primitives.coffee`** - Point and line operations
+- **`src/slicer/utils/bounds.coffee`** - Bounding box calculations
+- **`src/slicer/utils/clipping.coffee`** - Polygon clipping
+- **`src/slicer/utils/extrusion.coffee`** - Extrusion calculations
+- **`src/slicer/geometry/combing.coffee`** - Travel path optimization
+- **`src/slicer/geometry/coverage.coffee`** - Coverage analysis
+
+### G-code Generation
+- **`src/slicer/gcode/coders.coffee`** - G-code command generation
+
+### Preprocessing
+- **`src/slicer/preprocessing/preprocessing.coffee`** - Mesh preprocessing
+
+### Support (In Progress)
+- **`src/slicer/support/support.coffee`** - Support structure generation
 
 ## Polytree Integration Status
 
-**Current Status**: ✅ **Complete** - Polytree v0.1.2 integration implemented
+**Current Status**: ✅ **Complete** - Polytree integration implemented
 
-The implementation now uses Polytree's optimized spatial query functions:
+The implementation uses Polytree's optimized spatial query functions:
 - ✅ `sliceIntoLayers()` - Used for efficient layer slicing
 - ✅ `intersectPlane()` - Available for future use
 
@@ -163,43 +224,23 @@ The implementation now uses Polytree's optimized spatial query functions:
 - Better handling of complex geometries
 - Cleaner, more maintainable code
 
-See `docs/POLYTREE_INTEGRATION.md` for full integration details.
+See `docs/slicer/POLYTREE_INTEGRATION.md` for full integration details.
 
 ## Known Limitations
 
-1. **No infill generation**: Only perimeters are generated
-2. **No support structures**: Overhangs not supported
-3. **Single perimeter**: No shell thickness control
-4. **No retraction**: Filament retraction/unretraction not implemented
-5. **Basic path optimization**: No optimizations for print time
+1. **No support structures**: Overhangs not supported automatically
+2. **No adaptive layer heights**: Uses constant layer height
+3. **Basic path optimization**: Paths could be further optimized for print time
 
 These are documented as future enhancements and do not prevent basic slicing functionality.
 
-## Next Steps
-
-### Completed
-- ✅ Basic slicing works for 1cm cube
-- ✅ Proper G-code generation with initialization
-- ✅ Comprehensive test coverage
-- ✅ Documentation complete
-- ✅ Polytree v0.1.2 integration
-- ✅ Build plate centering
-
-### Future Enhancements
-1. Add infill pattern generation (grid, lines, honeycomb, gyroid)
-2. Implement support structure generation
-3. Add retraction/unretraction logic
-4. Optimize path planning for print time
-5. Add adaptive layer heights
-6. Performance benchmarks comparing before/after Polytree
-
 ## Conclusion
 
-The implementation successfully achieves the goal of slicing a 1cm cube into G-code. The code is:
-- ✅ Well-tested (10 tests, all passing)
-- ✅ Well-documented (comprehensive docs)
+The implementation successfully achieves the goal of slicing three.js meshes into G-code. The code is:
+- ✅ Well-tested (comprehensive test suite)
+- ✅ Well-documented
 - ✅ Production-ready for basic slicing
 - ✅ Extensible for future enhancements
 - ✅ Following project conventions and style guidelines
 
-The foundation is solid and ready for enhancement with Polytree integration and advanced features.
+The foundation is solid and ready for enhancement with additional features like support structures and adaptive layer heights.

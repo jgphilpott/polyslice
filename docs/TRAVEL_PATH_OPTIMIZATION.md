@@ -156,18 +156,18 @@ Potential improvements for future versions:
 6. **Adaptive Offsets**: Dynamically calculate waypoint offsets based on hole size and spacing
 7. **Boundary Awareness**: Enhance boundary checking to route around external perimeters as well as holes
 
-## Files Modified
+## Files
 
 ### Core Files
-- `src/slicer/geometry/helpers.coffee`: Added travel path detection and combing functions (`travelPathCrossesHoles`, `findCombingPath`, `distanceFromPointToLineSegment`, `lineSegmentCrossesPolygon`)
+- `src/slicer/geometry/combing.coffee`: Travel path detection and combing functions (`travelPathCrossesHoles`, `findCombingPath`, `distanceFromPointToLineSegment`, `lineSegmentCrossesPolygon`)
 - `src/slicer/infill/patterns/grid.coffee`: Integrated combing for travel moves
 - `src/slicer/infill/patterns/triangles.coffee`: Integrated combing for travel moves
 - `src/slicer/infill/patterns/hexagons.coffee`: Integrated combing for travel moves
 - `src/slicer/skin/skin.coffee`: Integrated combing for skin infill travel moves
-- `src/slicer/slice.coffee`: Modified to pass hole outer walls to skin generation function
+- `src/slicer/slice.coffee`: Passes hole outer walls to skin generation function
 
 ### Tests
-- `src/slicer/geometry/helpers.test.coffee`: Added 4 new tests for travel path detection functionality
+- `src/slicer/geometry/combing.test.coffee`: Tests for travel path detection functionality
 
 ## Technical Notes
 

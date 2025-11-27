@@ -4,11 +4,15 @@ This document describes the slicing functionality implemented in Polyslice.
 
 ## Overview
 
-Polyslice now includes a complete slicing engine that can convert three.js meshes into G-code for 3D printing. The implementation uses a layer-by-layer approach to generate perimeter paths with proper extrusion calculations.
+Polyslice includes a complete slicing engine that converts three.js meshes into G-code for 3D printing. The implementation uses a layer-by-layer approach to generate perimeter paths, walls, infill patterns, and skin layers with proper extrusion calculations.
 
 ## Features
 
 - **Layer-by-layer slicing**: Automatically calculates the number of layers based on mesh height and layer height
+- **Wall generation**: Multiple perimeter walls with configurable shell thickness
+- **Infill patterns**: Grid, triangles, and hexagon infill patterns with configurable density
+- **Skin layers**: Top and bottom solid layers with adaptive exposure detection
+- **Travel path optimization**: Combing algorithm to avoid crossing holes during travel moves
 - **Perimeter generation**: Extracts 2D contours at each Z-height by intersecting triangles with horizontal planes
 - **Path optimization**: Connects edge segments into closed paths for each layer
 - **Proper G-code initialization**: Includes autohome, workspace plane, heating sequences, and fan control
@@ -67,19 +71,21 @@ const gcode = slicer.slice(scene);
 ### Slicing Algorithm
 
 1. **Mesh Extraction**: Extract the first mesh from the scene or use the mesh directly
-2. **Bounding Box Calculation**: Calculate the mesh bounding box to determine Z-range
-3. **Layer Generation**: Uses Polytree's `sliceIntoLayers()` for all layers:
-   - Performs optimized triangle-plane intersection
+2. **Mesh Preprocessing**: Optional Loop subdivision to add triangles in sparse regions
+3. **Bounding Box Calculation**: Calculate the mesh bounding box to determine Z-range
+4. **Layer Generation**: Uses Polytree's `sliceIntoLayers()` for all layers:
+   - Performs optimized triangle-plane intersection using octree spatial partitioning
    - Returns Line3 segments for each layer
-   - Connect segments into closed paths
-   - Generate G-code for perimeter printing with build plate centering
+   - Connects segments into closed paths
+   - Generates walls, infill, and skin G-code with build plate centering
 
 ### Polytree Integration
 
-Uses Polytree's optimized spatial queries:
+Polyslice uses Polytree's optimized spatial queries for efficient slicing:
+
 1. `sliceIntoLayers(mesh, layerHeight, minZ, maxZ)` - Slices all layers efficiently
 2. Returns arrays of Line3 objects (line segments) for each layer
-3. Significantly faster than custom triangle iteration
+3. Octree-based spatial partitioning provides significant performance improvement
 
 ### Path Connection
 
@@ -113,6 +119,11 @@ Key parameters affecting slicing:
 - `perimeterSpeed`: Speed for printing perimeters in mm/min (default: 1800)
 - `travelSpeed`: Speed for non-printing moves in mm/min (default: 3000)
 - `extrusionMultiplier`: Multiplier for extrusion amount (default: 1.0)
+- `shellWallThickness`: Wall thickness in mm (default: 1.2)
+- `shellSkinThickness`: Top/bottom skin thickness in mm (default: 0.8)
+- `infillDensity`: Infill density percentage 0-100 (default: 20)
+- `infillPattern`: Infill pattern type - 'grid', 'triangles', 'hexagons' (default: 'grid')
+- `exposureDetection`: Enable adaptive skin layer generation (default: true)
 
 ## Output Format
 
@@ -143,20 +154,16 @@ M117 Ready for next print
 
 ### Current Limitations
 
-1. **No infill generation**: Currently only generates perimeters
-2. **No support structures**: Overhangs are not supported
-3. **No adaptive layer heights**: Uses constant layer height throughout
-4. **Basic path optimization**: Paths are not optimized for print time
+1. **No support structures**: Overhangs are not supported automatically
+2. **No adaptive layer heights**: Uses constant layer height throughout
+3. **Basic path optimization**: Paths could be further optimized for print time
 
 ### Planned Enhancements
 
-1. **Polytree integration**: Use @jgphilpott/polytree for spatial queries when sliceIntoLayers API becomes available
-2. **Infill patterns**: Grid, lines, honeycomb, gyroid patterns
-3. **Support generation**: Automatic support structure creation for overhangs
-4. **Multiple perimeters**: Shell thickness control
-5. **Retraction**: Retraction/unretraction between paths
-6. **First layer handling**: Special handling for bed adhesion
-7. **Bridge detection**: Special handling for bridges and overhangs
+1. **Support generation**: Automatic support structure creation for overhangs
+2. **Bridge detection**: Special handling for bridges and overhangs
+3. **Adaptive layer heights**: Variable layer height based on geometry
+4. **Additional infill patterns**: Gyroid, concentric, and other patterns
 
 ## Testing
 
@@ -167,11 +174,14 @@ Comprehensive test suite covers:
 - Scene extraction
 - Layer height variations
 - Temperature configuration
+- Wall generation
+- Infill patterns
+- Skin layers
 - Edge cases (empty scenes, null scenes)
 
 Run tests:
 ```bash
-npm test -- src/slicer/slice.test.js
+npm test
 ```
 
 ## Examples

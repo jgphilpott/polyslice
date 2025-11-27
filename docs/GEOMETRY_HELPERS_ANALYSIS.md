@@ -4,9 +4,21 @@ This document analyzes the geometry helper functions currently in Polyslice and 
 
 ## Current Geometry Helpers in Polyslice
 
-Located in `src/slicer/geometry/helpers.coffee`:
+The geometry helpers are organized into modular files within `src/slicer/utils/`:
 
-### 1. `connectSegmentsToPaths(segments)`
+- **`primitives.coffee`** - Basic point and line operations
+- **`paths.coffee`** - Path manipulation and polygon operations
+- **`bounds.coffee`** - Bounding box calculations
+- **`clipping.coffee`** - Polygon clipping operations
+- **`extrusion.coffee`** - Extrusion amount calculations
+
+Additional geometry-related code is in `src/slicer/geometry/`:
+
+- **`combing.coffee`** - Travel path optimization for hole avoidance
+- **`coverage.coffee`** - Coverage analysis for skin layer detection
+
+### 1. `connectSegmentsToPaths(segments)` - `paths.coffee`
+
 **Purpose**: Converts Polytree Line3 segments into closed paths by finding connecting edges.
 
 **Polytree Contribution**: ⚠️ **MAYBE**
@@ -17,8 +29,9 @@ Located in `src/slicer/geometry/helpers.coffee`:
 
 **Recommendation**: Consider contributing this to Polytree as a utility for converting slicing output into polygonal paths, as many users will need this functionality.
 
-### 2. `pointsMatch(p1, p2, epsilon)`
-**Purpose**: Checks if two points are within epsilon distance.
+### 2. `pointsMatch(p1, p2, epsilon)` - `primitives.coffee`
+
+**Purpose**: Checks if two points are within epsilon distance using squared comparison.
 
 **Polytree Contribution**: ✅ **YES**
 - Pure geometric utility function
@@ -28,7 +41,8 @@ Located in `src/slicer/geometry/helpers.coffee`:
 
 **Recommendation**: Definitely contribute this as a basic geometry utility.
 
-### 3. `createInsetPath(path, insetDistance)`
+### 3. `createInsetPath(path, insetDistance)` - `paths.coffee`
+
 **Purpose**: Creates an inset path (shrinks a polygon inward by specified distance).
 - First simplifies path by detecting significant corners
 - Then applies perpendicular offset to create inset
@@ -43,7 +57,8 @@ Located in `src/slicer/geometry/helpers.coffee`:
 
 **Recommendation**: **Strong candidate** for Polytree contribution. Polygon offsetting is a fundamental geometric operation that would benefit many users.
 
-### 4. `lineIntersection(p1, p2, p3, p4)`
+### 4. `lineIntersection(p1, p2, p3, p4)` - `primitives.coffee`
+
 **Purpose**: Calculates intersection point of two line segments.
 
 **Polytree Contribution**: ✅ **YES**
@@ -108,8 +123,15 @@ If contributing to Polytree:
 
 ## Current State
 
-✅ All geometry helpers are now extracted into `src/slicer/geometry/helpers.coffee`
-✅ All tests passing (217 tests)
+✅ All geometry helpers are organized into modular files:
+- `src/slicer/utils/primitives.coffee` - Point and line operations
+- `src/slicer/utils/paths.coffee` - Path manipulation
+- `src/slicer/utils/bounds.coffee` - Bounding box calculations
+- `src/slicer/utils/clipping.coffee` - Polygon clipping
+- `src/slicer/utils/extrusion.coffee` - Extrusion calculations
+- `src/slicer/geometry/combing.coffee` - Travel path optimization
+
+✅ All tests passing
 ✅ Modular structure makes future migration to Polytree easier
 
 ## Next Steps
