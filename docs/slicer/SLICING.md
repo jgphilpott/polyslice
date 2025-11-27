@@ -32,10 +32,6 @@ const geometry = new THREE.BoxGeometry(10, 10, 10);
 const material = new THREE.MeshBasicMaterial();
 const cube = new THREE.Mesh(geometry, material);
 
-// Position cube so bottom is at Z=0
-cube.position.set(0, 0, 5);
-cube.updateMatrixWorld();
-
 // Create slicer
 const slicer = new Polyslice({
   layerHeight: 0.2,
@@ -180,6 +176,7 @@ Comprehensive test suite covers:
 - Edge cases (empty scenes, null scenes)
 
 Run tests:
+
 ```bash
 npm test
 ```
@@ -193,6 +190,7 @@ See the `examples/scripts/` directory for complete examples:
 ## Performance
 
 Slicing a 1cm cube with 0.2mm layer height:
+
 - **Time**: ~10-15ms
 - **Layers**: 50
 - **G-code lines**: ~515

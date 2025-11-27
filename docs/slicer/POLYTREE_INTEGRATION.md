@@ -8,7 +8,7 @@ The slicing functionality uses Polytree's `sliceIntoLayers()` function for effic
 
 ## Polytree Package
 
-Polytree (@jgphilpott/polytree) is included as a dependency in the project. The package provides:
+Polytree ([@jgphilpott/polytree](https://www.npmjs.com/package/@jgphilpott/polytree)) is included as a dependency in the project. The package provides:
 
 - Octree-based spatial partitioning
 - CSG operations (union, subtraction, intersection)
