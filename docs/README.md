@@ -29,8 +29,17 @@ docs/
     │   └── COMBING.md                  # Travel path optimization
     ├── infill/
     │   └── INFILL.md                   # Infill patterns
-    └── skin/                           # Skin layer generation
-        └── EXPOSURE_DETECTION.md       # Adaptive skin layer algorithm
+    ├── preprocessing/
+    │   └── PREPROCESSING.md            # Mesh preprocessing and subdivision
+    ├── skin/                           # Skin layer generation
+    │   ├── SKIN.md                     # Main skin generation
+    │   └── EXPOSURE_DETECTION.md       # Adaptive skin layer algorithm
+    ├── support/
+    │   └── SUPPORT.md                  # Support structure generation
+    ├── utils/
+    │   └── UTILS.md                    # Utility functions
+    └── walls/
+        └── WALLS.md                    # Wall perimeter generation
 ```
 
 ## File I/O
@@ -76,11 +85,36 @@ docs/
 |----------|-------------|
 | [INFILL.md](slicer/infill/INFILL.md) | Infill patterns (grid, triangles, hexagons) and density settings |
 
+### Preprocessing
+
+| Document | Description |
+|----------|-------------|
+| [PREPROCESSING.md](slicer/preprocessing/PREPROCESSING.md) | Mesh analysis and subdivision for sparse geometries |
+
 ### Skin Layers
 
 | Document | Description |
 |----------|-------------|
+| [SKIN.md](slicer/skin/SKIN.md) | Solid fill generation for top and bottom surfaces |
 | [EXPOSURE_DETECTION.md](slicer/skin/EXPOSURE_DETECTION.md) | Adaptive skin layer generation for exposed surfaces |
+
+### Support Structures
+
+| Document | Description |
+|----------|-------------|
+| [SUPPORT.md](slicer/support/SUPPORT.md) | Automatic support generation for overhanging geometry |
+
+### Utilities
+
+| Document | Description |
+|----------|-------------|
+| [UTILS.md](slicer/utils/UTILS.md) | Core utility functions (bounds, clipping, paths, extrusion) |
+
+### Walls
+
+| Document | Description |
+|----------|-------------|
+| [WALLS.md](slicer/walls/WALLS.md) | Wall perimeter generation and travel optimization |
 
 ## External References
 
