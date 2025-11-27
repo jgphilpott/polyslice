@@ -4,13 +4,23 @@ This directory contains detailed documentation for the Polyslice slicer library.
 
 ## Quick Links
 
-- [Main README](../README.md) - Installation, quick start, and API reference
+- [Main README](../README.md) - Installation and quick start
+- [API Reference](api/API.md) - Complete API documentation
+- [Examples](examples/EXAMPLES.md) - Practical usage examples
 
 ## Documentation Structure
 
 ```
 docs/
 ├── README.md                           # This file
+├── api/
+│   └── API.md                          # Complete API reference
+├── examples/
+│   └── EXAMPLES.md                     # Usage examples
+├── development/
+│   └── DEVELOPMENT.md                  # Development guide
+├── tools/
+│   └── TOOLS.md                        # G-code visualizer and sender
 ├── loaders/
 │   └── LOADERS.md                      # File loading API
 ├── exporters/
@@ -41,6 +51,20 @@ docs/
     └── walls/
         └── WALLS.md                    # Wall perimeter generation
 ```
+
+## Getting Started
+
+| Document | Description |
+|----------|-------------|
+| [API Reference](api/API.md) | Complete API documentation with all options and methods |
+| [Examples](examples/EXAMPLES.md) | Practical usage examples for Node.js and browser |
+| [Development Guide](development/DEVELOPMENT.md) | Setting up for development and contributing |
+
+## Tools
+
+| Document | Description |
+|----------|-------------|
+| [Tools](tools/TOOLS.md) | G-code visualizer and web G-code sender |
 
 ## File I/O
 
