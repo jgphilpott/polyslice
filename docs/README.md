@@ -54,91 +54,65 @@ docs/
 
 ## Getting Started
 
-| Document | Description |
-|----------|-------------|
-| [API Reference](api/API.md) | Complete API documentation with all options and methods |
-| [Examples](examples/EXAMPLES.md) | Practical usage examples for Node.js and browser |
-| [Development Guide](development/DEVELOPMENT.md) | Setting up for development and contributing |
+- [API Reference](api/API.md) - Complete API documentation with all options and methods
+- [Examples](examples/EXAMPLES.md) - Practical usage examples for Node.js and browser
+- [Development Guide](development/DEVELOPMENT.md) - Setting up for development and contributing
 
 ## Tools
 
-| Document | Description |
-|----------|-------------|
-| [Tools](tools/TOOLS.md) | G-code visualizer and web G-code sender |
+- [Tools](tools/TOOLS.md) - G-code visualizer and web G-code sender
 
 ## File I/O
 
-| Document | Description |
-|----------|-------------|
-| [LOADERS.md](loaders/LOADERS.md) | Loading 3D models (STL, OBJ, 3MF, PLY, GLTF, DAE, AMF) |
-| [EXPORTERS.md](exporters/EXPORTERS.md) | Saving G-code files and serial port streaming |
+- [Loaders](loaders/LOADERS.md) - Loading 3D models (STL, OBJ, 3MF, PLY, GLTF, DAE, AMF)
+- [Exporters](exporters/EXPORTERS.md) - Saving G-code files and serial port streaming
 
 ## Configuration
 
-| Document | Description |
-|----------|-------------|
-| [PRINTER.md](config/PRINTER.md) | Pre-configured 3D printer profiles (44 printers) |
-| [FILAMENT.md](config/FILAMENT.md) | Pre-configured filament profiles (35 materials) |
+- [Printer](config/PRINTER.md) - Pre-configured 3D printer profiles (44 printers)
+- [Filament](config/FILAMENT.md) - Pre-configured filament profiles (35 materials)
 
 ## Slicer Documentation
 
 ### Core Slicing
 
-| Document | Description |
-|----------|-------------|
-| [SLICING.md](slicer/SLICING.md) | Main slicing functionality, usage examples, and configuration options |
-| [IMPLEMENTATION_SUMMARY.md](slicer/IMPLEMENTATION_SUMMARY.md) | Implementation details, file structure, and architecture overview |
-| [POLYTREE_INTEGRATION.md](slicer/POLYTREE_INTEGRATION.md) | Polytree spatial query integration for optimized slicing |
+- [Slicing](slicer/SLICING.md) - Main slicing functionality, usage examples, and configuration options
+- [Implementation Summary](slicer/IMPLEMENTATION_SUMMARY.md) - Implementation details, file structure, and architecture overview
+- [Polytree Integration](slicer/POLYTREE_INTEGRATION.md) - Polytree spatial query integration for optimized slicing
 
 ### G-code Generation
 
-| Document | Description |
-|----------|-------------|
-| [GCODE.md](slicer/gcode/GCODE.md) | G-code generation methods and Marlin command reference |
+- [G-code](slicer/gcode/GCODE.md) - G-code generation methods and Marlin command reference
 
 ### Geometry
 
-| Document | Description |
-|----------|-------------|
-| [GEOMETRY_HELPERS.md](slicer/geometry/GEOMETRY_HELPERS.md) | Geometry helper functions and Polytree contribution analysis |
-| [COMBING.md](slicer/geometry/COMBING.md) | Travel path optimization to avoid crossing holes |
+- [Geometry Helpers](slicer/geometry/GEOMETRY_HELPERS.md) - Geometry helper functions and Polytree contribution analysis
+- [Combing](slicer/geometry/COMBING.md) - Travel path optimization to avoid crossing holes
 
 ### Infill
 
-| Document | Description |
-|----------|-------------|
-| [INFILL.md](slicer/infill/INFILL.md) | Infill patterns (grid, triangles, hexagons) and density settings |
+- [Infill](slicer/infill/INFILL.md) - Infill patterns (grid, triangles, hexagons) and density settings
 
 ### Preprocessing
 
-| Document | Description |
-|----------|-------------|
-| [PREPROCESSING.md](slicer/preprocessing/PREPROCESSING.md) | Mesh analysis and subdivision for sparse geometries |
+- [Preprocessing](slicer/preprocessing/PREPROCESSING.md) - Mesh analysis and subdivision for sparse geometries
 
 ### Skin Layers
 
-| Document | Description |
-|----------|-------------|
-| [SKIN.md](slicer/skin/SKIN.md) | Solid fill generation for top and bottom surfaces |
-| [EXPOSURE_DETECTION.md](slicer/skin/EXPOSURE_DETECTION.md) | Adaptive skin layer generation for exposed surfaces |
+- [Skin](slicer/skin/SKIN.md) - Solid fill generation for top and bottom surfaces
+- [Exposure Detection](slicer/skin/EXPOSURE_DETECTION.md) - Adaptive skin layer generation for exposed surfaces
 
 ### Support Structures
 
-| Document | Description |
-|----------|-------------|
-| [SUPPORT.md](slicer/support/SUPPORT.md) | Automatic support generation for overhanging geometry |
+- [Support](slicer/support/SUPPORT.md) - Automatic support generation for overhanging geometry
 
 ### Utilities
 
-| Document | Description |
-|----------|-------------|
-| [UTILS.md](slicer/utils/UTILS.md) | Core utility functions (bounds, clipping, paths, extrusion) |
+- [Utils](slicer/utils/UTILS.md) - Core utility functions (bounds, clipping, paths, extrusion)
 
 ### Walls
 
-| Document | Description |
-|----------|-------------|
-| [WALLS.md](slicer/walls/WALLS.md) | Wall perimeter generation and travel optimization |
+- [Walls](slicer/walls/WALLS.md) - Wall perimeter generation and travel optimization
 
 ## External References
 
