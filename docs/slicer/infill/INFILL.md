@@ -82,7 +82,7 @@ For example, at 20% density with 0.4mm nozzle:
 
 ### Triangles Pattern
 
-The triangles pattern creates a tessellation of equilateral triangles using three line sets at 45°, 105°, and -15° angles.
+The triangles pattern creates a tessellation of equilateral triangles using three line sets spaced 60° apart. The baseline runs at 45°, with additional lines at +60° (105°) and -60° (-15°) from the baseline.
 
 ```
       /\    /\
@@ -97,7 +97,7 @@ The triangles pattern creates a tessellation of equilateral triangles using thre
 - Strong in all directions (isotropic)
 - Better load distribution than grid
 - Slightly slower print time
-- Lines intersect at 60° angles
+- Three line sets create equilateral triangles
 
 **Best for:**
 - Parts requiring uniform strength
