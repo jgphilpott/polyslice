@@ -6,7 +6,9 @@ This implementation adds travel path combing to infill and skin generation, rout
 
 ## Problem Statement
 
-When printing shapes with holes, travel moves between infill segments would take direct paths that often crossed through holes, leaving behind strings of plastic (spider webs) in the voids. While infill lines themselves were correctly clipped at hole boundaries with proper clearance, the travel paths between segments paid no attention to holes, resulting in degraded print quality.
+When printing shapes with holes, travel moves between infill segments would take direct paths that often crossed through holes. This left behind strings of plastic (spider webs) in the voids.
+
+While infill lines themselves were correctly clipped at hole boundaries with proper clearance, the travel paths between segments paid no attention to holes, resulting in degraded print quality.
 
 ## Solution
 
@@ -18,14 +20,14 @@ The optimization uses a distance-based combing algorithm that routes travel move
 - **Hole outer walls** (outermost perimeter) are used for travel path detection to ensure travel moves stay outside the entire hole structure including all wall material
 
 ### 2. Travel Path Crossing Detection
-Added `travelPathCrossesHoles()` helper function in `helpers.coffee`:
+Added `travelPathCrossesHoles()` function in `combing.coffee`:
 - Uses line segment intersection testing to check if path crosses hole boundaries
 - Checks if either endpoint falls inside a hole polygon
 - **Distance-to-center calculation**: Calculates if the travel path comes within (holeRadius + 0.5mm margin) of any hole center
 - The margin prevents paths that graze along hole boundaries from being considered safe
 
 ### 3. Combing Path Generation
-Added `findCombingPath()` helper function in `helpers.coffee`:
+Added `findCombingPath()` function in `combing.coffee`:
 - Returns direct path if no holes exist or path doesn't cross any holes
 - When crossing detected, calculates perpendicular waypoints at increasing offsets (3, 5, 8, 12, 18mm) from the path midpoint
 - For each potential waypoint, validates that both travel legs (start→waypoint, waypoint→end) stay outside holes using distance-to-center checks

@@ -56,7 +56,7 @@ Polyslice gains:
 
 1. **Performance**: Octree-based queries are much faster than brute-force triangle iteration
 2. **Accuracy**: Better handling of edge cases and degenerate geometry
-3. **Advanced Features**: 
+3. **Advanced Features**:
    - Efficient support for multiple meshes/scenes
    - Faster intersection detection
    - Better handling of complex geometries
