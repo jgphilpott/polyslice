@@ -34,7 +34,7 @@ A browser-based tool to visualize G-code files in 3D using Three.js. This tool h
 | Green | Clockwise arcs (G2) |
 | Yellow | Counter-clockwise arcs (G3) |
 
-See the [visualizer documentation](../examples/visualizer/README.md) for more details.
+See the [visualizer documentation](../../examples/visualizer/README.md) for more details.
 
 ## Web G-code Sender
 

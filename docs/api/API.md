@@ -144,7 +144,7 @@ const gcode = slicer.slice(mesh);
 
 ## G-code Generation Methods
 
-See [GCODE.md](slicer/gcode/GCODE.md) for the complete G-code generation reference.
+See [GCODE.md](../slicer/gcode/GCODE.md) for the complete G-code generation reference.
 
 ### Quick Reference
 
@@ -172,8 +172,8 @@ slicer.codeWait()                        // M400 - Wait for moves to finish
 
 ## Related Documentation
 
-- [Printer Configuration](config/PRINTER.md) - Pre-configured printer profiles
-- [Filament Configuration](config/FILAMENT.md) - Pre-configured filament profiles
-- [G-code Generation](slicer/gcode/GCODE.md) - Complete G-code reference
-- [File Loading](loaders/LOADERS.md) - Loading 3D models
-- [G-code Export](exporters/EXPORTERS.md) - Saving and streaming G-code
+- [Printer Configuration](../config/PRINTER.md) - Pre-configured printer profiles
+- [Filament Configuration](../config/FILAMENT.md) - Pre-configured filament profiles
+- [G-code Generation](../slicer/gcode/GCODE.md) - Complete G-code reference
+- [File Loading](../loaders/LOADERS.md) - Loading 3D models
+- [G-code Export](../exporters/EXPORTERS.md) - Saving and streaming G-code

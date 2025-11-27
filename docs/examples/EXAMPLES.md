@@ -290,8 +290,8 @@ console.log(gcode);
 
 ## Related Documentation
 
-- [API Reference](api/API.md) - Complete API reference
-- [File Loading](loaders/LOADERS.md) - Detailed loader documentation
-- [G-code Export](exporters/EXPORTERS.md) - Saving and streaming G-code
-- [Printer Configuration](config/PRINTER.md) - Available printer profiles
-- [Filament Configuration](config/FILAMENT.md) - Available filament profiles
+- [API Reference](../api/API.md) - Complete API reference
+- [File Loading](../loaders/LOADERS.md) - Detailed loader documentation
+- [G-code Export](../exporters/EXPORTERS.md) - Saving and streaming G-code
+- [Printer Configuration](../config/PRINTER.md) - Available printer profiles
+- [Filament Configuration](../config/FILAMENT.md) - Available filament profiles
