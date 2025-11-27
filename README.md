@@ -256,7 +256,7 @@ slicer.setExposureDetectionResolution(1600);  // Higher detail
 slicer.setExposureDetection(false);
 ```
 
-For comprehensive documentation on exposure detection, including technical details, performance considerations, and usage examples, see [docs/EXPOSURE_DETECTION.md](docs/EXPOSURE_DETECTION.md)
+For comprehensive documentation on exposure detection, including technical details, performance considerations, and usage examples, see [docs/slicer/skin/EXPOSURE_DETECTION.md](docs/slicer/skin/EXPOSURE_DETECTION.md)
 
 ### File Loader
 
