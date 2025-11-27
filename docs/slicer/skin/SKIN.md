@@ -22,10 +22,10 @@ Skin generation is automatic during slicing:
 const { Polyslice } = require("@jgphilpott/polyslice");
 
 const slicer = new Polyslice({
-    skinLayerCount: 3,     // Number of solid top/bottom layers
-    infillSpeed: 60,       // Speed for skin infill lines
-    perimeterSpeed: 45,    // Speed for skin perimeter
-    nozzleDiameter: 0.4,   // Line spacing equals nozzle diameter
+    shellSkinThickness: 0.8, // Skin thickness in mm (converted to layer count internally)
+    infillSpeed: 60,         // Speed for skin infill lines
+    perimeterSpeed: 45,      // Speed for skin perimeter
+    nozzleDiameter: 0.4,     // Line spacing equals nozzle diameter
     nozzleTemperature: 200,
     bedTemperature: 60
 });
@@ -35,19 +35,19 @@ const gcode = slicer.slice(mesh);
 
 ## Configuration Options
 
-### `skinLayerCount`
+### `shellSkinThickness`
 
-Type: Number | Default: `3` | Range: 1-10
+Type: Number | Default: `0.8` | Unit: mm
 
-Number of solid layers at top and bottom surfaces.
+Thickness of solid layers at top and bottom surfaces. The actual number of skin layers is calculated internally based on layer height.
 
-- **1-2 layers** - Thin skin, may show infill pattern through
-- **3 layers** - Good balance (default)
-- **4+ layers** - Very solid, better for functional parts
+- **0.4mm** (1-2 layers) - Thin skin, may show infill pattern through
+- **0.6-0.8mm** (3 layers at 0.2mm height) - Good balance (default)
+- **1.0mm+** (5+ layers) - Very solid, better for functional parts
 
 ```javascript
-slicer.setSkinLayerCount(4);
-const count = slicer.getSkinLayerCount(); // 4
+slicer.setShellSkinThickness(1.0); // ~5 layers at 0.2mm layer height
+const thickness = slicer.getShellSkinThickness(); // 1.0
 ```
 
 ## Skin Generation Process
@@ -237,14 +237,14 @@ src/slicer/skin/
 
 ## Best Practices
 
-### Layer Count
+### Skin Thickness Recommendations
 
-| Use Case | Recommended Layers |
-|----------|-------------------|
-| Fast prototypes | 2 layers |
-| General prints | 3 layers |
-| High quality | 4-5 layers |
-| Waterproof | 5+ layers |
+| Use Case | Recommended Thickness | ~Layers (0.2mm height) |
+|----------|----------------------|------------------------|
+| Fast prototypes | 0.4mm | 2 layers |
+| General prints | 0.6mm | 3 layers |
+| High quality | 0.8-1.0mm | 4-5 layers |
+| Waterproof | 1.0mm+ | 5+ layers |
 
 ### Quality Tips
 

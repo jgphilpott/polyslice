@@ -11,16 +11,16 @@ Walls are the outer and inner perimeters of each layer. They define the visible 
 
 ## Usage
 
-Wall generation is automatic during slicing. The number of walls is configurable:
+Wall generation is automatic during slicing. The wall thickness is configurable:
 
 ```javascript
 const { Polyslice } = require("@jgphilpott/polyslice");
 
 const slicer = new Polyslice({
-    wallCount: 2,          // Number of wall perimeters
-    perimeterSpeed: 45,    // Wall print speed in mm/s
-    travelSpeed: 150,      // Travel speed between walls
-    nozzleDiameter: 0.4,   // Affects wall spacing
+    shellWallThickness: 0.8, // Wall thickness in mm (converted to wall count internally)
+    perimeterSpeed: 45,      // Wall print speed in mm/s
+    travelSpeed: 150,        // Travel speed between walls
+    nozzleDiameter: 0.4,     // Affects wall spacing
     nozzleTemperature: 200,
     bedTemperature: 60
 });
@@ -30,19 +30,20 @@ const gcode = slicer.slice(mesh);
 
 ## Configuration Options
 
-### `wallCount`
+### `shellWallThickness`
 
-Type: Number | Default: `2` | Range: 1-10
+Type: Number | Default: `0.8` | Unit: mm
 
-The number of perimeter walls to generate.
+The total thickness of all wall perimeters. The actual number of walls is calculated internally based on nozzle diameter.
 
-- **1 wall** - Single shell, fastest but weakest
-- **2-3 walls** - Good balance of strength and speed
-- **4+ walls** - Very strong, slower to print
+- **0.4mm** (1 wall) - Single shell, fastest but weakest
+- **0.8mm** (2 walls) - Good balance of strength and speed
+- **1.2mm** (3 walls) - Strong walls for functional parts
+- **1.6mm+** (4+ walls) - Very strong, slower to print
 
 ```javascript
-slicer.setWallCount(3);
-const count = slicer.getWallCount(); // 3
+slicer.setShellWallThickness(1.2); // ~3 walls with 0.4mm nozzle
+const thickness = slicer.getShellWallThickness(); // 1.2
 ```
 
 ### `perimeterSpeed`
@@ -197,14 +198,14 @@ src/slicer/walls/
 
 ## Best Practices
 
-### Wall Count Recommendations
+### Wall Thickness Recommendations
 
-| Use Case | Recommended Walls |
-|----------|-------------------|
-| Decorative items | 2 walls |
-| General purpose | 2-3 walls |
-| Functional parts | 3-4 walls |
-| High strength | 4+ walls |
+| Use Case | Recommended Thickness | ~Walls (0.4mm nozzle) |
+|----------|----------------------|----------------------|
+| Decorative items | 0.8mm | 2 walls |
+| General purpose | 0.8-1.2mm | 2-3 walls |
+| Functional parts | 1.2-1.6mm | 3-4 walls |
+| High strength | 1.6mm+ | 4+ walls |
 
 ### Speed Optimization
 
