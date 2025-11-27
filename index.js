@@ -7,6 +7,9 @@ class WarpSpeed {
     this.numStars = 200;
     this.centerX = 0;
     this.centerY = 0;
+    this.lastTime = performance.now();
+    this.spawnRate = 42; // stars per second until numStars reached
+    this.spawnAccumulator = 0;
 
     this.init();
     this.animate();
@@ -25,11 +28,8 @@ class WarpSpeed {
     this.ctx.fillStyle = 'rgba(0, 0, 0, 1)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Create stars
+    // Start empty; we'll spawn consistently over time for a smooth rate.
     this.stars = [];
-    for (let i = 0; i < this.numStars; i++) {
-      this.stars.push(this.createStar());
-    }
   }
 
   createStar() {
@@ -37,13 +37,16 @@ class WarpSpeed {
     const distance =
       (Math.random() * Math.max(this.canvas.width, this.canvas.height)) / 2;
 
+    const x = this.centerX + Math.cos(angle) * distance;
+    const y = this.centerY + Math.sin(angle) * distance;
     return {
-      x: this.centerX + Math.cos(angle) * distance,
-      y: this.centerY + Math.sin(angle) * distance,
+      x,
+      y,
       z: Math.random() * this.canvas.width,
-      prevX: this.centerX,
-      prevY: this.centerY,
-      speed: Math.random() * 0.5 + 0.5,
+      // Set previous to initial to avoid long first-frame trail burst.
+      prevX: x,
+      prevY: y,
+      speed: Math.random() * 0.42 + 0.42,
     };
   }
 
@@ -98,9 +101,21 @@ class WarpSpeed {
   }
 
   animate() {
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - this.lastTime) / 1000); // clamp for tab switches
+    this.lastTime = now;
 
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Consistent spawning until target reached
+    if (this.stars.length < this.numStars) {
+      this.spawnAccumulator += this.spawnRate * dt;
+      while (this.spawnAccumulator >= 1 && this.stars.length < this.numStars) {
+        this.stars.push(this.createStar());
+        this.spawnAccumulator -= 1;
+      }
+    }
 
     // Update and draw stars
     this.stars.forEach(star => {
