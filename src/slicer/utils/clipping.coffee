@@ -1,5 +1,4 @@
 # Polygon clipping operations for line and path clipping.
-# Uses polygon-clipping library for complex operations.
 
 polygonClipping = require('polygon-clipping')
 
@@ -8,26 +7,13 @@ primitives = require('./primitives')
 module.exports =
 
     # Clip a line segment to a polygon boundary.
-    # Returns an array of line segments that are inside the polygon.
-    #
-    # This function is critical for skin infill generation - it ensures that infill lines
-    # stay within circular and irregular boundary shapes, not just rectangular bounding boxes.
-    #
-    # Algorithm:
-    # 1. Find all intersection points between the line and polygon edges
-    # 2. Determine which line endpoints are inside the polygon
-    # 3. Sort all points by their parametric position along the line (t value 0-1)
-    # 4. Test midpoints between consecutive intersections to identify inside segments
-    # 5. Return only the portions of the line that lie within the polygon
     clipLineToPolygon: (lineStart, lineEnd, polygon) ->
 
         return [] if not polygon or polygon.length < 3
         return [] if not lineStart or not lineEnd
 
-        # Find all intersection points of the line with polygon edges.
         intersections = []
 
-        # Add the line endpoints with their inside/outside status.
         lineStartInside = primitives.pointInPolygon(lineStart, polygon)
         lineEndInside = primitives.pointInPolygon(lineEnd, polygon)
 
@@ -51,7 +37,6 @@ module.exports =
 
             if intersection
 
-                # Calculate parametric t value (0 to 1) along the line.
                 dx = lineEnd.x - lineStart.x
                 dy = lineEnd.y - lineStart.y
 
@@ -60,7 +45,6 @@ module.exports =
                 else
                     t = (intersection.y - lineStart.y) / dy
 
-                # Only add if not already added as an endpoint (with small tolerance).
                 isNew = true
 
                 for existing in intersections
@@ -74,14 +58,11 @@ module.exports =
 
                     intersections.push({ point: intersection, t: t, isEndpoint: false })
 
-        # Return empty if no intersections found.
         return [] if intersections.length < 2
 
-        # Sort intersections by parametric t value.
         intersections.sort((a, b) -> a.t - b.t)
 
-        # Build segments from pairs of intersections.
-        # Segments between consecutive intersections are inside if the midpoint is inside.
+        # Test midpoints to identify inside segments.
         segments = []
 
         for i in [0...intersections.length - 1]
@@ -89,7 +70,6 @@ module.exports =
             startIntersection = intersections[i]
             endIntersection = intersections[i + 1]
 
-            # Calculate midpoint to test if this segment is inside.
             midT = (startIntersection.t + endIntersection.t) / 2
             midX = lineStart.x + midT * (lineEnd.x - lineStart.x)
             midY = lineStart.y + midT * (lineEnd.y - lineStart.y)

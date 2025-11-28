@@ -66,52 +66,36 @@ module.exports =
 
             if holeWall.length >= 3
 
-                # Create outset path for the hole (isHole=true means it will shrink the hole).
                 holeWallWithGap = paths.createInsetPath(holeWall, infillGap, true)
 
                 if holeWallWithGap.length >= 3
 
                     holeInnerWallsWithGap.push(holeWallWithGap)
 
-        # Calculate line spacing based on infill density.
-        # Different patterns require different spacing multipliers:
-        # - Grid (2 directions): multiply by 2
-        # - Triangles (3 directions): multiply by 3
-        # - Hexagons (3 directions): multiply by 3
+        # Calculate line spacing based on infill density and pattern direction count.
         baseSpacing = nozzleDiameter / (infillDensity / 100.0)
 
-        # Generate infill for each boundary (may be multiple if skin areas were subtracted).
         for currentBoundary in infillBoundaries
 
-            # Skip degenerate boundaries.
             continue if currentBoundary.length < 3
 
             if infillPattern is 'grid'
 
-                # Grid uses +45° and -45° lines (2 directions).
-                # Formula: spacing = (nozzleDiameter / (density / 100)) * 2
-                # For example: 20% density → spacing = (0.4 / 0.2) * 2 = 4.0mm per direction
-                # This gives 10% in each direction, totaling 20% combined.
+                # Grid: 2 directions at ±45°.
                 lineSpacing = baseSpacing * 2.0
 
                 gridPattern.generateGridInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
             else if infillPattern is 'triangles'
 
-                # Triangles uses 45°, 105° (45°+60°), and -15° (45°-60°) lines (3 directions).
-                # Formula: spacing = (nozzleDiameter / (density / 100)) * 3
-                # For example: 20% density → spacing = (0.4 / 0.2) * 3 = 6.0mm per direction
-                # This gives ~6.67% in each direction, totaling 20% combined.
+                # Triangles: 3 directions at 45°, 105°, and -15°.
                 lineSpacing = baseSpacing * 3.0
 
                 trianglesPattern.generateTrianglesInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
             else if infillPattern is 'hexagons'
 
-                # Hexagons uses 0° (horizontal), 60°, and 120° (-60°) lines (3 directions).
-                # Formula: spacing = (nozzleDiameter / (density / 100)) * 3
-                # For example: 20% density → spacing = (0.4 / 0.2) * 3 = 6.0mm per direction
-                # This gives ~6.67% in each direction, totaling 20% combined.
+                # Hexagons: 3 directions at 0°, 60°, and 120°.
                 lineSpacing = baseSpacing * 3.0
 
                 hexagonsPattern.generateHexagonsInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
