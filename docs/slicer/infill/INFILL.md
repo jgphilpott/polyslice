@@ -53,11 +53,11 @@ const slicer = new Polyslice({
 The grid pattern creates a crosshatch fill using two sets of lines at +45° and -45° angles.
 
 ```
-    ╲ ╱ ╲ ╱ ╲
+    ╲ ╱ ╲ ╱ ╲ ╱
      ╳   ╳   ╳
-    ╱ ╲ ╱ ╲ ╱
-     ╳   ╳   ╳
-    ╲ ╱ ╲ ╱ ╲
+    ╱ ╲ ╱ ╲ ╱ ╲
+   ╳   ╳   ╳   ╳
+    ╲ ╱ ╲ ╱ ╲ ╱
 ```
 
 **Characteristics:**
@@ -87,7 +87,7 @@ The triangles pattern creates a tessellation of equilateral triangles using thre
 ```
       /\    /\
      /  \  /  \
-    /----\/----\
+    /    \/    \
     \    /\    /
      \  /  \  /
       \/    \/

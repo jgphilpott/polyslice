@@ -130,7 +130,7 @@ Performance characteristics:
 ### Test Coverage
 Added 4 new test cases covering:
 - Travel path crossing detection with square holes
-- Travel path not crossing when going around holes  
+- Travel path not crossing when going around holes
 - Detection of start point inside hole
 - Handling of empty hole array (no holes case)
 

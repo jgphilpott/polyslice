@@ -34,16 +34,18 @@ npm install @jgphilpott/polyslice
 
 ## Quick Start
 
+Here is a simple example to get you started:
+
 ```javascript
 // Require THREE, Polyslice, Printer and Filament (omit for browser)
 const THREE = require("three");
 const { Polyslice, Printer, Filament } = require("@jgphilpott/polyslice");
 
-// Create printer and filament objects
-const printer = new Printer("Ender5");
+// Create the printer and filament objects
+const printer = new Printer("Ender3");
 const filament = new Filament("GenericPLA");
 
-// Create slicer instance with printer, filament and other configs
+// Create the slicer instance with the printer, filament and other configs
 const slicer = new Polyslice({
   printer: printer,
   filament: filament,
@@ -58,11 +60,15 @@ const geometry = new THREE.BoxGeometry(10, 10, 10);
 const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
 const cube = new THREE.Mesh(geometry, material);
 
-// Slice the cube and generate G-code
+// Slice the cube and generate the G-code
 const gcode = slicer.slice(cube);
-
-console.log(gcode);
 ```
+
+**To run this example locally follow these steps:**
+
+1) Clone the Polyslice repo: `git clone git@github.com:jgphilpott/polyslice.git`
+2) Compile the JS code: `npm run compile`
+3) Run the example script: `node examples/scripts/quick-start.js`
 
 ## Features
 

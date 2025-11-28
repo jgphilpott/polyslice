@@ -283,7 +283,7 @@ const outerPaths = [];
 const holes = [];
 
 for (const path of closedPaths) {
-    const isHole = closedPaths.some(other => 
+    const isHole = closedPaths.some(other =>
         other !== path && primitives.pointInPolygon(path[0], other)
     );
     if (isHole) holes.push(path);

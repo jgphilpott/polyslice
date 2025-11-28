@@ -127,7 +127,7 @@ The `gcode/` directory contains example G-code output files demonstrating differ
 The `infill/` subdirectory contains 12 G-code files showcasing various infill patterns:
 
 - **Grid pattern**: 20%, 40%, 60%, 80% density
-- **Hexagon pattern**: 20%, 40%, 60%, 80% density  
+- **Hexagon pattern**: 20%, 40%, 60%, 80% density
 - **Triangle pattern**: 20%, 40%, 60%, 80% density
 
 All samples are generated for a 1cm cube with 0.2mm layer height.

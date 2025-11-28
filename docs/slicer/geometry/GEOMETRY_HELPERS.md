@@ -76,7 +76,7 @@ Additional geometry-related code is in `src/slicer/geometry/`:
    - Complex polygon offsetting algorithm
    - Widely applicable beyond 3D printing
    - Handles path simplification and offset calculation
-   
+
 ### Medium Priority
 2. **`connectSegmentsToPaths`** - Useful utility
    - Specific to slicing operations
