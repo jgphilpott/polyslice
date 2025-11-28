@@ -6,7 +6,9 @@ This implementation adds travel path combing to infill and skin generation, rout
 
 ## Problem Statement
 
-When printing shapes with holes, travel moves between infill segments would take direct paths that often crossed through holes, leaving behind strings of plastic (spider webs) in the voids. While infill lines themselves were correctly clipped at hole boundaries with proper clearance, the travel paths between segments paid no attention to holes, resulting in degraded print quality.
+When printing shapes with holes, travel moves between infill segments would take direct paths that often crossed through holes. This left behind strings of plastic (spider webs) in the voids.
+
+While infill lines themselves were correctly clipped at hole boundaries with proper clearance, the travel paths between segments paid no attention to holes, resulting in degraded print quality.
 
 ## Solution
 
@@ -18,14 +20,14 @@ The optimization uses a distance-based combing algorithm that routes travel move
 - **Hole outer walls** (outermost perimeter) are used for travel path detection to ensure travel moves stay outside the entire hole structure including all wall material
 
 ### 2. Travel Path Crossing Detection
-Added `travelPathCrossesHoles()` helper function in `helpers.coffee`:
+Added `travelPathCrossesHoles()` function in `combing.coffee`:
 - Uses line segment intersection testing to check if path crosses hole boundaries
 - Checks if either endpoint falls inside a hole polygon
 - **Distance-to-center calculation**: Calculates if the travel path comes within (holeRadius + 0.5mm margin) of any hole center
 - The margin prevents paths that graze along hole boundaries from being considered safe
 
 ### 3. Combing Path Generation
-Added `findCombingPath()` helper function in `helpers.coffee`:
+Added `findCombingPath()` function in `combing.coffee`:
 - Returns direct path if no holes exist or path doesn't cross any holes
 - When crossing detected, calculates perpendicular waypoints at increasing offsets (3, 5, 8, 12, 18mm) from the path midpoint
 - For each potential waypoint, validates that both travel legs (start→waypoint, waypoint→end) stay outside holes using distance-to-center checks
@@ -128,7 +130,7 @@ Performance characteristics:
 ### Test Coverage
 Added 4 new test cases covering:
 - Travel path crossing detection with square holes
-- Travel path not crossing when going around holes  
+- Travel path not crossing when going around holes
 - Detection of start point inside hole
 - Handling of empty hole array (no holes case)
 
@@ -156,18 +158,18 @@ Potential improvements for future versions:
 6. **Adaptive Offsets**: Dynamically calculate waypoint offsets based on hole size and spacing
 7. **Boundary Awareness**: Enhance boundary checking to route around external perimeters as well as holes
 
-## Files Modified
+## Files
 
 ### Core Files
-- `src/slicer/geometry/helpers.coffee`: Added travel path detection and combing functions (`travelPathCrossesHoles`, `findCombingPath`, `distanceFromPointToLineSegment`, `lineSegmentCrossesPolygon`)
+- `src/slicer/geometry/combing.coffee`: Travel path detection and combing functions (`travelPathCrossesHoles`, `findCombingPath`, `distanceFromPointToLineSegment`, `lineSegmentCrossesPolygon`)
 - `src/slicer/infill/patterns/grid.coffee`: Integrated combing for travel moves
 - `src/slicer/infill/patterns/triangles.coffee`: Integrated combing for travel moves
 - `src/slicer/infill/patterns/hexagons.coffee`: Integrated combing for travel moves
 - `src/slicer/skin/skin.coffee`: Integrated combing for skin infill travel moves
-- `src/slicer/slice.coffee`: Modified to pass hole outer walls to skin generation function
+- `src/slicer/slice.coffee`: Passes hole outer walls to skin generation function
 
 ### Tests
-- `src/slicer/geometry/helpers.test.coffee`: Added 4 new tests for travel path detection functionality
+- `src/slicer/geometry/combing.test.coffee`: Tests for travel path detection functionality
 
 ## Technical Notes
 

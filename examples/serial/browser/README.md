@@ -5,13 +5,32 @@
     </picture>
 </p>
 
-# About
+# Web G-code Sender
 
-The [Web G-code Sender](https://jgphilpott.github.io/polyslice/examples/serial/browser/sender.html) is a mini app that was built as a development aid for [Polyslice](https://github.com/jgphilpott/polyslice), an AI powered slicer designed specifically for [three.js](https://github.com/mrdoob/three.js). The app can connect to a 3D printer via a serial port (USB or Bluetooth) to send G-codes and read the printers response data.
+**[Open Web G-code Sender](https://jgphilpott.github.io/polyslice/examples/serial/browser/sender.html)**
 
-Various [other apps](https://github.com/kliment/Printrun) exist that do the same thing but [I](https://github.com/jgphilpott) wanted something browser based for a more seamless user experience, no download or installation should be necessary. Furthermore, I wanted more *raw* access to the API so that I could integrate this functionality into my own applications and not be limited by another developers GUI.
+## About
 
-I failed to find what I was looking for online so I built this app as a result. If you also want to integrate this functionality into your own applications then take a look at [this thread](https://3dprinting.stackexchange.com/questions/23119/can-i-use-web-serial-api-to-send-g-code-to-my-ender-5-pro) I created on the [3D Printing Stack Exchange](https://3dprinting.stackexchange.com). **That thread, along with the source code in this repo, should help you connect to a printer and write/read data with only a few lines of JavaScript.**
+The Web G-code Sender is a browser-based mini app for sending G-code commands directly to a 3D printer via serial connection (USB or Bluetooth). It was built as a development aid for [Polyslice](https://github.com/jgphilpott/polyslice), an AI powered slicer designed specifically for [three.js](https://github.com/mrdoob/three.js).
+
+Unlike desktop applications like [Printrun](https://github.com/kliment/Printrun), this tool runs entirely in your web browser — no download or installation required. It provides raw access to the serial API, making it ideal for:
+
+- Testing and debugging G-code commands
+- Learning G-code basics
+- Integrating printer control into web applications
+- Quick manual printer control
+
+For developers looking to integrate this functionality into their own applications, see [this thread on 3D Printing Stack Exchange](https://3dprinting.stackexchange.com/questions/23119/can-i-use-web-serial-api-to-send-g-code-to-my-ender-5-pro). The source code in this repository demonstrates how to connect to a printer and write/read data with just a few lines of JavaScript.
+
+## Browser Compatibility
+
+This tool uses the [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API), which is supported in:
+
+- **Chrome** 89+
+- **Edge** 89+
+- **Opera** 76+
+
+View the full [compatibility matrix](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#browser_compatibility).
 
 # Contents
 
@@ -111,3 +130,31 @@ If you are new to [G-code](https://en.wikipedia.org/wiki/G-code) then here are f
 **[Introduction To Marlin Commands and G-Codes](https://www.youtube.com/playlist?list=PLyYZUiBHD1QjbgqMVvEBIMxTS8LQdyywZ)** - This is a helpful six video YouTube tutorial to teach you the basics of G-code.
 
 **[Marlin Documentation](https://marlinfw.org/docs/gcode/G000-G001.html)** - This is a useful reference material for beginners and advanced users alike!
+
+## Common G-code Commands
+
+Here are some commonly used G-code commands for testing:
+
+| Command | Description |
+|---------|-------------|
+| `G28` | Home all axes |
+| `G28 X` | Home X axis only |
+| `G28 Y` | Home Y axis only |
+| `G28 Z` | Home Z axis only |
+| `M104 S200` | Set nozzle temperature to 200°C (no wait) |
+| `M109 S200` | Set nozzle temperature to 200°C (wait) |
+| `M140 S60` | Set bed temperature to 60°C (no wait) |
+| `M190 S60` | Set bed temperature to 60°C (wait) |
+| `M106 S255` | Fan on at full speed |
+| `M107` | Fan off |
+| `M114` | Report current position |
+| `M115` | Report firmware info |
+| `G1 X10 Y10 F3000` | Move to position X=10, Y=10 |
+| `G1 Z5 F600` | Move Z axis to 5mm |
+| `M84` | Disable steppers |
+
+## Related Tools
+
+- [G-code Visualizer](../../visualizer/visualizer.html): Visualize G-code files in 3D
+- [Polyslice](https://github.com/jgphilpott/polyslice): Generate G-code from Three.js meshes
+- [Main Documentation](../../../docs/README.md): Complete Polyslice documentation

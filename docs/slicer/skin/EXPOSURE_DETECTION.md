@@ -141,7 +141,7 @@ const gcode = slicer.slice(cube);
 
 ## Testing
 
-The exposure detection algorithm includes comprehensive test coverage in `src/slicer/slice.exposure.test.coffee`:
+The exposure detection algorithm includes comprehensive test coverage in `src/slicer/skin/exposure/exposure.test.coffee`:
 
 - Parameter configuration tests
 - Geometry-specific tests (U-arch, stepped, cylinder, cone)
