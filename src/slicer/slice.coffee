@@ -23,6 +23,13 @@ module.exports =
         # Reset G-code output.
         slicer.gcode = ""
 
+        # Save slicer settings that get modified by codePostPrint.
+        # These are restored at the end of slice to ensure consistent behavior
+        # when slice() is called multiple times (e.g., in a loop).
+        savedNozzleTemperature = slicer.nozzleTemperature
+        savedBedTemperature = slicer.bedTemperature
+        savedFanSpeed = slicer.fanSpeed
+
         # Extract mesh from scene if provided.
         mesh = preprocessingModule.extractMesh(scene)
 
@@ -138,6 +145,12 @@ module.exports =
         slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
         slicer.gcode += coders.codePostPrint(slicer)
+
+        # Restore slicer settings that were modified by codePostPrint.
+        # This ensures consistent behavior when slice() is called multiple times.
+        slicer.nozzleTemperature = savedNozzleTemperature
+        slicer.bedTemperature = savedBedTemperature
+        slicer.fanSpeed = savedFanSpeed
 
         return slicer.gcode
 
