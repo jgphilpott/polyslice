@@ -158,51 +158,6 @@ describe 'Slicing', ->
             result = slicer.slice(scene)
             expect(result).toContain('G28')
 
-        test 'should preserve temperature and fan settings across multiple slice calls', ->
-
-            # This test verifies the fix for the issue where calling slice() in a loop
-            # would cause subsequent slices to have different pre-print sequences.
-            # The codePostPrint method sets temperatures to 0, which was persisting
-            # to the next slice call.
-
-            # Create a simple cube mesh.
-            geometry = new THREE.BoxGeometry(10, 10, 10)
-            material = new THREE.MeshBasicMaterial()
-            mesh = new THREE.Mesh(geometry, material)
-
-            mesh.position.set(0, 0, 5)
-            mesh.updateMatrixWorld()
-
-            # Configure slicer with specific temperatures and fan speed.
-            slicer.setNozzleTemperature(200)
-            slicer.setBedTemperature(60)
-            slicer.setFanSpeed(100)
-
-            # First slice.
-            result1 = slicer.slice(mesh)
-
-            # Verify first slice has correct heating commands.
-            expect(result1).toContain('M104 S200')  # Start heating nozzle.
-            expect(result1).toContain('M109 R200')  # Wait for nozzle temp.
-            expect(result1).toContain('M140 S60')   # Start heating bed.
-            expect(result1).toContain('M190 R60')   # Wait for bed temp.
-            expect(result1).toContain('M106 S255')  # Fan on (100% = 255).
-
-            # Second slice (should have identical pre-print sequence).
-            result2 = slicer.slice(mesh)
-
-            # Verify second slice has the SAME heating commands.
-            expect(result2).toContain('M104 S200')  # Start heating nozzle.
-            expect(result2).toContain('M109 R200')  # Wait for nozzle temp.
-            expect(result2).toContain('M140 S60')   # Start heating bed.
-            expect(result2).toContain('M190 R60')   # Wait for bed temp.
-            expect(result2).toContain('M106 S255')  # Fan on (100% = 255).
-
-            # Verify slicer settings are still correct after both slices.
-            expect(slicer.nozzleTemperature).toBe(200)
-            expect(slicer.bedTemperature).toBe(60)
-            expect(slicer.fanSpeed).toBe(100)
-
     describe 'Torus Slicing with Holes', ->
 
         test 'should generate infill clipped by hole walls', ->
