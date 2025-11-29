@@ -290,7 +290,7 @@ module.exports =
 
         if temp is null
 
-            temp = slicer.nozzleTemperature # Use internal storage for G-code generation
+            temp = slicer.getNozzleTemperature() # Use getter method for G-code generation
 
         if wait
 
@@ -325,7 +325,7 @@ module.exports =
 
         if temp is null
 
-            temp = slicer.bedTemperature # Use internal storage for G-code generation
+            temp = slicer.getBedTemperature() # Use getter method for G-code generation
 
         if wait
 
