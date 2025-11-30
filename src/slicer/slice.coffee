@@ -67,21 +67,11 @@ module.exports =
 
         layerHeight = slicer.getLayerHeight()
 
-        # Add small epsilon offset to starting Z position to avoid slicing exactly at geometric boundaries.
-        # This prevents issues with shapes like sphere and torus where slicing at exact boundary planes
-        # can cause Polytree to miss entire regions:
-        # - Sphere: Slicing at the equator (Z=5 for radius 5) where many vertices exist at Z=0
-        #   can result in only half the geometry being captured (semi-circle instead of full circle).
-        # - Torus: Slicing at the center plane (Z=2 for tube radius 2) can miss the outer ring,
-        #   printing only the inner hole.
-        # Using a small epsilon (0.001mm = 1 micron) that's negligible for printing but sufficient
-        # to nudge slice planes away from exact geometric boundaries.
+        # Small epsilon offset avoids slicing at exact geometric boundaries.
         SLICE_EPSILON = 0.001
         adjustedMinZ = minZ + SLICE_EPSILON
 
-        # Apply mesh preprocessing if enabled in slicer configuration.
-        # This uses Loop subdivision to add more triangles in sparse regions,
-        # helping to fill gaps that would otherwise cause missing segments during slicing.
+        # Apply mesh preprocessing (Loop subdivision) if enabled.
         if slicer.getMeshPreprocessing and slicer.getMeshPreprocessing()
 
             mesh = preprocessingModule.preprocessMesh(mesh)
@@ -166,19 +156,16 @@ module.exports =
         skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
 
         # Detect which paths are holes (contained within other paths).
-        # Holes need to be inset outward to shrink the hole, while outer boundaries inset inward.
         pathIsHole = []
 
         for i in [0...paths.length]
 
             isHole = false
 
-            # Check if this path is contained within any other path.
             for j in [0...paths.length]
 
                 continue if i is j
 
-                # Test if a sample point from path i is inside path j.
                 if paths[i].length > 0 and primitives.pointInPolygon(paths[i][0], paths[j])
 
                     isHole = true
@@ -193,36 +180,28 @@ module.exports =
         holeInnerWalls = []  # Inner wall paths of holes (for regular infill clipping).
         holeOuterWalls = []  # Outer wall paths of holes (for travel path optimization).
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
-        innermostWalls = []  # Store innermost wall for each path.
+        innermostWalls = []
 
-        # Track last end point for travel path combing BETWEEN different paths/features.
-        # Initialize with position from previous layer if available.
+        # Track last end point for travel path combing.
         lastPathEndPoint = slicer.lastLayerEndPoint
 
-        # Track outer boundary path for travel path combing.
         outerBoundaryPath = null
 
-        # Pre-pass: Collect all hole outer walls BEFORE generating any walls.
-        # This ensures complete hole information is available for combing path calculation.
-        pathToHoleIndex = {}  # Map path index to index in holeOuterWalls array
-        allOuterWalls = {}    # Map path index to its outer wall path (for spacing validation)
+        # Pre-pass: Collect all hole outer walls for combing path calculation.
+        pathToHoleIndex = {}
+        allOuterWalls = {}
 
         for path, pathIndex in paths
 
-            # Skip degenerate paths.
             continue if path.length < 3
 
-            # Create initial offset for the outer wall by half nozzle diameter.
             outerWallOffset = nozzleDiameter / 2
             currentPath = pathsUtils.createInsetPath(path, outerWallOffset, pathIsHole[pathIndex])
 
-            # Skip if offset path is degenerate.
             continue if currentPath.length < 3
 
-            # Store ALL outer walls (both holes and non-holes) for spacing validation.
             allOuterWalls[pathIndex] = currentPath
 
-            # Store hole outer walls for combing path avoidance.
             if pathIsHole[pathIndex]
 
                 pathToHoleIndex[pathIndex] = holeOuterWalls.length
@@ -230,14 +209,11 @@ module.exports =
 
             else
 
-                # Store outer boundary for combing constraint.
                 outerBoundaryPath = path
 
-        # After collecting all outer walls, identify paths that are too close together.
-        # If outer walls from different paths are closer than one nozzle diameter,
-        # those paths should not generate inner walls to avoid interference.
-        pathsWithInsufficientSpacingForInnerWalls = {}  # Track which paths should skip inner walls
-        pathsWithInsufficientSpacingForSkinWalls = {}   # Track which paths should skip skin walls
+        # Identify paths that are too close for inner/skin walls.
+        pathsWithInsufficientSpacingForInnerWalls = {}
+        pathsWithInsufficientSpacingForSkinWalls = {}
 
         for pathIndex1 in [0...paths.length]
 
@@ -249,11 +225,8 @@ module.exports =
                 outerWall2 = allOuterWalls[pathIndex2]
                 continue if not outerWall2 or outerWall2.length < 3
 
-                # Calculate minimum distance between these two outer walls.
                 minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
 
-                # If the gap between outer walls is less than one nozzle diameter,
-                # mark both paths as having insufficient spacing for inner walls.
                 if minDistance < nozzleDiameter
 
                     pathsWithInsufficientSpacingForInnerWalls[pathIndex1] = true
@@ -272,10 +245,8 @@ module.exports =
 
             return null if currentPath.length < 3
 
-            # Simulate wall generation to find innermost wall.
             for wallIndex in [0...wallCount]
 
-                # Check if inner walls should be skipped.
                 if wallIndex > 0
 
                     if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
@@ -286,7 +257,6 @@ module.exports =
                     if testInsetPath.length < 3
                         break
 
-                # Create inset for next wall if not the last wall.
                 if wallIndex < wallCount - 1
 
                     insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
@@ -297,7 +267,6 @@ module.exports =
 
             return currentPath
 
-        # Calculate all innermost walls.
         allInnermostWalls = {}
 
         for path, pathIndex in paths
@@ -308,15 +277,13 @@ module.exports =
 
                 allInnermostWalls[pathIndex] = innermostWall
 
-        # Check spacing between innermost walls to determine if skin walls can be generated.
-        # Inherit flags from inner wall spacing check first.
+        # Check spacing between innermost walls for skin wall generation.
         for pathIndex in [0...paths.length]
 
             if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
 
                 pathsWithInsufficientSpacingForSkinWalls[pathIndex] = true
 
-        # Then check spacing between actual innermost walls.
         for pathIndex1 in [0...paths.length]
 
             innermostWall1 = allInnermostWalls[pathIndex1]
@@ -327,43 +294,29 @@ module.exports =
                 innermostWall2 = allInnermostWalls[pathIndex2]
                 continue if not innermostWall2 or innermostWall2.length < 3
 
-                # Calculate minimum distance between innermost walls.
                 minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
 
-                # For skin walls, we need space for BOTH skin walls (one from each path).
-                # Each skin wall requires one nozzle diameter, so total threshold is 2 * nozzle diameter.
+                # Skin walls need 2x nozzle diameter (one from each path).
                 skinWallThreshold = nozzleDiameter * 2
-
-                # If insufficient spacing, mark both paths.
                 if minDistance < skinWallThreshold
 
                     pathsWithInsufficientSpacingForSkinWalls[pathIndex1] = true
                     pathsWithInsufficientSpacingForSkinWalls[pathIndex2] = true
 
         # Helper function to generate walls for a single path.
-        # Returns the innermost wall path.
-        # If generateSkinWalls is true and this is a hole, also generates skin walls immediately after regular walls.
         generateWallsForPath = (path, pathIndex, isHole, generateSkinWalls = false) =>
 
-            # Skip degenerate paths.
             return null if path.length < 3
 
-            # Create initial offset for the outer wall by half nozzle diameter.
-            # This ensures the print matches the design dimensions exactly.
-            # For outer boundaries: inset by half nozzle (shrinks the boundary inward).
-            # For holes: outset by half nozzle (enlarges the hole path outward).
+            # Offset by half nozzle to match design dimensions.
             outerWallOffset = nozzleDiameter / 2
             currentPath = pathsUtils.createInsetPath(path, outerWallOffset, isHole)
 
-            # If the offset path is degenerate, skip this path entirely.
             return null if currentPath.length < 3
 
             # Generate walls from outer to inner.
-            # Use lastPathEndPoint for combing to the first wall of this path.
-            # Within the path, walls connect directly without combing (they're concentric).
             for wallIndex in [0...wallCount]
 
-                # Determine wall type for TYPE annotation.
                 if wallIndex is 0
                     wallType = "WALL-OUTER"
                 else if wallIndex is wallCount - 1
@@ -371,36 +324,24 @@ module.exports =
                 else
                     wallType = "WALL-INNER"
 
-                # Before generating inner walls (wallIndex > 0), check if there is sufficient space.
-                # This prevents printing walls in incorrect positions when the gap between outer walls
-                # is too small (e.g., first layers of a torus where the tube cross-section is narrow).
+                # Check spacing before generating inner walls.
                 if wallIndex > 0
 
-                    # First, check if this path was flagged as having insufficient spacing for inner walls.
-                    # If so, skip inner wall generation entirely.
                     if pathsWithInsufficientSpacingForInnerWalls[pathIndex] then break
 
-                    # Check if the next inset would be degenerate (too small to print).
-                    # The createInsetPath function already has sophisticated validation.
                     testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
-                    # If the inset path is degenerate, there's no room for this wall.
                     if testInsetPath.length < 3
 
-                        break # No room for inner walls - stop generating walls for this path.
+                        break
 
-                # Use combing for all walls to avoid crossing holes, even between concentric walls.
-                # The lastPathEndPoint is updated after each wall, so it always reflects the current nozzle position.
                 combingStartPoint = lastPathEndPoint
 
-                # For combing, exclude the current hole (if this is a hole) ONLY if we're traveling
-                # from the same layer (i.e., lastPathEndPoint has the same Z coordinate).
-                # When traveling from a different layer, include all holes in collision detection.
+                # Exclude destination hole from combing collision detection.
                 excludeDestinationHole = false
 
                 if isHole and pathToHoleIndex[pathIndex]? and lastPathEndPoint?
 
-                    # Only exclude if we're on the same layer.
                     if lastPathEndPoint.z is z
 
                         excludeDestinationHole = true
@@ -414,37 +355,25 @@ module.exports =
 
                     combingHoleWalls = holeOuterWalls
 
-                # Generate this wall with combing path support.
-                # Pass the hole outer walls list (excluding current hole) and boundary for combing.
                 wallEndPoint = wallsModule.generateWallGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, wallType, combingStartPoint, combingHoleWalls, outerBoundaryPath)
 
-                # Update lastPathEndPoint to track the actual nozzle position.
-                # We update it for every wall, so after all walls are done, it represents
-                # the end position of the innermost wall, which is where the nozzle actually is.
                 lastPathEndPoint = wallEndPoint
 
-                # Create inset path for next wall (if not last wall).
                 if wallIndex < wallCount - 1
 
                     insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
 
-                    # Stop if inset path becomes degenerate.
                     break if insetPath.length < 3
 
                     currentPath = insetPath
 
-            # Store the innermost wall path for holes (for infill clipping).
             if isHole and currentPath.length >= 3
 
                 holeInnerWalls.push(currentPath)
 
-            # If this is a hole on a skin layer, generate skin walls immediately after regular walls.
-            # This is more efficient than making a separate pass later.
-            # Note: generateSkinWalls is only true when spacing is sufficient, so no need to check again.
+            # Generate skin walls for holes on skin layers.
             if isHole and generateSkinWalls and currentPath and currentPath.length >= 3
 
-                # Calculate the skin wall path for this hole.
-                # This is an inset of full nozzle diameter from the innermost wall.
                 skinWallInset = nozzleDiameter
                 skinWallPath = pathsUtils.createInsetPath(currentPath, skinWallInset, isHole)
 
@@ -452,8 +381,6 @@ module.exports =
 
                     holeSkinWalls.push(skinWallPath)
 
-                    # For combing, exclude the current hole (destination).
-                    # When traveling TO this hole's skin wall, we shouldn't check collision with the hole itself.
                     if pathToHoleIndex[pathIndex]?
 
                         currentHoleIdx = pathToHoleIndex[pathIndex]
@@ -463,18 +390,12 @@ module.exports =
 
                         skinCombingHoleWalls = holeOuterWalls
 
-                    # Generate skin wall for the hole (outward inset).
-                    # Pass generateInfill=false to skip infill (only walls).
-                    # Pass lastPathEndPoint for combing (it's updated from regular wall generation above).
-                    # Pass empty coveredAreaSkinWalls array and isCoveredArea=false since this is a hole.
                     skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls, [], false)
 
-                    # Update lastPathEndPoint with skin wall end position.
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
 
             return currentPath
 
-        # Helper function to calculate centroid of a path.
         calculatePathCentroid = (path) =>
 
             return null if path.length is 0
@@ -492,12 +413,8 @@ module.exports =
                 y: sumY / path.length
             }
 
-        # Helper function to calculate distance between two points.
         calculateDistance = (pointA, pointB) =>
 
-            # If either point is missing, return a large but finite distance.
-            # This allows the nearest-neighbor algorithm to continue with other holes
-            # when lastPathEndPoint is null (e.g., first layer or no prior position).
             return 1000000 if not pointA or not pointB
 
             dx = pointA.x - pointB.x
@@ -505,10 +422,8 @@ module.exports =
 
             return Math.sqrt(dx * dx + dy * dy)
 
-        # Initialize innermostWalls array with the correct size (same as paths).
         innermostWalls = new Array(paths.length)
 
-        # Separate paths into outer boundaries and holes.
         outerBoundaryIndices = []
         holeIndices = []
 
@@ -519,29 +434,22 @@ module.exports =
             else
                 outerBoundaryIndices.push(pathIndex)
 
-        # Determine if this layer needs skin.
-        # This is used to decide whether to generate skin walls for holes during wall generation.
-        # Include middle layers if exposure detection is enabled, as they may need adaptive skin.
+        # Determine if this layer needs skin (top/bottom or with exposure detection).
         layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount or slicer.getExposureDetection()
 
-        # Process outer boundaries first (non-hole paths).
+        # Process outer boundaries first.
         for pathIndex in outerBoundaryIndices
 
             path = paths[pathIndex]
             innermostWall = generateWallsForPath(path, pathIndex, false, false)
             innermostWalls[pathIndex] = innermostWall
 
-        # Sort holes by nearest neighbor to minimize travel distance.
-        # Start from the last known position (where outer boundaries ended).
-        # Note: This is O(n²) complexity, which is acceptable for typical geometries
-        # with moderate hole counts (< 100 holes). For larger counts, consider
-        # spatial indexing optimizations.
+        # Sort holes by nearest neighbor to minimize travel.
         sortedHoleIndices = []
-        remainingHoleIndices = holeIndices.slice()  # Create a copy
+        remainingHoleIndices = holeIndices.slice()
 
         while remainingHoleIndices.length > 0
 
-            # Find the nearest hole to the last position.
             nearestIndex = -1
             nearestDistance = Infinity
 
@@ -552,7 +460,6 @@ module.exports =
 
                 if holeCentroid
 
-                    # Calculate distance from last position to hole centroid.
                     distance = calculateDistance(lastPathEndPoint, holeCentroid)
 
                     if distance < nearestDistance
@@ -560,37 +467,27 @@ module.exports =
                         nearestDistance = distance
                         nearestIndex = holeIdx
 
-            # If we found a nearest hole, process it.
             if nearestIndex >= 0
 
                 sortedHoleIndices.push(nearestIndex)
 
-                # Remove from remaining list.
                 remainingHoleIndices = remainingHoleIndices.filter((idx) -> idx isnt nearestIndex)
 
             else
 
-                # Fallback: just take the first remaining hole.
                 sortedHoleIndices.push(remainingHoleIndices[0])
                 remainingHoleIndices.shift()
 
-        # Process holes in sorted order (nearest neighbor).
-        # On skin layers, generate skin walls immediately after regular walls if spacing permits.
-        # This avoids a second pass around the geometry.
+        # Process holes in sorted order with skin walls if needed.
         for pathIndex in sortedHoleIndices
 
             path = paths[pathIndex]
 
-            # Determine if we should generate skin walls immediately for this hole.
-            # Only generate skin walls if:
-            # 1. This is a skin layer (layerNeedsSkin)
-            # 2. The path has sufficient spacing (not flagged for insufficient spacing)
-            # 3. For middle layers with exposure detection: the hole represents an actual exposure (cavity)
+            # Determine if skin walls should be generated for this hole.
             shouldGenerateSkinWalls = false
 
             if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
 
-                # For absolute top/bottom layers, always generate skin walls.
                 isAbsoluteTopOrBottom = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
 
                 if isAbsoluteTopOrBottom
@@ -599,79 +496,54 @@ module.exports =
 
                 else if slicer.getExposureDetection()
 
-                    # For middle layers with exposure detection enabled:
-                    # Use the exposure module to determine if this hole is exposed.
                     shouldGenerateSkinWalls = exposureModule.shouldGenerateHoleSkinWalls(path, layerIndex, skinLayerCount, totalLayers, allLayers)
 
             innermostWall = generateWallsForPath(path, pathIndex, true, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
 
-        # Skin walls for holes are now generated immediately after their regular walls
-        # in the loop above (when shouldGenerateSkinWalls is true). This avoids a
-        # second pass around the geometry, which was the behavior before PR #55.
-        # The spacing checks have been moved earlier (pre-calculation) so we know
-        # upfront which paths can have skin walls.
-
-        # Phase 2: Generate infill and skin.
-        # Now that all hole boundaries have been collected, we can generate infill
-        # for outer boundaries with proper hole exclusion.
+        # Phase 2: Generate infill and skin for outer boundaries.
         for path, pathIndex in paths
 
-            # Skip degenerate paths and holes (holes already processed in phase 1).
             continue if path.length < 3 or pathIsHole[pathIndex]
 
             currentPath = innermostWalls[pathIndex]
 
-            # Skip if no innermost wall was generated.
             continue if not currentPath or currentPath.length < 3
 
-            # Skip if no innermost wall was generated.
             continue if not currentPath or currentPath.length < 3
 
-            # The innermost wall ends at its first point (closed loop).
-            # Use lastPathEndPoint from wall generation to minimize travel distance and enable combing.
-            # If lastPathEndPoint is null (first path), fall back to innermost wall first point.
             lastWallPoint = lastPathEndPoint or (if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y, z: z } else null)
 
-            # Determine a safe boundary for infill by insetting one nozzle width.
-            # If we cannot inset (no room inside the last wall), we should not generate infill.
-            # Pass isHole parameter to ensure correct inset direction for holes.
             infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
 
-            # Determine if this region needs skin and calculate exposed areas.
+            # Determine if this region needs skin.
             needsSkin = false
-            skinAreas = [] # Will store only the exposed portions of currentPath
-            isAbsoluteTopOrBottom = false # Track if this is absolute top/bottom layer
+            skinAreas = []
+            isAbsoluteTopOrBottom = false
             skinSuppressedDueToSpacing = false
-            coveringRegionsAbove = [] # Regions from layer above for fully covered detection.
-            coveringRegionsBelow = [] # Regions from layer below for fully covered detection.
+            coveringRegionsAbove = []
+            coveringRegionsBelow = []
 
-            # Always generate skin for the absolute top and bottom layers.
+            # Generate skin for absolute top and bottom layers.
             if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
 
-                # Check if this path has insufficient spacing for skin walls.
-                # If so, skip skin generation even on top/bottom layers.
                 if not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
 
                     needsSkin = true
-                    skinAreas = [currentPath] # Use entire perimeter for absolute top/bottom
-                    isAbsoluteTopOrBottom = true # Mark as absolute top/bottom
+                    skinAreas = [currentPath]
+                    isAbsoluteTopOrBottom = true
 
                 else
 
                     needsSkin = false
                     skinAreas = []
-                    skinSuppressedDueToSpacing = true # Mark that spacing is the reason
+                    skinSuppressedDueToSpacing = true
 
             else
 
-                # For middle layers, check if exposure detection is enabled.
-                # When enabled, adaptively generates skin layers for exposed surfaces.
-                # When disabled, only top and bottom layers get skin (simpler but less optimal).
+                # For middle layers, use exposure detection if enabled.
                 if slicer.getExposureDetection()
 
-                    # ENABLED: Exposure detection algorithm.
-                    # Use the exposure module to calculate exposed areas.
                     exposureResult = exposureModule.calculateExposedAreasForLayer(
                         currentPath,
                         layerIndex,
@@ -688,132 +560,74 @@ module.exports =
 
                 else
 
-                    # Exposure detection disabled - no skin for middle layers.
                     needsSkin = false
                     skinAreas = []
 
-            # Generate infill and/or skin based on exposure.
-            #
-            # Strategy:
-            # - Absolute top/bottom layers: ONLY skin (no infill) for clean surfaces
-            # - Mixed layers (partial exposure): infill first (entire layer), then skin second (exposed areas)
-            #   This allows skin to cover infill pattern, preventing it from being visible on exterior
-            # - Middle layers (no exposure): ONLY infill
-            #
-            # This ensures:
-            # - Clean top/bottom surfaces (skin only, no infill overlap)
-            # - On mixed layers: infill provides structural support, skin covers it for clean exterior
-            # - Complete coverage (no gaps)
-
+            # Strategy: top/bottom = skin only; mixed = infill then skin; middle = infill only.
             infillDensity = slicer.getInfillDensity()
 
             if needsSkin
 
-                # Identify fully covered areas to exclude from skin infill.
-                # A fully covered area has geometry both above AND below.
+                # Identify fully covered areas for skin infill exclusion.
                 fullyCoveredRegions = exposureModule.identifyFullyCoveredRegions(currentPath, coveringRegionsAbove, coveringRegionsBelow)
 
-                # Process fully covered regions for skin infill exclusion.
                 fullyCoveredSkinWalls = exposureModule.filterFullyCoveredSkinWalls(fullyCoveredRegions, currentPath)
 
-                # Calculate constants used for fully covered region processing.
                 infillGap = 0
                 skinWallInset = nozzleDiameter
                 totalInsetForInfill = skinWallInset + infillGap
 
                 if isAbsoluteTopOrBottom
 
-                    # Absolute top/bottom layers: ONLY skin (no infill).
-                    # This ensures clean top and bottom surfaces without visible infill pattern.
-                    # Pass combined skin walls for clipping and hole outer walls for travel path optimization.
+                    # Absolute top/bottom layers: skin only for clean surfaces.
                     for skinArea in skinAreas
 
-                        # Skip if skin area is completely inside a hole (>90% coverage).
                         continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        # Pass hole skin walls and fully covered boundaries separately.
-                        # The skin module handles them differently:
-                        # - Hole walls: expanded outward by infillGap (shrink the hole)
-                        # - Covered area boundaries: used as-is without offset (exact exclusion)
-                        # This ensures skin infill is only generated in truly exposed areas with proper gaps.
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
 
                 else
 
-                    # Mixed layers (partial exposure): infill first, then skin second.
-                    # This way the skin (printed after) covers the infill pattern on exposed surfaces.
+                    # Mixed layers: infill first, then skin.
                     if infillDensity > 0 and infillBoundary.length >= 3
 
-                        # Calculate actual skin areas for infill exclusion.
-                        # We need to exclude from infill only the areas where skin is actually generated.
-                        # Fully covered regions are excluded from skin generation but should still get infill.
-                        # Use subtractSkinAreasFromInfill to remove fully covered regions from skin areas.
                         actualSkinAreasForInfill = skinAreas
 
                         if fullyCoveredSkinWalls.length > 0
 
-                            # Subtract fully covered regions from each skin area.
-                            # This ensures infill is generated in fully covered regions.
                             filteredSkinAreas = []
 
                             for skinArea in skinAreas
 
                                 continue if skinArea.length < 3
 
-                                # Subtract fully covered regions from this skin area.
-                                # Note: subtractSkinAreasFromInfill is a general polygon subtraction utility.
-                                # Here we use it to remove fully covered regions from skin areas.
                                 remainingAreas = clipping.subtractSkinAreasFromInfill(skinArea, fullyCoveredSkinWalls)
-
-                                # Add any remaining areas to the filtered list.
                                 filteredSkinAreas.push remainingAreas... if remainingAreas.length > 0
 
                             actualSkinAreasForInfill = filteredSkinAreas
 
-                        # Use the original currentPath for infill to keep coverage consistent,
-                        # but require that an inset path exists as a guard to ensure there is room inside.
-                        # Pass hole inner walls for clipping and hole outer walls for travel optimization.
-                        # Pass actual skin areas (excluding fully covered regions) to allow infill in covered areas.
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls, actualSkinAreasForInfill)
 
-                    # Generate skin ONLY in the exposed areas.
-                    # Pass combined skin walls (holes + fully covered regions) for clipping and hole outer walls for travel path optimization.
+                    # Generate skin for exposed areas.
                     for skinArea in skinAreas
 
-                        # Skip if skin area is completely inside a hole (>90% coverage).
                         continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        # Pass hole skin walls and fully covered boundaries separately.
-                        # The skin module handles them differently:
-                        # - Hole walls: expanded outward by infillGap (shrink the hole)
-                        # - Covered area boundaries: used as-is without offset (exact exclusion)
-                        # This ensures skin infill is only generated in truly exposed areas with proper gaps.
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
 
-                    # Generate skin walls (perimeter only, no infill) for fully covered regions.
-                    # These areas have geometry both above and below, so they don't need skin infill
-                    # but do need a skin wall perimeter, and regular infill will fill the interior.
+                    # Generate skin walls (no infill) for fully covered regions.
                     fullyCoveredInfillBoundaries = []
 
                     for fullyCoveredSkinWall in fullyCoveredSkinWalls
 
                         continue if fullyCoveredSkinWall.length < 3
 
-                        # Skip if covered region is completely inside a hole.
                         continue if coverage.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        # Generate skin wall only (no infill) for this covered region.
-                        # Parameters: isHole=false, generateInfill=false, coveredAreaSkinWalls=[], isCoveredArea=true.
-                        # Use isCoveredArea=true to indicate this is a covered area (not a hole or exposed area).
-                        # This ensures the correct offset direction for the skin wall.
                         skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], holeOuterWalls, [], true)
 
-                        # Calculate the boundary for regular infill inside this covered region (if infill is enabled).
-                        # The skin wall is inset by nozzleDiameter from the boundary.
-                        # We need to inset by another nozzleDiameter/2 for the infill gap.
                         if infillDensity > 0
 
-                            # Create the infill boundary inside the covered region (inset inward).
                             coveredInfillBoundary = pathsUtils.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
 
                             if coveredInfillBoundary.length >= 3
@@ -821,37 +635,26 @@ module.exports =
                                 fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
 
                     # Generate regular infill for fully covered regions.
-                    # This fills the interior of the covered regions with the regular infill pattern.
                     if fullyCoveredInfillBoundaries.length > 0
 
                         for coveredInfillBoundary in fullyCoveredInfillBoundaries
 
-                            # Generate infill inside this covered region boundary.
-                            # Use empty arrays for holes since we're inside a covered region.
                             infillModule.generateInfillGCode(slicer, coveredInfillBoundary, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, [], holeOuterWalls, [])
 
             else
 
-                # No skin needed - generate normal sparse infill only.
-                # However, if skin was suppressed due to insufficient spacing, also skip infill
-                # because the area is too narrow for proper material deposition.
+                # No skin needed - generate sparse infill only.
                 if infillDensity > 0 and infillBoundary.length >= 3 and not skinSuppressedDueToSpacing
 
-                    # Use the original currentPath for infill to keep coverage consistent,
-                    # but require that an inset path exists as a guard to ensure there is room inside.
-                    # Pass hole inner walls for clipping and hole outer walls for travel optimization.
                     infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, holeInnerWalls, holeOuterWalls)
 
-        # Save the last position from this layer for combing to the next layer.
-        # Parse the last G0/G1 command from the generated G-code to get the actual end position.
-        # This accounts for infill and skin moves that happen after wall generation.
+        # Save last position for cross-layer combing.
         lastGCodeLines = slicer.gcode.split(slicer.newline)
 
         for i in [lastGCodeLines.length - 1..0] by -1
 
             line = lastGCodeLines[i].trim()
 
-            # Look for G0 or G1 commands with X and Y coordinates.
             if line.match(/^G[01]\s/)
 
                 xMatch = line.match(/X([-\d.]+)/)
@@ -859,7 +662,6 @@ module.exports =
 
                 if xMatch and yMatch
 
-                    # Found the last position - store it without center offset.
                     slicer.lastLayerEndPoint = {
                         x: parseFloat(xMatch[1]) - centerOffsetX
                         y: parseFloat(yMatch[1]) - centerOffsetY

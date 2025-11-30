@@ -1,0 +1,231 @@
+---
+applyTo: 'src/slicer/infill/**/*.coffee'
+---
+
+# Infill Patterns Overview
+
+The infill module generates interior fill patterns for 3D printed parts. Located in `src/slicer/infill/`.
+
+## Purpose
+
+- Fill interior regions with configurable density patterns
+- Provide structural support while minimizing material usage
+- Optimize travel paths to avoid crossing holes
+
+## Supported Patterns
+
+| Pattern | Directions | Description |
+|---------|------------|-------------|
+| `grid` | 2 (+45°, -45°) | Crosshatch pattern, good general-purpose |
+| `triangles` | 3 (45°, 105°, -15°) | Equilateral triangle tessellation |
+| `hexagons` | Honeycomb cells | Optimal strength-to-weight ratio |
+
+## Line Spacing Formula
+
+The line spacing calculation ensures the configured infill density is achieved:
+
+```coffeescript
+# Base spacing calculation
+baseSpacing = nozzleDiameter / (infillDensity / 100.0)
+
+# Pattern-specific multipliers
+gridSpacing = baseSpacing * 2.0      # 2 directions
+trianglesSpacing = baseSpacing * 3.0  # 3 directions
+hexagonsSpacing = baseSpacing * 3.0   # 3 directions
+```
+
+### Example: 20% Infill Density
+
+With 0.4mm nozzle and 20% density:
+
+1. **Base spacing calculation:**
+   - `baseSpacing = nozzleDiameter / (density / 100)`
+   - `baseSpacing = 0.4mm / (20 / 100) = 0.4mm / 0.2 = 2.0mm`
+
+2. **Grid pattern (2 directions):**
+   - `lineSpacing = baseSpacing × 2 = 2.0mm × 2 = 4.0mm`
+   - Each line set covers `nozzleDiameter / lineSpacing = 0.4mm / 4.0mm = 10%`
+   - Total coverage: `10% × 2 directions = 20%`
+
+3. **Triangles/Hexagons (3 directions):**
+   - `lineSpacing = baseSpacing × 3 = 2.0mm × 3 = 6.0mm`
+   - Each line set covers `nozzleDiameter / lineSpacing = 0.4mm / 6.0mm ≈ 6.67%`
+   - Total coverage: `6.67% × 3 directions ≈ 20%`
+
+## Grid Pattern
+
+Located in `src/slicer/infill/patterns/grid.coffee`.
+
+### Algorithm
+
+1. Calculate bounding box diagonal span
+2. Generate +45° lines (y = x + offset), centered at origin
+3. Generate -45° lines (y = -x + offset), centered at origin
+4. Clip lines to infill boundary
+5. Exclude hole areas via clipping
+6. Render lines in nearest-neighbor order with combing
+
+### Line Generation
+
+```coffeescript
+# For 45-degree lines, spacing adjustment
+offsetStep = lineSpacing * Math.sqrt(2)  # Account for diagonal angle
+
+# Line equations
+# +45°: y = x + offset
+# -45°: y = -x + offset
+```
+
+### Bounding Box Intersection
+
+For each line, calculate intersections with all four edges:
+- Left edge (x = minX)
+- Right edge (x = maxX)
+- Bottom edge (y = minY)
+- Top edge (y = maxY)
+
+Deduplicate intersections when lines pass through corners.
+
+## Triangles Pattern
+
+Located in `src/slicer/infill/patterns/triangles.coffee`.
+
+### Algorithm
+
+Generates equilateral triangles using three line directions:
+1. **45° baseline** (same as grid +45°)
+2. **105°** (45° + 60°) with slope ≈ -3.732
+3. **-15°** (45° - 60°) with slope ≈ -0.268
+
+### Angle Calculations
+
+```coffeescript
+# 105° line slope
+slope105 = -1 / Math.tan(15 * Math.PI / 180)  # tan(105°) = -cot(15°)
+
+# -15° line slope
+slope15 = Math.tan(-15 * Math.PI / 180)
+
+# Spacing for each angle (perpendicular distance = lineSpacing)
+offsetStep105 = lineSpacing / Math.abs(Math.cos(105 * Math.PI / 180))
+offsetStep15 = lineSpacing / Math.abs(Math.cos(-15 * Math.PI / 180))
+```
+
+## Hexagons Pattern
+
+Located in `src/slicer/infill/patterns/hexagons.coffee`.
+
+### Algorithm
+
+Creates honeycomb tessellation with flat-top orientation:
+1. Calculate hexagon geometry (side length, spacing)
+2. Generate hexagon centers in honeycomb grid
+3. Create vertices for each hexagon (6 vertices at 30°, 90°, 150°, 210°, 270°, 330°)
+4. Deduplicate shared edges between adjacent hexagons
+5. Build connectivity graph for continuous paths
+6. Render edges in chains to minimize travel
+
+### Hexagon Geometry
+
+```coffeescript
+# For a regular hexagon with side length 's':
+hexagonSide = lineSpacing / Math.sqrt(3)
+horizontalSpacing = hexagonSide * Math.sqrt(3)  # Between centers
+verticalSpacing = 1.5 * hexagonSide             # Between rows
+
+# Row offset for honeycomb pattern
+if row % 2 != 0
+    centerX += horizontalSpacing / 2
+```
+
+### Edge Deduplication
+
+Uses edge keys with consistent point ordering:
+
+```coffeescript
+createEdgeKey = (x1, y1, x2, y2) ->
+    # Round to 0.01mm precision
+    # Order points to ensure (A,B) = (B,A)
+    if rx1 < rx2 or (rx1 is rx2 and ry1 < ry2)
+        return "#{rx1},#{ry1}-#{rx2},#{ry2}"
+    else
+        return "#{rx2},#{ry2}-#{rx1},#{ry1}"
+```
+
+### Chain Building
+
+Hexagon edges are connected into chains for continuous extrusion:
+
+```coffeescript
+# Build connectivity graph
+pointToEdges = {}  # Map point key → list of edge indices
+
+# Follow connected edges until dead end
+while currentIdx isnt -1 and not drawnEdges[currentIdx]
+    # Add edge to chain
+    # Find connected undrawn edge at current endpoint
+```
+
+## Hole Handling
+
+### Inner Walls for Clipping
+
+Hole inner walls are inset by infill gap to maintain clearance:
+
+```coffeescript
+infillGap = nozzleDiameter / 2
+holeWallWithGap = paths.createInsetPath(holeWall, infillGap, true)  # isHole=true
+```
+
+### Line Clipping
+
+```coffeescript
+clippedSegments = clipping.clipLineWithHoles(
+    intersections[0],
+    intersections[1],
+    infillBoundary,
+    holeInnerWalls
+)
+```
+
+## Travel Optimization
+
+### Nearest-Neighbor Selection
+
+Lines are rendered in order of proximity to minimize travel:
+
+```coffeescript
+for line, idx in allInfillLines
+    distSq0 = (line.start.x - lastEndPoint.x) ** 2 + (line.start.y - lastEndPoint.y) ** 2
+    distSq1 = (line.end.x - lastEndPoint.x) ** 2 + (line.end.y - lastEndPoint.y) ** 2
+    # Select closest endpoint, optionally flip line direction
+```
+
+### Combing During Travel
+
+```coffeescript
+combingPath = combing.findCombingPath(
+    lastEndPoint or startPoint,
+    startPoint,
+    holeOuterWalls,
+    infillBoundary,
+    nozzleDiameter
+)
+```
+
+## Extrusion Calculation
+
+```coffeescript
+distance = Math.sqrt(dx * dx + dy * dy)
+if distance > 0.001  # Skip negligible moves
+    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+    slicer.cumulativeE += extrusionDelta
+```
+
+## Important Conventions
+
+1. **Pattern centering**: All patterns center at origin (0,0), which maps to build plate center
+2. **Gap consistency**: Use `nozzleDiameter / 2` gap between infill and walls
+3. **Line validation**: Skip segments shorter than 0.001mm
+4. **Travel speeds**: Use `getTravelSpeed() * 60` for mm/min conversion
+5. **Type annotation**: Add `; TYPE: FILL` comment when verbose mode enabled

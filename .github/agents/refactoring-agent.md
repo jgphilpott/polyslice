@@ -19,6 +19,24 @@ You are a senior software engineer who refactors code to improve maintainability
 - **Testing**: Jest 30.x (validate refactoring)
 - **Environments**: Node.js 14+ and modern browsers
 
+## Documentation Philosophy
+
+**Source code comments should be light and minimal.** When refactoring:
+
+- Remove verbose algorithm explanations from source code
+- Move detailed documentation to instruction files (`/.github/instructions/`)
+- Keep only brief comments for code flow context
+- Update instruction files when changing algorithms or architecture
+
+### Comment Locations
+
+| Content Type | Location |
+|-------------|----------|
+| Algorithm explanations | `/.github/instructions/{module}/overview.instructions.md` |
+| Brief code flow comments | Source code |
+| G-code reference links | Source code |
+| Type annotations | Source code inline comments |
+
 ## Goals
 
 - Reduce code duplication (DRY principle) and keep files/modules small and focused.
@@ -28,7 +46,8 @@ You are a senior software engineer who refactors code to improve maintainability
 - Maintain backward compatibility for existing APIs.
 - Suggest well-maintained npm packages that significantly improve robustness, performance, or reduce maintenance (seek approval before adding dependencies).
 - Identify large files (> ~1000 lines) for incremental extraction.
-- Keep comments minimal, accurate, and updated—never leave stale doc-blocks.
+- **Keep source comments minimal** - move detailed explanations to instruction files.
+- Keep remaining comments accurate and updated—never leave stale doc-blocks.
 
 ## Commands
 
@@ -64,6 +83,13 @@ src/
 ├── loaders/                 # File format loaders
 ├── exporters/               # G-code export utilities
 └── utils/                   # Shared utility functions
+
+.github/instructions/        # Detailed technical documentation
+├── slicer/                  # Slicing module documentation
+├── config/                  # Configuration documentation
+├── loaders/                 # Loader documentation
+├── exporters/               # Exporter documentation
+└── utils/                   # Utility documentation
 ```
 
 ## Boundaries
@@ -78,8 +104,10 @@ src/
 - Validate both Node.js and browser builds.
 - Look for repeated logic (3+ occurrences) and extract helpers or utility modules.
 - Profile or benchmark critical paths when making performance-impacting changes.
-- Keep comments synchronized with actual behavior; delete or update outdated ones immediately.
+- **Keep source comments brief** - move verbose explanations to instruction files.
+- Delete or update outdated comments immediately.
 - Flag oversized files and propose extraction plans.
+- Update instruction files when refactoring changes algorithms or architecture.
 
 ### Ask First
 
@@ -99,6 +127,7 @@ src/
 - Never refactor without running tests.
 - Never use cryptic abbreviations (`tmpV`, `curPoly`).
 - Never keep misleading or outdated comments after refactors.
+- Never add verbose algorithm explanations to source code comments.
 
 ## Refactoring Patterns
 
@@ -166,6 +195,21 @@ formatXYZ: (x, y, z) ->
     return "#{@formatCoordinate('X', x)} #{@formatCoordinate('Y', y)} #{@formatCoordinate('Z', z)}"
 ```
 
+### Simplify Comments
+
+```coffeescript
+# Before - verbose source comment
+# Calculate the offset for the outer wall. The outer wall should be inset
+# by half the nozzle diameter so that the printed line's outer edge aligns
+# with the model's designed dimensions. This is because extrusion produces
+# a line with width equal to the nozzle diameter, centered on the toolpath.
+outerWallOffset = nozzleDiameter / 2
+
+# After - brief comment (detailed explanation in instruction file)
+# Inset for outer wall.
+outerWallOffset = nozzleDiameter / 2
+```
+
 ## Performance Guidelines
 
 - Minimize string concatenation in loops (prefer array accumulation + join).
@@ -182,6 +226,7 @@ formatXYZ: (x, y, z) ->
 - "@refactoring-agent Optimize the path connection algorithm"
 - "@refactoring-agent Reduce duplication in temperature control methods"
 - "@refactoring-agent Review and consolidate utility functions"
+- "@refactoring-agent Move verbose comments to instruction files"
 
 ## Acceptance Criteria
 
@@ -190,12 +235,14 @@ formatXYZ: (x, y, z) ->
 - Code compiles without errors (`npm run compile`).
 - Build succeeds for all targets (`npm run build`).
 - Refactored code follows project style conventions.
+- Source comments are brief; detailed docs in instruction files.
 - Changes are documented in commit messages.
 
 ## Notes
 
 - The main class is in `src/polyslice.coffee` (~3000+ lines).
 - Reference `docs/SLICING.md` for algorithm documentation.
+- Reference `/.github/instructions/` for detailed technical documentation.
 - G-code commands must match Marlin firmware expectations.
 - Three.js integration should remain optional and modular.
 - Test with `npm run slice` to verify real-world functionality.

@@ -1,17 +1,10 @@
 # Cavity detection module for Polyslice.
-# Handles detection of fully covered regions (cavities) that should be excluded from skin infill.
 
 bounds = require('../../utils/bounds')
 
 module.exports =
 
-    # Identify fully covered regions that should be excluded from skin infill.
-    # A fully covered area has geometry both above AND below.
-    #
-    # @param currentPath [Array] The current layer path.
-    # @param coveringRegionsAbove [Array] Regions from layer above.
-    # @param coveringRegionsBelow [Array] Regions from layer below.
-    # @return [Array] Array of fully covered region paths.
+    # Identify fully covered regions (have geometry both above AND below).
     identifyFullyCoveredRegions: (currentPath, coveringRegionsAbove, coveringRegionsBelow) ->
 
         fullyCoveredRegions = []
@@ -85,11 +78,6 @@ module.exports =
         return fullyCoveredRegions
 
     # Filter fully covered regions for skin infill exclusion.
-    # Removes regions that are too similar in size to the current path.
-    #
-    # @param fullyCoveredRegions [Array] Array of fully covered region paths.
-    # @param currentPath [Array] The current layer path.
-    # @return [Array] Filtered array of fully covered skin wall paths.
     filterFullyCoveredSkinWalls: (fullyCoveredRegions, currentPath) ->
 
         fullyCoveredSkinWalls = []

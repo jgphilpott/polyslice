@@ -741,7 +741,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # The test should verify that infill respects this gap.
             # Allow tolerance for path generation and discretization.
             expectedMinGap = 0.3  # Should be at least some gap from boundary.
-            
+
             # Verify that infill lines don't get too close to the boundary.
             expect(minDistFromBoundary).toBeGreaterThan(expectedMinGap)
 

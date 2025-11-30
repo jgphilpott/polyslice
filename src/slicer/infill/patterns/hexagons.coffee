@@ -7,14 +7,11 @@ combing = require('../../geometry/combing')
 module.exports =
 
     # Generate hexagons pattern infill (honeycomb tessellation).
-    # holeInnerWalls: Array of hole inner wall paths to exclude from infill (for clipping).
-    # holeOuterWalls: Array of hole outer wall paths to avoid in travel (for travel optimization).
     generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
 
-        # Calculate bounding box of infill area.
         minX = Infinity
         maxX = -Infinity
         minY = Infinity
@@ -27,42 +24,26 @@ module.exports =
             if point.y < minY then minY = point.y
             if point.y > maxY then maxY = point.y
 
-        # Calculate span for pattern coverage.
         width = maxX - minX
         height = maxY - minY
 
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Honeycomb pattern: create actual hexagon cells that tessellate with shared edges.
-        # Hexagons are drawn in flat-top orientation (flat sides horizontal).
-        # Vertices start at 30° and increment by 60°: 30°, 90°, 150°, 210°, 270°, 330°
-        # For a regular hexagon with side length 's':
-        # - Width (point-to-point horizontally): 2 * s (but edges are at s*sqrt(3))
-        # - Height (flat-to-flat vertically): sqrt(3) * s
-        # - Horizontal spacing between centers: s * sqrt(3) (for edge sharing)
-        # - Vertical spacing between rows: 1.5 * s
-        # - Every other row offset by: s * sqrt(3) / 2 (half of horizontal spacing)
-
-        # Adjust lineSpacing to create appropriate hexagon size.
-        # The lineSpacing parameter represents the desired spacing between hexagon centers.
+        # Honeycomb: flat-top hexagons with shared edges.
         hexagonSide = lineSpacing / Math.sqrt(3)
         horizontalSpacing = hexagonSide * Math.sqrt(3)
         verticalSpacing = 1.5 * hexagonSide
 
-        # Collect unique hexagon edge segments (avoid drawing shared edges twice).
         uniqueEdges = {}
 
-        # Helper to create edge key (ensures consistent ordering).
         createEdgeKey = (x1, y1, x2, y2) ->
 
-            # Use precise rounding to 0.01mm precision (10 microns).
             rx1 = Math.round(x1 * 100) / 100
             ry1 = Math.round(y1 * 100) / 100
             rx2 = Math.round(x2 * 100) / 100
             ry2 = Math.round(y2 * 100) / 100
 
-            # Order points to ensure edge direction doesn't matter.
             if rx1 < rx2 or (rx1 is rx2 and ry1 < ry2)
 
                 return "#{rx1},#{ry1}-#{rx2},#{ry2}"
@@ -71,22 +52,16 @@ module.exports =
 
                 return "#{rx2},#{ry2}-#{rx1},#{ry1}"
 
-        # Calculate pattern center (build plate center, not origin).
-        # The build plate center is at centerOffsetX, centerOffsetY.
         patternCenterX = 0
         patternCenterY = 0
 
-        # Determine how many rows and columns we need to cover the area.
         numRows = Math.ceil(height / verticalSpacing) + 2
         numCols = Math.ceil(width / horizontalSpacing) + 2
 
-        # Generate hexagons in a honeycomb pattern centered at pattern center.
         for row in [-numRows..numRows]
 
             for col in [-numCols..numCols]
 
-                # Calculate hexagon center position relative to pattern center.
-                # In honeycomb, every other row is offset by half horizontal spacing.
                 centerX = patternCenterX + col * horizontalSpacing
 
                 if row % 2 != 0
@@ -95,8 +70,6 @@ module.exports =
 
                 centerY = patternCenterY + row * verticalSpacing
 
-                # Generate the 6 vertices of this hexagon (flat-top orientation).
-                # Vertices start at 30° and go clockwise: 30°, 90°, 150°, 210°, 270°, 330°
                 vertices = []
 
                 for i in [0...6]
@@ -108,8 +81,6 @@ module.exports =
 
                     vertices.push({ x: vx, y: vy })
 
-                # Check if any part of this hexagon is within the bounding box.
-                # Simple check: if any vertex is within an expanded boundary.
                 expandedMargin = hexagonSide * 2
                 hexagonInBounds = false
 
@@ -122,7 +93,6 @@ module.exports =
 
                         break
 
-                # If hexagon is potentially visible, add its edges.
                 if hexagonInBounds
 
                     for i in [0...6]
@@ -130,54 +100,42 @@ module.exports =
                         v1 = vertices[i]
                         v2 = vertices[(i + 1) % 6]
 
-                        # Clip edge to the actual infill boundary polygon.
-                        # Also exclude hole areas by clipping against hole inner walls.
-                        # This ensures infill stays within the boundary and outside holes.
                         clippedSegments = clipping.clipLineWithHoles(v1, v2, infillBoundary, holeInnerWalls)
 
-                        # Process each clipped segment (usually just one for convex shapes).
                         for clippedSegment in clippedSegments
 
-                            # Create edge key AFTER clipping (using clipped coordinates).
                             edgeKey = createEdgeKey(
                                 clippedSegment.start.x, clippedSegment.start.y,
                                 clippedSegment.end.x, clippedSegment.end.y
                             )
 
-                            # Only add edge if we haven't seen it before.
                             if not uniqueEdges[edgeKey]
 
-                                # Store clipped edge segment.
                                 uniqueEdges[edgeKey] = {
                                     start: { x: clippedSegment.start.x, y: clippedSegment.start.y }
                                     end: { x: clippedSegment.end.x, y: clippedSegment.end.y }
                                 }
 
-        # Convert unique edges map to array.
         allInfillLines = []
 
         for key, edge of uniqueEdges
 
-            if edge? # Only add edges that were successfully clipped and stored.
+            if edge?
 
                 allInfillLines.push(edge)
 
-        # Build a connectivity graph to find connected edge chains.
-        # This allows drawing multiple connected edges in one continuous path.
-        # Use a helper function to create consistent point keys.
+        # Build connectivity graph for chaining edges.
         createPointKey = (x, y) ->
 
-            # Round to 0.01mm precision (10 microns).
             rx = Math.round(x * 100) / 100
             ry = Math.round(y * 100) / 100
 
             return "#{rx},#{ry}"
 
-        pointToEdges = {}  # Map from point key to list of edge indices.
+        pointToEdges = {}
 
         for edge, idx in allInfillLines
 
-            # Create point keys for start and end.
             startKey = createPointKey(edge.start.x, edge.start.y)
             endKey = createPointKey(edge.end.x, edge.end.y)
 
@@ -192,18 +150,15 @@ module.exports =
             pointToEdges[startKey].push({ idx: idx, endpoint: 'start' })
             pointToEdges[endKey].push({ idx: idx, endpoint: 'end' })
 
-        # Track which edges have been drawn.
         drawnEdges = {}
         lastEndPoint = lastWallPoint
 
         while Object.keys(drawnEdges).length < allInfillLines.length
 
-            # Find the nearest undrawn edge to current position, preferring edges that
-            # can be reached without crossing holes.
             minDistSq = Infinity
             bestIdx = -1
             bestFlipped = false
-            bestCrossesHole = true  # Track if best candidate crosses a hole.
+            bestCrossesHole = true
 
             for edge, idx in allInfillLines
 
@@ -216,24 +171,17 @@ module.exports =
                     distSq0 = (edge.start.x - lastEndPoint.x) ** 2 + (edge.start.y - lastEndPoint.y) ** 2
                     distSq1 = (edge.end.x - lastEndPoint.x) ** 2 + (edge.end.y - lastEndPoint.y) ** 2
 
-                    # Check if travel to this edge would cross holes.
-                    # Use hole outer walls which represent the complete boundary of holes.
                     crossesHole0 = combing.travelPathCrossesHoles(lastEndPoint, edge.start, holeOuterWalls)
                     crossesHole1 = combing.travelPathCrossesHoles(lastEndPoint, edge.end, holeOuterWalls)
 
-                    # Prefer edges that don't cross holes. If both best and current cross holes
-                    # (or both don't), then choose based on distance.
                     if distSq0 < minDistSq
 
-                        # Check if this is better than current best.
                         if not bestCrossesHole and crossesHole0
 
-                            # Current best doesn't cross hole, this does - skip.
                             continue
 
                         else if bestCrossesHole and not crossesHole0
 
-                            # Current best crosses hole, this doesn't - use this.
                             minDistSq = distSq0
                             bestIdx = idx
                             bestFlipped = false
@@ -241,7 +189,6 @@ module.exports =
 
                         else
 
-                            # Both cross or both don't cross - just use distance.
                             minDistSq = distSq0
                             bestIdx = idx
                             bestFlipped = false
@@ -249,15 +196,12 @@ module.exports =
 
                     if distSq1 < minDistSq
 
-                        # Check if this is better than current best.
                         if not bestCrossesHole and crossesHole1
 
-                            # Current best doesn't cross hole, this does - skip.
                             continue
 
                         else if bestCrossesHole and not crossesHole1
 
-                            # Current best crosses hole, this doesn't - use this.
                             minDistSq = distSq1
                             bestIdx = idx
                             bestFlipped = true
@@ -265,7 +209,6 @@ module.exports =
 
                         else
 
-                            # Both cross or both don't cross - just use distance.
                             minDistSq = distSq1
                             bestIdx = idx
                             bestFlipped = true
@@ -280,9 +223,8 @@ module.exports =
 
             if bestIdx is -1
 
-                break  # No more edges to draw.
+                break
 
-            # Build a chain of connected edges starting from bestIdx.
             chain = []
             currentIdx = bestIdx
             currentFlipped = bestFlipped
@@ -302,7 +244,6 @@ module.exports =
                     chain.push({ start: edge.start, end: edge.end })
                     currentPoint = edge.end
 
-                # Look for a connected edge at currentPoint.
                 pointKey = createPointKey(currentPoint.x, currentPoint.y)
                 nextIdx = -1
 
@@ -319,16 +260,12 @@ module.exports =
 
                 currentIdx = nextIdx
 
-            # Draw the chain.
             for segment, segIdx in chain
 
                 if segIdx is 0
 
-                    # First segment: travel move to start with combing.
-                    # Find a path that avoids crossing holes.
                     combingPath = combing.findCombingPath(lastEndPoint or segment.start, segment.start, holeOuterWalls, infillBoundary, nozzleDiameter)
 
-                    # Generate travel moves for each segment of the combing path
                     for i in [0...combingPath.length - 1]
 
                         waypoint = combingPath[i + 1]
@@ -337,7 +274,6 @@ module.exports =
 
                         slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to infill line" + slicer.newline else slicer.newline))
 
-                # Draw extrusion move.
                 dx = segment.end.x - segment.start.x
                 dy = segment.end.y - segment.start.y
 
