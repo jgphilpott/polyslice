@@ -655,7 +655,7 @@ describe 'Exposure Detection Algorithm', ->
                 if layersWithSkin.has(layer)
                     mixedLayers.push(layer)
 
-            # For a pyramid/cylinder with varying diameters, we should have some mixed layers 
+            # For a pyramid/cylinder with varying diameters, we should have some mixed layers
             # where adaptive skin is generated due to slope changes.
             # These are layers where the slope creates partial exposure.
             expect(mixedLayers.length).toBeGreaterThan(0)

@@ -78,10 +78,10 @@ Located in `src/slicer/skin/exposure/exposure.coffee`.
 calculateExposedAreasForLayer: (currentPath, layerIndex, skinLayerCount, totalLayers, allLayers, resolution) ->
     # Check layer ahead (above)
     checkIdxAbove = layerIndex + skinLayerCount
-    
+
     # Check layer behind (below)
     checkIdxBelow = layerIndex - skinLayerCount
-    
+
     return { exposedAreas, coveringRegionsAbove, coveringRegionsBelow }
 ```
 

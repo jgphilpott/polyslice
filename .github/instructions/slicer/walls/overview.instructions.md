@@ -60,10 +60,10 @@ for wallIndex in [0...wallCount]
         wallType = "WALL-OUTER"
     else
         wallType = "WALL-INNER"
-    
+
     # Generate this wall
     wallsModule.generateWallGCode(...)
-    
+
     # Create inset for next wall
     if wallIndex < wallCount - 1
         currentPath = paths.createInsetPath(currentPath, nozzleDiameter, isHole)
@@ -128,7 +128,7 @@ This minimizes travel distance and avoids complex combing paths.
 ```coffeescript
 if lastEndPoint? and holeOuterWalls.length > 0
     combingPath = combing.findCombingPath(lastEndPoint, targetPoint, holeOuterWalls, boundary, nozzleDiameter)
-    
+
     for i in [0...combingPath.length - 1]
         waypoint = combingPath[i + 1]
         offsetX = waypoint.x + centerOffsetX
@@ -157,20 +157,20 @@ perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
 for i in [1..path.length]
     currentIndex = (startIndex + i) % path.length
     point = path[currentIndex]
-    
+
     # Calculate distance for extrusion
     distance = Math.sqrt(dx * dx + dy * dy)
-    
+
     # Skip negligible movements
     if distance >= 0.001
         extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
         slicer.cumulativeE += extrusionDelta
-        
+
         offsetX = point.x + centerOffsetX
         offsetY = point.y + centerOffsetY
-        
+
         slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
-    
+
     prevPoint = point
 ```
 
@@ -209,7 +209,7 @@ The slice module checks if outer walls are too close together:
 for pathIndex1 in [0...paths.length]
     for pathIndex2 in [pathIndex1+1...paths.length]
         minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
-        
+
         if minDistance < nozzleDiameter
             pathsWithInsufficientSpacingForInnerWalls[pathIndex1] = true
             pathsWithInsufficientSpacingForInnerWalls[pathIndex2] = true
