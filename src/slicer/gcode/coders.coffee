@@ -25,11 +25,7 @@ module.exports =
     # Set workspace plane for coordinate system interpretation.
     codeWorkspacePlane: (slicer, plane = null) ->
 
-        if plane isnt null
-
-            slicer.setWorkspacePlane plane
-
-        else
+        if plane is null
 
             plane = slicer.getWorkspacePlane()
 
@@ -49,15 +45,15 @@ module.exports =
     # Set length units for coordinate measurements.
     codeLengthUnit: (slicer, unit = null) ->
 
-        if unit isnt null
+        if unit is null
 
-            slicer.setLengthUnit unit
+            unit = slicer.getLengthUnit()
 
-        if slicer.getLengthUnit() is "millimeters"
+        if unit is "millimeters"
 
             return "G21" + slicer.newline
 
-        if slicer.getLengthUnit() is "inches"
+        if unit is "inches"
 
             return "G20" + slicer.newline
 
@@ -65,19 +61,19 @@ module.exports =
     # Set temperature units for thermal measurements.
     codeTemperatureUnit: (slicer, unit = null) ->
 
-        if unit isnt null
+        if unit is null
 
-            slicer.setTemperatureUnit unit
+            unit = slicer.getTemperatureUnit()
 
-        if slicer.getTemperatureUnit() is "celsius"
+        if unit is "celsius"
 
             return "M149 C" + slicer.newline
 
-        if slicer.getTemperatureUnit() is "fahrenheit"
+        if unit is "fahrenheit"
 
             return "M149 F" + slicer.newline
 
-        if slicer.getTemperatureUnit() is "kelvin"
+        if unit is "kelvin"
 
             return "M149 K" + slicer.newline
 
@@ -292,13 +288,9 @@ module.exports =
     # Generate nozzle temperature control G-code commands.
     codeNozzleTemperature: (slicer, temp = null, wait = true, index = null) ->
 
-        if temp isnt null
+        if temp is null
 
-            slicer.setNozzleTemperature temp
-
-        else
-
-            temp = slicer.nozzleTemperature # Use internal storage for G-code generation
+            temp = slicer.getNozzleTemperature()
 
         if wait
 
@@ -331,13 +323,9 @@ module.exports =
     # Generate bed temperature control G-code commands.
     codeBedTemperature: (slicer, temp = null, wait = true, time = null) ->
 
-        if temp isnt null
+        if temp is null
 
-            slicer.setBedTemperature temp
-
-        else
-
-            temp = slicer.bedTemperature # Use internal storage for G-code generation
+            temp = slicer.getBedTemperature()
 
         if wait
 
@@ -397,11 +385,9 @@ module.exports =
     # Generate fan speed control G-code commands.
     codeFanSpeed: (slicer, speed = null, index = null) ->
 
-        if speed isnt null
+        if speed is null
 
-            slicer.setFanSpeed speed
-
-        speed = slicer.getFanSpeed()
+            speed = slicer.getFanSpeed()
 
         if speed > 0
 
