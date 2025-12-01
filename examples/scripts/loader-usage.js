@@ -1,7 +1,7 @@
 /**
  * Polyslice Loader Usage Example
  * Demonstrates loading 3D models from various file formats
- * 
+ *
  * The Polyslice Loader works in both Node.js and browser environments.
  * In Node.js, it reads local files using fs and parses them with three.js loaders.
  * In browsers, it uses the three.js loaders' fetch-based loading.
@@ -37,7 +37,7 @@ async function runExamples() {
   // Example 1: Load STL files
   console.log('Example 1: Loading STL files');
   console.log('----------------------------');
-  
+
   try {
     const cubeStl = path.join(stlDir, 'cube/cube-1cm.stl');
     console.log(`Loading: cube-1cm.stl`);
@@ -75,7 +75,7 @@ async function runExamples() {
   // Example 2: Load OBJ files
   console.log('Example 2: Loading OBJ files');
   console.log('----------------------------');
-  
+
   try {
     const cylinderObj = path.join(objDir, 'cylinder/cylinder-1cm.obj');
     console.log(`Loading: cylinder-1cm.obj`);
@@ -102,7 +102,7 @@ async function runExamples() {
   // Example 3: Load PLY files
   console.log('Example 3: Loading PLY files');
   console.log('----------------------------');
-  
+
   try {
     const cubePly = path.join(plyDir, 'cube/cube-1cm.ply');
     console.log(`Loading: cube-1cm.ply`);
@@ -129,7 +129,7 @@ async function runExamples() {
   // Example 4: Using the generic load() method with auto-detection
   console.log('Example 4: Generic loading (auto-detect format)');
   console.log('----------------------------------------------');
-  
+
   try {
     const torusStl = path.join(stlDir, 'torus/torus-1cm.stl');
     console.log(`Loading via generic load(): torus-1cm.stl`);
