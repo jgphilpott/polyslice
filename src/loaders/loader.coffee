@@ -9,6 +9,8 @@ class Loader
         @THREE = null
         @loaders = {}
         @initialized = false
+        @fs = null
+        @isNode = typeof window is 'undefined'
 
     # Initialize three.js and loaders based on environment.
     initialize: ->
@@ -28,10 +30,11 @@ class Loader
 
         else
 
-            # Node.js environment - require three.js.
+            # Node.js environment - require three.js and fs.
             try
 
                 @THREE = require('three')
+                @fs = require('fs')
 
             catch error
 
@@ -39,6 +42,17 @@ class Loader
                 return
 
         @initialized = true
+
+    # Check if path is a local file path (not a URL).
+    isLocalPath: (path) ->
+
+        return false if typeof window isnt 'undefined'
+        return not (path.startsWith('http://') or path.startsWith('https://') or path.startsWith('blob:'))
+
+    # Convert Node Buffer to ArrayBuffer.
+    toArrayBuffer: (buffer) ->
+
+        return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
 
     # Load loaders on demand (async in Node.js environment).
     loadLoader: (loaderName, fileName = null) ->
@@ -89,20 +103,42 @@ class Loader
 
             return new Promise (resolve, reject) =>
 
-                loader.load(
-                    path,
-                    (geometry) =>
+                # Node.js local file loading.
+                if @isLocalPath(path)
+
+                    try
+
+                        buffer = @fs.readFileSync(path)
+                        geometry = loader.parse(@toArrayBuffer(buffer))
+
                         # Create material if not provided.
                         if not material
                             material = new @THREE.MeshPhongMaterial({ color: 0x808080, specular: 0x111111, shininess: 200 })
 
                         mesh = new @THREE.Mesh(geometry, material)
                         resolve(mesh)
-                    ,
-                    undefined, # onProgress
-                    (error) =>
+
+                    catch error
+
                         reject(error)
-                )
+
+                else
+
+                    # Browser or URL loading.
+                    loader.load(
+                        path,
+                        (geometry) =>
+                            # Create material if not provided.
+                            if not material
+                                material = new @THREE.MeshPhongMaterial({ color: 0x808080, specular: 0x111111, shininess: 200 })
+
+                            mesh = new @THREE.Mesh(geometry, material)
+                            resolve(mesh)
+                        ,
+                        undefined, # onProgress
+                        (error) =>
+                            reject(error)
+                    )
 
     # Load OBJ file and return mesh(es).
     loadOBJ: (path, material = null) ->
@@ -113,9 +149,14 @@ class Loader
 
             return new Promise (resolve, reject) =>
 
-                loader.load(
-                    path,
-                    (object) =>
+                # Node.js local file loading.
+                if @isLocalPath(path)
+
+                    try
+
+                        content = @fs.readFileSync(path, 'utf8')
+                        object = loader.parse(content)
+
                         # OBJ loader returns a Group, which may contain multiple meshes.
                         meshes = []
 
@@ -130,11 +171,36 @@ class Loader
                             resolve(meshes[0])
                         else
                             resolve(meshes)
-                    ,
-                    undefined, # onProgress
-                    (error) =>
+
+                    catch error
+
                         reject(error)
-                )
+
+                else
+
+                    # Browser or URL loading.
+                    loader.load(
+                        path,
+                        (object) =>
+                            # OBJ loader returns a Group, which may contain multiple meshes.
+                            meshes = []
+
+                            object.traverse (child) =>
+                                if child.isMesh
+                                    if material
+                                        child.material = material
+                                    meshes.push(child)
+
+                            # Return single mesh if only one, otherwise return array.
+                            if meshes.length is 1
+                                resolve(meshes[0])
+                            else
+                                resolve(meshes)
+                        ,
+                        undefined, # onProgress
+                        (error) =>
+                            reject(error)
+                    )
 
     # Load 3MF file and return mesh(es).
     load3MF: (path) ->
@@ -145,9 +211,14 @@ class Loader
 
             return new Promise (resolve, reject) =>
 
-                loader.load(
-                    path,
-                    (object) =>
+                # Node.js local file loading.
+                if @isLocalPath(path)
+
+                    try
+
+                        buffer = @fs.readFileSync(path)
+                        object = loader.parse(@toArrayBuffer(buffer))
+
                         # 3MF loader returns a Group.
                         meshes = []
 
@@ -159,11 +230,33 @@ class Loader
                             resolve(meshes[0])
                         else
                             resolve(meshes)
-                    ,
-                    undefined, # onProgress
-                    (error) =>
+
+                    catch error
+
                         reject(error)
-                )
+
+                else
+
+                    # Browser or URL loading.
+                    loader.load(
+                        path,
+                        (object) =>
+                            # 3MF loader returns a Group.
+                            meshes = []
+
+                            object.traverse (child) =>
+                                if child.isMesh
+                                    meshes.push(child)
+
+                            if meshes.length is 1
+                                resolve(meshes[0])
+                            else
+                                resolve(meshes)
+                        ,
+                        undefined, # onProgress
+                        (error) =>
+                            reject(error)
+                    )
 
     # Load AMF file and return mesh(es).
     loadAMF: (path) ->
@@ -174,9 +267,14 @@ class Loader
 
             return new Promise (resolve, reject) =>
 
-                loader.load(
-                    path,
-                    (object) =>
+                # Node.js local file loading.
+                if @isLocalPath(path)
+
+                    try
+
+                        buffer = @fs.readFileSync(path)
+                        object = loader.parse(@toArrayBuffer(buffer))
+
                         # AMF loader returns a Group.
                         meshes = []
 
@@ -188,11 +286,33 @@ class Loader
                             resolve(meshes[0])
                         else
                             resolve(meshes)
-                    ,
-                    undefined, # onProgress
-                    (error) =>
+
+                    catch error
+
                         reject(error)
-                )
+
+                else
+
+                    # Browser or URL loading.
+                    loader.load(
+                        path,
+                        (object) =>
+                            # AMF loader returns a Group.
+                            meshes = []
+
+                            object.traverse (child) =>
+                                if child.isMesh
+                                    meshes.push(child)
+
+                            if meshes.length is 1
+                                resolve(meshes[0])
+                            else
+                                resolve(meshes)
+                        ,
+                        undefined, # onProgress
+                        (error) =>
+                            reject(error)
+                    )
 
     # Load PLY file and return mesh(es).
     loadPLY: (path, material = null) ->
@@ -203,20 +323,42 @@ class Loader
 
             return new Promise (resolve, reject) =>
 
-                loader.load(
-                    path,
-                    (geometry) =>
+                # Node.js local file loading.
+                if @isLocalPath(path)
+
+                    try
+
+                        buffer = @fs.readFileSync(path)
+                        geometry = loader.parse(@toArrayBuffer(buffer))
+
                         # Create material if not provided.
                         if not material
                             material = new @THREE.MeshPhongMaterial({ color: 0x808080, vertexColors: true })
 
                         mesh = new @THREE.Mesh(geometry, material)
                         resolve(mesh)
-                    ,
-                    undefined, # onProgress
-                    (error) =>
+
+                    catch error
+
                         reject(error)
-                )
+
+                else
+
+                    # Browser or URL loading.
+                    loader.load(
+                        path,
+                        (geometry) =>
+                            # Create material if not provided.
+                            if not material
+                                material = new @THREE.MeshPhongMaterial({ color: 0x808080, vertexColors: true })
+
+                            mesh = new @THREE.Mesh(geometry, material)
+                            resolve(mesh)
+                        ,
+                        undefined, # onProgress
+                        (error) =>
+                            reject(error)
+                    )
 
     # Load GLTF/GLB file and return mesh(es).
     loadGLTF: (path) ->
@@ -227,25 +369,56 @@ class Loader
 
             return new Promise (resolve, reject) =>
 
-                loader.load(
-                    path,
-                    (gltf) =>
-                        # GLTF loader returns a GLTF object with scene property.
-                        meshes = []
+                # Node.js local file loading.
+                if @isLocalPath(path)
 
-                        gltf.scene.traverse (child) =>
-                            if child.isMesh
-                                meshes.push(child)
+                    try
 
-                        if meshes.length is 1
-                            resolve(meshes[0])
-                        else
-                            resolve(meshes)
-                    ,
-                    undefined, # onProgress
-                    (error) =>
+                        buffer = @fs.readFileSync(path)
+
+                        # GLTFLoader.parse expects ArrayBuffer and path for resolving references.
+                        loader.parse @toArrayBuffer(buffer), '', (gltf) =>
+
+                            # GLTF loader returns a GLTF object with scene property.
+                            meshes = []
+
+                            gltf.scene.traverse (child) =>
+                                if child.isMesh
+                                    meshes.push(child)
+
+                            if meshes.length is 1
+                                resolve(meshes[0])
+                            else
+                                resolve(meshes)
+                        , (error) =>
+                            reject(error)
+
+                    catch error
+
                         reject(error)
-                )
+
+                else
+
+                    # Browser or URL loading.
+                    loader.load(
+                        path,
+                        (gltf) =>
+                            # GLTF loader returns a GLTF object with scene property.
+                            meshes = []
+
+                            gltf.scene.traverse (child) =>
+                                if child.isMesh
+                                    meshes.push(child)
+
+                            if meshes.length is 1
+                                resolve(meshes[0])
+                            else
+                                resolve(meshes)
+                        ,
+                        undefined, # onProgress
+                        (error) =>
+                            reject(error)
+                    )
 
     # Load Collada (DAE) file and return mesh(es).
     loadCollada: (path) ->
@@ -256,9 +429,14 @@ class Loader
 
             return new Promise (resolve, reject) =>
 
-                loader.load(
-                    path,
-                    (collada) =>
+                # Node.js local file loading.
+                if @isLocalPath(path)
+
+                    try
+
+                        content = @fs.readFileSync(path, 'utf8')
+                        collada = loader.parse(content, '')
+
                         # Collada loader returns an object with scene property.
                         meshes = []
 
@@ -270,11 +448,33 @@ class Loader
                             resolve(meshes[0])
                         else
                             resolve(meshes)
-                    ,
-                    undefined, # onProgress
-                    (error) =>
+
+                    catch error
+
                         reject(error)
-                )
+
+                else
+
+                    # Browser or URL loading.
+                    loader.load(
+                        path,
+                        (collada) =>
+                            # Collada loader returns an object with scene property.
+                            meshes = []
+
+                            collada.scene.traverse (child) =>
+                                if child.isMesh
+                                    meshes.push(child)
+
+                            if meshes.length is 1
+                                resolve(meshes[0])
+                            else
+                                resolve(meshes)
+                        ,
+                        undefined, # onProgress
+                        (error) =>
+                            reject(error)
+                    )
 
     # Generic load method that detects file format from extension.
     load: (path, options = {}) ->

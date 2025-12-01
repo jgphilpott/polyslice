@@ -2,14 +2,13 @@
  * Polyslice Loader Usage Example
  * Demonstrates loading 3D models from various file formats
  * 
- * Note: In Node.js, the three.js loaders use fetch() which doesn't support file:// URLs.
- * This example uses direct file reading with Node's fs module and the loader's parse() method.
- * In browsers, you can use the PolysliceLoader.load() method directly with HTTP URLs.
+ * The Polyslice Loader works in both Node.js and browser environments.
+ * In Node.js, it reads local files using fs and parses them with three.js loaders.
+ * In browsers, it uses the three.js loaders' fetch-based loading.
  */
 
-const fs = require('fs');
 const path = require('path');
-const THREE = require('three');
+const Loader = require('../../src/loaders/loader');
 
 console.log('Polyslice Loader Usage Example');
 console.log('==============================\n');
@@ -31,34 +30,21 @@ const stlDir = path.join(resourcesDir, 'stl');
 const objDir = path.join(resourcesDir, 'obj');
 const plyDir = path.join(resourcesDir, 'ply');
 
-// Helper to convert Node Buffer to ArrayBuffer
-function toArrayBuffer(buffer) {
-  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
-}
-
-// Test loading real files
+// Test loading real files using the Polyslice Loader
 async function runExamples() {
-  console.log('Loading real model files from resources...\n');
-
-  // Load the three.js loaders dynamically
-  const { STLLoader } = await import('three/addons/loaders/STLLoader.js');
-  const { OBJLoader } = await import('three/addons/loaders/OBJLoader.js');
-  const { PLYLoader } = await import('three/addons/loaders/PLYLoader.js');
+  console.log('Loading real model files using Polyslice Loader...\n');
 
   // Example 1: Load STL files
   console.log('Example 1: Loading STL files');
   console.log('----------------------------');
-  const stlLoader = new STLLoader();
   
   try {
     const cubeStl = path.join(stlDir, 'cube/cube-1cm.stl');
     console.log(`Loading: cube-1cm.stl`);
-    const buffer = fs.readFileSync(cubeStl);
-    const geometry = stlLoader.parse(toArrayBuffer(buffer));
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial());
+    const cubeMesh = await Loader.loadSTL(cubeStl);
     console.log(`  ✓ Loaded cube STL successfully`);
-    console.log(`    - Type: ${mesh.type}`);
-    console.log(`    - Geometry vertices: ${geometry.attributes.position.count}`);
+    console.log(`    - Type: ${cubeMesh.type}`);
+    console.log(`    - Geometry vertices: ${cubeMesh.geometry.attributes.position.count}`);
   } catch (error) {
     console.log(`  ✗ Failed to load cube STL: ${error.message}`);
   }
@@ -66,12 +52,10 @@ async function runExamples() {
   try {
     const sphereStl = path.join(stlDir, 'sphere/sphere-3cm.stl');
     console.log(`Loading: sphere-3cm.stl`);
-    const buffer = fs.readFileSync(sphereStl);
-    const geometry = stlLoader.parse(toArrayBuffer(buffer));
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial());
+    const sphereMesh = await Loader.loadSTL(sphereStl);
     console.log(`  ✓ Loaded sphere STL successfully`);
-    console.log(`    - Type: ${mesh.type}`);
-    console.log(`    - Geometry vertices: ${geometry.attributes.position.count}`);
+    console.log(`    - Type: ${sphereMesh.type}`);
+    console.log(`    - Geometry vertices: ${sphereMesh.geometry.attributes.position.count}`);
   } catch (error) {
     console.log(`  ✗ Failed to load sphere STL: ${error.message}`);
   }
@@ -79,12 +63,10 @@ async function runExamples() {
   try {
     const torusStl = path.join(stlDir, 'torus/torus-5cm.stl');
     console.log(`Loading: torus-5cm.stl`);
-    const buffer = fs.readFileSync(torusStl);
-    const geometry = stlLoader.parse(toArrayBuffer(buffer));
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial());
+    const torusMesh = await Loader.loadSTL(torusStl);
     console.log(`  ✓ Loaded torus STL successfully`);
-    console.log(`    - Type: ${mesh.type}`);
-    console.log(`    - Geometry vertices: ${geometry.attributes.position.count}`);
+    console.log(`    - Type: ${torusMesh.type}`);
+    console.log(`    - Geometry vertices: ${torusMesh.geometry.attributes.position.count}`);
   } catch (error) {
     console.log(`  ✗ Failed to load torus STL: ${error.message}`);
   }
@@ -93,15 +75,12 @@ async function runExamples() {
   // Example 2: Load OBJ files
   console.log('Example 2: Loading OBJ files');
   console.log('----------------------------');
-  const objLoader = new OBJLoader();
   
   try {
     const cylinderObj = path.join(objDir, 'cylinder/cylinder-1cm.obj');
     console.log(`Loading: cylinder-1cm.obj`);
-    const content = fs.readFileSync(cylinderObj, 'utf8');
-    const object = objLoader.parse(content);
-    let meshCount = 0;
-    object.traverse((child) => { if (child.isMesh) meshCount++; });
+    const cylinderMesh = await Loader.loadOBJ(cylinderObj);
+    const meshCount = Array.isArray(cylinderMesh) ? cylinderMesh.length : 1;
     console.log(`  ✓ Loaded cylinder OBJ successfully`);
     console.log(`    - Meshes found: ${meshCount}`);
   } catch (error) {
@@ -111,10 +90,8 @@ async function runExamples() {
   try {
     const coneObj = path.join(objDir, 'cone/cone-3cm.obj');
     console.log(`Loading: cone-3cm.obj`);
-    const content = fs.readFileSync(coneObj, 'utf8');
-    const object = objLoader.parse(content);
-    let meshCount = 0;
-    object.traverse((child) => { if (child.isMesh) meshCount++; });
+    const coneMesh = await Loader.loadOBJ(coneObj);
+    const meshCount = Array.isArray(coneMesh) ? coneMesh.length : 1;
     console.log(`  ✓ Loaded cone OBJ successfully`);
     console.log(`    - Meshes found: ${meshCount}`);
   } catch (error) {
@@ -125,17 +102,14 @@ async function runExamples() {
   // Example 3: Load PLY files
   console.log('Example 3: Loading PLY files');
   console.log('----------------------------');
-  const plyLoader = new PLYLoader();
   
   try {
     const cubePly = path.join(plyDir, 'cube/cube-1cm.ply');
     console.log(`Loading: cube-1cm.ply`);
-    const buffer = fs.readFileSync(cubePly);
-    const geometry = plyLoader.parse(toArrayBuffer(buffer));
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial());
+    const cubePlyMesh = await Loader.loadPLY(cubePly);
     console.log(`  ✓ Loaded cube PLY successfully`);
-    console.log(`    - Type: ${mesh.type}`);
-    console.log(`    - Geometry vertices: ${geometry.attributes.position.count}`);
+    console.log(`    - Type: ${cubePlyMesh.type}`);
+    console.log(`    - Geometry vertices: ${cubePlyMesh.geometry.attributes.position.count}`);
   } catch (error) {
     console.log(`  ✗ Failed to load cube PLY: ${error.message}`);
   }
@@ -143,14 +117,46 @@ async function runExamples() {
   try {
     const spherePly = path.join(plyDir, 'sphere/sphere-5cm.ply');
     console.log(`Loading: sphere-5cm.ply`);
-    const buffer = fs.readFileSync(spherePly);
-    const geometry = plyLoader.parse(toArrayBuffer(buffer));
-    const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial());
+    const spherePlyMesh = await Loader.loadPLY(spherePly);
     console.log(`  ✓ Loaded sphere PLY successfully`);
-    console.log(`    - Type: ${mesh.type}`);
-    console.log(`    - Geometry vertices: ${geometry.attributes.position.count}`);
+    console.log(`    - Type: ${spherePlyMesh.type}`);
+    console.log(`    - Geometry vertices: ${spherePlyMesh.geometry.attributes.position.count}`);
   } catch (error) {
     console.log(`  ✗ Failed to load sphere PLY: ${error.message}`);
+  }
+  console.log('');
+
+  // Example 4: Using the generic load() method with auto-detection
+  console.log('Example 4: Generic loading (auto-detect format)');
+  console.log('----------------------------------------------');
+  
+  try {
+    const torusStl = path.join(stlDir, 'torus/torus-1cm.stl');
+    console.log(`Loading via generic load(): torus-1cm.stl`);
+    const mesh = await Loader.load(torusStl);
+    console.log(`  ✓ Auto-detected and loaded STL successfully`);
+    console.log(`    - Type: ${mesh.type}`);
+  } catch (error) {
+    console.log(`  ✗ Failed: ${error.message}`);
+  }
+
+  try {
+    const cubeObj = path.join(objDir, 'cube/cube-5cm.obj');
+    console.log(`Loading via generic load(): cube-5cm.obj`);
+    const mesh = await Loader.load(cubeObj);
+    console.log(`  ✓ Auto-detected and loaded OBJ successfully`);
+  } catch (error) {
+    console.log(`  ✗ Failed: ${error.message}`);
+  }
+
+  try {
+    const conePly = path.join(plyDir, 'cone/cone-3cm.ply');
+    console.log(`Loading via generic load(): cone-3cm.ply`);
+    const mesh = await Loader.load(conePly);
+    console.log(`  ✓ Auto-detected and loaded PLY successfully`);
+    console.log(`    - Type: ${mesh.type}`);
+  } catch (error) {
+    console.log(`  ✗ Failed: ${error.message}`);
   }
   console.log('');
 
@@ -160,17 +166,17 @@ async function runExamples() {
   // Code examples for documentation
   console.log('=== Code Examples ===\n');
 
-  console.log('Node.js - Loading with fs and parse():');
+  console.log('Node.js - Using Polyslice Loader:');
   console.log('```javascript');
-  console.log('const fs = require("fs");');
-  console.log('const THREE = require("three");');
-  console.log('const { STLLoader } = await import("three/addons/loaders/STLLoader.js");');
+  console.log('const { Loader } = require("@jgphilpott/polyslice");');
   console.log('');
-  console.log('const loader = new STLLoader();');
-  console.log('const buffer = fs.readFileSync("model.stl");');
-  console.log('const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);');
-  console.log('const geometry = loader.parse(arrayBuffer);');
-  console.log('const mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial());');
+  console.log('// Load STL file');
+  console.log('const mesh = await Loader.loadSTL("path/to/model.stl");');
+  console.log('');
+  console.log('// Generic load (auto-detects format)');
+  console.log('const mesh = await Loader.load("path/to/model.stl");');
+  console.log('const mesh = await Loader.load("path/to/model.obj");');
+  console.log('const mesh = await Loader.load("path/to/model.ply");');
   console.log('```\n');
 
   console.log('Browser - Using PolysliceLoader:');
@@ -185,10 +191,10 @@ async function runExamples() {
 
   console.log('Notes:');
   console.log('------');
-  console.log('- In Node.js, use fs.readFileSync() and the loader\'s parse() method for local files');
-  console.log('- In browsers, use PolysliceLoader with HTTP/HTTPS URLs');
-  console.log('- The three.js loaders use fetch() which requires HTTP/HTTPS URLs');
-  console.log('- STL and PLY use binary ArrayBuffer, OBJ uses text content');
+  console.log('- The Polyslice Loader handles both Node.js and browser environments');
+  console.log('- In Node.js, it reads local files using fs and parses them');
+  console.log('- In browsers, it uses fetch-based loading via three.js loaders');
+  console.log('- The generic load() method auto-detects format from file extension');
   console.log('- Loaded meshes are three.js Mesh objects compatible with Polyslice');
 }
 
