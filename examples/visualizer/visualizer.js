@@ -1132,6 +1132,7 @@ function handleFileUpload(event) {
  */
 function loadModel(file) {
   const url = URL.createObjectURL(file);
+  const extension = file.name.split('.').pop().toLowerCase();
 
   // Remove previous mesh object if exists.
   if (meshObject) {
@@ -1152,8 +1153,40 @@ function loadModel(file) {
   document.getElementById('layer-slider-container').classList.remove('visible');
   document.getElementById('move-slider-container').classList.remove('visible');
 
-  // Use the Polyslice loader to load the model.
-  window.PolysliceLoader.load(url)
+  // Use the Polyslice loader with the format-specific method.
+  // We use format-specific methods because the generic load() extracts extension from URL,
+  // but blob URLs don't contain the file extension.
+  let loadPromise;
+  switch (extension) {
+    case 'stl':
+      loadPromise = window.PolysliceLoader.loadSTL(url);
+      break;
+    case 'obj':
+      loadPromise = window.PolysliceLoader.loadOBJ(url);
+      break;
+    case '3mf':
+      loadPromise = window.PolysliceLoader.load3MF(url);
+      break;
+    case 'amf':
+      loadPromise = window.PolysliceLoader.loadAMF(url);
+      break;
+    case 'ply':
+      loadPromise = window.PolysliceLoader.loadPLY(url);
+      break;
+    case 'gltf':
+    case 'glb':
+      loadPromise = window.PolysliceLoader.loadGLTF(url);
+      break;
+    case 'dae':
+      loadPromise = window.PolysliceLoader.loadCollada(url);
+      break;
+    default:
+      console.error(`Unsupported file format: ${extension}`);
+      URL.revokeObjectURL(url);
+      return;
+  }
+
+  loadPromise
     .then((result) => {
       // Handle single mesh or array of meshes.
       let object;
