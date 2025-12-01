@@ -8,24 +8,44 @@ The Loader module provides a unified interface for loading 3D models from variou
 - **Auto-Detection**: Automatically detect format from file extension
 - **Custom Materials**: Apply custom THREE.js materials to loaded models
 - **Cross-Platform**: Works in both Node.js and browser environments
+- **Local File Loading**: In Node.js, automatically reads local files using `fs.readFileSync()`
 - **Async API**: All methods return Promises for easy integration
 - **Smart Returns**: Returns single mesh or array based on file contents
 
 ## Usage
 
-### Basic Loading
+### Node.js - Local File Loading
 
 ```javascript
 const { Loader } = require('@jgphilpott/polyslice');
 
 // Auto-detect format from extension
-const mesh = await Loader.load('model.stl');
+const mesh = await Loader.load('/path/to/model.stl');
 
 // Or use format-specific loaders
-const stlMesh = await Loader.loadSTL('model.stl');
-const objMeshes = await Loader.loadOBJ('model.obj');
-const plyMesh = await Loader.loadPLY('scan.ply');
+const stlMesh = await Loader.loadSTL('/path/to/model.stl');
+const objMeshes = await Loader.loadOBJ('/path/to/model.obj');
+const plyMesh = await Loader.loadPLY('/path/to/scan.ply');
 ```
+
+In Node.js, the loader automatically:
+1. Detects if the path is a local file (not a URL)
+2. Reads the file using `fs.readFileSync()`
+3. Parses the content using the appropriate three.js loader's `parse()` method
+4. Returns a THREE.Mesh object ready for slicing
+
+### Browser - URL Loading
+
+```html
+<script src="https://unpkg.com/three@0.180.0/build/three.min.js"></script>
+<script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
+<script>
+  // Load from URL
+  const mesh = await PolysliceLoader.loadSTL('https://example.com/model.stl');
+</script>
+```
+
+In browser environments, the loader uses the three.js loader's `load()` method which fetches files via HTTP/HTTPS.
 
 ### Custom Materials
 
@@ -79,12 +99,21 @@ Initialize the loader (automatically called on first use).
 
 **Returns:** void
 
+### `isLocalPath(path)`
+
+Check if a path is a local file path (not a URL). Used internally in Node.js to determine loading method.
+
+**Parameters:**
+- `path` (string): Path to check
+
+**Returns:** boolean - `true` for local paths, `false` for URLs
+
 ### `load(path, options)`
 
 Auto-detect format and load the file.
 
 **Parameters:**
-- `path` (string): Path to the file
+- `path` (string): Path to the file (local path in Node.js, URL in browser)
 - `options` (object, optional): Options object (can include `material` for supported formats)
 
 **Returns:** Promise<Mesh | Mesh[]>
@@ -167,7 +196,12 @@ Requires `three` package:
 npm install three
 ```
 
-Uses dynamic ES module imports for three.js loaders.
+**Local File Loading:** The loader automatically detects local file paths and reads them using `fs.readFileSync()`. It then parses the content using the three.js loader's `parse()` method.
+
+- STL, PLY, 3MF, AMF, GLTF/GLB files are read as binary (Buffer → ArrayBuffer)
+- OBJ, DAE files are read as UTF-8 text
+
+**URL Loading:** For HTTP/HTTPS URLs, the loader uses the standard three.js fetch-based loading.
 
 ### Browser
 
@@ -178,23 +212,36 @@ Requires three.js to be loaded globally:
 <script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
 ```
 
-Loaders are expected to be available via global THREE object or script includes.
+For loading 3D models, you also need to include the respective three.js loaders and attach them to `window.THREE`:
+
+```javascript
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+// ... other loaders
+
+window.THREE.STLLoader = STLLoader;
+window.THREE.OBJLoader = OBJLoader;
+// ... attach other loaders
+```
 
 ## Examples
 
-See `examples/scripts/loader-usage.js` for complete usage examples.
+See `examples/scripts/loader-usage.js` for complete Node.js usage examples.
 
 ## Implementation Details
 
 - **Singleton Pattern**: Exported as a singleton instance for convenience
 - **Loader Caching**: Loader instances are cached to avoid redundant initialization
 - **Dynamic Imports**: In Node.js, loaders are dynamically imported from three.js
+- **Local Path Detection**: Uses `isLocalPath()` to distinguish local files from URLs
+- **Buffer Conversion**: Uses `toArrayBuffer()` to convert Node Buffers to ArrayBuffers
 - **Error Handling**: Comprehensive error messages for missing dependencies or unsupported formats
 
 ## Notes
 
-- File paths are relative to the current working directory in Node.js
-- In browser, file loading depends on the specific loader implementation
+- In Node.js, local file paths are relative to the current working directory
+- URLs (http://, https://, blob:) are loaded using the three.js loader's fetch-based method
+- Binary formats (STL, PLY, 3MF, AMF, GLTF/GLB) are read as Buffers and converted to ArrayBuffers
+- Text formats (OBJ, DAE) are read as UTF-8 strings
 - Some loaders may require additional three.js modules to be loaded
-- Binary formats (STL, PLY) are automatically handled by the respective loaders
 

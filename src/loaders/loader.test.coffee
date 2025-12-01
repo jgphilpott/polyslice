@@ -12,6 +12,7 @@ describe 'Loader', ->
             Loader.initialized = false
             Loader.THREE = null
             Loader.loaders = {}
+            Loader.fs = null
 
         test 'should initialize in Node.js environment', ->
 
@@ -21,6 +22,18 @@ describe 'Loader', ->
             expect(Loader.THREE).toBeDefined()
             expect(Loader.THREE).not.toBeNull()
 
+        test 'should load fs module in Node.js environment', ->
+
+            Loader.initialize()
+
+            expect(Loader.fs).toBeDefined()
+            expect(Loader.fs).not.toBeNull()
+            expect(typeof Loader.fs.readFileSync).toBe('function')
+
+        test 'should detect Node.js environment correctly', ->
+
+            expect(Loader.isNode).toBe(true)
+
         test 'should not re-initialize if already initialized', ->
 
             Loader.initialize()
@@ -29,6 +42,38 @@ describe 'Loader', ->
             Loader.initialize()
 
             expect(Loader.THREE).toBe(firstTHREE)
+
+    describe 'Helper Methods', ->
+
+        beforeAll ->
+
+            Loader.initialize()
+
+        test 'isLocalPath should return true for local file paths', ->
+
+            expect(Loader.isLocalPath('/path/to/file.stl')).toBe(true)
+            expect(Loader.isLocalPath('./relative/path.obj')).toBe(true)
+            expect(Loader.isLocalPath('file.ply')).toBe(true)
+            expect(Loader.isLocalPath('C:\\Windows\\path.stl')).toBe(true)
+
+        test 'isLocalPath should return false for URLs', ->
+
+            expect(Loader.isLocalPath('http://example.com/file.stl')).toBe(false)
+            expect(Loader.isLocalPath('https://example.com/file.obj')).toBe(false)
+            expect(Loader.isLocalPath('blob:http://localhost/abc123')).toBe(false)
+
+        test 'toArrayBuffer should convert Node Buffer to ArrayBuffer', ->
+
+            buffer = Buffer.from([1, 2, 3, 4, 5])
+            arrayBuffer = Loader.toArrayBuffer(buffer)
+
+            expect(arrayBuffer).toBeInstanceOf(ArrayBuffer)
+            expect(arrayBuffer.byteLength).toBe(5)
+
+            # Verify content is preserved.
+            view = new Uint8Array(arrayBuffer)
+            expect(view[0]).toBe(1)
+            expect(view[4]).toBe(5)
 
     describe 'Loader Loading', ->
 
@@ -328,6 +373,73 @@ describe 'Loader', ->
             loader = await Loader.loadLoader('NonExistentLoader')
 
             expect(loader).toBeNull()
+
+    describe 'Node.js Local File Loading', ->
+
+        path = require('path')
+        resourcesDir = path.join(__dirname, '../../resources')
+
+        beforeAll ->
+
+            Loader.initialize()
+
+        test 'should load STL file from local path', ->
+
+            stlPath = path.join(resourcesDir, 'stl/cube/cube-1cm.stl')
+            mesh = await Loader.loadSTL(stlPath)
+
+            expect(mesh).toBeDefined()
+            expect(mesh.type).toBe('Mesh')
+            expect(mesh.geometry).toBeDefined()
+            expect(mesh.geometry.attributes.position).toBeDefined()
+
+        test 'should load OBJ file from local path', ->
+
+            objPath = path.join(resourcesDir, 'obj/cylinder/cylinder-1cm.obj')
+            result = await Loader.loadOBJ(objPath)
+
+            # OBJ may return single mesh or array.
+            if Array.isArray(result)
+                expect(result.length).toBeGreaterThan(0)
+                expect(result[0].type).toBe('Mesh')
+            else
+                expect(result).toBeDefined()
+                expect(result.type).toBe('Mesh')
+
+        test 'should load PLY file from local path', ->
+
+            plyPath = path.join(resourcesDir, 'ply/cube/cube-1cm.ply')
+            mesh = await Loader.loadPLY(plyPath)
+
+            expect(mesh).toBeDefined()
+            expect(mesh.type).toBe('Mesh')
+            expect(mesh.geometry).toBeDefined()
+            expect(mesh.geometry.attributes.position).toBeDefined()
+
+        test 'should load file using generic load() method', ->
+
+            stlPath = path.join(resourcesDir, 'stl/sphere/sphere-3cm.stl')
+            mesh = await Loader.load(stlPath)
+
+            expect(mesh).toBeDefined()
+            expect(mesh.type).toBe('Mesh')
+
+        test 'should apply custom material when loading STL', ->
+
+            THREE = require('three')
+            customMaterial = new THREE.MeshNormalMaterial()
+
+            stlPath = path.join(resourcesDir, 'stl/torus/torus-1cm.stl')
+            mesh = await Loader.loadSTL(stlPath, customMaterial)
+
+            expect(mesh).toBeDefined()
+            expect(mesh.material).toBe(customMaterial)
+
+        test 'should reject when loading non-existent file', ->
+
+            nonExistentPath = path.join(resourcesDir, 'stl/nonexistent.stl')
+
+            await expect(Loader.loadSTL(nonExistentPath)).rejects.toThrow()
 
     describe 'Module Exports', ->
 
