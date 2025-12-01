@@ -38,6 +38,8 @@ let layerSliderMin = null;
 let layerSliderMax = null;
 let moveSlider = null;
 let isFirstUpload = true; // Track if this is the first G-code upload
+let currentGcode = null; // Store the current G-code content for download
+let currentFilename = null; // Store the current filename
 
 // File extensions for 3D models vs G-code.
 const MODEL_EXTENSIONS = ['stl', 'obj', '3mf', 'amf', 'ply', 'gltf', 'glb', 'dae'];
@@ -914,6 +916,9 @@ function setupEventListeners() {
     .getElementById('uploader')
     .addEventListener('change', handleFileUpload);
 
+  // Download button.
+  document.getElementById('download').addEventListener('click', handleDownload);
+
   // Reset button.
   document.getElementById('reset').addEventListener('click', resetView);
 }
@@ -1098,6 +1103,40 @@ function focusCameraOnPoint(point) {
 }
 
 /**
+ * Handle download button click - saves the current G-code using PolysliceExporter.
+ */
+function handleDownload() {
+  if (!currentGcode) {
+    console.warn('No G-code available to download');
+    return;
+  }
+
+  // Use PolysliceExporter to save the file.
+  if (window.PolysliceExporter?.saveToFile) {
+    window.PolysliceExporter.saveToFile(currentGcode, currentFilename ?? 'output.gcode')
+      .then((filename) => {
+        console.log(`G-code downloaded as: ${filename}`);
+      })
+      .catch((error) => {
+        console.error('Error downloading G-code:', error);
+      });
+  } else {
+    console.error('PolysliceExporter not available');
+  }
+}
+
+/**
+ * Show or hide the download button based on G-code availability.
+ */
+function updateDownloadButtonVisibility() {
+  const downloadButton = document.getElementById('download');
+  if (downloadButton) {
+    // Use empty string to restore default display (flex item in .icon-row).
+    downloadButton.style.display = currentGcode ? '' : 'none';
+  }
+}
+
+/**
  * Handle file upload and load G-code or 3D model.
  */
 function handleFileUpload(event) {
@@ -1133,6 +1172,11 @@ function handleFileUpload(event) {
 function loadModel(file) {
   const url = URL.createObjectURL(file);
   const extension = file.name.split('.').pop().toLowerCase();
+
+  // Clear G-code content when loading a model and hide download button.
+  currentGcode = null;
+  currentFilename = null;
+  updateDownloadButtonVisibility();
 
   // Remove previous mesh object if exists.
   if (meshObject) {
@@ -1289,6 +1333,11 @@ function updateMeshInfo(filename, object) {
  * Load and visualize G-code content.
  */
 function loadGCode(content, filename) {
+  // Store the G-code content and filename for download.
+  currentGcode = content;
+  currentFilename = filename;
+  updateDownloadButtonVisibility();
+
   // Remove previous G-code object if exists.
   if (gcodeObject) {
     scene.remove(gcodeObject);
