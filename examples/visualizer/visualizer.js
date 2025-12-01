@@ -1143,22 +1143,33 @@ function loadModel(file) {
   document.getElementById('move-slider-container').classList.remove('visible');
 
   // Create a default material for the mesh.
-  const material = new THREE.MeshStandardMaterial({
+  const defaultMaterial = new THREE.MeshStandardMaterial({
     color: 0x808080,
     metalness: 0.2,
     roughness: 0.7,
     side: THREE.DoubleSide
   });
 
-  // Load based on file extension.
-  let loader;
+  /**
+   * Apply default material to meshes that don't have a valid material.
+   */
+  function applyDefaultMaterial(object) {
+    object.traverse((child) => {
+      if (child.isMesh) {
+        // Apply default material if mesh has no material or has a basic placeholder
+        if (!child.material || child.material.type === 'MeshBasicMaterial') {
+          child.material = defaultMaterial;
+        }
+      }
+    });
+  }
 
+  // Load based on file extension.
   switch (extension) {
     case 'stl':
-      loader = new STLLoader();
-      loader.load(url, (geometry) => {
+      new STLLoader().load(url, (geometry) => {
         geometry.computeVertexNormals();
-        const mesh = new THREE.Mesh(geometry, material);
+        const mesh = new THREE.Mesh(geometry, defaultMaterial);
         displayMesh(mesh, file.name);
         URL.revokeObjectURL(url);
       }, undefined, (error) => {
@@ -1168,13 +1179,8 @@ function loadModel(file) {
       break;
 
     case 'obj':
-      loader = new OBJLoader();
-      loader.load(url, (object) => {
-        object.traverse((child) => {
-          if (child.isMesh) {
-            child.material = material;
-          }
-        });
+      new OBJLoader().load(url, (object) => {
+        applyDefaultMaterial(object);
         displayMesh(object, file.name);
         URL.revokeObjectURL(url);
       }, undefined, (error) => {
@@ -1184,8 +1190,8 @@ function loadModel(file) {
       break;
 
     case '3mf':
-      loader = new ThreeMFLoader();
-      loader.load(url, (object) => {
+      new ThreeMFLoader().load(url, (object) => {
+        applyDefaultMaterial(object);
         displayMesh(object, file.name);
         URL.revokeObjectURL(url);
       }, undefined, (error) => {
@@ -1195,8 +1201,8 @@ function loadModel(file) {
       break;
 
     case 'amf':
-      loader = new AMFLoader();
-      loader.load(url, (object) => {
+      new AMFLoader().load(url, (object) => {
+        applyDefaultMaterial(object);
         displayMesh(object, file.name);
         URL.revokeObjectURL(url);
       }, undefined, (error) => {
@@ -1206,10 +1212,9 @@ function loadModel(file) {
       break;
 
     case 'ply':
-      loader = new PLYLoader();
-      loader.load(url, (geometry) => {
+      new PLYLoader().load(url, (geometry) => {
         geometry.computeVertexNormals();
-        const mesh = new THREE.Mesh(geometry, material);
+        const mesh = new THREE.Mesh(geometry, defaultMaterial);
         displayMesh(mesh, file.name);
         URL.revokeObjectURL(url);
       }, undefined, (error) => {
@@ -1220,8 +1225,8 @@ function loadModel(file) {
 
     case 'gltf':
     case 'glb':
-      loader = new GLTFLoader();
-      loader.load(url, (gltf) => {
+      new GLTFLoader().load(url, (gltf) => {
+        applyDefaultMaterial(gltf.scene);
         displayMesh(gltf.scene, file.name);
         URL.revokeObjectURL(url);
       }, undefined, (error) => {
@@ -1231,8 +1236,8 @@ function loadModel(file) {
       break;
 
     case 'dae':
-      loader = new ColladaLoader();
-      loader.load(url, (collada) => {
+      new ColladaLoader().load(url, (collada) => {
+        applyDefaultMaterial(collada.scene);
         displayMesh(collada.scene, file.name);
         URL.revokeObjectURL(url);
       }, undefined, (error) => {
