@@ -14,6 +14,18 @@ import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 
+// Make THREE available globally for the Polyslice loader.
+// We need to create a new object that combines THREE with the loaders.
+window.THREE = Object.assign({}, THREE, {
+  STLLoader: STLLoader,
+  OBJLoader: OBJLoader,
+  ThreeMFLoader: ThreeMFLoader,
+  AMFLoader: AMFLoader,
+  PLYLoader: PLYLoader,
+  GLTFLoader: GLTFLoader,
+  ColladaLoader: ColladaLoader
+});
+
 // Global variables.
 let scene, camera, renderer, controls;
 let gcodeObject = null;
@@ -1117,10 +1129,9 @@ function handleFileUpload(event) {
 }
 
 /**
- * Load and visualize a 3D model file.
+ * Load and visualize a 3D model file using the Polyslice loader.
  */
 function loadModel(file) {
-  const extension = file.name.split('.').pop().toLowerCase();
   const url = URL.createObjectURL(file);
 
   // Remove previous mesh object if exists.
@@ -1142,114 +1153,26 @@ function loadModel(file) {
   document.getElementById('layer-slider-container').classList.remove('visible');
   document.getElementById('move-slider-container').classList.remove('visible');
 
-  // Create a default material for the mesh.
-  const defaultMaterial = new THREE.MeshStandardMaterial({
-    color: 0x808080,
-    metalness: 0.2,
-    roughness: 0.7,
-    side: THREE.DoubleSide
-  });
-
-  /**
-   * Apply default material to meshes that don't have a valid material.
-   */
-  function applyDefaultMaterial(object) {
-    object.traverse((child) => {
-      if (child.isMesh) {
-        // Apply default material if mesh has no material or has a basic placeholder
-        if (!child.material || child.material.type === 'MeshBasicMaterial') {
-          child.material = defaultMaterial;
-        }
+  // Use the Polyslice loader to load the model.
+  window.PolysliceLoader.load(url)
+    .then((result) => {
+      // Handle single mesh or array of meshes.
+      let object;
+      if (Array.isArray(result)) {
+        // Create a group to hold multiple meshes.
+        object = new THREE.Group();
+        result.forEach((mesh) => object.add(mesh));
+      } else {
+        object = result;
       }
-    });
-  }
 
-  // Load based on file extension.
-  switch (extension) {
-    case 'stl':
-      new STLLoader().load(url, (geometry) => {
-        geometry.computeVertexNormals();
-        const mesh = new THREE.Mesh(geometry, defaultMaterial);
-        displayMesh(mesh, file.name);
-        URL.revokeObjectURL(url);
-      }, undefined, (error) => {
-        console.error('Error loading STL:', error);
-        URL.revokeObjectURL(url);
-      });
-      break;
-
-    case 'obj':
-      new OBJLoader().load(url, (object) => {
-        applyDefaultMaterial(object);
-        displayMesh(object, file.name);
-        URL.revokeObjectURL(url);
-      }, undefined, (error) => {
-        console.error('Error loading OBJ:', error);
-        URL.revokeObjectURL(url);
-      });
-      break;
-
-    case '3mf':
-      new ThreeMFLoader().load(url, (object) => {
-        applyDefaultMaterial(object);
-        displayMesh(object, file.name);
-        URL.revokeObjectURL(url);
-      }, undefined, (error) => {
-        console.error('Error loading 3MF:', error);
-        URL.revokeObjectURL(url);
-      });
-      break;
-
-    case 'amf':
-      new AMFLoader().load(url, (object) => {
-        applyDefaultMaterial(object);
-        displayMesh(object, file.name);
-        URL.revokeObjectURL(url);
-      }, undefined, (error) => {
-        console.error('Error loading AMF:', error);
-        URL.revokeObjectURL(url);
-      });
-      break;
-
-    case 'ply':
-      new PLYLoader().load(url, (geometry) => {
-        geometry.computeVertexNormals();
-        const mesh = new THREE.Mesh(geometry, defaultMaterial);
-        displayMesh(mesh, file.name);
-        URL.revokeObjectURL(url);
-      }, undefined, (error) => {
-        console.error('Error loading PLY:', error);
-        URL.revokeObjectURL(url);
-      });
-      break;
-
-    case 'gltf':
-    case 'glb':
-      new GLTFLoader().load(url, (gltf) => {
-        applyDefaultMaterial(gltf.scene);
-        displayMesh(gltf.scene, file.name);
-        URL.revokeObjectURL(url);
-      }, undefined, (error) => {
-        console.error('Error loading GLTF/GLB:', error);
-        URL.revokeObjectURL(url);
-      });
-      break;
-
-    case 'dae':
-      new ColladaLoader().load(url, (collada) => {
-        applyDefaultMaterial(collada.scene);
-        displayMesh(collada.scene, file.name);
-        URL.revokeObjectURL(url);
-      }, undefined, (error) => {
-        console.error('Error loading Collada:', error);
-        URL.revokeObjectURL(url);
-      });
-      break;
-
-    default:
-      console.warn(`Unsupported model format: ${extension}`);
+      displayMesh(object, file.name);
       URL.revokeObjectURL(url);
-  }
+    })
+    .catch((error) => {
+      console.error('Error loading model:', error);
+      URL.revokeObjectURL(url);
+    });
 }
 
 /**
