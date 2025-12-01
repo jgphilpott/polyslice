@@ -1153,25 +1153,28 @@ function loadModel(file) {
   document.getElementById('layer-slider-container').classList.remove('visible');
   document.getElementById('move-slider-container').classList.remove('visible');
 
+  // Create a MeshNormalMaterial for loaded models.
+  const normalMaterial = new THREE.MeshNormalMaterial();
+
   // Use the Polyslice loader with the format-specific method.
   // We use format-specific methods because the generic load() extracts extension from URL,
   // but blob URLs don't contain the file extension.
   let loadPromise;
   switch (extension) {
     case 'stl':
-      loadPromise = window.PolysliceLoader.loadSTL(url);
+      loadPromise = window.PolysliceLoader.loadSTL(url, normalMaterial);
       break;
     case 'obj':
-      loadPromise = window.PolysliceLoader.loadOBJ(url);
+      loadPromise = window.PolysliceLoader.loadOBJ(url, normalMaterial);
+      break;
+    case 'ply':
+      loadPromise = window.PolysliceLoader.loadPLY(url, normalMaterial);
       break;
     case '3mf':
       loadPromise = window.PolysliceLoader.load3MF(url);
       break;
     case 'amf':
       loadPromise = window.PolysliceLoader.loadAMF(url);
-      break;
-    case 'ply':
-      loadPromise = window.PolysliceLoader.loadPLY(url);
       break;
     case 'gltf':
     case 'glb':
@@ -1193,9 +1196,23 @@ function loadModel(file) {
       if (Array.isArray(result)) {
         // Create a group to hold multiple meshes.
         object = new THREE.Group();
-        result.forEach((mesh) => object.add(mesh));
+        result.forEach((mesh) => {
+          // Apply normal material to meshes from formats that don't accept custom materials.
+          if (['3mf', 'amf', 'gltf', 'glb', 'dae'].includes(extension)) {
+            mesh.material = normalMaterial;
+          }
+          object.add(mesh);
+        });
       } else {
         object = result;
+        // Apply normal material to meshes from formats that don't accept custom materials.
+        if (['3mf', 'amf', 'gltf', 'glb', 'dae'].includes(extension)) {
+          object.traverse((child) => {
+            if (child.isMesh) {
+              child.material = normalMaterial;
+            }
+          });
+        }
       }
 
       displayMesh(object, file.name);
