@@ -1,15 +1,34 @@
 /**
  * G-code Visualizer
- * A browser-based tool to visualize G-code files using Three.js
+ * A browser-based tool to visualize G-code files and 3D model files using Three.js
  */
 
 import * as THREE from 'three';
 import { GCodeLoaderExtended } from './libs/GCodeLoaderExtended.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js';
+import { AMFLoader } from 'three/addons/loaders/AMFLoader.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+
+// Make THREE available globally for the Polyslice loader.
+window.THREE = Object.assign({}, THREE, {
+  STLLoader,
+  OBJLoader,
+  ThreeMFLoader,
+  AMFLoader,
+  PLYLoader,
+  GLTFLoader,
+  ColladaLoader
+});
 
 // Global variables.
 let scene, camera, renderer, controls;
 let gcodeObject = null;
+let meshObject = null; // For 3D model meshes
 let axesLines;
 let gridHelper = null;
 let allLayers = [];
@@ -19,6 +38,10 @@ let layerSliderMin = null;
 let layerSliderMax = null;
 let moveSlider = null;
 let isFirstUpload = true; // Track if this is the first G-code upload
+
+// File extensions for 3D models vs G-code.
+const MODEL_EXTENSIONS = ['stl', 'obj', '3mf', 'amf', 'ply', 'gltf', 'glb', 'dae'];
+const GCODE_EXTENSIONS = ['gcode', 'gco', 'nc'];
 
 // Initialize the visualizer on page load.
 window.addEventListener('DOMContentLoaded', init);
@@ -1075,7 +1098,7 @@ function focusCameraOnPoint(point) {
 }
 
 /**
- * Handle file upload and load G-code.
+ * Handle file upload and load G-code or 3D model.
  */
 function handleFileUpload(event) {
   const file = event.target.files[0];
@@ -1084,14 +1107,182 @@ function handleFileUpload(event) {
     return;
   }
 
-  const reader = new FileReader();
+  const extension = file.name.split('.').pop().toLowerCase();
 
-  reader.onload = function (e) {
-    const content = e.target.result;
-    loadGCode(content, file.name);
-  };
+  if (MODEL_EXTENSIONS.includes(extension)) {
+    // Load as 3D model using Polyslice loader.
+    loadModel(file);
+  } else if (GCODE_EXTENSIONS.includes(extension)) {
+    // Load as G-code.
+    const reader = new FileReader();
 
-  reader.readAsText(file);
+    reader.onload = function (e) {
+      const content = e.target.result;
+      loadGCode(content, file.name);
+    };
+
+    reader.readAsText(file);
+  } else {
+    console.warn(`Unsupported file format: ${extension}`);
+  }
+}
+
+/**
+ * Load and visualize a 3D model file using the Polyslice loader.
+ */
+function loadModel(file) {
+  const url = URL.createObjectURL(file);
+  const extension = file.name.split('.').pop().toLowerCase();
+
+  // Remove previous mesh object if exists.
+  if (meshObject) {
+    scene.remove(meshObject);
+    meshObject = null;
+  }
+
+  // Remove previous G-code object if exists.
+  if (gcodeObject) {
+    scene.remove(gcodeObject);
+    gcodeObject = null;
+    allLayers = [];
+    layersByIndex = {};
+    layerCount = 0;
+  }
+
+  // Hide G-code specific sliders when viewing a model.
+  document.getElementById('layer-slider-container').classList.remove('visible');
+  document.getElementById('move-slider-container').classList.remove('visible');
+
+  // Create a MeshNormalMaterial for loaded models.
+  const normalMaterial = new THREE.MeshNormalMaterial();
+
+  // Use the Polyslice loader with the format-specific method.
+  // We use format-specific methods because the generic load() extracts extension from URL,
+  // but blob URLs don't contain the file extension.
+  let loadPromise;
+  switch (extension) {
+    case 'stl':
+      loadPromise = window.PolysliceLoader.loadSTL(url, normalMaterial);
+      break;
+    case 'obj':
+      loadPromise = window.PolysliceLoader.loadOBJ(url, normalMaterial);
+      break;
+    case 'ply':
+      loadPromise = window.PolysliceLoader.loadPLY(url, normalMaterial);
+      break;
+    case '3mf':
+      loadPromise = window.PolysliceLoader.load3MF(url);
+      break;
+    case 'amf':
+      loadPromise = window.PolysliceLoader.loadAMF(url);
+      break;
+    case 'gltf':
+    case 'glb':
+      loadPromise = window.PolysliceLoader.loadGLTF(url);
+      break;
+    case 'dae':
+      loadPromise = window.PolysliceLoader.loadCollada(url);
+      break;
+    default:
+      console.error(`Unsupported file format: ${extension}`);
+      URL.revokeObjectURL(url);
+      return;
+  }
+
+  loadPromise
+    .then((result) => {
+      // Handle single mesh or array of meshes.
+      let object;
+      if (Array.isArray(result)) {
+        // Create a group to hold multiple meshes.
+        object = new THREE.Group();
+        result.forEach((mesh) => {
+          // Apply normal material to meshes from formats that don't accept custom materials.
+          if (['3mf', 'amf', 'gltf', 'glb', 'dae'].includes(extension)) {
+            mesh.material = normalMaterial;
+          }
+          object.add(mesh);
+        });
+      } else {
+        object = result;
+        // Apply normal material to meshes from formats that don't accept custom materials.
+        if (['3mf', 'amf', 'gltf', 'glb', 'dae'].includes(extension)) {
+          object.traverse((child) => {
+            if (child.isMesh) {
+              child.material = normalMaterial;
+            }
+          });
+        }
+      }
+
+      displayMesh(object, file.name);
+      URL.revokeObjectURL(url);
+    })
+    .catch((error) => {
+      console.error('Error loading model:', error);
+      URL.revokeObjectURL(url);
+    });
+}
+
+/**
+ * Display a loaded mesh in the scene.
+ */
+function displayMesh(object, filename) {
+  meshObject = object;
+
+  // Rotate mesh to align with G-code coordinate system (Z up).
+  meshObject.rotation.x = -Math.PI / 2;
+
+  scene.add(meshObject);
+
+  // Update info panel.
+  updateMeshInfo(filename, meshObject);
+
+  // Center camera on mesh.
+  if (isFirstUpload) {
+    centerCamera(meshObject);
+    isFirstUpload = false;
+  }
+}
+
+/**
+ * Update info panel with mesh statistics.
+ */
+function updateMeshInfo(filename, object) {
+  document.getElementById('filename').textContent = filename;
+
+  let totalTriangles = 0;
+  let totalVertices = 0;
+  let meshCount = 0;
+
+  object.traverse((child) => {
+    if (child.isMesh) {
+      meshCount++;
+      if (child.geometry) {
+        const geometry = child.geometry;
+        if (geometry.index) {
+          totalTriangles += geometry.index.count / 3;
+        } else if (geometry.attributes.position) {
+          totalTriangles += geometry.attributes.position.count / 3;
+        }
+        if (geometry.attributes.position) {
+          totalVertices += geometry.attributes.position.count;
+        }
+      }
+    }
+  });
+
+  const statsLines = [
+    `Meshes: ${meshCount}`,
+    `Triangles: ${Math.floor(totalTriangles).toLocaleString()}`,
+    `Vertices: ${totalVertices.toLocaleString()}`
+  ];
+
+  document.getElementById('stats').textContent = statsLines.join('\n');
+
+  // Reset info position when showing mesh (no sliders).
+  document.getElementById('info').style.bottom = '20px';
+  document.getElementById('info').style.left = '20px';
 }
 
 /**
@@ -1102,6 +1293,12 @@ function loadGCode(content, filename) {
   if (gcodeObject) {
     scene.remove(gcodeObject);
     gcodeObject = null;
+  }
+
+  // Remove previous mesh object if exists.
+  if (meshObject) {
+    scene.remove(meshObject);
+    meshObject = null;
   }
 
   // Parse G-code with extended loader that preserves comments.
@@ -1288,6 +1485,8 @@ function resetView() {
   // Reset camera position
   if (gcodeObject) {
     centerCamera(gcodeObject);
+  } else if (meshObject) {
+    centerCamera(meshObject);
   } else {
     camera.position.set(300, 200, -300); // Moved Y axis to opposite side
     camera.lookAt(0, 0, 0);
