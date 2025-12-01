@@ -15,15 +15,14 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 
 // Make THREE available globally for the Polyslice loader.
-// We need to create a new object that combines THREE with the loaders.
 window.THREE = Object.assign({}, THREE, {
-  STLLoader: STLLoader,
-  OBJLoader: OBJLoader,
-  ThreeMFLoader: ThreeMFLoader,
-  AMFLoader: AMFLoader,
-  PLYLoader: PLYLoader,
-  GLTFLoader: GLTFLoader,
-  ColladaLoader: ColladaLoader
+  STLLoader,
+  OBJLoader,
+  ThreeMFLoader,
+  AMFLoader,
+  PLYLoader,
+  GLTFLoader,
+  ColladaLoader
 });
 
 // Global variables.
@@ -1111,7 +1110,7 @@ function handleFileUpload(event) {
   const extension = file.name.split('.').pop().toLowerCase();
 
   if (MODEL_EXTENSIONS.includes(extension)) {
-    // Load as 3D model.
+    // Load as 3D model using Polyslice loader.
     loadModel(file);
   } else if (GCODE_EXTENSIONS.includes(extension)) {
     // Load as G-code.
