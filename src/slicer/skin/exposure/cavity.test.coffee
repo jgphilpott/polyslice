@@ -65,7 +65,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
                 if line.includes('LAYER:')
 
-                    layerMatch = line.match(/LAYER:\s*(\d+)/)
+                    layerMatch = line.match(/LAYER:\s*(\d+) of/)
 
                     if layerMatch
                         currentLayer = parseInt(layerMatch[1])
@@ -77,29 +77,29 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             skinLayers = Array.from(skinLayersSet).sort((a, b) -> a - b)
 
             # Total layers: 60 (12mm / 0.2mm = 60 layers).
-            # Expected skin layers:
-            # - Bottom 4 layers (0-3): absolute bottom.
-            # - Top 4 layers (56-59): absolute top.
-            # - Middle layers with cavity (approximately 4-50): adaptive skin above cavity.
-            # The cavity extends from Z=0 to Z=10mm (layers 0-49).
+            # Expected skin layers (1-based numbering):
+            # - Bottom 4 layers (1-4): absolute bottom.
+            # - Top 4 layers (57-60): absolute top.
+            # - Middle layers with cavity (approximately 5-51): adaptive skin above cavity.
+            # The cavity extends from Z=0 to Z=10mm (layers 1-50).
             # Layers above the cavity should detect exposure from below.
             expect(skinLayers.length).toBeGreaterThan(20)
 
             # Verify bottom layers have skin.
-            expect(skinLayers).toContain(0)
             expect(skinLayers).toContain(1)
             expect(skinLayers).toContain(2)
             expect(skinLayers).toContain(3)
+            expect(skinLayers).toContain(4)
 
             # Verify top layers have skin.
-            expect(skinLayers).toContain(56)
             expect(skinLayers).toContain(57)
             expect(skinLayers).toContain(58)
             expect(skinLayers).toContain(59)
+            expect(skinLayers).toContain(60)
 
             # Verify middle layers with cavity have adaptive skin.
-            # Layers around the cavity (e.g., 20-50) should have skin.
-            middleLayersWithSkin = skinLayers.filter((l) -> l >= 10 and l <= 50)
+            # Layers around the cavity (e.g., 11-51) should have skin.
+            middleLayersWithSkin = skinLayers.filter((l) -> l >= 11 and l <= 51)
 
             expect(middleLayersWithSkin.length).toBeGreaterThan(10)
 
@@ -152,7 +152,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
                 if line.includes('LAYER:')
 
-                    layerMatch = line.match(/LAYER:\s*(\d+)/)
+                    layerMatch = line.match(/LAYER:\s*(\d+) of/)
 
                     if layerMatch
                         currentLayer = parseInt(layerMatch[1])
@@ -164,29 +164,29 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             skinLayers = Array.from(skinLayersSet).sort((a, b) -> a - b)
 
             # Total layers: 25 (5mm / 0.2mm = 25 layers).
-            # Expected skin layers (CORRECTED):
-            # - Bottom 4 layers (0-3): absolute bottom - HAVE skin.
-            # - Top 4 layers (21-24): absolute top - HAVE skin.
-            # - Middle layers (4-20): NO skin (vertical hole, not exposed).
+            # Expected skin layers (CORRECTED, 1-based numbering):
+            # - Bottom 4 layers (1-4): absolute bottom - HAVE skin.
+            # - Top 4 layers (22-25): absolute top - HAVE skin.
+            # - Middle layers (5-21): NO skin (vertical hole, not exposed).
             # Total: 8 layers with skin (4 bottom + 4 top).
             expect(skinLayers.length).toBe(8)
 
             # Verify bottom layers have skin.
-            expect(skinLayers).toContain(0)
             expect(skinLayers).toContain(1)
             expect(skinLayers).toContain(2)
             expect(skinLayers).toContain(3)
+            expect(skinLayers).toContain(4)
 
             # Verify middle layers DO NOT have skin (through-holes don't expose middle layers).
-            middleLayersWithSkin = skinLayers.filter((l) -> l >= 4 and l <= 20)
+            middleLayersWithSkin = skinLayers.filter((l) -> l >= 5 and l <= 21)
 
             expect(middleLayersWithSkin.length).toBe(0)
 
             # Verify top layers have skin.
-            expect(skinLayers).toContain(21)
             expect(skinLayers).toContain(22)
             expect(skinLayers).toContain(23)
             expect(skinLayers).toContain(24)
+            expect(skinLayers).toContain(25)
 
     describe 'Cavity vs Solid Comparison', ->
 
@@ -297,7 +297,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
                 if line.includes('LAYER:')
 
-                    layerMatch = line.match(/LAYER:\s*(\d+)/)
+                    layerMatch = line.match(/LAYER:\s*(\d+) of/)
 
                     if layerMatch
                         currentLayer = parseInt(layerMatch[1])
@@ -311,10 +311,10 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Should only have skin on top and bottom 4 layers (no adaptive skin).
             expect(skinLayers.length).toBeLessThanOrEqual(8)
 
-            # Verify only top and bottom layers have skin.
+            # Verify only top and bottom layers have skin (1-based numbering).
             for layer in skinLayers
 
-                expect(layer < 4 or layer >= 56).toBe(true)
+                expect(layer < 5 or layer >= 57).toBe(true)
 
     describe 'Skin Infill Generation with Covering Regions', ->
 
@@ -452,33 +452,33 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             result = slicer.slice(finalMesh)
 
             # The base slab is 10mm tall = 50 layers (0-49).
-            # The top slab is 10mm tall = 50 layers (50-99).
-            # Top 4 layers of base slab (46-49) should have adaptive skin.
+            # The top slab is 10mm tall = 50 layers (51-100).
+            # Top 4 layers of base slab (47-50) should have adaptive skin.
             # The center 3x3 area (covered by top slab above) should NOT have skin infill.
             # The outer ring (exposed area) should have skin infill.
-            # Parse the G-code to find layer 46 skin section.
+            # Parse the G-code to find layer 47 skin section.
             lines = result.split('\n')
-            layer46Started = false
             layer47Started = false
-            layer46SkinInfillLines = []
+            layer48Started = false
+            layer47SkinInfillLines = []
 
             for line in lines
 
-                if line.includes('LAYER: 46')
-
-                    layer46Started = true
-
-                else if line.includes('LAYER: 47')
+                if line.includes('LAYER: 47 of')
 
                     layer47Started = true
+
+                else if line.includes('LAYER: 48 of')
+
+                    layer48Started = true
                     break
 
-                else if layer46Started and line.includes('Moving to skin infill line')
+                else if layer47Started and line.includes('Moving to skin infill line')
 
-                    layer46SkinInfillLines.push(line)
+                    layer47SkinInfillLines.push(line)
 
-            # Verify that layer 46 has skin infill.
-            expect(layer46SkinInfillLines.length).toBeGreaterThan(0)
+            # Verify that layer 47 has skin infill.
+            expect(layer47SkinInfillLines.length).toBeGreaterThan(0)
 
             # Extract X and Y coordinates from skin infill lines.
             # Check that NO infill lines are in the fully covered center area (95-125).
@@ -486,7 +486,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Skin infill should only be in the outer ring, not the center.
             centerInfillCount = 0
 
-            for line in layer46SkinInfillLines
+            for line in layer47SkinInfillLines
 
                 # Extract X and Y coordinates from the line.
                 # Format: "G0 X... Y... Z... F...; Moving to skin infill line"
@@ -510,7 +510,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             # Verify that skin infill exists in the outer ring (exposed area).
             # This ensures we're not accidentally excluding all infill.
-            expect(layer46SkinInfillLines.length).toBeGreaterThan(100)
+            expect(layer47SkinInfillLines.length).toBeGreaterThan(100)
 
         test 'should generate skin walls for fully covered regions', ->
 
@@ -544,22 +544,22 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             result = slicer.slice(finalMesh)
 
-            # Layer 46 should have skin type sections for both exposed areas and covered regions.
+            # Layer 47 should have skin type sections for both exposed areas and covered regions.
             # Parse G-code to count skin sections with walls.
             lines = result.split('\n')
-            layer46Started = false
             layer47Started = false
+            layer48Started = false
             skinSectionCount = 0
             inSkinSection = false
 
             for line in lines
 
-                if line.includes('LAYER: 46')
-                    layer46Started = true
-                else if line.includes('LAYER: 47')
+                if line.includes('LAYER: 47 of')
                     layer47Started = true
+                else if line.includes('LAYER: 48 of')
+                    layer48Started = true
                     break
-                else if layer46Started
+                else if layer47Started
                     if line.includes('TYPE: SKIN')
                         inSkinSection = true
                         skinSectionCount += 1
@@ -605,34 +605,34 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             result = slicer.slice(finalMesh)
 
-            # Layer 46 should have regular infill in the covered center area.
+            # Layer 47 should have regular infill in the covered center area.
             # Parse G-code to find infill extrusion lines in TYPE: FILL sections.
             lines = result.split('\n')
-            layer46Started = false
             layer47Started = false
+            layer48Started = false
             inFillSection = false
-            layer46FillLines = []
+            layer47FillLines = []
 
             for line in lines
 
-                if line.includes('LAYER: 46')
-                    layer46Started = true
-                else if line.includes('LAYER: 47')
+                if line.includes('LAYER: 47 of')
                     layer47Started = true
+                else if line.includes('LAYER: 48 of')
+                    layer48Started = true
                     break
-                else if layer46Started
+                else if layer47Started
                     if line.includes('TYPE: FILL')
                         inFillSection = true
                     else if line.includes('TYPE:')
                         inFillSection = false
                     else if inFillSection and line.includes('G1') and line.includes(' E')
                         # This is an extrusion line in a fill section.
-                        layer46FillLines.push(line)
+                        layer47FillLines.push(line)
 
             # Count infill lines in the covered center area (95-125 in X and Y).
             centerFillCount = 0
 
-            for line in layer46FillLines
+            for line in layer47FillLines
 
                 xMatch = line.match(/X([\d.]+)/)
                 yMatch = line.match(/Y([\d.]+)/)
@@ -651,7 +651,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             expect(centerFillCount).toBeGreaterThan(0)
 
             # Also verify that we found some fill lines total.
-            expect(layer46FillLines.length).toBeGreaterThan(0)
+            expect(layer47FillLines.length).toBeGreaterThan(0)
 
         test 'should maintain proper gap between skin walls and infill in fully covered regions', ->
 
@@ -690,32 +690,32 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # The covered region boundary is at the 3x3 slab edge.
             # The 3x3 slab covers X=[95, 125], Y=[95, 125].
             # With user's checkpoint setting infillGap=0, the gap is just skinWallInset.
-            # Parse layer 46 to find fill lines near the covered region boundary.
+            # Parse layer 47 to find fill lines near the covered region boundary.
             lines = result.split('\n')
-            layer46Started = false
             layer47Started = false
+            layer48Started = false
             inFillSection = false
-            layer46FillLines = []
+            layer47FillLines = []
 
             for line in lines
 
-                if line.includes('LAYER: 46')
-                    layer46Started = true
-                else if line.includes('LAYER: 47')
+                if line.includes('LAYER: 47 of')
                     layer47Started = true
+                else if line.includes('LAYER: 48 of')
+                    layer48Started = true
                     break
-                else if layer46Started
+                else if layer47Started
                     if line.includes('TYPE: FILL')
                         inFillSection = true
                     else if line.includes('TYPE:')
                         inFillSection = false
                     else if inFillSection and line.includes('G1') and line.includes(' E')
-                        layer46FillLines.push(line)
+                        layer47FillLines.push(line)
 
             # Find infill lines closest to the covered region boundary (X or Y near 95 or 125).
             minDistFromBoundary = Infinity
 
-            for line in layer46FillLines
+            for line in layer47FillLines
 
                 xMatch = line.match(/X([\d.]+)/)
                 yMatch = line.match(/Y([\d.]+)/)
@@ -781,24 +781,24 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # The covered area boundary (from layer above) should be used directly
             # as the exclusion zone, preventing any skin infill from entering.
             lines = result.split('\n')
-            layer46Started = false
             layer47Started = false
-            layer46SkinInfillLines = []
+            layer48Started = false
+            layer47SkinInfillLines = []
 
             for line in lines
 
-                if line.includes('LAYER: 46')
-                    layer46Started = true
-                else if line.includes('LAYER: 47')
+                if line.includes('LAYER: 47 of')
                     layer47Started = true
+                else if line.includes('LAYER: 48 of')
+                    layer48Started = true
                     break
-                else if layer46Started and line.includes('Moving to skin infill line')
-                    layer46SkinInfillLines.push(line)
+                else if layer47Started and line.includes('Moving to skin infill line')
+                    layer47SkinInfillLines.push(line)
 
             # Count infill in covered center area.
             centerInfillCount = 0
 
-            for line in layer46SkinInfillLines
+            for line in layer47SkinInfillLines
 
                 xMatch = line.match(/X([\d.]+)/)
                 yMatch = line.match(/Y([\d.]+)/)
@@ -817,7 +817,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             expect(centerInfillCount).toBe(0)
 
             # Verify skin infill exists in exposed areas.
-            expect(layer46SkinInfillLines.length).toBeGreaterThan(100)
+            expect(layer47SkinInfillLines.length).toBeGreaterThan(100)
 
         test 'should handle multiple covered areas on same layer', ->
 

@@ -56,7 +56,7 @@ describe 'Slicing', ->
             expect(result).toContain('M109') # Nozzle heating.
             expect(result).toContain('M106') # Fan on.
             expect(result).toContain('Printing') # Layer message.
-            expect(result).toContain('LAYER: 1') # Layer marker.
+            expect(result).toContain('LAYER: 1 of') # Layer marker.
             expect(result).toContain('Print complete') # End message.
             expect(result).toContain('M107') # Fan off.
 
@@ -290,34 +290,34 @@ describe 'Slicing', ->
             # Slice the mesh.
             result = slicer.slice(mesh)
 
-            # Find Layer 10 content (the problematic center layer at Z≈2.0mm).
+            # Find Layer 11 content (the problematic center layer at Z≈2.0mm, index 10).
             lines = result.split('\n')
-            layer10Start = -1
             layer11Start = -1
+            layer12Start = -1
 
             for line, i in lines
-                if line.includes('LAYER: 10')
-                    layer10Start = i
-                if line.includes('LAYER: 11')
+                if line.includes('LAYER: 11 of')
                     layer11Start = i
+                if line.includes('LAYER: 12 of')
+                    layer12Start = i
                     break
 
-            # Verify Layer 10 was generated.
-            expect(layer10Start).toBeGreaterThanOrEqual(0)
-            expect(layer11Start).toBeGreaterThan(layer10Start)
+            # Verify Layer 11 was generated.
+            expect(layer11Start).toBeGreaterThanOrEqual(0)
+            expect(layer12Start).toBeGreaterThan(layer11Start)
 
-            # Extract Layer 10 content.
-            layer10Content = lines.slice(layer10Start, layer11Start).join('\n')
+            # Extract Layer 11 content.
+            layer11Content = lines.slice(layer11Start, layer12Start).join('\n')
 
             # Count WALL-OUTER occurrences (should be 2: outer ring + inner hole).
-            wallOuterCount = (layer10Content.match(/; TYPE: WALL-OUTER/g) or []).length
+            wallOuterCount = (layer11Content.match(/; TYPE: WALL-OUTER/g) or []).length
 
             # Verify we have 2 wall regions (not just 1).
             expect(wallOuterCount).toBeGreaterThanOrEqual(2)
 
             # Extract X coordinates to verify we're printing the full torus.
             xCoords = []
-            for line in lines.slice(layer10Start, layer11Start)
+            for line in lines.slice(layer11Start, layer12Start)
                 match = line.match(/G1 X([\d.]+) Y[\d.]+/)
                 if match
                     xCoords.push(parseFloat(match[1]))
@@ -370,37 +370,37 @@ describe 'Slicing', ->
             # Slice the mesh.
             result = slicer.slice(mesh)
 
-            # Extract layer 25 (which should be at the equator, Z ≈ 5mm).
+            # Extract layer 26 (index 25, which should be at the equator, Z ≈ 5mm).
             lines = result.split('\n')
-            inLayer25 = false
-            layer25Coords = []
+            inLayer26 = false
+            layer26Coords = []
 
             for line in lines
 
-                if line.includes('M117 LAYER: 25')
-                    inLayer25 = true
+                if line.includes('M117 LAYER: 26 of')
+                    inLayer26 = true
 
-                else if inLayer25 and line.includes('M117 LAYER: 26')
+                else if inLayer26 and line.includes('M117 LAYER: 27 of')
                     break
 
                 # Extract X,Y coordinates from extrusion moves.
-                if inLayer25 and line.startsWith('G1') and line.includes('E')
+                if inLayer26 and line.startsWith('G1') and line.includes('E')
 
                     xMatch = line.match(/X([\d.-]+)/)
                     yMatch = line.match(/Y([\d.-]+)/)
 
                     if xMatch and yMatch
-                        layer25Coords.push({
+                        layer26Coords.push({
                             x: parseFloat(xMatch[1])
                             y: parseFloat(yMatch[1])
                         })
 
             # Should have captured a significant number of points.
-            expect(layer25Coords.length).toBeGreaterThan(MIN_EXPECTED_POINTS)
+            expect(layer26Coords.length).toBeGreaterThan(MIN_EXPECTED_POINTS)
 
             # Calculate X and Y ranges.
-            xVals = layer25Coords.map((c) -> c.x)
-            yVals = layer25Coords.map((c) -> c.y)
+            xVals = layer26Coords.map((c) -> c.x)
+            yVals = layer26Coords.map((c) -> c.y)
 
             xMin = Math.min(...xVals)
             xMax = Math.max(...xVals)
@@ -424,7 +424,7 @@ describe 'Slicing', ->
 
             quadrants = [0, 0, 0, 0] # Q1, Q2, Q3, Q4
 
-            for coord in layer25Coords
+            for coord in layer26Coords
 
                 relX = coord.x - centerX
                 relY = coord.y - centerY
@@ -505,7 +505,7 @@ describe 'Slicing', ->
             gcode = slicer.slice(finalMesh)
 
             # Find a layer with both outer and hole walls.
-            # Extract lines for a middle layer (e.g., layer 5).
+            # Extract lines for a middle layer (e.g., layer 6, index 5).
             lines = gcode.split('\n')
 
             layerStartIndex = -1
@@ -515,9 +515,9 @@ describe 'Slicing', ->
 
                 line = lines[lineIndex]
 
-                if line.includes('LAYER: 5')
+                if line.includes('LAYER: 6 of')
                     layerStartIndex = lineIndex
-                else if layerStartIndex >= 0 and line.includes('LAYER: 6')
+                else if layerStartIndex >= 0 and line.includes('LAYER: 7 of')
                     layerEndIndex = lineIndex
                     break
 
@@ -677,7 +677,7 @@ describe 'Slicing', ->
             # Slice the mesh.
             gcode = slicer.slice(finalMesh)
 
-            # Check layer 0 (bottom skin layer).
+            # Check layer 1 (bottom skin layer, index 0).
             lines = gcode.split('\n')
 
             layerStartIndex = -1
@@ -687,9 +687,9 @@ describe 'Slicing', ->
 
                 line = lines[lineIndex]
 
-                if line.includes('LAYER: 0')
+                if line.includes('LAYER: 1 of')
                     layerStartIndex = lineIndex
-                else if layerStartIndex >= 0 and line.includes('LAYER: 1')
+                else if layerStartIndex >= 0 and line.includes('LAYER: 2 of')
                     layerEndIndex = lineIndex
                     break
 
@@ -768,7 +768,7 @@ describe 'Slicing', ->
             # Parse gcode to analyze layers.
             lines = gcode.split('\n')
 
-            # Helper to count markers in a layer.
+            # Helper to count markers in a layer (layerNum is 1-based display number).
             countMarkersInLayer = (layerNum, marker) ->
 
                 layerStart = -1
@@ -776,9 +776,9 @@ describe 'Slicing', ->
 
                 for i in [0...lines.length]
 
-                    if lines[i].includes("LAYER: #{layerNum}")
+                    if lines[i].includes("LAYER: #{layerNum} of")
                         layerStart = i
-                    else if layerStart >= 0 and lines[i].includes("LAYER: #{layerNum + 1}")
+                    else if layerStart >= 0 and lines[i].includes("LAYER: #{layerNum + 1} of")
                         layerEnd = i
                         break
 
@@ -793,38 +793,38 @@ describe 'Slicing', ->
 
                 return count
 
-            # Layer 0: Should have only outer walls (no inner, skin, or infill).
+            # Layer 1 (index 0): Should have only outer walls (no inner, skin, or infill).
             # Spacing between paths is ~0.3mm < 0.4mm nozzle diameter.
-            layer0Outer = countMarkersInLayer(0, 'TYPE: WALL-OUTER')
-            layer0Inner = countMarkersInLayer(0, 'TYPE: WALL-INNER')
-            layer0Skin = countMarkersInLayer(0, 'TYPE: SKIN')
-            layer0Fill = countMarkersInLayer(0, 'TYPE: FILL')
-
-            expect(layer0Outer).toBeGreaterThan(0)  # Should have outer walls.
-            expect(layer0Inner).toBe(0)  # No inner walls (insufficient spacing).
-            expect(layer0Skin).toBe(0)  # No skin (insufficient spacing).
-            expect(layer0Fill).toBe(0)  # No infill (suppressed with skin).
-
-            # Layer 1: Should have outer + inner walls, but no skin or infill.
-            # Spacing between innermost walls is ~0.495mm < 0.8mm (2× nozzle diameter).
             layer1Outer = countMarkersInLayer(1, 'TYPE: WALL-OUTER')
             layer1Inner = countMarkersInLayer(1, 'TYPE: WALL-INNER')
             layer1Skin = countMarkersInLayer(1, 'TYPE: SKIN')
             layer1Fill = countMarkersInLayer(1, 'TYPE: FILL')
 
             expect(layer1Outer).toBeGreaterThan(0)  # Should have outer walls.
-            expect(layer1Inner).toBeGreaterThan(0)  # Should have inner walls (sufficient spacing).
-            expect(layer1Skin).toBe(0)  # No skin (innermost wall spacing < 0.8mm).
+            expect(layer1Inner).toBe(0)  # No inner walls (insufficient spacing).
+            expect(layer1Skin).toBe(0)  # No skin (insufficient spacing).
             expect(layer1Fill).toBe(0)  # No infill (suppressed with skin).
 
-            # Layer 2+: Should have all features (sufficient spacing).
+            # Layer 2 (index 1): Should have outer + inner walls, but no skin or infill.
+            # Spacing between innermost walls is ~0.495mm < 0.8mm (2× nozzle diameter).
             layer2Outer = countMarkersInLayer(2, 'TYPE: WALL-OUTER')
             layer2Inner = countMarkersInLayer(2, 'TYPE: WALL-INNER')
             layer2Skin = countMarkersInLayer(2, 'TYPE: SKIN')
+            layer2Fill = countMarkersInLayer(2, 'TYPE: FILL')
 
             expect(layer2Outer).toBeGreaterThan(0)  # Should have outer walls.
-            expect(layer2Inner).toBeGreaterThan(0)  # Should have inner walls.
-            expect(layer2Skin).toBeGreaterThan(0)  # Should have skin (sufficient spacing).
+            expect(layer2Inner).toBeGreaterThan(0)  # Should have inner walls (sufficient spacing).
+            expect(layer2Skin).toBe(0)  # No skin (innermost wall spacing < 0.8mm).
+            expect(layer2Fill).toBe(0)  # No infill (suppressed with skin).
+
+            # Layer 3+ (index 2+): Should have all features (sufficient spacing).
+            layer3Outer = countMarkersInLayer(3, 'TYPE: WALL-OUTER')
+            layer3Inner = countMarkersInLayer(3, 'TYPE: WALL-INNER')
+            layer3Skin = countMarkersInLayer(3, 'TYPE: SKIN')
+
+            expect(layer3Outer).toBeGreaterThan(0)  # Should have outer walls.
+            expect(layer3Inner).toBeGreaterThan(0)  # Should have inner walls.
+            expect(layer3Skin).toBeGreaterThan(0)  # Should have skin (sufficient spacing).
 
             return # Explicitly return undefined for Jest.
 
@@ -869,13 +869,13 @@ describe 'Slicing', ->
             # Slice the mesh.
             result = slicer.slice(finalMesh)
 
-            # Extract layer 0 (a skin layer).
-            parts = result.split('LAYER: 0')
+            # Extract layer 1 (index 0, a skin layer).
+            parts = result.split('LAYER: 1 of')
             expect(parts.length).toBeGreaterThan(1)
-            layer0 = parts[1].split('LAYER: 1')[0]
+            layer1 = parts[1].split('LAYER: 2 of')[0]
 
             # Extract wall type sequence.
-            typeMatches = layer0.match(/TYPE: (WALL-OUTER|WALL-INNER|SKIN)/g) || []
+            typeMatches = layer1.match(/TYPE: (WALL-OUTER|WALL-INNER|SKIN)/g) || []
             types = typeMatches.map((m) -> m.replace('TYPE: ', ''))
 
             # Expected sequence on skin layer:
@@ -925,17 +925,17 @@ describe 'Slicing', ->
 
             result = slicer.slice(sheetMesh)
 
-            # Check middle layer (layer 10, not a skin layer).
-            parts = result.split('LAYER: 10')
+            # Check middle layer (layer 11 = index 10, not a skin layer).
+            parts = result.split('LAYER: 11 of')
             expect(parts.length).toBeGreaterThan(1)
-            layer10 = parts[1].split('LAYER: 11')[0]
+            layer11 = parts[1].split('LAYER: 12 of')[0]
 
             # Should not have any SKIN markers on middle layers of solid geometry.
-            skinMatches = layer10.match(/TYPE: SKIN/g) || []
+            skinMatches = layer11.match(/TYPE: SKIN/g) || []
             expect(skinMatches.length).toBe(0)
 
             # But should have wall markers.
-            wallMatches = layer10.match(/TYPE: WALL/g) || []
+            wallMatches = layer11.match(/TYPE: WALL/g) || []
             expect(wallMatches.length).toBeGreaterThan(0)
 
             return # Explicitly return undefined for Jest.
@@ -970,26 +970,26 @@ describe 'Slicing', ->
 
             result = slicer.slice(finalMesh)
 
-            # Check middle layer (layer 10 at z=2.0mm).
-            parts = result.split('LAYER: 10')
+            # Check middle layer (layer 11 = index 10 at z=2.0mm).
+            parts = result.split('LAYER: 11 of')
             expect(parts.length).toBeGreaterThan(1)
-            layer10 = parts[1].split('LAYER: 11')[0]
+            layer11 = parts[1].split('LAYER: 12 of')[0]
 
             # Middle layers with VERTICAL holes should NOT have skin markers.
             # The hole goes straight through, so there's no exposure.
-            skinMatches = layer10.match(/TYPE: SKIN/g) || []
+            skinMatches = layer11.match(/TYPE: SKIN/g) || []
             expect(skinMatches.length).toBe(0)
 
             # Should still have wall markers (outer and hole walls).
-            wallMatches = layer10.match(/TYPE: WALL/g) || []
+            wallMatches = layer11.match(/TYPE: WALL/g) || []
             expect(wallMatches.length).toBeGreaterThan(0)
 
-            # Top layers should still have skin (layer 21-24 are top 4 layers).
-            partsTop = result.split('LAYER: 22')
+            # Top layers should still have skin (layer 22-25 are top 4 layers, index 21-24).
+            partsTop = result.split('LAYER: 23 of')
             expect(partsTop.length).toBeGreaterThan(1)
-            layer22 = partsTop[1].split('LAYER: 23')[0]
+            layer23 = partsTop[1].split('LAYER: 24 of')[0]
 
-            skinMatchesTop = layer22.match(/TYPE: SKIN/g) || []
+            skinMatchesTop = layer23.match(/TYPE: SKIN/g) || []
             expect(skinMatchesTop.length).toBeGreaterThan(0)
 
             return # Explicitly return undefined for Jest.
@@ -1015,14 +1015,14 @@ describe 'Slicing', ->
 
             result = slicer.slice(mesh)
 
-            # Layer 0: Spacing is very tight, should only have outer walls.
-            parts = result.split('LAYER: 0')
+            # Layer 1 (index 0): Spacing is very tight, should only have outer walls.
+            parts = result.split('LAYER: 1 of')
             expect(parts.length).toBeGreaterThan(1)
-            layer0 = parts[1].split('LAYER: 1')[0]
+            layer1 = parts[1].split('LAYER: 2 of')[0]
 
-            outerMatches = layer0.match(/TYPE: WALL-OUTER/g) || []
-            innerMatches = layer0.match(/TYPE: WALL-INNER/g) || []
-            skinMatches = layer0.match(/TYPE: SKIN/g) || []
+            outerMatches = layer1.match(/TYPE: WALL-OUTER/g) || []
+            innerMatches = layer1.match(/TYPE: WALL-INNER/g) || []
+            skinMatches = layer1.match(/TYPE: SKIN/g) || []
 
             # Should have outer walls.
             expect(outerMatches.length).toBeGreaterThan(0)
@@ -1052,13 +1052,13 @@ describe 'Slicing', ->
 
             result = slicer.slice(mesh)
 
-            # Layer 1+: Spacing should be sufficient for inner walls.
-            parts = result.split('LAYER: 1')
+            # Layer 2 (index 1): Spacing should be sufficient for inner walls.
+            parts = result.split('LAYER: 2 of')
             expect(parts.length).toBeGreaterThan(1)
-            layer1 = parts[1].split('LAYER: 2')[0]
+            layer2 = parts[1].split('LAYER: 3 of')[0]
 
-            outerMatches = layer1.match(/TYPE: WALL-OUTER/g) || []
-            innerMatches = layer1.match(/TYPE: WALL-INNER/g) || []
+            outerMatches = layer2.match(/TYPE: WALL-OUTER/g) || []
+            innerMatches = layer2.match(/TYPE: WALL-INNER/g) || []
 
             # Should have both outer and inner walls.
             expect(outerMatches.length).toBeGreaterThan(0)

@@ -120,7 +120,7 @@ module.exports =
             # Only output layer marker if layer has content.
             if verbose and layerPaths.length > 0
 
-                slicer.gcode += coders.codeMessage(slicer, "LAYER: #{layerIndex}")
+                slicer.gcode += coders.codeMessage(slicer, "LAYER: #{layerIndex + 1} of #{totalLayers}")
 
             # Generate G-code for this layer with center offset.
             @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers, allLayers, layerSegments)
