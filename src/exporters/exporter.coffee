@@ -337,7 +337,7 @@ class Exporter
 
             try
 
-                lines = gcode.split('\n').filter (line) ->
+                gcodeLines = gcode.split('\n').filter (line) ->
 
                     line.trim().length > 0
 
@@ -346,17 +346,18 @@ class Exporter
                 responseBuffer = ''
                 timeoutHandle = null
                 isComplete = false
+                waitingForAck = false  # Flag to track if we're waiting for acknowledgment.
 
                 # Helper to check for "ok" acknowledgment.
                 # Marlin firmware sends "ok" on a new line or as "ok\n".
                 checkForAck = (buffer) ->
 
                     # Check for "ok" at start of line or after newline.
-                    lines = buffer.split(/\r?\n/)
+                    bufferLines = buffer.split(/\r?\n/)
 
-                    for line in lines
+                    for bufferLine in bufferLines
 
-                        trimmed = line.trim().toLowerCase()
+                        trimmed = bufferLine.trim().toLowerCase()
                         if trimmed is 'ok' or trimmed.startsWith('ok ')
 
                             return true
@@ -370,9 +371,10 @@ class Exporter
 
                     responseBuffer += data.toString()
 
-                    # Check for acknowledgment.
-                    if checkForAck(responseBuffer)
+                    # Only check for acknowledgment if we're waiting for one.
+                    if waitingForAck and checkForAck(responseBuffer)
 
+                        waitingForAck = false
                         clearTimeout(timeoutHandle) if timeoutHandle
                         responseBuffer = ''
                         sendNextLine()
@@ -387,14 +389,14 @@ class Exporter
 
                 sendNextLine = =>
 
-                    if currentLine >= lines.length
+                    if currentLine >= gcodeLines.length
 
                         isComplete = true
                         cleanup()
-                        resolve({ totalLines: lines.length, success: true })
+                        resolve({ totalLines: gcodeLines.length, success: true })
                         return
 
-                    line = lines[currentLine].trim()
+                    line = gcodeLines[currentLine].trim()
                     currentLine++
 
                     # Skip comments and empty lines.
@@ -406,7 +408,7 @@ class Exporter
                     # Call progress callback if provided.
                     if options.onProgress
 
-                        options.onProgress(currentLine, lines.length, line)
+                        options.onProgress(currentLine, gcodeLines.length, line)
 
                     # Set up timeout for this command.
                     timeoutHandle = setTimeout =>
@@ -417,12 +419,14 @@ class Exporter
 
                     , timeout
 
-                    # Reset response buffer for new command.
+                    # Reset response buffer and set waiting flag before sending command.
                     responseBuffer = ''
+                    waitingForAck = true
 
                     # Send the line.
                     @sendLine(line).catch (error) =>
 
+                        waitingForAck = false
                         isComplete = true
                         cleanup()
                         reject(error)
