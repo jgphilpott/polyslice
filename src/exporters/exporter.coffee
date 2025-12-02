@@ -314,8 +314,8 @@ class Exporter
 
                 reject(error)
 
-    # Default timeout for acknowledgment-based streaming (30 seconds).
-    DEFAULT_ACK_TIMEOUT: 30000
+    # Default timeout for acknowledgment-based streaming (null = no timeout).
+    DEFAULT_ACK_TIMEOUT: null
 
     # Stream G-code to serial port with acknowledgment (Node.js only).
     # Waits for printer "ok" response before sending each line.
@@ -341,7 +341,8 @@ class Exporter
 
                     line.trim().length > 0
 
-                timeout = options.timeout or @DEFAULT_ACK_TIMEOUT
+                # Timeout is null by default (no timeout). Can be set via options.
+                timeout = if options.timeout? then options.timeout else @DEFAULT_ACK_TIMEOUT
                 currentLine = 0
                 responseBuffer = ''
                 timeoutHandle = null
@@ -410,14 +411,16 @@ class Exporter
 
                         options.onProgress(currentLine, gcodeLines.length, line)
 
-                    # Set up timeout for this command.
-                    timeoutHandle = setTimeout =>
+                    # Set up timeout for this command only if timeout is specified.
+                    if timeout?
 
-                        isComplete = true
-                        cleanup()
-                        reject(new Error("Timeout waiting for acknowledgment on line #{currentLine}: #{line}"))
+                        timeoutHandle = setTimeout =>
 
-                    , timeout
+                            isComplete = true
+                            cleanup()
+                            reject(new Error("Timeout waiting for acknowledgment on line #{currentLine}: #{line}"))
+
+                        , timeout
 
                     # Reset response buffer and set waiting flag before sending command.
                     responseBuffer = ''

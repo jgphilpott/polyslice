@@ -13,7 +13,7 @@
  * Options:
  *   --port <path>       Serial port path (default: /dev/ttyUSB0)
  *   --baud <rate>       Baud rate (default: 115200)
- *   --timeout <ms>      Timeout per command in ms (default: 30000)
+ *   --timeout <ms>      Timeout per command in ms (default: no timeout)
  *
  * Examples:
  *   node examples/scripts/send-file.js myprint.gcode
@@ -32,7 +32,7 @@ function parseArgs() {
         file: null,
         port: '/dev/ttyUSB0',
         baud: 115200,
-        timeout: 30000
+        timeout: null  // No timeout by default.
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -69,7 +69,7 @@ Usage:
 Options:
   --port <path>       Serial port path (default: /dev/ttyUSB0)
   --baud <rate>       Baud rate (default: 115200)
-  --timeout <ms>      Timeout per command in ms (default: 30000)
+  --timeout <ms>      Timeout per command in ms (default: no timeout)
 
 Examples:
   node examples/scripts/send-file.js myprint.gcode
@@ -88,7 +88,7 @@ async function sendFile(options) {
     console.log(`File: ${filePath}`);
     console.log(`Port: ${options.port}`);
     console.log(`Baud: ${options.baud}`);
-    console.log(`Timeout: ${options.timeout}ms\n`);
+    console.log(`Timeout: ${options.timeout ? options.timeout + 'ms' : 'none'}\n`);
 
     // Check if file exists.
     if (!fs.existsSync(filePath)) {
@@ -126,15 +126,22 @@ async function sendFile(options) {
     console.log('Streaming G-code (waiting for acknowledgment on each line)...');
     const startTime = Date.now();
 
+    // Build streaming options.
+    const streamOptions = {
+        onProgress: (current, total, line) => {
+            const percent = Math.round((current / total) * 100);
+            const displayLine = (line || '').substring(0, 30);
+            process.stdout.write(`\r  Progress: ${current}/${total} (${percent}%) - ${displayLine}...`);
+        }
+    };
+
+    // Only add timeout if specified.
+    if (options.timeout) {
+        streamOptions.timeout = options.timeout;
+    }
+
     try {
-        const result = await Exporter.streamGCodeWithAck(gcode, {
-            timeout: options.timeout || 30000,
-            onProgress: (current, total, line) => {
-                const percent = Math.round((current / total) * 100);
-                const displayLine = (line || '').substring(0, 30);
-                process.stdout.write(`\r  Progress: ${current}/${total} (${percent}%) - ${displayLine}...`);
-            }
-        });
+        const result = await Exporter.streamGCodeWithAck(gcode, streamOptions);
 
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         console.log(`\n\n✓ Complete! Sent ${result.totalLines} lines in ${elapsed}s\n`);

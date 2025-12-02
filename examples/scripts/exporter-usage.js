@@ -142,7 +142,7 @@ async function demonstrateStreamGCode() {
     console.log('streamGCodeWithAck() - Acknowledgment-based (Node.js only, RECOMMENDED):');
     console.log('  // Stream G-code waiting for "ok" from printer before each line');
     console.log('  await Exporter.streamGCodeWithAck(gcodeContent, {');
-    console.log('      timeout: 30000,  // 30 second timeout per command');
+    console.log('      // timeout: 60000,  // Optional: timeout per command (default: no timeout)');
     console.log('      onProgress: (current, total, line) => {');
     console.log('          console.log(`Sending ${current}/${total}: ${line}`);');
     console.log('      }');
