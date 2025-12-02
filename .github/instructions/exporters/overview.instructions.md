@@ -41,11 +41,26 @@ constructor: ->
     @connected = false
 ```
 
+### Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `DEFAULT_ACK_TIMEOUT` | `null` | Default timeout for acknowledgment-based streaming (null = no timeout) |
+
 ## File Export
 
 ### saveToFile
 
-Saves G-code to a file with environment-appropriate method:
+Saves G-code to a file with environment-appropriate method.
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `gcode` | String | required | G-code content to save |
+| `filename` | String | `'output.gcode'` | Output filename |
+
+**Returns:** `Promise<String>` - Resolves with filepath (Node.js) or filename (browser)
 
 ```coffeescript
 exporter.saveToFile(gcode, 'output.gcode')
@@ -82,9 +97,23 @@ _saveToFileNode: (gcode, filename) ->
 
 ## Serial Port Communication
 
-### Connection
+### connectSerial
 
-Connect to a 3D printer via serial port:
+Connects to a 3D printer via serial port.
+
+**Parameters:**
+
+| Parameter | Type | Default | Environment | Description |
+|-----------|------|---------|-------------|-------------|
+| `options.path` | String | `'/dev/ttyUSB0'` | Node.js only | Serial port path |
+| `options.baudRate` | Number | `115200` | Both | Connection baud rate |
+| `options.dataBits` | Number | `8` | Both | Data bits |
+| `options.stopBits` | Number | `1` | Both | Stop bits |
+| `options.parity` | String | `'none'` | Both | Parity setting |
+| `options.flowControl` | String | `'none'` | Browser only | Flow control |
+| `options.filters` | Object | `{}` | Browser only | USB device filters for port selection |
+
+**Returns:** `Promise<SerialPort>` - Resolves with the connected serial port
 
 ```coffeescript
 exporter.connectSerial({
@@ -126,18 +155,44 @@ _connectSerialNode: (options) ->
     })
 ```
 
-### Disconnection
+### disconnectSerial
+
+Disconnects from serial port and cleans up resources.
+
+**Returns:** `Promise<void>` - Resolves when disconnected
 
 ```coffeescript
 exporter.disconnectSerial()
     .then -> console.log('Disconnected')
 ```
 
+Cleanup behavior:
+- Browser: Releases writer/reader locks, closes port
+- Node.js: Closes serial port connection
+- Resets `@connected`, `@serialPort`, `@writer`, `@reader` to initial state
+
 ## G-code Streaming
+
+Two streaming methods are available for sending G-code to a connected printer:
+
+| Method | Environment | Flow Control | Recommended For |
+|--------|-------------|--------------|-----------------|
+| `streamGCode` | Both | Delay-based | Browser, simple streaming |
+| `streamGCodeWithAck` | Node.js only | Acknowledgment-based | Node.js production use |
 
 ### streamGCode
 
-Streams G-code line-by-line to connected printer:
+Streams G-code line-by-line with optional delay between lines. Does NOT wait for printer acknowledgment.
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `gcode` | String | required | Complete G-code to stream |
+| `options.delay` | Number | `0` | Milliseconds between lines |
+| `options.onProgress` | Function | `null` | Progress callback `(current, total, line)` |
+
+**Returns:** `Promise<Object>` - Resolves with `{ totalLines: Number, success: Boolean }`
 
 ```coffeescript
 exporter.streamGCode(gcode, {
@@ -147,37 +202,89 @@ exporter.streamGCode(gcode, {
 })
 ```
 
-### Line-by-Line Sending
+**Behavior:**
+- Splits G-code into lines, filters empty lines
+- Skips comment lines (starting with `;`) and empty lines
+- Sends each line with optional delay between sends
+- Calls progress callback before each line is sent
+
+### streamGCodeWithAck
+
+**Node.js only.** Streams G-code waiting for printer "ok" acknowledgment before sending each line. This is the **recommended method for Node.js** to ensure proper command execution.
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `gcode` | String | required | Complete G-code to stream |
+| `options.timeout` | Number | `null` | Timeout in ms for each acknowledgment (`null` = no timeout) |
+| `options.onProgress` | Function | `null` | Progress callback `(current, total, line)` |
+
+**Returns:** `Promise<Object>` - Resolves with `{ totalLines: Number, success: Boolean }`
 
 ```coffeescript
-sendNextLine = =>
-    if currentLine >= lines.length
-        resolve({ totalLines: lines.length, success: true })
-        return
+# Basic usage (no timeout - waits indefinitely for each acknowledgment)
+exporter.streamGCodeWithAck(gcode, {
+    onProgress: (current, total, line) ->
+        console.log("#{current}/#{total}: #{line}")
+})
 
-    line = lines[currentLine].trim()
-    currentLine++
-
-    # Skip comments and empty lines
-    if line.startsWith(';') or line.length is 0
-        setTimeout sendNextLine, 0
-        return
-
-    @sendLine(line).then =>
-        if delay > 0
-            setTimeout sendNextLine, delay
-        else
-            sendNextLine()
+# With timeout (rejects if printer doesn't respond within timeout)
+exporter.streamGCodeWithAck(gcode, {
+    timeout: 30000  # 30 seconds per command
+    onProgress: (current, total, line) ->
+        console.log("#{current}/#{total}: #{line}")
+})
 ```
 
-### Single Line Sending
+**Acknowledgment Detection:**
+
+The method detects Marlin firmware "ok" responses:
+- Looks for `ok` at the start of a line or after newline
+- Case-insensitive matching
+- Handles both `ok` and `ok ` (with trailing content)
+
+**Internal State:**
+
+| Flag | Purpose |
+|------|---------|
+| `waitingForAck` | Prevents premature acknowledgment detection from previous responses |
+| `responseBuffer` | Accumulates serial data until acknowledgment is found |
+| `isComplete` | Prevents further processing after completion or error |
+
+**Error Handling:**
+- Rejects if not connected: `"Not connected to serial port"`
+- Rejects in browser: `"streamGCodeWithAck is only available in Node.js. Use streamGCode in browser."`
+- Rejects on timeout: `"Timeout waiting for acknowledgment on line N: <line>"`
+
+### sendLine
+
+Sends a single G-code line via serial port.
+
+**Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `line` | String | G-code command to send (newline added automatically) |
+
+**Returns:** `Promise<void>` - Resolves when line is sent
 
 ```coffeescript
 exporter.sendLine('G28')  # Send single command
     .then -> console.log('Sent')
 ```
 
-### Reading Responses
+### readResponse
+
+Reads response from serial port with timeout.
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `timeout` | Number | `1000` | Timeout in milliseconds |
+
+**Returns:** `Promise<String|null>` - Resolves with response text, or null if stream ended
 
 ```coffeescript
 exporter.readResponse(timeout = 1000)
@@ -202,22 +309,56 @@ For serial communication, install the serialport package:
 npm install serialport
 ```
 
-## Usage with Polyslice
+## Usage Examples
+
+### Save to File
 
 ```coffeescript
 Polyslice = require('@jgphilpott/polyslice')
 exporter = Polyslice.exporter
 
-# Slice a mesh
 slicer = new Polyslice()
 gcode = slicer.slice(mesh)
 
-# Save to file
 exporter.saveToFile(gcode, 'print.gcode')
+    .then (filepath) -> console.log("Saved to: #{filepath}")
+```
 
-# Or stream to printer
+### Browser Streaming (Delay-Based)
+
+```coffeescript
+# Browser: Use streamGCode with delay
 exporter.connectSerial({ baudRate: 115200 })
     .then -> exporter.streamGCode(gcode, { delay: 50 })
+    .then (result) -> console.log("Sent #{result.totalLines} lines")
+    .then -> exporter.disconnectSerial()
+```
+
+### Node.js Streaming (Recommended: Acknowledgment-Based)
+
+```coffeescript
+# Node.js: Use streamGCodeWithAck for reliable execution
+exporter.connectSerial({ path: '/dev/ttyUSB0', baudRate: 115200 })
+    .then -> exporter.streamGCodeWithAck(gcode, {
+        onProgress: (current, total, line) ->
+            percent = Math.round(current / total * 100)
+            console.log("[#{percent}%] #{line}")
+    })
+    .then (result) -> console.log("Print complete: #{result.totalLines} lines")
+    .then -> exporter.disconnectSerial()
+    .catch (error) -> console.error("Print failed: #{error.message}")
+```
+
+### Node.js Streaming with Timeout
+
+```coffeescript
+# Node.js: With timeout for each command
+exporter.connectSerial({ path: '/dev/ttyUSB0', baudRate: 115200 })
+    .then -> exporter.streamGCodeWithAck(gcode, {
+        timeout: 60000  # 60 seconds per command (for long heating commands)
+        onProgress: (current, total, line) ->
+            console.log("#{current}/#{total}: #{line}")
+    })
     .then -> exporter.disconnectSerial()
 ```
 
@@ -228,10 +369,17 @@ exporter.connectSerial({ baudRate: 115200 })
 exporter.sendLine('G28')  # Rejects: "Not connected to serial port"
 
 # Browser without Web Serial API
-exporter.connectSerial()  # Rejects: "Web Serial API is not supported"
+exporter.connectSerial()  # Rejects: "Web Serial API is not supported in this browser"
 
 # Node.js without serialport package
-exporter.connectSerial()  # Rejects: "serialport package not found"
+exporter.connectSerial()  # Rejects: "serialport package not found. Install it with: npm install serialport"
+
+# streamGCodeWithAck in browser
+exporter.streamGCodeWithAck(gcode)  # Rejects: "streamGCodeWithAck is only available in Node.js. Use streamGCode in browser."
+
+# Acknowledgment timeout (Node.js)
+exporter.streamGCodeWithAck(gcode, { timeout: 1000 })
+# May reject: "Timeout waiting for acknowledgment on line 5: G28"
 ```
 
 ## Important Conventions
@@ -242,3 +390,9 @@ exporter.connectSerial()  # Rejects: "serialport package not found"
 4. **Connection state**: Track `@connected` flag for all serial operations
 5. **Cleanup**: Properly release locks and close ports on disconnect
 6. **Progress callbacks**: Optional callbacks for streaming progress
+7. **Streaming method selection**:
+   - Browser: Use `streamGCode` with appropriate delay
+   - Node.js (simple): Use `streamGCode` with delay for basic streaming
+   - Node.js (recommended): Use `streamGCodeWithAck` for reliable command execution
+8. **No default timeout**: `DEFAULT_ACK_TIMEOUT` is `null`, meaning acknowledgment-based streaming waits indefinitely unless `options.timeout` is specified
+9. **Acknowledgment safety**: The `waitingForAck` flag prevents false acknowledgment detection from buffered serial data

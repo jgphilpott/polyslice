@@ -263,6 +263,8 @@ class Exporter
 
     # Stream G-code to serial port.
     # Sends line by line with optional delay between lines.
+    # Note: This method does NOT wait for printer acknowledgment.
+    # For Node.js with acknowledgment, use streamGCodeWithAck().
     streamGCode: (gcode, options = {}) ->
 
         return new Promise (resolve, reject) =>
@@ -306,6 +308,133 @@ class Exporter
                             sendNextLine()
                     .catch(reject)
 
+                sendNextLine()
+
+            catch error
+
+                reject(error)
+
+    # Default timeout for acknowledgment-based streaming (null = no timeout).
+    DEFAULT_ACK_TIMEOUT: null
+
+    # Stream G-code to serial port with acknowledgment (Node.js only).
+    # Waits for printer "ok" response before sending each line.
+    # This is the recommended method for Node.js to ensure proper command execution.
+    streamGCodeWithAck: (gcode, options = {}) ->
+
+        return new Promise (resolve, reject) =>
+
+            if not @connected
+
+                reject(new Error('Not connected to serial port'))
+                return
+
+            # This method is only for Node.js environment.
+            if typeof window isnt 'undefined'
+
+                reject(new Error('streamGCodeWithAck is only available in Node.js. Use streamGCode in browser.'))
+                return
+
+            try
+
+                gcodeLines = gcode.split('\n').filter (line) ->
+
+                    line.trim().length > 0
+
+                # Timeout is null by default (no timeout). Can be set via options.
+                timeout = if options.timeout? then options.timeout else @DEFAULT_ACK_TIMEOUT
+                currentLine = 0
+                responseBuffer = ''
+                timeoutHandle = null
+                isComplete = false
+                waitingForAck = false  # Flag to track if we're waiting for acknowledgment.
+
+                # Helper to check for "ok" acknowledgment.
+                # Marlin firmware sends "ok" on a new line or as "ok\n".
+                checkForAck = (buffer) ->
+
+                    # Check for "ok" at start of line or after newline.
+                    bufferLines = buffer.split(/\r?\n/)
+
+                    for bufferLine in bufferLines
+
+                        trimmed = bufferLine.trim().toLowerCase()
+                        if trimmed is 'ok' or trimmed.startsWith('ok ')
+
+                            return true
+
+                    return false
+
+                # Data handler for printer responses.
+                dataHandler = (data) =>
+
+                    return if isComplete
+
+                    responseBuffer += data.toString()
+
+                    # Only check for acknowledgment if we're waiting for one.
+                    if waitingForAck and checkForAck(responseBuffer)
+
+                        waitingForAck = false
+                        clearTimeout(timeoutHandle) if timeoutHandle
+                        responseBuffer = ''
+                        sendNextLine()
+
+                @serialPort.on('data', dataHandler)
+
+                # Cleanup function.
+                cleanup = =>
+
+                    clearTimeout(timeoutHandle) if timeoutHandle
+                    @serialPort.removeListener('data', dataHandler)
+
+                sendNextLine = =>
+
+                    if currentLine >= gcodeLines.length
+
+                        isComplete = true
+                        cleanup()
+                        resolve({ totalLines: gcodeLines.length, success: true })
+                        return
+
+                    line = gcodeLines[currentLine].trim()
+                    currentLine++
+
+                    # Skip comments and empty lines.
+                    if line.startsWith(';') or line.length is 0
+
+                        setImmediate sendNextLine
+                        return
+
+                    # Call progress callback if provided.
+                    if options.onProgress
+
+                        options.onProgress(currentLine, gcodeLines.length, line)
+
+                    # Set up timeout for this command only if timeout is specified.
+                    if timeout?
+
+                        timeoutHandle = setTimeout =>
+
+                            isComplete = true
+                            cleanup()
+                            reject(new Error("Timeout waiting for acknowledgment on line #{currentLine}: #{line}"))
+
+                        , timeout
+
+                    # Reset response buffer and set waiting flag before sending command.
+                    responseBuffer = ''
+                    waitingForAck = true
+
+                    # Send the line.
+                    @sendLine(line).catch (error) =>
+
+                        waitingForAck = false
+                        isComplete = true
+                        cleanup()
+                        reject(error)
+
+                # Start sending.
                 sendNextLine()
 
             catch error

@@ -24,46 +24,41 @@ let timestampsDefault = true
 let colorsDefault = true
 let emojisDefault = true
 
+// Use PolysliceExporter singleton for serial communication.
+let exporter = null
+
 async function connect() {
 
     try {
 
-        if (usbVendorId && usbProductId) {
-
-            device = await navigator.serial.requestPort({
-
-                filters: [{
-
-                    usbVendorId: usbVendorId,
-                    usbProductId: usbProductId
-
-                }]
-
-            })
-
-        } else {
-
-            device = await navigator.serial.requestPort()
-
-        }
-
+        // Get connection options from UI.
         let baudRate = Number($("#baud-rate").val())
-        let bufferSize = Number($("#buffer-size").val())
         let dataBits = Number($("#data-bits").val())
         let stopBits = Number($("#stop-bits").val())
         let flowControl = String($("#flow-control").val())
         let parity = String($("#parity").val())
 
-        await device.open({
+        // Use PolysliceExporter to connect to serial port.
+        if (!exporter) {
+            exporter = window.PolysliceExporter
+        }
 
+        await exporter.connectSerial({
             baudRate: baudRate,
-            bufferSize: bufferSize,
             dataBits: dataBits,
             stopBits: stopBits,
             flowControl: flowControl,
             parity: parity
-
         })
+
+        // Store device reference from exporter.
+        device = exporter.serialPort
+        device.connected = true
+
+        let info = device.getInfo()
+
+        usbVendorId = info.usbVendorId
+        usbProductId = info.usbProductId
 
         await connected()
 
@@ -83,11 +78,11 @@ async function disconnect() {
 
     try {
 
-        if (device.connected) {
+        if (exporter && exporter.connected) {
+
+            await exporter.disconnectSerial()
 
             device.connected = false
-
-            await device.forget()
 
             await disconnected()
 
@@ -104,13 +99,6 @@ async function disconnect() {
 }
 
 async function connected() {
-
-    device.connected = true
-
-    let info = device.getInfo()
-
-    usbVendorId = info.usbVendorId
-    usbProductId = info.usbProductId
 
     $("button#connection").text("Disconnect")
 
@@ -161,113 +149,118 @@ async function disconnected() {
 
 async function read() {
 
-    while (device.readable) {
+    // Use the reader from PolysliceExporter for continuous reading.
+    // The exporter acquires the reader on connect.
+    if (!exporter || !exporter.reader) {
+        console.log("Reader not available from exporter.")
+        return
+    }
 
-        let response = ""
+    let response = ""
+    const decoder = new TextDecoder()
 
-        const decoder = new TextDecoder()
-        const reader = device.readable.getReader()
+    console.log("Started reading serial port.")
 
-        console.log("Started reading serial port.")
+    try {
 
-        try {
+        while (exporter.connected) {
 
-            while (true) {
+            const {value, done} = await exporter.reader.read()
 
-                const {value, done} = await reader.read()
+            // Check for null/undefined value before decoding.
+            if (!value) {
+                if (done) break
+                continue
+            }
 
-                let chunk = decoder.decode(value).replace(/\n|\r|\n\r|\r\n/g, "§")
+            let chunk = decoder.decode(value).replace(/\n|\r|\n\r|\r\n/g, "§")
 
-                if (chunk.includes("§")) {
+            if (chunk.includes("§")) {
 
-                    let lines = chunk.split("§")
+                let lines = chunk.split("§")
 
-                    for (let index = 0; index < lines.length; index++) {
+                for (let index = 0; index < lines.length; index++) {
 
-                        response += lines[index]
+                    response += lines[index]
 
-                        if (lines[index + 1] != undefined) {
+                    if (lines[index + 1] != undefined) {
 
-                            if (response.length) {
+                        if (response.length) {
 
-                                response = response.replace("echo:", "").trim()
+                            response = response.replace("echo:", "").trim()
 
-                                if (streaming) {
+                            if (streaming) {
 
-                                    if (streamPrintLogs) {
+                                if (streamPrintLogs) {
 
-                                        processOutput(response, streamSaveLogs)
-
-                                    }
-
-                                    if (response == gcode[0]) {
-
-                                        gcode.shift()
-
-                                        if (gcode.length) {
-
-                                            await write(gcode[0] + "\n")
-
-                                        } else {
-
-                                            processInput("<span class='success'>File Upload Complete</span>")
-
-                                            if (!streamInjection) {
-
-                                                $("textarea#prompt").prop("disabled", false)
-                                                $("textarea#prompt").focus()
-
-                                            }
-
-                                            await write("M111 S0\n")
-
-                                            streaming = false
-
-                                            uploadable()
-
-                                        }
-
-                                    }
-
-                                } else {
-
-                                    processOutput(response)
+                                    processOutput(response, streamSaveLogs)
 
                                 }
 
-                            }
+                                if (response == gcode[0]) {
 
-                            response = ""
+                                    gcode.shift()
+
+                                    if (gcode.length) {
+
+                                        await write(gcode[0] + "\n")
+
+                                    } else {
+
+                                        processInput("<span class='success'>File Upload Complete</span>")
+
+                                        if (!streamInjection) {
+
+                                            $("textarea#prompt").prop("disabled", false)
+                                            $("textarea#prompt").focus()
+
+                                        }
+
+                                        await write("M111 S0\n")
+
+                                        streaming = false
+
+                                        uploadable()
+
+                                    }
+
+                                }
+
+                            } else {
+
+                                processOutput(response)
+
+                            }
 
                         }
 
+                        response = ""
+
                     }
-
-                } else {
-
-                    response += chunk
 
                 }
 
-                if (done) break
+            } else {
+
+                response += chunk
 
             }
 
-        } catch (error) {
-
-            console.log("Stopped reading serial port.")
-
-            console.log(error)
-
-        } finally {
-
-            reader.releaseLock()
-
-            await disconnect()
-
-            break
+            if (done) break
 
         }
+
+    } catch (error) {
+
+        console.log("Stopped reading serial port.")
+
+        console.log(error)
+
+    } finally {
+
+        // The exporter manages reader lock release through disconnectSerial.
+        // Calling disconnect here ensures proper cleanup.
+        await disconnect()
 
     }
 
@@ -275,12 +268,14 @@ async function read() {
 
 async function write(text) {
 
-    const encoder = new TextEncoder()
-    const writer = device.writable.getWriter()
+    // Use PolysliceExporter.sendLine to send individual G-code lines.
+    // Note: sendLine automatically adds newline, but original code includes it.
+    // Remove trailing newline since sendLine adds it.
+    let line = text.replace(/\n$/, '')
 
-    await writer.write(encoder.encode(text))
-
-    writer.releaseLock()
+    if (exporter && exporter.connected) {
+        await exporter.sendLine(line)
+    }
 
 }
 
@@ -472,7 +467,7 @@ async function reset() {
 
 async function uploadable() {
 
-    if (device.connected && !streaming) {
+    if (exporter && exporter.connected && !streaming) {
 
         $("img#upload").css({
 
@@ -747,7 +742,7 @@ document.addEventListener("DOMContentLoaded", async (event) => {
         $("img#reset").on("click", async (event) => { reset() })
 
         $("button#connection").on("click", async (event) => {
-            if (device.connected) {
+            if (exporter && exporter.connected) {
                 disconnect()
             } else {
                 connect()
@@ -756,7 +751,7 @@ document.addEventListener("DOMContentLoaded", async (event) => {
 
         $("div#settings .control").on("change", async (event) => {
 
-            if (device.connected) await disconnect()
+            if (exporter && exporter.connected) await disconnect()
 
             let setting = $(event.target).attr("name")
             let key = camelize($(event.target).attr("id"))
@@ -874,13 +869,13 @@ document.addEventListener("DOMContentLoaded", async (event) => {
 })
 
 $(window).on("focus", async (event) => {
-    if (device.connected && (!streaming || streamInjection)) {
+    if (exporter && exporter.connected && (!streaming || streamInjection)) {
         $("textarea#prompt").focus()
     }
 })
 
 window.onbeforeunload = (event) => {
-    if (device.connected) {
+    if (exporter && exporter.connected) {
         disconnect()
     }
 }
