@@ -263,6 +263,8 @@ class Exporter
 
     # Stream G-code to serial port.
     # Sends line by line with optional delay between lines.
+    # Note: This method does NOT wait for printer acknowledgment.
+    # For Node.js with acknowledgment, use streamGCodeWithAck().
     streamGCode: (gcode, options = {}) ->
 
         return new Promise (resolve, reject) =>
@@ -306,6 +308,126 @@ class Exporter
                             sendNextLine()
                     .catch(reject)
 
+                sendNextLine()
+
+            catch error
+
+                reject(error)
+
+    # Default timeout for acknowledgment-based streaming (30 seconds).
+    DEFAULT_ACK_TIMEOUT: 30000
+
+    # Stream G-code to serial port with acknowledgment (Node.js only).
+    # Waits for printer "ok" response before sending each line.
+    # This is the recommended method for Node.js to ensure proper command execution.
+    streamGCodeWithAck: (gcode, options = {}) ->
+
+        return new Promise (resolve, reject) =>
+
+            if not @connected
+
+                reject(new Error('Not connected to serial port'))
+                return
+
+            # This method is only for Node.js environment.
+            if typeof window isnt 'undefined'
+
+                reject(new Error('streamGCodeWithAck is only available in Node.js. Use streamGCode in browser.'))
+                return
+
+            try
+
+                lines = gcode.split('\n').filter (line) ->
+
+                    line.trim().length > 0
+
+                timeout = options.timeout or @DEFAULT_ACK_TIMEOUT
+                currentLine = 0
+                responseBuffer = ''
+                timeoutHandle = null
+                isComplete = false
+
+                # Helper to check for "ok" acknowledgment.
+                # Marlin firmware sends "ok" on a new line or as "ok\n".
+                checkForAck = (buffer) ->
+
+                    # Check for "ok" at start of line or after newline.
+                    lines = buffer.split(/\r?\n/)
+
+                    for line in lines
+
+                        trimmed = line.trim().toLowerCase()
+                        if trimmed is 'ok' or trimmed.startsWith('ok ')
+
+                            return true
+
+                    return false
+
+                # Data handler for printer responses.
+                dataHandler = (data) =>
+
+                    return if isComplete
+
+                    responseBuffer += data.toString()
+
+                    # Check for acknowledgment.
+                    if checkForAck(responseBuffer)
+
+                        clearTimeout(timeoutHandle) if timeoutHandle
+                        responseBuffer = ''
+                        sendNextLine()
+
+                @serialPort.on('data', dataHandler)
+
+                # Cleanup function.
+                cleanup = =>
+
+                    clearTimeout(timeoutHandle) if timeoutHandle
+                    @serialPort.removeListener('data', dataHandler)
+
+                sendNextLine = =>
+
+                    if currentLine >= lines.length
+
+                        isComplete = true
+                        cleanup()
+                        resolve({ totalLines: lines.length, success: true })
+                        return
+
+                    line = lines[currentLine].trim()
+                    currentLine++
+
+                    # Skip comments and empty lines.
+                    if line.startsWith(';') or line.length is 0
+
+                        setImmediate sendNextLine
+                        return
+
+                    # Call progress callback if provided.
+                    if options.onProgress
+
+                        options.onProgress(currentLine, lines.length, line)
+
+                    # Set up timeout for this command.
+                    timeoutHandle = setTimeout =>
+
+                        isComplete = true
+                        cleanup()
+                        reject(new Error("Timeout waiting for acknowledgment on line #{currentLine}: #{line}"))
+
+                    , timeout
+
+                    # Reset response buffer for new command.
+                    responseBuffer = ''
+
+                    # Send the line.
+                    @sendLine(line).catch (error) =>
+
+                        isComplete = true
+                        cleanup()
+                        reject(error)
+
+                # Start sending.
                 sendNextLine()
 
             catch error

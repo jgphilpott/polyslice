@@ -120,21 +120,29 @@ async function demonstrateSendLine() {
 
 /**
  * Feature 3: Stream entire G-code file
- * Demonstrates the Exporter.streamGCode() method in Node.js
+ * Demonstrates the Exporter.streamGCode() and streamGCodeWithAck() methods
  */
 async function demonstrateStreamGCode() {
     console.log('Feature 3: Stream Entire G-code File');
     console.log('------------------------------------');
     console.log('Note: Requires a connected 3D printer via serial port.\n');
 
-    // Demonstrate the streamGCode API.
-    console.log('streamGCode() API usage:');
-    console.log('  // Connect to serial port');
-    console.log("  await Exporter.connectSerial({ path: '/dev/ttyUSB0', baudRate: 115200 });");
-    console.log('');
-    console.log('  // Stream G-code with progress callback');
+    // Demonstrate the streamGCode API (delay-based, no acknowledgment).
+    console.log('streamGCode() - Delay-based (browser compatible):');
+    console.log('  // Stream G-code with delay between lines');
     console.log('  await Exporter.streamGCode(gcodeContent, {');
-    console.log('      delay: 50,  // 50ms between lines for flow control');
+    console.log('      delay: 50,  // 50ms between lines');
+    console.log('      onProgress: (current, total, line) => {');
+    console.log('          console.log(`Sending ${current}/${total}: ${line}`);');
+    console.log('      }');
+    console.log('  });');
+    console.log('');
+
+    // Demonstrate the streamGCodeWithAck API (acknowledgment-based, Node.js only).
+    console.log('streamGCodeWithAck() - Acknowledgment-based (Node.js only, RECOMMENDED):');
+    console.log('  // Stream G-code waiting for "ok" from printer before each line');
+    console.log('  await Exporter.streamGCodeWithAck(gcodeContent, {');
+    console.log('      timeout: 30000,  // 30 second timeout per command');
     console.log('      onProgress: (current, total, line) => {');
     console.log('          console.log(`Sending ${current}/${total}: ${line}`);');
     console.log('      }');
@@ -156,6 +164,14 @@ async function demonstrateStreamGCode() {
         console.log('\n✓ Testing error handling for streamGCode without connection:');
         try {
             await Exporter.streamGCode(sampleGCode);
+            console.log('  ✗ Should have thrown an error');
+        } catch (error) {
+            console.log(`  ✓ Correctly throws: "${error.message}"`);
+        }
+
+        console.log('✓ Testing error handling for streamGCodeWithAck without connection:');
+        try {
+            await Exporter.streamGCodeWithAck(sampleGCode);
             console.log('  ✗ Should have thrown an error');
         } catch (error) {
             console.log(`  ✓ Correctly throws: "${error.message}"`);

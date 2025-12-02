@@ -4,18 +4,21 @@
  * This script demonstrates how to use the Polyslice Exporter to send an entire
  * G-code file to a 3D printer via serial port in a Node.js environment.
  *
+ * Uses streamGCodeWithAck() which waits for printer acknowledgment ("ok")
+ * before sending each line, ensuring proper command execution.
+ *
  * Usage:
  *   node examples/scripts/send-file.js path/to/file.gcode [options]
  *
  * Options:
- *   --port <path>     Serial port path (default: /dev/ttyUSB0)
- *   --baud <rate>     Baud rate (default: 115200)
- *   --delay <ms>      Delay between lines in ms (default: 50)
+ *   --port <path>       Serial port path (default: /dev/ttyUSB0)
+ *   --baud <rate>       Baud rate (default: 115200)
+ *   --timeout <ms>      Timeout per command in ms (default: 30000)
  *
  * Examples:
  *   node examples/scripts/send-file.js myprint.gcode
  *   node examples/scripts/send-file.js myprint.gcode --port /dev/ttyACM0 --baud 250000
- *   node examples/scripts/send-file.js myprint.gcode --delay 100
+ *   node examples/scripts/send-file.js myprint.gcode --timeout 60000
  */
 
 const fs = require('fs');
@@ -29,7 +32,7 @@ function parseArgs() {
         file: null,
         port: '/dev/ttyUSB0',
         baud: 115200,
-        delay: 50
+        timeout: 30000
     };
 
     for (let i = 0; i < args.length; i++) {
@@ -42,10 +45,10 @@ function parseArgs() {
             if (!isNaN(baud) && baud > 0) {
                 options.baud = baud;
             }
-        } else if (arg === '--delay' && args[i + 1]) {
-            const delay = parseInt(args[++i], 10);
-            if (!isNaN(delay) && delay >= 0) {
-                options.delay = delay;
+        } else if (arg === '--timeout' && args[i + 1]) {
+            const timeout = parseInt(args[++i], 10);
+            if (!isNaN(timeout) && timeout > 0) {
+                options.timeout = timeout;
             }
         } else if (!arg.startsWith('--') && !options.file) {
             options.file = arg;
@@ -64,14 +67,14 @@ Usage:
   node examples/scripts/send-file.js <file.gcode> [options]
 
 Options:
-  --port <path>     Serial port path (default: /dev/ttyUSB0)
-  --baud <rate>     Baud rate (default: 115200)
-  --delay <ms>      Delay between lines in ms (default: 50)
+  --port <path>       Serial port path (default: /dev/ttyUSB0)
+  --baud <rate>       Baud rate (default: 115200)
+  --timeout <ms>      Timeout per command in ms (default: 30000)
 
 Examples:
   node examples/scripts/send-file.js myprint.gcode
   node examples/scripts/send-file.js myprint.gcode --port /dev/ttyACM0
-  node examples/scripts/send-file.js myprint.gcode --baud 250000 --delay 100
+  node examples/scripts/send-file.js myprint.gcode --baud 250000 --timeout 60000
 `);
 }
 
@@ -85,7 +88,7 @@ async function sendFile(options) {
     console.log(`File: ${filePath}`);
     console.log(`Port: ${options.port}`);
     console.log(`Baud: ${options.baud}`);
-    console.log(`Delay: ${options.delay}ms\n`);
+    console.log(`Timeout: ${options.timeout}ms\n`);
 
     // Check if file exists.
     if (!fs.existsSync(filePath)) {
@@ -118,13 +121,14 @@ async function sendFile(options) {
         process.exit(1);
     }
 
-    // Stream G-code to printer.
-    console.log('Streaming G-code...');
+    // Stream G-code to printer with acknowledgment.
+    // Uses streamGCodeWithAck() which waits for printer "ok" before each line.
+    console.log('Streaming G-code (waiting for acknowledgment on each line)...');
     const startTime = Date.now();
 
     try {
-        const result = await Exporter.streamGCode(gcode, {
-            delay: options.delay,
+        const result = await Exporter.streamGCodeWithAck(gcode, {
+            timeout: options.timeout || 30000,
             onProgress: (current, total, line) => {
                 const percent = Math.round((current / total) * 100);
                 const displayLine = (line || '').substring(0, 30);
