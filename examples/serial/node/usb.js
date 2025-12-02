@@ -14,8 +14,8 @@
 const { Exporter } = require('../../../src/index');
 
 // Configuration - update for your system.
-const PORT_PATH = '/dev/tty.usbserial-10';  // macOS example
-// const PORT_PATH = '/dev/ttyUSB0';        // Linux example
+const PORT_PATH = '/dev/ttyUSB0';        // Linux example
+// const PORT_PATH = '/dev/tty.usbserial-10';  // macOS example
 // const PORT_PATH = 'COM3';                // Windows example
 const BAUD_RATE = 115200;
 
