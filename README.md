@@ -16,7 +16,7 @@ An AI powered [slicer](https://en.wikipedia.org/wiki/Slicer_(3D_printing)) desig
 
 ## Installation
 
-### Node.js
+### Node
 
 ```bash
 npm install @jgphilpott/polyslice
@@ -67,8 +67,10 @@ const gcode = slicer.slice(cube);
 **To run this example locally follow these steps:**
 
 1) Clone the Polyslice repo: `git clone git@github.com:jgphilpott/polyslice.git`
-2) Compile the JS code: `npm run compile`
-3) Run the example script: `node examples/scripts/quick-start.js`
+2) Navigate into the repo directory: `cd polyslice`
+3) Install the node modules: `npm install`
+4) Compile the code: `npm run compile`
+5) Run the example script: `node examples/scripts/quick-start.js`
 
 ## Features
 
