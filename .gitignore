@@ -46,4 +46,8 @@ marlin
 !resources/gcode/**/*.gcode
 
 # Example Output Files
-examples/output/
+examples/output/*.gcode
+examples/output/*.stl
+examples/output/*.obj
+examples/output/*.txt
+examples/output/*.md
