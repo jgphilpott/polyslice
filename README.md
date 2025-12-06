@@ -14,6 +14,18 @@ An AI powered [slicer](https://en.wikipedia.org/wiki/Slicer_(3D_printing)) desig
 
 [Polyslice](https://jgphilpott.github.io/polyslice) is designed to streamline the 3D printing workflow. Whether you're designing models in three.js or loading existing STL, OBJ, or other 3D files, Polyslice can process them and generate machine ready G-code. With built-in support for popular 3D file formats and the ability to send G-code directly to your 3D printer via [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API) or [serialport](https://www.npmjs.com/package/serialport), the entire design-to-print workflow can happen seamlessly in a web browser or Node.js environment. This makes 3D printing more accessible and eliminates the friction of using multiple tools.
 
+## Demo
+
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=V2h3SiafXRc">
+    <img src="https://img.youtube.com/vi/V2h3SiafXRc/maxresdefault.jpg" alt="Polyslice Demo Video" width="600">
+  </a>
+</p>
+
+<p align="center">
+  <em>Click the image above to watch the demo video on YouTube</em>
+</p>
+
 ## Installation
 
 ### Node
