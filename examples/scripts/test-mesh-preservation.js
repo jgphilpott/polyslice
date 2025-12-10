@@ -55,7 +55,7 @@ console.log('');
 const positionPreserved = mesh.position.x === 5 && mesh.position.y === 10 && mesh.position.z === 15;
 const rotationPreserved = Math.abs(mesh.rotation.x - Math.PI / 4) < 1e-10 && 
                           Math.abs(mesh.rotation.y - Math.PI / 6) < 1e-10 &&
-                          mesh.rotation.z === 0;
+                          Math.abs(mesh.rotation.z - 0) < 1e-10;
 const scalePreserved = mesh.scale.x === 1.5 && mesh.scale.y === 1.0 && mesh.scale.z === 2.0;
 
 console.log('Verification:');
