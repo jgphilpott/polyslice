@@ -4,17 +4,17 @@
 The ESM build (`dist/index.esm.js`) was bundling THREE.js and all node_modules dependencies, resulting in a 2.7MB file. This caused the warning "THREE.WARNING: Multiple instances of Three.js being imported" when Polyslice was used alongside other three.js imports in a project.
 
 ## Solution
-Updated the build configuration to externalize only THREE.js and three-subdivide using esbuild's `--external` flags. This ensures that THREE.js is not bundled while keeping other dependencies bundled for compatibility.
+Updated the build configuration to externalize THREE.js, three-subdivide, and @jgphilpott/polytree using esbuild's `--external` flags. This ensures that THREE.js and packages that depend on it are not bundled, preventing multiple THREE.js instances.
 
 ### Changes Made
-1. Updated `build:cjs` script to use `--external:three --external:three-subdivide`
-2. Updated `build:esm` script to use `--external:three --external:three-subdivide`
-3. Added `peerDependencies` section documenting THREE.js and three-subdivide requirements
+1. Updated `build:cjs` script to use `--external:three --external:three-subdivide --external:@jgphilpott/polytree`
+2. Updated `build:esm` script to use `--external:three --external:three-subdivide --external:@jgphilpott/polytree`
+3. Added `peerDependencies` section documenting THREE.js, three-subdivide, and polytree requirements
 
 ### Results
 - **Before**: `dist/index.esm.js` = 2.7MB (70,983 lines) - THREE.js bundled
-- **After**: `dist/index.esm.js` = 908.9KB (26,193 lines) - THREE.js external, other deps bundled
-- **Reduction**: 66.3% smaller file size
+- **After**: `dist/index.esm.js` = 737.5KB (22,430 lines) - THREE.js and polytree external
+- **Reduction**: 72.7% smaller file size
 
 ## ⚠️ Important: How to Use Each Build
 
@@ -38,7 +38,7 @@ const slicer = new Polyslice();
 const gcode = slicer.slice(mesh);
 ```
 
-Your bundler will process the code and properly handle the external THREE.js dependency.
+Your bundler will process the code and properly handle the external dependencies (THREE.js, three-subdivide, and @jgphilpott/polytree).
 
 ### CJS Build (`dist/index.js`) - For Node.js
 
@@ -88,11 +88,15 @@ This is a standard pattern for npm packages that need to support multiple enviro
 **Externalized** (must be installed by user):
 - `three` (peer dependency ^0.180.0)
 - `three-subdivide` (peer dependency ^1.1.5)
+- `@jgphilpott/polytree` (peer dependency ^0.1.4) - Externalized because it has THREE.js dependency
 
 **Bundled** (included in the build):
 - `@jgphilpott/polyconvert`
-- `@jgphilpott/polytree`
 - `polygon-clipping`
 - `serialport` (optional, externalized in browser build)
+
+### Why is polytree External?
+
+The `@jgphilpott/polytree` package internally uses THREE.js. By externalizing it along with THREE.js, we ensure that all packages use the same THREE.js instance, preventing the "multiple instances" warning. Users who install polyslice will automatically get polytree as a dependency.
 
 

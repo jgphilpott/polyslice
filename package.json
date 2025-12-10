@@ -17,8 +17,8 @@
     "build": "npm run compile && npm run build:node && npm run build:browser",
     "build:node": "npm run build:cjs && npm run build:esm",
     "build:browser": "esbuild src/index.js --bundle --platform=browser --format=iife --global-name=Polyslice --outfile=dist/index.browser.js --external:serialport",
-    "build:cjs": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/index.js --external:three --external:three-subdivide",
-    "build:esm": "esbuild src/index.js --bundle --platform=node --format=esm --outfile=dist/index.esm.js --external:three --external:three-subdivide",
+    "build:cjs": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/index.js --external:three --external:three-subdivide --external:@jgphilpott/polytree",
+    "build:esm": "esbuild src/index.js --bundle --platform=node --format=esm --outfile=dist/index.esm.js --external:three --external:three-subdivide --external:@jgphilpott/polytree",
     "build:minify": "uglifyjs dist/index.js -o dist/index.min.js --compress --mangle && uglifyjs dist/index.browser.js -o dist/index.browser.min.js --compress --mangle",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
@@ -64,7 +64,8 @@
   },
   "peerDependencies": {
     "three": "^0.180.0",
-    "three-subdivide": "^1.1.5"
+    "three-subdivide": "^1.1.5",
+    "@jgphilpott/polytree": "^0.1.4"
   },
   "optionalDependencies": {
     "serialport": "^13.0.0"
