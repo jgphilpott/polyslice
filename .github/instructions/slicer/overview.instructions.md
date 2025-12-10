@@ -20,15 +20,23 @@ The slicer takes a three.js mesh object and:
 The slicing process is orchestrated by `src/slicer/slice.coffee`, which:
 
 1. **Extracts the mesh** from the scene using preprocessing utilities
-2. **Generates pre-print sequence** (heating, homing, test strip)
-3. **Slices the mesh** using Polytree library into layer segments
-4. **Processes each layer** by:
+2. **Clones the mesh** to preserve the original object (position, rotation, scale remain unchanged)
+3. **Generates pre-print sequence** (heating, homing, test strip)
+4. **Slices the mesh** using Polytree library into layer segments
+5. **Processes each layer** by:
    - Converting segments to closed paths
    - Detecting holes (paths contained within other paths)
    - Generating walls from outer to inner
    - Generating skin for exposed surfaces
    - Generating infill for interior regions
-5. **Generates post-print sequence** (cooling, homing, shutdown)
+6. **Generates post-print sequence** (cooling, homing, shutdown)
+
+## Important Behavior
+
+**Mesh Preservation**: The slicing process does NOT modify the original mesh object. A clone is created internally before any transformations (such as adjusting Z position for the build plate). This ensures that:
+- The original mesh position, rotation, and scale remain unchanged
+- The mesh can be used in a scene visualization while slicing
+- Multiple slicing operations can be performed on the same mesh
 
 ## Key Concepts
 
