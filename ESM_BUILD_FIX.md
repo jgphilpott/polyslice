@@ -4,56 +4,62 @@
 The ESM build (`dist/index.esm.js`) was bundling THREE.js and all node_modules dependencies, resulting in a 2.7MB file. This caused the warning "THREE.WARNING: Multiple instances of Three.js being imported" when Polyslice was used alongside other three.js imports in a project.
 
 ## Solution
-Updated the build configuration to externalize all node_modules packages using esbuild's `--packages=external` flag. This ensures that THREE.js and other dependencies are imported as peer dependencies rather than being bundled.
+Updated the build configuration to externalize only THREE.js and three-subdivide using esbuild's `--external` flags. This ensures that THREE.js is not bundled while keeping other dependencies bundled for compatibility.
 
 ### Changes Made
-1. Updated `build:cjs` script to use `--packages=external`
-2. Updated `build:esm` script to use `--packages=external`
+1. Updated `build:cjs` script to use `--external:three --external:three-subdivide`
+2. Updated `build:esm` script to use `--external:three --external:three-subdivide`
 3. Added `peerDependencies` section documenting THREE.js and three-subdivide requirements
 
 ### Results
 - **Before**: `dist/index.esm.js` = 2.7MB (70,983 lines) - THREE.js bundled
-- **After**: `dist/index.esm.js` = 330KB (9,260 lines) - THREE.js external
-- **Reduction**: 87.8% smaller file size
+- **After**: `dist/index.esm.js` = 908.9KB (26,193 lines) - THREE.js external, other deps bundled
+- **Reduction**: 66.3% smaller file size
 
-## Usage
+## ⚠️ Important: How to Use Each Build
 
-### For Bundlers (webpack, vite, rollup) - RECOMMENDED
-The ESM build is designed specifically for bundlers. Use the following import:
+### ESM Build (`dist/index.esm.js`) - For Bundlers ONLY
 
+**The ESM build is designed exclusively for module bundlers (webpack, vite, rollup, etc.).**
+
+It will NOT work if you:
+- Import it directly in Node.js with `import` statements
+- Include it directly in a browser with `<script type="module">`
+- Try to use it without a build tool
+
+**Correct Usage with Bundlers:**
 ```javascript
-// In your bundled application
+// In your webpack/vite/rollup project
 import * as THREE from 'three';
 import Polyslice from '@jgphilpott/polyslice';
 
-const geometry = new THREE.BoxGeometry(10, 10, 10);
 const mesh = new THREE.Mesh(geometry);
 const slicer = new Polyslice();
 const gcode = slicer.slice(mesh);
 ```
 
-The bundler will handle the external dependencies and ensure a single THREE.js instance is shared.
+Your bundler will process the code and properly handle the external THREE.js dependency.
 
-### For Node.js - Use CommonJS
-For Node.js applications, use the CommonJS build:
+### CJS Build (`dist/index.js`) - For Node.js
+
+**For Node.js applications, use the CommonJS build:**
 
 ```javascript
-// In Node.js
 const THREE = require('three');
 const Polyslice = require('@jgphilpott/polyslice');
 
-const geometry = new THREE.BoxGeometry(10, 10, 10);
 const mesh = new THREE.Mesh(geometry);
 const slicer = new Polyslice();
 const gcode = slicer.slice(mesh);
 ```
 
-### For Browsers - Use IIFE
-For direct browser usage without a bundler, use the browser build:
+### Browser IIFE Build (`dist/index.browser.js`) - For Direct Browser Use
+
+**For browsers without a bundler, use the IIFE build:**
 
 ```html
 <script src="https://unpkg.com/three@0.181.0/build/three.min.js"></script>
-<script src="dist/index.browser.js"></script>
+<script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
 <script>
   const geometry = new THREE.BoxGeometry(10, 10, 10);
   const mesh = new THREE.Mesh(geometry);
@@ -62,19 +68,31 @@ For direct browser usage without a bundler, use the browser build:
 </script>
 ```
 
+## Why Can't I Use the ESM Build Directly?
+
+The ESM build uses esbuild's CommonJS interop layer internally. While it outputs ESM format, it contains CommonJS-style `require()` calls for external dependencies. Modern bundlers understand this hybrid format and process it correctly, but:
+
+- **Node.js ESM**: Cannot execute the CommonJS `require()` calls
+- **Browsers**: Cannot resolve or execute `require()` statements  
+- **Bundlers**: Can process and transform the code properly ✅
+
+This is a standard pattern for npm packages that need to support multiple environments while keeping specific dependencies external.
+
 ## Impact on Users
-- **Bundler users** (webpack, vite, rollup): ✅ Will now properly share a single THREE.js instance across all modules
-- **Node.js users**: ✅ Use CommonJS build (`require()`) for best compatibility
-- **Browser IIFE users**: ✅ No change, browser build still bundles everything
+- **Bundler users** (webpack, vite, rollup): ✅ Single THREE.js instance, no "multiple instances" warning
+- **Node.js users**: ✅ Use CommonJS build (`require()`)
+- **Browser users** (no bundler): ✅ Use IIFE build
 
 ## Dependencies
-All node_modules dependencies are now treated as external:
-- `three` (peer dependency)
-- `three-subdivide` (peer dependency)
+
+**Externalized** (must be installed by user):
+- `three` (peer dependency ^0.180.0)
+- `three-subdivide` (peer dependency ^1.1.5)
+
+**Bundled** (included in the build):
 - `@jgphilpott/polyconvert`
 - `@jgphilpott/polytree`
 - `polygon-clipping`
-- `serialport` (optional)
+- `serialport` (optional, externalized in browser build)
 
-These will be resolved from the user's node_modules directory at build time (bundlers) or runtime (Node.js).
 
