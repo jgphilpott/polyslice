@@ -14,10 +14,11 @@
   "scripts": {
     "compile": "npx coffee -cb src/",
     "pretest": "npm run compile",
-    "build": "npm run compile && npm run build:node && npm run build:browser && npm run build:browser-esm",
+    "build": "npm run compile && npm run build:node && npm run build:browser && npm run build:browser-esm && npm run build:browser-iife",
     "build:node": "npm run build:cjs && npm run build:esm",
     "build:browser": "esbuild src/index.js --bundle --platform=browser --format=iife --global-name=Polyslice --outfile=dist/index.browser.js --external:serialport",
     "build:browser-esm": "esbuild src/index.js --bundle --platform=neutral --format=esm --outfile=dist/index.browser.esm.js --external:three --external:three-subdivide --external:three/addons/utils/BufferGeometryUtils.js --external:@jgphilpott/polytree --external:@jgphilpott/polyconvert --external:polygon-clipping --external:serialport",
+    "build:browser-iife": "esbuild src/index.js --bundle --platform=browser --format=iife --global-name=Polyslice --outfile=dist/index.browser.iife.js --external:three --external:three-subdivide --external:three/addons/utils/BufferGeometryUtils.js --external:@jgphilpott/polytree --external:serialport",
     "build:cjs": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/index.js --external:three --external:three-subdivide --external:@jgphilpott/polytree",
     "build:esm": "esbuild src/index.js --bundle --platform=node --format=esm --outfile=dist/index.esm.js --external:three --external:three-subdivide --external:@jgphilpott/polytree",
     "build:minify": "uglifyjs dist/index.js -o dist/index.min.js --compress --mangle && uglifyjs dist/index.browser.js -o dist/index.browser.min.js --compress --mangle",
