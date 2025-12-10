@@ -63,8 +63,8 @@
     "three-subdivide": "^1.1.5"
   },
   "peerDependencies": {
-    "three": ">=0.180.0",
-    "three-subdivide": ">=1.1.5"
+    "three": "^0.180.0",
+    "three-subdivide": "^1.1.5"
   },
   "optionalDependencies": {
     "serialport": "^13.0.0"
