@@ -24,10 +24,10 @@ module.exports =
         slicer.gcode = ""
 
         # Extract mesh from scene if provided.
-        mesh = preprocessingModule.extractMesh(scene)
+        originalMesh = preprocessingModule.extractMesh(scene)
 
         # If no mesh provided, just generate basic initialization sequence.
-        if not mesh
+        if not originalMesh
 
             if slicer.getAutohome()
 
@@ -37,6 +37,11 @@ module.exports =
 
         # Initialize THREE.js if not already available.
         THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
+
+        # Clone mesh to avoid modifying the original object.
+        # This preserves the original mesh's position, rotation, and scale in the scene.
+        mesh = originalMesh.clone()
+        mesh.updateMatrixWorld()
 
         # Generate pre-print sequence (metadata, heating, autohome, test strip if enabled).
         slicer.gcode += coders.codePrePrint(slicer)
