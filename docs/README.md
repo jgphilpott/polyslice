@@ -58,6 +58,12 @@ docs/
 - [Examples](examples/EXAMPLES.md) - Practical usage examples for Node.js and browser
 - [Development Guide](development/DEVELOPMENT.md) - Setting up for development and contributing
 
+## Future Development
+
+- [Resin Printing Research](RESIN_PRINTING_RESEARCH.md) - Comprehensive research on adding resin (SLA/DLP/LCD) printing support
+- [Resin Printing Summary](RESIN_PRINTING_SUMMARY.md) - Executive summary of resin printing integration recommendations
+- [Resin Printing Examples](RESIN_PRINTING_EXAMPLES.md) - Proposed API and code examples for resin printing
+
 ## Tools
 
 - [Tools](tools/TOOLS.md) - G-code visualizer and web G-code sender
