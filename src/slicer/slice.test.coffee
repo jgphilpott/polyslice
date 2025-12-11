@@ -158,6 +158,118 @@ describe 'Slicing', ->
             result = slicer.slice(scene)
             expect(result).toContain('G28')
 
+        test 'should not modify original mesh position during slicing', ->
+
+            # Create a cube positioned at specific coordinates.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position mesh at (5, 10, 7).
+            mesh.position.set(5, 10, 7)
+            mesh.updateMatrixWorld()
+
+            # Store original position.
+            originalX = mesh.position.x
+            originalY = mesh.position.y
+            originalZ = mesh.position.z
+
+            # Slice the mesh.
+            slicer.setLayerHeight(0.2)
+            result = slicer.slice(mesh)
+
+            # Verify that original mesh position is unchanged.
+            expect(mesh.position.x).toBe(originalX)
+            expect(mesh.position.y).toBe(originalY)
+            expect(mesh.position.z).toBe(originalZ)
+
+            # Verify that slicing still worked.
+            expect(result).toContain('Printing')
+
+        test 'should not modify original mesh with negative Z position', ->
+
+            # Create a cube with negative Z position (below build plate).
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position mesh below build plate.
+            mesh.position.set(0, 0, -5)
+            mesh.updateMatrixWorld()
+
+            # Store original position.
+            originalX = mesh.position.x
+            originalY = mesh.position.y
+            originalZ = mesh.position.z
+
+            # Slice the mesh (should internally adjust Z but not modify original).
+            slicer.setLayerHeight(0.2)
+            result = slicer.slice(mesh)
+
+            # Verify that original mesh position is unchanged.
+            expect(mesh.position.x).toBe(originalX)
+            expect(mesh.position.y).toBe(originalY)
+            expect(mesh.position.z).toBe(originalZ)
+
+            # Verify that slicing still worked.
+            expect(result).toContain('Printing')
+
+        test 'should not modify mesh rotation during slicing', ->
+
+            # Create a rotated cube.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.rotation.set(Math.PI / 4, Math.PI / 6, Math.PI / 3)
+            mesh.updateMatrixWorld()
+
+            # Store original rotation.
+            originalRotationX = mesh.rotation.x
+            originalRotationY = mesh.rotation.y
+            originalRotationZ = mesh.rotation.z
+
+            # Slice the mesh.
+            slicer.setLayerHeight(0.2)
+            result = slicer.slice(mesh)
+
+            # Verify that original mesh rotation is unchanged.
+            expect(mesh.rotation.x).toBe(originalRotationX)
+            expect(mesh.rotation.y).toBe(originalRotationY)
+            expect(mesh.rotation.z).toBe(originalRotationZ)
+
+            # Verify that slicing still worked.
+            expect(result).toContain('Printing')
+
+        test 'should not modify mesh scale during slicing', ->
+
+            # Create a scaled cube.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.scale.set(1.5, 2.0, 0.8)
+            mesh.updateMatrixWorld()
+
+            # Store original scale.
+            originalScaleX = mesh.scale.x
+            originalScaleY = mesh.scale.y
+            originalScaleZ = mesh.scale.z
+
+            # Slice the mesh.
+            slicer.setLayerHeight(0.2)
+            result = slicer.slice(mesh)
+
+            # Verify that original mesh scale is unchanged.
+            expect(mesh.scale.x).toBe(originalScaleX)
+            expect(mesh.scale.y).toBe(originalScaleY)
+            expect(mesh.scale.z).toBe(originalScaleZ)
+
+            # Verify that slicing still worked.
+            expect(result).toContain('Printing')
+
     describe 'Torus Slicing with Holes', ->
 
         test 'should generate infill clipped by hole walls', ->

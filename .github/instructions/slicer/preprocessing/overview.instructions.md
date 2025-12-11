@@ -12,6 +12,8 @@ The preprocessing module prepares meshes for slicing. Located in `src/slicer/pre
 - Subdivide sparse meshes for better slicing quality
 - Extract mesh objects from scene hierarchies
 
+**Note**: The main slicing process (in `slice.coffee`) handles mesh cloning to preserve the original object. The preprocessing module receives a mesh that is already a clone, so any transformations here do not affect the original mesh in the user's scene.
+
 ## Mesh Preprocessing
 
 ### preprocessMesh
