@@ -83,6 +83,7 @@ class GCodeLoaderExtended extends Loader {
    * @return {Group} The parsed GCode asset.
    */
   parse(data) {
+
     let state = {
       x: 0,
       y: 0,
@@ -93,6 +94,7 @@ class GCodeLoaderExtended extends Loader {
       relative: false,
       currentType: null, // Track current movement type from comments
     };
+
     const layers = [];
 
     let currentLayer = undefined;
@@ -115,7 +117,7 @@ class GCodeLoaderExtended extends Loader {
     const pathMaterial = materials.path;
     const extrudingMaterial = materials.extruded;
 
-  function newLayer(line) {
+    function newLayer(line) {
       currentLayer = {
         vertex: [],
         pathVertex: [],
@@ -125,8 +127,8 @@ class GCodeLoaderExtended extends Loader {
       layers.push(currentLayer);
     }
 
-  // Create line segment between p1 and p2
-  function addSegment(p1, p2) {
+    // Create line segment between p1 and p2
+    function addSegment(p1, p2) {
       if (currentLayer === undefined) {
         newLayer(p1);
       }
@@ -173,7 +175,7 @@ class GCodeLoaderExtended extends Loader {
       layerCount: 0,
     };
 
-  const lines = data.split('\n');
+    const lines = data.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
 
@@ -187,7 +189,9 @@ class GCodeLoaderExtended extends Loader {
       let comment = null;
       let codePart = rawLine;
       const commentIndex = rawLine.indexOf(';');
+
       if (commentIndex !== -1) {
+
         comment = rawLine.substring(commentIndex + 1).trim();
         codePart = rawLine.substring(0, commentIndex).trim();
         metadata.comments.push({ line: i, comment });
@@ -207,6 +211,7 @@ class GCodeLoaderExtended extends Loader {
           // Clear currentType for post-print sequence - all moves should be travel (red)
           state.currentType = null;
         }
+
       }
 
       const tokens = codePart.split(' ');
@@ -272,23 +277,23 @@ class GCodeLoaderExtended extends Loader {
         state.currentType = preservedType;
         state.relative = preservedRelative;
       } else if (cmd === 'G2' || cmd === 'G3') {
-        //G2/G3 - Arc Movement ( G2 clock wise and G3 counter clock wise )
-        //console.warn( 'THREE.GCodeLoader: Arc command not supported' );
+        // G2/G3 - Arc Movement ( G2 clock wise and G3 counter clock wise )
+        // console.warn( 'THREE.GCodeLoader: Arc command not supported' );
       } else if (cmd === 'G90') {
-        //G90: Set to Absolute Positioning
+        // G90: Set to Absolute Positioning
         state.relative = false;
       } else if (cmd === 'G91') {
-        //G91: Set to state.relative Positioning
+        // G91: Set to state.relative Positioning
         state.relative = true;
       } else if (cmd === 'G92') {
-        //G92: Set Position
+        // G92: Set Position
         const line = state;
         line.x = args.x !== undefined ? args.x : line.x;
         line.y = args.y !== undefined ? args.y : line.y;
         line.z = args.z !== undefined ? args.z : line.z;
         line.e = args.e !== undefined ? args.e : line.e;
       } else {
-        //console.warn( 'THREE.GCodeLoader: Command not supported:' + cmd );
+        // console.warn( 'THREE.GCodeLoader: Command not supported:' + cmd );
       }
     }
 
