@@ -647,6 +647,39 @@ function createMoveSlider() {
 }
 
 /**
+ * Save slicing settings to localStorage.
+ */
+function saveSlicingSettings(params) {
+  const settings = {
+    printer: params.printer,
+    filament: params.filament,
+    layerHeight: params.layerHeight,
+    infillDensity: params.infillDensity,
+    infillPattern: params.infillPattern
+  };
+  try {
+    localStorage.setItem('visualizer-slicing-settings', JSON.stringify(settings));
+  } catch (error) {
+    console.warn('Failed to save slicing settings to localStorage:', error);
+  }
+}
+
+/**
+ * Load slicing settings from localStorage.
+ */
+function loadSlicingSettings() {
+  try {
+    const saved = localStorage.getItem('visualizer-slicing-settings');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (error) {
+    console.warn('Failed to load slicing settings from localStorage:', error);
+  }
+  return null;
+}
+
+/**
  * Create the slicing GUI for loaded 3D models.
  */
 function createSlicingGUI() {
@@ -655,12 +688,15 @@ function createSlicingGUI() {
     slicingGUI.destroy();
   }
 
+  // Load saved settings or use defaults
+  const savedSettings = loadSlicingSettings();
+
   const params = {
-    printer: 'Ender3',
-    filament: 'GenericPLA',
-    layerHeight: 0.2,
-    infillDensity: 20,
-    infillPattern: 'grid',
+    printer: savedSettings?.printer || 'Ender3',
+    filament: savedSettings?.filament || 'GenericPLA',
+    layerHeight: savedSettings?.layerHeight || 0.2,
+    infillDensity: savedSettings?.infillDensity || 20,
+    infillPattern: savedSettings?.infillPattern || 'grid',
     slice: sliceModel
   };
 
@@ -670,13 +706,13 @@ function createSlicingGUI() {
   slicingGUI = new GUI({ title: 'Slicer' });
 
   let h = slicingGUI.addFolder('Printer & Filament');
-  h.add(params, 'printer', PRINTER_OPTIONS).name('Printer');
-  h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament');
+  h.add(params, 'printer', PRINTER_OPTIONS).name('Printer').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament').onChange(() => saveSlicingSettings(params));
 
   h = slicingGUI.addFolder('Slicer Settings');
-  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)');
-  h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)');
-  h.add(params, 'infillPattern', ['grid', 'triangles', 'hexagons']).name('Infill Pattern');
+  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'infillPattern', ['grid', 'triangles', 'hexagons']).name('Infill Pattern').onChange(() => saveSlicingSettings(params));
 
   slicingGUI.add(params, 'slice').name('Slice');
   slicingGUI.open();
@@ -693,6 +729,26 @@ function hideSlicingGUI() {
   if (slicingGUI) {
     slicingGUI.destroy();
     slicingGUI = null;
+  }
+}
+
+/**
+ * Hide the Fork Me banner (called when any model is loaded).
+ */
+function hideForkMeBanner() {
+  const forkMe = document.getElementById('forkme');
+  if (forkMe) {
+    forkMe.style.display = 'none';
+  }
+}
+
+/**
+ * Show the Fork Me banner (called on reset).
+ */
+function showForkMeBanner() {
+  const forkMe = document.getElementById('forkme');
+  if (forkMe) {
+    forkMe.style.display = '';
   }
 }
 
@@ -717,7 +773,11 @@ function sliceModel() {
     // Get GUI parameters
     const params = slicingGUI.userData;
 
+    // Save GUI settings to localStorage
+    saveSlicingSettings(params);
+
     // Create printer and filament configurations
+    // When using 'import * as Polyslice', the named exports are properties
     const printer = new window.Polyslice.Printer(params.printer);
     const filament = new window.Polyslice.Filament(params.filament);
 
@@ -1412,6 +1472,9 @@ function displayMesh(object, filename) {
     isFirstUpload = false;
   }
 
+  // Hide fork me banner when any model is loaded
+  hideForkMeBanner();
+
   // Show slicing GUI for 3D models
   createSlicingGUI();
 }
@@ -1482,6 +1545,9 @@ function loadGCode(content, filename) {
 
   // Hide slicing GUI when loading G-code
   hideSlicingGUI();
+
+  // Hide fork me banner when any model is loaded
+  hideForkMeBanner();
 
   // Parse G-code with extended loader that preserves comments.
   const loader = new GCodeLoaderExtended();
@@ -1674,6 +1740,8 @@ function resetView() {
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();
+    // Show fork me banner when no model is loaded
+    showForkMeBanner();
   }
 
   // Reset all movement type checkboxes to checked
@@ -1716,6 +1784,13 @@ function resetView() {
   // Reset move slider to 100%
   if (moveSlider) {
     moveSlider.value = 100;
+  }
+
+  // Reset slicing settings to defaults
+  try {
+    localStorage.removeItem('visualizer-slicing-settings');
+  } catch (error) {
+    console.warn('Failed to clear slicing settings from localStorage:', error);
   }
 
   // Save the reset states to localStorage
