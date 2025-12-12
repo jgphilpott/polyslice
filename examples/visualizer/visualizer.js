@@ -55,6 +55,7 @@ window.addEventListener('DOMContentLoaded', init);
  * Initialize the Three.js scene, camera, renderer, and controls.
  */
 function init() {
+
   // Create scene.
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a1a);
@@ -120,6 +121,7 @@ function init() {
 
   // Start animation loop.
   animate();
+
 }
 
 /**
@@ -128,6 +130,7 @@ function init() {
 const AXIS_LENGTH = 220; // Single source of truth for axis & grid sizing
 
 function createAxes() {
+
   const axisLength = AXIS_LENGTH;
   const axisThickness = 3;
 
@@ -171,12 +174,14 @@ function createAxes() {
   scene.add(zAxis);
 
   axesLines = [xAxis, yAxis, zAxis];
+
 }
 
 /**
  * Create grid helper on the XY plane.
  */
 function createGridHelper() {
+
   // Only draw grid in X+ / Y- quadrant of G-code space -> Three.js (X >= 0, Z <= 0)
   const sizeX = AXIS_LENGTH;
   const sizeZ = AXIS_LENGTH; // magnitude for negative Z direction
@@ -219,6 +224,7 @@ function createGridHelper() {
   // Store group in gridHelper reference for checkbox toggle
   gridHelper = group;
   scene.add(gridHelper);
+
 }
 
 /**
@@ -306,8 +312,7 @@ function createLegend() {
                     <span>Other Extrusion</span>
                 </div>
             </div>
-        </div>
-    `;
+        </div>`;
 
   document.body.insertAdjacentHTML('beforeend', legendHTML);
 
@@ -533,6 +538,7 @@ function loadSettingsStates() {
  * Apply or remove thick lines effect to all G-code line segments.
  */
 function applyThickLinesEffect(isThick) {
+
   if (!gcodeObject) return;
 
   gcodeObject.traverse(child => {
@@ -574,6 +580,7 @@ function applyThickLinesEffect(isThick) {
       }
     }
   });
+
 }
 
 /**
@@ -581,6 +588,7 @@ function applyThickLinesEffect(isThick) {
  * When enabled, sets opacity to 0.5 and transparent=true; when disabled, restores to 1.0.
  */
 function applyTranslucentLinesEffect(isTranslucent) {
+
   if (!gcodeObject) return;
 
   gcodeObject.traverse(child => {
@@ -605,6 +613,7 @@ function applyTranslucentLinesEffect(isTranslucent) {
       child.material.needsUpdate = true;
     }
   });
+
 }
 
 /**
@@ -616,8 +625,7 @@ function createLayerSlider() {
             <input type="range" id="layer-slider-max" min="0" max="100" value="100" orient="vertical">
             <input type="range" id="layer-slider-min" min="0" max="100" value="0" orient="vertical">
             <div id="layer-info">All Layers</div>
-        </div>
-    `;
+        </div>`;
 
   document.body.insertAdjacentHTML('beforeend', sliderHTML);
   layerSliderMin = document.getElementById('layer-slider-min');
@@ -632,8 +640,7 @@ function createMoveSlider() {
         <div id="move-slider-container">
             <div id="move-info">Move Progress: 0%</div>
             <input type="range" id="move-slider" min="0" max="100" value="100">
-        </div>
-    `;
+        </div>`;
 
   document.body.insertAdjacentHTML('beforeend', sliderHTML);
   moveSlider = document.getElementById('move-slider');
@@ -643,6 +650,7 @@ function createMoveSlider() {
  * Create the slicing GUI for loaded 3D models.
  */
 function createSlicingGUI() {
+
   if (slicingGUI) {
     slicingGUI.destroy();
   }
@@ -675,6 +683,7 @@ function createSlicingGUI() {
 
   // Store params on the GUI instance for access in sliceModel
   slicingGUI.userData = params;
+
 }
 
 /**
@@ -691,6 +700,7 @@ function hideSlicingGUI() {
  * Slice the loaded model using Polyslice.
  */
 function sliceModel() {
+
   if (!loadedModelForSlicing) {
     console.error('No model loaded for slicing');
     alert('No model loaded for slicing');
@@ -739,6 +749,7 @@ function sliceModel() {
     console.error('Error slicing model:', error);
     alert('Error slicing model: ' + error.message);
   }
+
 }
 
 
@@ -1731,6 +1742,7 @@ function onWindowResize() {
  * Animation loop.
  */
 function animate() {
+
   requestAnimationFrame(animate);
 
   // Update controls.
@@ -1738,4 +1750,5 @@ function animate() {
 
   // Render scene.
   renderer.render(scene, camera);
+
 }
