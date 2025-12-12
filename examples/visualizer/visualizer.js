@@ -13,6 +13,7 @@ import { AMFLoader } from 'three/addons/loaders/AMFLoader.js';
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 // Make THREE available globally for the Polyslice loader.
 window.THREE = Object.assign({}, THREE, {
@@ -40,6 +41,8 @@ let moveSlider = null;
 let isFirstUpload = true; // Track if this is the first G-code upload
 let currentGcode = null; // Store the current G-code content for download
 let currentFilename = null; // Store the current filename
+let slicingGUI = null; // GUI instance for slicing controls
+let loadedModelForSlicing = null; // Store the loaded model for slicing
 
 // File extensions for 3D models vs G-code.
 const MODEL_EXTENSIONS = ['stl', 'obj', '3mf', 'amf', 'ply', 'gltf', 'glb', 'dae'];
@@ -637,6 +640,109 @@ function createMoveSlider() {
 }
 
 /**
+ * Create the slicing GUI for loaded 3D models.
+ */
+function createSlicingGUI() {
+  if (slicingGUI) {
+    slicingGUI.destroy();
+  }
+
+  const params = {
+    printer: 'Ender3',
+    filament: 'GenericPLA',
+    layerHeight: 0.2,
+    infillDensity: 20,
+    infillPattern: 'grid',
+    slice: sliceModel
+  };
+
+  const PRINTER_OPTIONS = ['Ender3', 'UltimakerS5', 'PrusaI3MK3S', 'AnycubicI3Mega', 'BambuLabP1P'];
+  const FILAMENT_OPTIONS = ['GenericPLA', 'GenericPETG', 'GenericABS'];
+
+  slicingGUI = new GUI({ title: 'Slicer' });
+
+  let h = slicingGUI.addFolder('Printer & Filament');
+  h.add(params, 'printer', PRINTER_OPTIONS).name('Printer');
+  h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament');
+
+  h = slicingGUI.addFolder('Slicer Settings');
+  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)');
+  h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)');
+  h.add(params, 'infillPattern', ['grid', 'triangles', 'hexagons']).name('Infill Pattern');
+
+  slicingGUI.add(params, 'slice').name('Slice');
+  slicingGUI.open();
+
+  // Store params on the GUI instance for access in sliceModel
+  slicingGUI.userData = params;
+}
+
+/**
+ * Hide the slicing GUI.
+ */
+function hideSlicingGUI() {
+  if (slicingGUI) {
+    slicingGUI.destroy();
+    slicingGUI = null;
+  }
+}
+
+/**
+ * Slice the loaded model using Polyslice.
+ */
+function sliceModel() {
+  if (!loadedModelForSlicing) {
+    console.error('No model loaded for slicing');
+    alert('No model loaded for slicing');
+    return;
+  }
+
+  if (!window.Polyslice) {
+    console.error('Polyslice library not loaded');
+    alert('Polyslice library not loaded. Please refresh the page.');
+    return;
+  }
+
+  try {
+    // Get GUI parameters
+    const params = slicingGUI.userData;
+
+    // Create printer and filament configurations
+    const printer = new window.Polyslice.Printer(params.printer);
+    const filament = new window.Polyslice.Filament(params.filament);
+
+    // Create the slicer instance
+    const slicer = new window.Polyslice.Polyslice({
+      printer: printer,
+      filament: filament,
+      layerHeight: params.layerHeight,
+      infillPattern: params.infillPattern,
+      infillDensity: params.infillDensity,
+      verbose: true
+    });
+
+    console.log('Slicing model with settings:', params);
+
+    // Slice the loaded mesh
+    const gcode = slicer.slice(loadedModelForSlicing);
+
+    console.log('Slicing complete! G-code generated.');
+
+    // Load the resulting G-code into the visualizer
+    const filename = currentFilename ? currentFilename.replace(/\.[^/.]+$/, '.gcode') : 'sliced.gcode';
+    loadGCode(gcode, filename);
+
+    // Hide the slicing GUI after successful slicing
+    hideSlicingGUI();
+
+  } catch (error) {
+    console.error('Error slicing model:', error);
+    alert('Error slicing model: ' + error.message);
+  }
+}
+
+
+/**
  * Setup layer slider after G-code is loaded.
  */
 function setupLayerSlider() {
@@ -1175,8 +1281,14 @@ function loadModel(file) {
 
   // Clear G-code content when loading a model and hide download button.
   currentGcode = null;
-  currentFilename = null;
+  currentFilename = file.name;
   updateDownloadButtonVisibility();
+
+  // Clear loaded model for slicing
+  loadedModelForSlicing = null;
+
+  // Hide slicing GUI while loading
+  hideSlicingGUI();
 
   // Remove previous mesh object if exists.
   if (meshObject) {
@@ -1273,6 +1385,7 @@ function loadModel(file) {
  */
 function displayMesh(object, filename) {
   meshObject = object;
+  loadedModelForSlicing = object; // Store for slicing
 
   // Rotate mesh to align with G-code coordinate system (Z up).
   meshObject.rotation.x = -Math.PI / 2;
@@ -1287,6 +1400,9 @@ function displayMesh(object, filename) {
     centerCamera(meshObject);
     isFirstUpload = false;
   }
+
+  // Show slicing GUI for 3D models
+  createSlicingGUI();
 }
 
 /**
@@ -1349,6 +1465,12 @@ function loadGCode(content, filename) {
     scene.remove(meshObject);
     meshObject = null;
   }
+
+  // Clear the loaded model for slicing
+  loadedModelForSlicing = null;
+
+  // Hide slicing GUI when loading G-code
+  hideSlicingGUI();
 
   // Parse G-code with extended loader that preserves comments.
   const loader = new GCodeLoaderExtended();

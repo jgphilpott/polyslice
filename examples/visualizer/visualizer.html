@@ -69,6 +69,10 @@
     <script type="module">
       import * as Polyslice from 'https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.esm.js';
       window.Polyslice = Polyslice; // Expose to window to keep existing visualizer.js usage patterns
+      
+      // Also expose PolysliceExporter for file downloads
+      window.PolysliceExporter = Polyslice.exporter;
+      window.PolysliceLoader = Polyslice.Loader;
     </script>
 
     <script type="module" src="./visualizer.js"></script>
