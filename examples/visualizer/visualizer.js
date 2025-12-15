@@ -60,6 +60,9 @@ function init() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a1a);
 
+  // Use Z-up coordinate system to match G-code expectations and model slicing
+  THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+
   // Create camera.
   camera = new THREE.PerspectiveCamera(
     75,
@@ -67,7 +70,8 @@ function init() {
     0.1,
     1000
   );
-  camera.position.set(300, 200, -300); // Moved Y axis to opposite side
+  camera.up.set(0, 0, 1);
+  camera.position.set(300, 300, 300);
   camera.lookAt(0, 0, 0);
 
   // Create renderer.
@@ -137,10 +141,7 @@ function createAxes() {
   const axisLength = AXIS_LENGTH;
   const axisThickness = 3;
 
-  // G-code coordinate system: X (red), Y (green), Z (blue, vertical up)
-  // GCodeLoader rotates by -90° on X, so: G-code X→X, Y→Z, Z→Y in Three.js
-
-  // Create X axis (red) - G-code X axis.
+  // Create X axis (red)
   const xGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
     new THREE.Vector3(axisLength, 0, 0),
@@ -152,10 +153,10 @@ function createAxes() {
   const xAxis = new THREE.Line(xGeometry, xMaterial);
   scene.add(xAxis);
 
-  // Create Y axis (green) - G-code Y axis (maps to Three.js Z).
+  // Create Y axis (green)
   const yGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, 0, -axisLength), // Moved to opposite side
+    new THREE.Vector3(0, axisLength, 0),
   ]);
   const yMaterial = new THREE.LineBasicMaterial({
     color: 0x00ff00,
@@ -164,10 +165,10 @@ function createAxes() {
   const yAxis = new THREE.Line(yGeometry, yMaterial);
   scene.add(yAxis);
 
-  // Create Z axis (blue) - G-code Z axis (maps to Three.js Y, vertical up).
+  // Create Z axis (blue)
   const zGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, axisLength, 0),
+    new THREE.Vector3(0, 0, axisLength),
   ]);
   const zMaterial = new THREE.LineBasicMaterial({
     color: 0x0000ff,
@@ -185,10 +186,10 @@ function createAxes() {
  */
 function createGridHelper() {
 
-  // Only draw grid in X+ / Y- quadrant of G-code space -> Three.js (X >= 0, Z <= 0)
+  // Draw grid in X+ / Y+ quadrant on the XY plane (Z=0)
   const sizeX = AXIS_LENGTH;
-  const sizeZ = AXIS_LENGTH; // magnitude for negative Z direction
-  const divisions = 20; // keep 10mm spacing if AXIS_LENGTH=220 (~11mm) but acceptable
+  const sizeY = AXIS_LENGTH;
+  const divisions = 20;
   const colorCenterLine = 0x888888;
   const colorGrid = 0x444444;
 
@@ -199,27 +200,26 @@ function createGridHelper() {
 
   // Step size based on divisions
   const stepX = sizeX / divisions;
-  const stepZ = sizeZ / divisions;
+  const stepY = sizeY / divisions;
 
-  // Vertical lines (parallel to Z axis, extend negative Z)
-  for (let x = 0; x <= sizeX + 0.0001; x += stepX) {
+  // Vertical lines (parallel to Y axis)
+  for (let x = 0; x <= sizeX + 1e-4; x += stepX) {
     const points = [];
     points.push(new THREE.Vector3(x, 0, 0));
-    points.push(new THREE.Vector3(x, 0, -sizeZ));
+    points.push(new THREE.Vector3(x, sizeY, 0));
     const geom = new THREE.BufferGeometry().setFromPoints(points);
     const isCenter = Math.abs(x) < 1e-6; // x==0 edge
     const line = new THREE.Line(geom, isCenter ? materialCenter : materialGrid);
     group.add(line);
   }
 
-  // Horizontal lines (parallel to X axis, at z<=0)
-  for (let z = 0; z <= sizeZ + 0.0001; z += stepZ) {
+  // Horizontal lines (parallel to X axis)
+  for (let y = 0; y <= sizeY + 1e-4; y += stepY) {
     const points = [];
-    const zNeg = -z; // convert to negative Z
-    points.push(new THREE.Vector3(0, 0, zNeg));
-    points.push(new THREE.Vector3(sizeX, 0, zNeg));
+    points.push(new THREE.Vector3(0, y, 0));
+    points.push(new THREE.Vector3(sizeX, y, 0));
     const geom = new THREE.BufferGeometry().setFromPoints(points);
-    const isCenter = Math.abs(z) < 1e-6; // z==0 edge
+    const isCenter = Math.abs(y) < 1e-6; // y==0 edge
     const line = new THREE.Line(geom, isCenter ? materialCenter : materialGrid);
     group.add(line);
   }
@@ -1489,9 +1489,6 @@ function displayMesh(object, filename) {
   meshObject = object;
   loadedModelForSlicing = object; // Store for slicing
 
-  // Rotate mesh to align with G-code coordinate system (Z up).
-  meshObject.rotation.x = -Math.PI / 2;
-
   scene.add(meshObject);
 
   // Update info panel.
@@ -1753,7 +1750,7 @@ function centerCamera(object) {
   camera.position.set(
     center.x + cameraZ,
     center.y + cameraZ,
-    center.z - cameraZ
+    center.z + cameraZ
   );
 
   camera.lookAt(center);
@@ -1773,7 +1770,7 @@ function resetView() {
   } else if (meshObject) {
     centerCamera(meshObject);
   } else {
-    camera.position.set(300, 200, -300); // Moved Y axis to opposite side
+    camera.position.set(300, 300, 300);
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();
