@@ -327,3 +327,11 @@ body {
     height: 100px;
   }
 }
+
+/* lil-gui positioning for slicing GUI */
+
+.lil-gui {
+  top: 0px !important;
+  right: 0px !important;
+  border: 1px solid #ffffff42;
+}
