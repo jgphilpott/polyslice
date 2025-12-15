@@ -40,9 +40,10 @@ module.exports =
 
         # Clone mesh to avoid modifying the original object.
         # This preserves the original mesh's position, rotation, and scale in the scene.
-        # We use clone(true) for recursive cloning to ensure all child objects are also cloned.
-        # Note: Geometry and material are still shared (not cloned) but not modified during slicing (read-only).
+        # We use clone(true) for recursive cloning, then manually clone geometry to prevent
+        # any shared state modifications (e.g., from computeBoundingBox calls).
         mesh = originalMesh.clone(true)
+        mesh.geometry = originalMesh.geometry.clone()
         mesh.updateMatrixWorld()
 
         # Generate pre-print sequence (metadata, heating, autohome, test strip if enabled).
