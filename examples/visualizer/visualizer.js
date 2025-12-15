@@ -13,6 +13,7 @@ import { AMFLoader } from 'three/addons/loaders/AMFLoader.js';
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 // Make THREE available globally for the Polyslice loader.
 window.THREE = Object.assign({}, THREE, {
@@ -40,6 +41,8 @@ let moveSlider = null;
 let isFirstUpload = true; // Track if this is the first G-code upload
 let currentGcode = null; // Store the current G-code content for download
 let currentFilename = null; // Store the current filename
+let slicingGUI = null; // GUI instance for slicing controls
+let loadedModelForSlicing = null; // Store the loaded model for slicing
 
 // File extensions for 3D models vs G-code.
 const MODEL_EXTENSIONS = ['stl', 'obj', '3mf', 'amf', 'ply', 'gltf', 'glb', 'dae'];
@@ -52,6 +55,7 @@ window.addEventListener('DOMContentLoaded', init);
  * Initialize the Three.js scene, camera, renderer, and controls.
  */
 function init() {
+
   // Create scene.
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a1a1a);
@@ -115,8 +119,12 @@ function init() {
   // Add double-click handler for line focus.
   setupDoubleClickHandler();
 
+  // Hide G-code specific legends on initial page load (no model loaded yet)
+  hideGCodeLegends();
+
   // Start animation loop.
   animate();
+
 }
 
 /**
@@ -125,6 +133,7 @@ function init() {
 const AXIS_LENGTH = 220; // Single source of truth for axis & grid sizing
 
 function createAxes() {
+
   const axisLength = AXIS_LENGTH;
   const axisThickness = 3;
 
@@ -168,12 +177,14 @@ function createAxes() {
   scene.add(zAxis);
 
   axesLines = [xAxis, yAxis, zAxis];
+
 }
 
 /**
  * Create grid helper on the XY plane.
  */
 function createGridHelper() {
+
   // Only draw grid in X+ / Y- quadrant of G-code space -> Three.js (X >= 0, Z <= 0)
   const sizeX = AXIS_LENGTH;
   const sizeZ = AXIS_LENGTH; // magnitude for negative Z direction
@@ -216,6 +227,7 @@ function createGridHelper() {
   // Store group in gridHelper reference for checkbox toggle
   gridHelper = group;
   scene.add(gridHelper);
+
 }
 
 /**
@@ -224,42 +236,6 @@ function createGridHelper() {
 function createLegend() {
   const legendHTML = `
         <div class="legend-container">
-            <div>
-                <div id="settings">
-                    <h3>Settings</h3>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
-                        <span>Thick Lines</span>
-                    </div>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="translucent-lines-checkbox" />
-                        <span>Translucent Lines</span>
-                    </div>
-                </div>
-                <div id="axes-legend">
-                    <h3>Axes and Grid</h3>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
-                        <div class="legend-color" style="background-color: #ff0000;"></div>
-                        <span>X Axis</span>
-                    </div>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
-                        <div class="legend-color" style="background-color: #00ff00;"></div>
-                        <span>Y Axis</span>
-                    </div>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
-                        <div class="legend-color" style="background-color: #0000ff;"></div>
-                        <span>Z Axis</span>
-                    </div>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="grid" checked />
-                        <div class="legend-color" style="background-color: #888888;"></div>
-                        <span>Grid Lines</span>
-                    </div>
-                </div>
-            </div>
             <div id="legend">
                 <h3>Movement Types</h3>
                 <div class="legend-item">
@@ -303,8 +279,43 @@ function createLegend() {
                     <span>Other Extrusion</span>
                 </div>
             </div>
-        </div>
-    `;
+            <div>
+                <div id="settings">
+                    <h3>Settings</h3>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
+                        <span>Thick Lines</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="translucent-lines-checkbox" />
+                        <span>Translucent Lines</span>
+                    </div>
+                </div>
+                <div id="axes-legend">
+                    <h3>Axes and Grid</h3>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
+                        <div class="legend-color" style="background-color: #ff0000;"></div>
+                        <span>X Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
+                        <div class="legend-color" style="background-color: #00ff00;"></div>
+                        <span>Y Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
+                        <div class="legend-color" style="background-color: #0000ff;"></div>
+                        <span>Z Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="grid" checked />
+                        <div class="legend-color" style="background-color: #888888;"></div>
+                        <span>Grid Lines</span>
+                    </div>
+                </div>
+            </div>
+        </div>`;
 
   document.body.insertAdjacentHTML('beforeend', legendHTML);
 
@@ -530,6 +541,7 @@ function loadSettingsStates() {
  * Apply or remove thick lines effect to all G-code line segments.
  */
 function applyThickLinesEffect(isThick) {
+
   if (!gcodeObject) return;
 
   gcodeObject.traverse(child => {
@@ -571,6 +583,7 @@ function applyThickLinesEffect(isThick) {
       }
     }
   });
+
 }
 
 /**
@@ -578,6 +591,7 @@ function applyThickLinesEffect(isThick) {
  * When enabled, sets opacity to 0.5 and transparent=true; when disabled, restores to 1.0.
  */
 function applyTranslucentLinesEffect(isTranslucent) {
+
   if (!gcodeObject) return;
 
   gcodeObject.traverse(child => {
@@ -602,6 +616,7 @@ function applyTranslucentLinesEffect(isTranslucent) {
       child.material.needsUpdate = true;
     }
   });
+
 }
 
 /**
@@ -613,8 +628,7 @@ function createLayerSlider() {
             <input type="range" id="layer-slider-max" min="0" max="100" value="100" orient="vertical">
             <input type="range" id="layer-slider-min" min="0" max="100" value="0" orient="vertical">
             <div id="layer-info">All Layers</div>
-        </div>
-    `;
+        </div>`;
 
   document.body.insertAdjacentHTML('beforeend', sliderHTML);
   layerSliderMin = document.getElementById('layer-slider-min');
@@ -629,12 +643,206 @@ function createMoveSlider() {
         <div id="move-slider-container">
             <div id="move-info">Move Progress: 0%</div>
             <input type="range" id="move-slider" min="0" max="100" value="100">
-        </div>
-    `;
+        </div>`;
 
   document.body.insertAdjacentHTML('beforeend', sliderHTML);
   moveSlider = document.getElementById('move-slider');
 }
+
+/**
+ * Save slicing settings to localStorage.
+ */
+function saveSlicingSettings(params) {
+  const settings = {
+    printer: params.printer,
+    filament: params.filament,
+    layerHeight: params.layerHeight,
+    infillDensity: params.infillDensity,
+    infillPattern: params.infillPattern
+  };
+  try {
+    localStorage.setItem('visualizer-slicing-settings', JSON.stringify(settings));
+  } catch (error) {
+    console.warn('Failed to save slicing settings to localStorage:', error);
+  }
+}
+
+/**
+ * Load slicing settings from localStorage.
+ */
+function loadSlicingSettings() {
+  try {
+    const saved = localStorage.getItem('visualizer-slicing-settings');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (error) {
+    console.warn('Failed to load slicing settings from localStorage:', error);
+  }
+  return null;
+}
+
+/**
+ * Create the slicing GUI for loaded 3D models.
+ */
+function createSlicingGUI() {
+
+  if (slicingGUI) {
+    slicingGUI.destroy();
+  }
+
+  // Load saved settings or use defaults
+  const savedSettings = loadSlicingSettings();
+
+  const params = {
+    printer: savedSettings?.printer || 'Ender3',
+    filament: savedSettings?.filament || 'GenericPLA',
+    layerHeight: savedSettings?.layerHeight || 0.2,
+    infillDensity: savedSettings?.infillDensity || 20,
+    infillPattern: savedSettings?.infillPattern || 'grid',
+    slice: sliceModel
+  };
+
+  const PRINTER_OPTIONS = ['Ender3', 'UltimakerS5', 'PrusaI3MK3S', 'AnycubicI3Mega', 'BambuLabP1P'];
+  const FILAMENT_OPTIONS = ['GenericPLA', 'GenericPETG', 'GenericABS'];
+
+  slicingGUI = new GUI({ title: 'Slicer' });
+
+  let h = slicingGUI.addFolder('Printer & Filament');
+  h.add(params, 'printer', PRINTER_OPTIONS).name('Printer').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament').onChange(() => saveSlicingSettings(params));
+
+  h = slicingGUI.addFolder('Slicer Settings');
+  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'infillPattern', ['grid', 'triangles', 'hexagons']).name('Infill Pattern').onChange(() => saveSlicingSettings(params));
+
+  slicingGUI.add(params, 'slice').name('Slice');
+  slicingGUI.open();
+
+  // Store params on the GUI instance for access in sliceModel
+  slicingGUI.userData = params;
+
+}
+
+/**
+ * Hide the slicing GUI.
+ */
+function hideSlicingGUI() {
+  if (slicingGUI) {
+    slicingGUI.destroy();
+    slicingGUI = null;
+  }
+}
+
+/**
+ * Hide the Fork Me banner (called when any model is loaded).
+ */
+function hideForkMeBanner() {
+  const forkMe = document.getElementById('forkme');
+  if (forkMe) {
+    forkMe.style.display = 'none';
+  }
+}
+
+/**
+ * Show the Fork Me banner (called on reset).
+ */
+function showForkMeBanner() {
+  const forkMe = document.getElementById('forkme');
+  if (forkMe) {
+    forkMe.style.display = '';
+  }
+}
+
+/**
+ * Hide Movement Types and Settings legends (called when viewing 3D models).
+ */
+function hideGCodeLegends() {
+  const legend = document.getElementById('legend');
+  const settings = document.getElementById('settings');
+  if (legend) {
+    legend.style.display = 'none';
+  }
+  if (settings) {
+    settings.style.display = 'none';
+  }
+}
+
+/**
+ * Show Movement Types and Settings legends (called when viewing G-code).
+ */
+function showGCodeLegends() {
+  const legend = document.getElementById('legend');
+  const settings = document.getElementById('settings');
+  if (legend) {
+    legend.style.display = '';
+  }
+  if (settings) {
+    settings.style.display = '';
+  }
+}
+
+/**
+ * Slice the loaded model using Polyslice.
+ */
+function sliceModel() {
+
+  if (!loadedModelForSlicing) {
+    console.error('No model loaded for slicing');
+    alert('No model loaded for slicing');
+    return;
+  }
+
+  if (!window.Polyslice) {
+    console.error('Polyslice library not loaded');
+    alert('Polyslice library not loaded. Please refresh the page.');
+    return;
+  }
+
+  try {
+    // Get GUI parameters
+    const params = slicingGUI.userData;
+
+    // Save GUI settings to localStorage
+    saveSlicingSettings(params);
+
+    // Create printer and filament configurations
+    // When using 'import * as Polyslice', the named exports are properties
+    const printer = new window.Polyslice.Printer(params.printer);
+    const filament = new window.Polyslice.Filament(params.filament);
+
+    // Create the slicer instance
+    const slicer = new window.Polyslice.Polyslice({
+      printer: printer,
+      filament: filament,
+      layerHeight: params.layerHeight,
+      infillPattern: params.infillPattern,
+      infillDensity: params.infillDensity,
+      verbose: true
+    });
+
+    console.log('Slicing model with settings:', params);
+
+    // Slice the loaded mesh
+    const gcode = slicer.slice(loadedModelForSlicing);
+
+    console.log('Slicing complete! G-code generated.');
+
+    // Load the resulting G-code into the visualizer
+    const filename = currentFilename ? currentFilename.replace(/\.[^/.]+$/, '.gcode') : 'sliced.gcode';
+    loadGCode(gcode, filename);
+
+    // Hide the slicing GUI after successful slicing
+    hideSlicingGUI();
+
+  } catch (error) {
+    console.error('Error slicing model:', error);
+    alert('Error slicing model: ' + error.message);
+  }
+
+}
+
 
 /**
  * Setup layer slider after G-code is loaded.
@@ -1175,8 +1383,14 @@ function loadModel(file) {
 
   // Clear G-code content when loading a model and hide download button.
   currentGcode = null;
-  currentFilename = null;
+  currentFilename = file.name;
   updateDownloadButtonVisibility();
+
+  // Clear loaded model for slicing
+  loadedModelForSlicing = null;
+
+  // Hide slicing GUI while loading
+  hideSlicingGUI();
 
   // Remove previous mesh object if exists.
   if (meshObject) {
@@ -1273,6 +1487,7 @@ function loadModel(file) {
  */
 function displayMesh(object, filename) {
   meshObject = object;
+  loadedModelForSlicing = object; // Store for slicing
 
   // Rotate mesh to align with G-code coordinate system (Z up).
   meshObject.rotation.x = -Math.PI / 2;
@@ -1287,6 +1502,15 @@ function displayMesh(object, filename) {
     centerCamera(meshObject);
     isFirstUpload = false;
   }
+
+  // Hide fork me banner when any model is loaded
+  hideForkMeBanner();
+
+  // Hide G-code specific legends when viewing 3D models
+  hideGCodeLegends();
+
+  // Show slicing GUI for 3D models
+  createSlicingGUI();
 }
 
 /**
@@ -1349,6 +1573,18 @@ function loadGCode(content, filename) {
     scene.remove(meshObject);
     meshObject = null;
   }
+
+  // Clear the loaded model for slicing
+  loadedModelForSlicing = null;
+
+  // Hide slicing GUI when loading G-code
+  hideSlicingGUI();
+
+  // Hide fork me banner when any model is loaded
+  hideForkMeBanner();
+
+  // Show G-code specific legends when viewing G-code
+  showGCodeLegends();
 
   // Parse G-code with extended loader that preserves comments.
   const loader = new GCodeLoaderExtended();
@@ -1541,6 +1777,8 @@ function resetView() {
     camera.lookAt(0, 0, 0);
     controls.target.set(0, 0, 0);
     controls.update();
+    // Show fork me banner when no model is loaded
+    showForkMeBanner();
   }
 
   // Reset all movement type checkboxes to checked
@@ -1585,6 +1823,13 @@ function resetView() {
     moveSlider.value = 100;
   }
 
+  // Reset slicing settings to defaults
+  try {
+    localStorage.removeItem('visualizer-slicing-settings');
+  } catch (error) {
+    console.warn('Failed to clear slicing settings from localStorage:', error);
+  }
+
   // Save the reset states to localStorage
   saveCheckboxStates();
   saveAxisCheckboxStates();
@@ -1609,6 +1854,7 @@ function onWindowResize() {
  * Animation loop.
  */
 function animate() {
+
   requestAnimationFrame(animate);
 
   // Update controls.
@@ -1616,4 +1862,5 @@ function animate() {
 
   // Render scene.
   renderer.render(scene, camera);
+
 }
