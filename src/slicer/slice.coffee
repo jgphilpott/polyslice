@@ -40,11 +40,9 @@ module.exports =
 
         # Clone mesh to avoid modifying the original object.
         # This preserves the original mesh's position, rotation, and scale in the scene.
-        # We use a shallow clone (default clone()) which is sufficient because:
-        # - Position, rotation, and scale are independent (new Vector3/Euler instances)
-        # - Geometry and material are shared but not modified during slicing (read-only)
-        # - This is more efficient than deep cloning large geometries
-        mesh = originalMesh.clone()
+        # We use clone(true) for recursive cloning to ensure all child objects are also cloned.
+        # Note: Geometry and material are still shared (not cloned) but not modified during slicing (read-only).
+        mesh = originalMesh.clone(true)
         mesh.updateMatrixWorld()
 
         # Generate pre-print sequence (metadata, heating, autohome, test strip if enabled).
