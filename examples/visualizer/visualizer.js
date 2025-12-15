@@ -119,6 +119,9 @@ function init() {
   // Add double-click handler for line focus.
   setupDoubleClickHandler();
 
+  // Hide G-code specific legends on initial page load (no model loaded yet)
+  hideGCodeLegends();
+
   // Start animation loop.
   animate();
 
@@ -749,6 +752,34 @@ function showForkMeBanner() {
   const forkMe = document.getElementById('forkme');
   if (forkMe) {
     forkMe.style.display = '';
+  }
+}
+
+/**
+ * Hide Movement Types and Settings legends (called when viewing 3D models).
+ */
+function hideGCodeLegends() {
+  const legend = document.getElementById('legend');
+  const settings = document.getElementById('settings');
+  if (legend) {
+    legend.style.display = 'none';
+  }
+  if (settings) {
+    settings.style.display = 'none';
+  }
+}
+
+/**
+ * Show Movement Types and Settings legends (called when viewing G-code).
+ */
+function showGCodeLegends() {
+  const legend = document.getElementById('legend');
+  const settings = document.getElementById('settings');
+  if (legend) {
+    legend.style.display = '';
+  }
+  if (settings) {
+    settings.style.display = '';
   }
 }
 
@@ -1475,6 +1506,9 @@ function displayMesh(object, filename) {
   // Hide fork me banner when any model is loaded
   hideForkMeBanner();
 
+  // Hide G-code specific legends when viewing 3D models
+  hideGCodeLegends();
+
   // Show slicing GUI for 3D models
   createSlicingGUI();
 }
@@ -1548,6 +1582,9 @@ function loadGCode(content, filename) {
 
   // Hide fork me banner when any model is loaded
   hideForkMeBanner();
+
+  // Show G-code specific legends when viewing G-code
+  showGCodeLegends();
 
   // Parse G-code with extended loader that preserves comments.
   const loader = new GCodeLoaderExtended();
