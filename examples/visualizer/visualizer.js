@@ -236,42 +236,6 @@ function createGridHelper() {
 function createLegend() {
   const legendHTML = `
         <div class="legend-container">
-            <div>
-                <div id="settings">
-                    <h3>Settings</h3>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
-                        <span>Thick Lines</span>
-                    </div>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="translucent-lines-checkbox" />
-                        <span>Translucent Lines</span>
-                    </div>
-                </div>
-                <div id="axes-legend">
-                    <h3>Axes and Grid</h3>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
-                        <div class="legend-color" style="background-color: #ff0000;"></div>
-                        <span>X Axis</span>
-                    </div>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
-                        <div class="legend-color" style="background-color: #00ff00;"></div>
-                        <span>Y Axis</span>
-                    </div>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
-                        <div class="legend-color" style="background-color: #0000ff;"></div>
-                        <span>Z Axis</span>
-                    </div>
-                    <div class="legend-item">
-                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="grid" checked />
-                        <div class="legend-color" style="background-color: #888888;"></div>
-                        <span>Grid Lines</span>
-                    </div>
-                </div>
-            </div>
             <div id="legend">
                 <h3>Movement Types</h3>
                 <div class="legend-item">
@@ -313,6 +277,42 @@ function createLegend() {
                     <input type="checkbox" class="legend-checkbox" data-type="extruded" checked />
                     <div class="legend-color" style="background-color: #00ff00;"></div>
                     <span>Other Extrusion</span>
+                </div>
+            </div>
+            <div>
+                <div id="settings">
+                    <h3>Settings</h3>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="thick-lines-checkbox" />
+                        <span>Thick Lines</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox settings-checkbox" id="translucent-lines-checkbox" />
+                        <span>Translucent Lines</span>
+                    </div>
+                </div>
+                <div id="axes-legend">
+                    <h3>Axes and Grid</h3>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="x" checked />
+                        <div class="legend-color" style="background-color: #ff0000;"></div>
+                        <span>X Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="y" checked />
+                        <div class="legend-color" style="background-color: #00ff00;"></div>
+                        <span>Y Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="z" checked />
+                        <div class="legend-color" style="background-color: #0000ff;"></div>
+                        <span>Z Axis</span>
+                    </div>
+                    <div class="legend-item">
+                        <input type="checkbox" class="legend-checkbox axis-checkbox" data-axis="grid" checked />
+                        <div class="legend-color" style="background-color: #888888;"></div>
+                        <span>Grid Lines</span>
+                    </div>
                 </div>
             </div>
         </div>`;
