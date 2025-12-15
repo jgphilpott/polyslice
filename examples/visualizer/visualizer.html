@@ -66,8 +66,11 @@
 
     <div id="canvas-container"></div>
 
-    <!-- Include Polyslice for 3D model loading -->
-    <script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
+    <script type="module">
+      import * as Polyslice from 'https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.esm.js';
+      window.Polyslice = Polyslice; // Expose to window to keep existing visualizer.js usage patterns
+    </script>
+
     <script type="module" src="./visualizer.js"></script>
   </body>
 </html>

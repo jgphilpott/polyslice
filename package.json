@@ -1,6 +1,6 @@
 {
   "name": "@jgphilpott/polyslice",
-  "version": "25.12.0",
+  "version": "25.12.8",
   "description": "An AI powered slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -14,11 +14,12 @@
   "scripts": {
     "compile": "npx coffee -cb src/",
     "pretest": "npm run compile",
-    "build": "npm run compile && npm run build:node && npm run build:browser",
+    "build": "npm run compile && npm run build:node && npm run build:browser && npm run build:browser:esm",
     "build:node": "npm run build:cjs && npm run build:esm",
     "build:browser": "esbuild src/index.js --bundle --platform=browser --format=iife --global-name=Polyslice --outfile=dist/index.browser.js --external:serialport",
-    "build:cjs": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/index.js",
-    "build:esm": "esbuild src/index.js --bundle --platform=node --format=esm --outfile=dist/index.esm.js",
+    "build:browser:esm": "esbuild src/index.js --bundle --platform=browser --format=esm --outfile=dist/index.browser.esm.js --external:three --external:serialport --alias:@jgphilpott/polytree=./node_modules/@jgphilpott/polytree/polytree.bundle.browser.esm.js --alias:three-subdivide=./node_modules/three-subdivide/build/index.module.js",
+    "build:cjs": "esbuild src/index.js --bundle --platform=node --format=cjs --outfile=dist/index.js --packages=external",
+    "build:esm": "esbuild src/index.js --bundle --platform=node --format=esm --outfile=dist/index.esm.js --packages=external",
     "build:minify": "uglifyjs dist/index.js -o dist/index.min.js --compress --mangle && uglifyjs dist/index.browser.js -o dist/index.browser.min.js --compress --mangle",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
@@ -57,10 +58,15 @@
   },
   "dependencies": {
     "@jgphilpott/polyconvert": "^1.0.4",
-    "@jgphilpott/polytree": "^0.1.4",
+    "@jgphilpott/polytree": "^0.1.5",
     "polygon-clipping": "^0.15.7",
-    "three": "^0.181.2",
+    "three": "^0.182.0",
     "three-subdivide": "^1.1.5"
+  },
+  "peerDependencies": {
+    "three": "^0.180.0",
+    "three-subdivide": "^1.1.5",
+    "@jgphilpott/polytree": "^0.1.4"
   },
   "optionalDependencies": {
     "serialport": "^13.0.0"
