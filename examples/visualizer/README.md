@@ -4,6 +4,8 @@ A browser-based tool to visualize G-code files and slice 3D models using Three.j
 
 **[Open G-code Visualizer](https://jgphilpott.github.io/polyslice/examples/visualizer/visualizer.html)**
 
+> **Note**: The visualizer has been refactored into a modular architecture. See [MODULES.md](MODULES.md) for details on the new structure.
+
 ## Features
 
 ### Upload and Visualize
@@ -315,6 +317,15 @@ Planned features:
 - Temperature and speed visualization along the path
 - Customizable color schemes
 - Animation playback of the move slider
+
+## Architecture
+
+The visualizer has been refactored into a modular architecture for better maintainability:
+
+- **Main coordinator** (346 lines): Integrates all modules
+- **9 focused modules** (avg 204 lines each): Scene, State, Camera, UI, Effects, Interactions, Slicer, Loaders, Visualization
+
+For detailed information about the module structure, data flow, and API, see [MODULES.md](MODULES.md).
 
 ## Related Tools
 
