@@ -20,15 +20,32 @@ The slicer takes a three.js mesh object and:
 The slicing process is orchestrated by `src/slicer/slice.coffee`, which:
 
 1. **Extracts the mesh** from the scene using preprocessing utilities
-2. **Generates pre-print sequence** (heating, homing, test strip)
-3. **Slices the mesh** using Polytree library into layer segments
-4. **Processes each layer** by:
+2. **Clones the mesh** to preserve the original object (position, rotation, scale remain unchanged)
+   - Uses `mesh.clone(true)` for recursive cloning of child objects
+   - Explicitly clones geometry to prevent shared state modification
+3. **Generates pre-print sequence** (heating, homing, test strip)
+4. **Calculates centering offsets** based on mesh bounding box to center on build plate
+5. **Slices the mesh** using Polytree library into layer segments
+6. **Processes each layer** by:
    - Converting segments to closed paths
    - Detecting holes (paths contained within other paths)
    - Generating walls from outer to inner
    - Generating skin for exposed surfaces
    - Generating infill for interior regions
-5. **Generates post-print sequence** (cooling, homing, shutdown)
+7. **Generates post-print sequence** (cooling, homing, shutdown)
+
+## Important Behavior
+
+**Mesh Preservation**: The slicing process does NOT modify the original mesh object. A clone is created internally before any transformations (such as adjusting Z position for the build plate). This ensures that:
+- The original mesh position, rotation, and scale remain unchanged
+- The original mesh geometry remains unchanged (bounding box not computed)
+- The mesh can be used in a scene visualization while slicing
+- Multiple slicing operations can be performed on the same mesh
+
+**Build Plate Centering**: The slicing process automatically centers meshes on the build plate by:
+- Calculating the mesh's bounding box center in the XY plane
+- Computing offsets to map the mesh center to the build plate center
+- Ensuring prints are properly centered regardless of the mesh's world position
 
 ## Key Concepts
 
@@ -49,7 +66,9 @@ Mesh → Polytree.sliceIntoLayers() → Line Segments → Closed Paths
 ### Coordinate System
 
 - All internal calculations use local mesh coordinates
-- `centerOffsetX` and `centerOffsetY` offset paths to center on build plate
+- Mesh is automatically centered on build plate based on its bounding box center
+- `centerOffsetX = (buildPlateWidth / 2) - meshCenterX` centers mesh in X
+- `centerOffsetY = (buildPlateLength / 2) - meshCenterY` centers mesh in Y
 - Z coordinate is calculated as `adjustedMinZ + layerIndex * layerHeight`
 - A small epsilon (0.001mm) offsets the starting Z to avoid boundary issues
 

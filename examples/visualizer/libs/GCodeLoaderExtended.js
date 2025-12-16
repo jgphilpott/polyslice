@@ -488,7 +488,7 @@ class GCodeLoaderExtended extends Loader {
       addObject(pathVertex, false, layers.length);
     }
 
-    object.rotation.set(-Math.PI / 2, 0, 0);
+    object.rotation.set(0, 0, 0);
 
     // Attach metadata to the object
     object.userData.metadata = metadata;
