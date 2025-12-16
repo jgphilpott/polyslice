@@ -777,7 +777,7 @@ module.exports =
 
         if buzzer # Sound buzzer if enabled.
 
-            gcode += "M300 P1000 S420"
+            gcode += "M300 P1000 S420" + slicer.newline
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Print complete!")
 
