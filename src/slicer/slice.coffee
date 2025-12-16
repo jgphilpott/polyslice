@@ -87,12 +87,19 @@ module.exports =
         # Use Polytree to slice the mesh into layers with adjusted starting position.
         allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
 
-        # Calculate center offset to position on build plate.
+        # Calculate center offset to position mesh on build plate center.
+        # We need to account for the mesh's actual position in world space.
         buildPlateWidth = slicer.getBuildPlateWidth()
         buildPlateLength = slicer.getBuildPlateLength()
 
-        centerOffsetX = buildPlateWidth / 2
-        centerOffsetY = buildPlateLength / 2
+        # Calculate the mesh's bounding box center in XY plane.
+        meshCenterX = (boundingBox.min.x + boundingBox.max.x) / 2
+        meshCenterY = (boundingBox.min.y + boundingBox.max.y) / 2
+
+        # Calculate offsets to center the mesh on the build plate.
+        # The offset should map the mesh center to the build plate center.
+        centerOffsetX = (buildPlateWidth / 2) - meshCenterX
+        centerOffsetY = (buildPlateLength / 2) - meshCenterY
 
         verbose = slicer.getVerbose()
 
