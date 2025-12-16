@@ -270,6 +270,88 @@ describe 'Slicing', ->
             # Verify that slicing still worked.
             expect(result).toContain('Printing')
 
+        test 'should not modify original mesh geometry during slicing', ->
+
+            # Create a mesh with geometry that has no bounding box computed.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            # Verify geometry has no bounding box computed initially.
+            expect(geometry.boundingBox).toBeNull()
+
+            # Store original geometry reference.
+            originalGeometry = mesh.geometry
+
+            # Slice the mesh.
+            slicer.setLayerHeight(0.2)
+            result = slicer.slice(mesh)
+
+            # Verify that original mesh still has same geometry reference.
+            expect(mesh.geometry).toBe(originalGeometry)
+
+            # Verify that original geometry bounding box is still null (not computed).
+            expect(originalGeometry.boundingBox).toBeNull()
+
+            # Verify that slicing still worked.
+            expect(result).toContain('Printing')
+
+        test 'should center mesh on build plate regardless of world position', ->
+
+            # Create a mesh at non-zero world position (like benchy at Y=500).
+            geometry = new THREE.BoxGeometry(20, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Position mesh at arbitrary location.
+            mesh.position.set(50, 200, 5)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer with known build plate.
+            slicer.setBuildPlateWidth(220)
+            slicer.setBuildPlateLength(220)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(0)  # No infill for faster test.
+            slicer.setVerbose(false)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Parse G-code to find actual print coordinates (only extrusion moves).
+            lines = result.split('\n')
+            minX = Infinity
+            maxX = -Infinity
+            minY = Infinity
+            maxY = -Infinity
+
+            for line in lines
+                if (line.indexOf('G1 ') is 0 or line.indexOf('G0 ') is 0) and line.indexOf('E') > -1
+                    xMatch = line.match(/X([-\d.]+)/)
+                    yMatch = line.match(/Y([-\d.]+)/)
+                    if xMatch
+                        x = parseFloat(xMatch[1])
+                        minX = Math.min(minX, x)
+                        maxX = Math.max(maxX, x)
+                    if yMatch
+                        y = parseFloat(yMatch[1])
+                        minY = Math.min(minY, y)
+                        maxY = Math.max(maxY, y)
+
+            # Calculate print center.
+            printCenterX = (minX + maxX) / 2
+            printCenterY = (minY + maxY) / 2
+
+            # Build plate center should be (110, 110).
+            expectedCenterX = 110
+            expectedCenterY = 110
+
+            # Verify print is centered on build plate (within 2mm tolerance).
+            expect(Math.abs(printCenterX - expectedCenterX)).toBeLessThan(2)
+            expect(Math.abs(printCenterY - expectedCenterY)).toBeLessThan(2)
+
     describe 'Torus Slicing with Holes', ->
 
         test 'should generate infill clipped by hole walls', ->

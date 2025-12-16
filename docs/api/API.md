@@ -142,6 +142,25 @@ const gcode = slicer.slice(mesh);
 
 **Returns:** String - The generated G-code
 
+**Important Behaviors:**
+- **Non-destructive**: The original mesh is not modified. Position, rotation, scale, and geometry remain unchanged.
+- **Automatic centering**: The mesh is automatically centered on the build plate based on its bounding box, regardless of its world position.
+- **Cloning**: Internally creates a clone of the mesh (including geometry) for all transformations.
+
+**Example:**
+```javascript
+const mesh = new THREE.Mesh(geometry, material);
+mesh.position.set(100, 200, 50); // Any world position
+
+const gcode = slicer.slice(mesh);
+
+// Original mesh unchanged:
+console.log(mesh.position.z); // Still 50
+console.log(mesh.geometry.boundingBox); // Still null if not computed before
+
+// Print will be centered on build plate in G-code
+```
+
 ## G-code Generation Methods
 
 See [GCODE.md](../slicer/gcode/GCODE.md) for the complete G-code generation reference.
