@@ -27,7 +27,7 @@ import {
   showGCodeLegends,
   updateDownloadButtonVisibility
 } from './modules/ui.js';
-import { clearSlicingSettings } from './modules/state.js';
+import { clearSlicingSettings, saveCheckboxStates, saveAxisCheckboxStates, saveSettingsStates } from './modules/state.js';
 import { centerCamera, resetCameraToDefault } from './modules/camera.js';
 import {
   setupMovementTypeToggles,
@@ -298,6 +298,7 @@ function resetView() {
   document.querySelectorAll('.legend-checkbox:not(.axis-checkbox):not(.settings-checkbox)').forEach(checkbox => {
     checkbox.checked = true;
   });
+  saveCheckboxStates();
 
   // Reset all axis checkboxes
   document.querySelectorAll('.axis-checkbox').forEach(checkbox => {
@@ -312,6 +313,7 @@ function resetView() {
       axesLines[axisIndex].visible = true;
     }
   });
+  saveAxisCheckboxStates();
 
   // Reset settings checkboxes
   const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
@@ -324,6 +326,7 @@ function resetView() {
     translucentLinesCheckbox.checked = false;
     applyTranslucentLinesEffect(gcodeObject, false);
   }
+  saveSettingsStates();
 
   // Reset layer sliders
   if (layerState.layerSliderMin && layerState.layerSliderMax && layerState.layerCount > 0) {
