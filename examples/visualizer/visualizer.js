@@ -15,11 +15,11 @@ import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 
 // Import modules
 import { initScene, scene, camera, renderer, controls, axesLines, gridHelper, onWindowResize, animate } from './modules/scene.js';
-import { 
-  createLegend, 
-  createLayerSlider, 
-  createMoveSlider, 
-  createSlicingGUI, 
+import {
+  createLegend,
+  createLayerSlider,
+  createMoveSlider,
+  createSlicingGUI,
   hideSlicingGUI,
   hideForkMeBanner,
   showForkMeBanner,

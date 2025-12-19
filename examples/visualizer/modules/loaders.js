@@ -43,7 +43,7 @@ export function handleFileUpload(event, loadModelCallback, loadGCodeCallback) {
  */
 export function loadModel(file, scene, callbacks) {
   const { updateDownloadVisibility, hideSlicingGUI, displayMesh, clearGCodeData, clearMeshData } = callbacks;
-  
+
   const url = URL.createObjectURL(file);
   const extension = file.name.split('.').pop().toLowerCase();
 
