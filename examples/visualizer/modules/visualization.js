@@ -79,6 +79,11 @@ export function setupMoveSlider(gcodeObject, layerState) {
  * Update layer visibility based on slider values.
  */
 export function updateLayerVisibility(layerState) {
+  // Early return if sliders aren't set up yet
+  if (!layerState.layerSliderMin || !layerState.layerSliderMax) {
+    return;
+  }
+
   let minLayer = parseInt(layerState.layerSliderMin.value);
   let maxLayer = parseInt(layerState.layerSliderMax.value);
 
@@ -126,6 +131,11 @@ export function updateLayerVisibility(layerState) {
  * Update move visibility based on horizontal slider value.
  */
 export function updateMoveVisibility(layerState) {
+  // Early return if sliders aren't set up yet
+  if (!layerState.moveSlider || !layerState.layerSliderMin || !layerState.layerSliderMax) {
+    return;
+  }
+
   const movePercentage = parseInt(layerState.moveSlider.value);
 
   // Update info text
