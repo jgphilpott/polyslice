@@ -95,7 +95,19 @@ export function applyThickLinesEffect(gcodeObject, isThick) {
 
     const isTravelLine = child.material.name === 'path';
 
-    if (isThick && !isTravelLine) {
+    // Travel lines should always remain thin and solid
+    if (isTravelLine) {
+      // Ensure travel lines use original material and are solid
+      if (child.userData.originalMaterial && child.material !== child.userData.originalMaterial) {
+        child.material = child.userData.originalMaterial;
+      }
+      child.material.transparent = false;
+      child.material.opacity = 1;
+      child.material.needsUpdate = true;
+      return;
+    }
+
+    if (isThick) {
       if (!child.userData.originalMaterial) {
         child.userData.originalMaterial = child.material;
       }
@@ -148,6 +160,16 @@ export function applyTranslucentLinesEffect(gcodeObject, isTranslucent) {
   gcodeObject.traverse(child => {
     if (!(child instanceof THREE.LineSegments || child instanceof THREE.Line)) return;
     if (!child.material) return;
+
+    const isTravelLine = child.material.name === 'path';
+
+    // Travel lines should always remain solid
+    if (isTravelLine) {
+      child.material.transparent = false;
+      child.material.opacity = 1;
+      child.material.needsUpdate = true;
+      return;
+    }
 
     // Preserve original transparency settings
     if (child.userData.originalTransparent === undefined) {

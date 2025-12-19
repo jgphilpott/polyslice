@@ -165,10 +165,7 @@ function loadModelWrapper(file) {
     displayMesh: (object, filename) => {
       meshObject = displayMeshHelper(object, filename, scene, {
         centerCamera: (obj) => {
-          if (isFirstUpload) {
-            centerCamera(obj, camera, controls);
-            isFirstUpload = false;
-          }
+          centerCamera(obj, camera, controls);
         },
         hideForkMeBanner,
         hideGCodeLegends,
@@ -216,10 +213,8 @@ function loadGCodeWrapper(content, filename) {
     hideForkMeBanner,
     showGCodeLegends,
     centerCamera: (obj) => {
-      if (isFirstUpload) {
-        centerCamera(obj, camera, controls);
-        isFirstUpload = false;
-      }
+      centerCamera(obj, camera, controls);
+      isFirstUpload = false;
     },
     setupLayerSlider: (gcodeObj) => {
       const layerData = collectLayers(gcodeObj);
@@ -341,6 +336,11 @@ function resetView() {
 
   // Reset slicing settings
   clearSlicingSettings();
+
+  // Recreate slicing GUI with default settings if mesh is loaded
+  if (meshObject && loadedModelForSlicing) {
+    createSlicingGUI(() => sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper), true);
+  }
 
   // Update visibility
   if (layerState.allLayers.length > 0) {

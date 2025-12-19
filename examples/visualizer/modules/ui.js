@@ -126,7 +126,7 @@ export function createMoveSlider() {
 /**
  * Create the slicing GUI for loaded 3D models.
  */
-export function createSlicingGUI(sliceCallback) {
+export function createSlicingGUI(sliceCallback, useDefaults = false) {
 
   let slicingGUI = window.slicingGUI;
 
@@ -135,7 +135,7 @@ export function createSlicingGUI(sliceCallback) {
   }
 
   // Load saved settings or use defaults
-  const savedSettings = loadSlicingSettings();
+  const savedSettings = useDefaults ? null : loadSlicingSettings();
 
   const params = {
     printer: savedSettings?.printer || 'Ender3',

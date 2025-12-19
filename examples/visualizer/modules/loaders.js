@@ -138,10 +138,8 @@ export function displayMesh(object, filename, scene, callbacks) {
   // Update info panel
   updateMeshInfo(filename, object);
 
-  // Center camera on first upload
-  if (isFirstUpload()) {
-    centerCamera(object);
-  }
+  // Center camera
+  centerCamera(object);
 
   // Hide fork me banner
   hideForkMeBanner();
@@ -218,10 +216,8 @@ export function loadGCode(content, filename, scene, callbacks) {
   // Update info panel
   updateInfo(filename, gcodeObject);
 
-  // Center camera on first upload
-  if (isFirstUpload()) {
-    centerCamera(gcodeObject);
-  }
+  // Center camera
+  centerCamera(gcodeObject);
 
   // Apply settings
   const thickLinesCheckbox = document.getElementById('thick-lines-checkbox');
