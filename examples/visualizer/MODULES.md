@@ -6,19 +6,19 @@ The G-code Visualizer has been refactored from a single 1863-line file into a mo
 
 ```
 examples/visualizer/
-├── visualizer.js (321 lines)      # Main coordinator
+├── visualizer.js (349 lines)      # Main coordinator
 ├── visualizer.html                # HTML entry point
 ├── visualizer.css                 # Styles
 ├── modules/
-│   ├── scene.js (195 lines)       # Three.js scene setup
-│   ├── state.js (173 lines)       # localStorage persistence
-│   ├── camera.js (94 lines)       # Camera utilities
-│   ├── ui.js (229 lines)          # UI elements
-│   ├── effects.js (166 lines)     # Visual effects
-│   ├── interactions.js (159 lines) # Event handlers
-│   ├── slicer.js (66 lines)       # Model slicing
-│   ├── loaders.js (257 lines)     # File loading
-│   └── visualization.js (387 lines) # Layer/move updates
+│   ├── scene.js (186 lines)       # Three.js scene setup
+│   ├── state.js (168 lines)       # localStorage persistence
+│   ├── camera.js (89 lines)       # Camera utilities
+│   ├── ui.js (241 lines)          # UI elements
+│   ├── effects.js (195 lines)     # Visual effects
+│   ├── interactions.js (155 lines) # Event handlers
+│   ├── slicer.js (67 lines)       # Model slicing
+│   ├── loaders.js (277 lines)     # File loading
+│   └── visualization.js (367 lines) # Layer/move updates
 └── libs/
     ├── GCodeLoaderExtended.js     # G-code parser
     ├── OrbitControls.js           # Camera controls

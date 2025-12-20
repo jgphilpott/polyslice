@@ -36,6 +36,9 @@ export function handleFileUpload(event, loadModelCallback, loadGCodeCallback) {
   } else {
     console.warn(`Unsupported file format: ${extension}`);
   }
+
+  // Clear the input value to allow re-uploading the same file
+  event.target.value = '';
 }
 
 /**

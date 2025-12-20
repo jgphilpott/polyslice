@@ -322,8 +322,8 @@ Planned features:
 
 The visualizer has been refactored into a modular architecture for better maintainability:
 
-- **Main coordinator** (346 lines): Integrates all modules
-- **9 focused modules** (avg 204 lines each): Scene, State, Camera, UI, Effects, Interactions, Slicer, Loaders, Visualization
+- **Main coordinator** (349 lines): Integrates all modules
+- **9 focused modules** (avg 194 lines each): Scene, State, Camera, UI, Effects, Interactions, Slicer, Loaders, Visualization
 
 For detailed information about the module structure, data flow, and API, see [MODULES.md](MODULES.md).
 
