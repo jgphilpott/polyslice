@@ -173,6 +173,7 @@ module.exports =
         # Detect nesting levels for all paths to handle nested holes/structures.
         # Paths at odd nesting levels (1, 3, 5, ...) are holes.
         # Paths at even nesting levels (0, 2, 4, ...) are structures.
+        # pathNestingLevel is tracked primarily for debugging but also documents the logic.
         pathNestingLevel = []
         pathIsHole = []
 

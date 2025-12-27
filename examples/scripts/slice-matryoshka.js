@@ -56,7 +56,7 @@ async function createHollowCylinder(outerRadius, innerRadius, height, segments =
   outerMesh.rotation.x = Math.PI / 2; // Orient along Z-axis
   outerMesh.updateMatrixWorld();
 
-  // Create inner cylinder (hole).
+  // Create inner cylinder (hole) - make it slightly taller (1.2x) to ensure complete penetration for CSG.
   const innerGeometry = new THREE.CylinderGeometry(innerRadius, innerRadius, height * 1.2, segments);
   const innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial());
   innerMesh.rotation.x = Math.PI / 2; // Orient along Z-axis
