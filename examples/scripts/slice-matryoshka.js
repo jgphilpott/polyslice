@@ -1,14 +1,14 @@
 /**
- * Example: Slice nested hollow cylinders (matryoshka dolls)
+ * Example: Slice nested hollow cylinders (like matryoshka dolls)
  * This demonstrates the slicer's ability to handle nested structures with alternating hole/structure classification.
- * 
+ *
  * Creates 5 test cases:
  * 1. Single hollow cylinder
  * 2. Hollow cylinder inside a larger hollow cylinder
  * 3. Three nested hollow cylinders
  * 4. Four nested hollow cylinders
  * 5. Five nested hollow cylinders
- * 
+ *
  * Usage:
  *   node examples/scripts/slice-matryoshka.js
  */
@@ -33,7 +33,7 @@ console.log(`- Filament: ${filament.name} (${filament.type.toUpperCase()})`);
 console.log(`- Brand: ${filament.brand}\n`);
 
 // Base output directory for G-code files.
-const outputDir = path.join(__dirname, '../output');
+const outputDir = path.join(__dirname, '../../resources/gcode/matryoshka');
 
 // Ensure output directory exists.
 if (!fs.existsSync(outputDir)) {
@@ -81,7 +81,7 @@ async function createHollowCylinder(outerRadius, innerRadius, height, segments =
  * @param {number} gap - Gap between cylinders in millimeters.
  * @returns {Promise<THREE.Mesh>} The nested cylinders mesh.
  */
-async function createMatryoshka(count, baseHeight = 20, wallThickness = 1.6, gap = 2) {
+async function createMatryoshka(count, baseHeight = 1.2, wallThickness = 3, gap = 2) {
   if (count < 1 || count > 5) {
     throw new Error('Count must be between 1 and 5');
   }
@@ -133,7 +133,7 @@ function sliceAndSave(mesh, filename) {
   const slicer = new Polyslice({
     printer: printer,
     filament: filament,
-    shellSkinThickness: 0.8,
+    shellSkinThickness: 0.4,
     shellWallThickness: 0.8,
     lengthUnit: 'millimeters',
     timeUnit: 'seconds',
@@ -193,7 +193,7 @@ console.log('='.repeat(90));
   const results = [];
 
   for (let nestingLevel = 1; nestingLevel <= 5; nestingLevel++) {
-    const filename = `matryoshka-${nestingLevel}-nested.gcode`;
+    const filename = `nested-${nestingLevel}.gcode`;
 
     console.log(`\nProcessing ${nestingLevel} nested cylinder${nestingLevel > 1 ? 's' : ''}...`);
 
