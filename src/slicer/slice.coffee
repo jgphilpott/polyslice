@@ -170,22 +170,30 @@ module.exports =
         # Calculate number of skin layers (top and bottom solid layers).
         skinLayerCount = Math.max(1, Math.floor((shellSkinThickness / layerHeight) + 0.0001))
 
-        # Detect which paths are holes (contained within other paths).
+        # Detect nesting levels for all paths to handle nested holes/structures.
+        # Paths at odd nesting levels (1, 3, 5, ...) are holes.
+        # Paths at even nesting levels (0, 2, 4, ...) are structures.
+        # pathNestingLevel is tracked primarily for debugging but also documents the logic.
+        pathNestingLevel = []
         pathIsHole = []
 
         for i in [0...paths.length]
 
-            isHole = false
+            nestingLevel = 0
 
+            # Count how many other paths contain this path.
             for j in [0...paths.length]
 
                 continue if i is j
 
                 if paths[i].length > 0 and primitives.pointInPolygon(paths[i][0], paths[j])
 
-                    isHole = true
+                    nestingLevel++
 
-                    break
+            pathNestingLevel.push(nestingLevel)
+
+            # Odd nesting levels represent holes, even levels represent structures.
+            isHole = nestingLevel % 2 is 1
 
             pathIsHole.push(isHole)
 

@@ -1323,5 +1323,388 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+    describe 'Nested Hole/Structure Detection', ->
 
+        Polytree = null
 
+        beforeAll ->
+
+            { Polytree } = require('@jgphilpott/polytree')
+
+        # Helper function to create a hollow cylinder.
+        createHollowCylinder = (outerRadius, innerRadius, height) ->
+
+            # Create outer cylinder.
+            outerGeometry = new THREE.CylinderGeometry(outerRadius, outerRadius, height, 32)
+            outerMesh = new THREE.Mesh(outerGeometry, new THREE.MeshBasicMaterial())
+            outerMesh.rotation.x = Math.PI / 2
+            outerMesh.updateMatrixWorld()
+
+            # Create inner cylinder (hole) - slightly taller for complete penetration.
+            innerGeometry = new THREE.CylinderGeometry(innerRadius, innerRadius, height * 1.2, 32)
+            innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial())
+            innerMesh.rotation.x = Math.PI / 2
+            innerMesh.updateMatrixWorld()
+
+            # Subtract to create hollow cylinder.
+            hollowMesh = await Polytree.subtract(outerMesh, innerMesh)
+            finalMesh = new THREE.Mesh(hollowMesh.geometry, hollowMesh.material)
+
+            return finalMesh
+
+        test 'should classify single hollow cylinder correctly (level 0 outer, level 1 hole)', ->
+
+            # Create a single hollow cylinder.
+            # This tests the basic case: outer boundary (structure) and inner hole.
+
+            outerRadius = 10
+            innerRadius = 8
+            height = 5
+
+            # Create outer cylinder.
+            outerGeometry = new THREE.CylinderGeometry(outerRadius, outerRadius, height, 32)
+            outerMesh = new THREE.Mesh(outerGeometry, new THREE.MeshBasicMaterial())
+            outerMesh.rotation.x = Math.PI / 2
+            outerMesh.updateMatrixWorld()
+
+            # Create inner cylinder (hole).
+            innerGeometry = new THREE.CylinderGeometry(innerRadius, innerRadius, height * 1.2, 32)
+            innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial())
+            innerMesh.rotation.x = Math.PI / 2
+            innerMesh.updateMatrixWorld()
+
+            # Subtract to create hollow cylinder.
+            hollowMesh = await Polytree.subtract(outerMesh, innerMesh)
+            finalMesh = new THREE.Mesh(hollowMesh.geometry, hollowMesh.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # Extract first layer.
+            lines = result.split('\n')
+            layerStartIndex = -1
+            layerEndIndex = -1
+
+            for lineIndex in [0...lines.length]
+                if lines[lineIndex].includes('LAYER: 1 of')
+                    layerStartIndex = lineIndex
+                else if layerStartIndex >= 0 and lines[lineIndex].includes('LAYER: 2 of')
+                    layerEndIndex = lineIndex
+                    break
+
+            layerEndIndex = lines.length if layerEndIndex < 0
+
+            layerLines = lines.slice(layerStartIndex, layerEndIndex)
+
+            # Count wall types.
+            outerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-OUTER')).length
+            innerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-INNER')).length
+
+            # Should have 2 outer walls (outer boundary + hole boundary).
+            # Should have 2 inner walls (second pass for each).
+            expect(outerWallCount).toBe(2)
+            expect(innerWallCount).toBe(2)
+
+            # Verify G-code structure is valid.
+            expect(result).toContain('WALL-OUTER')
+            expect(result).toContain('WALL-INNER')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should classify 2 nested hollow cylinders correctly (alternating hole/structure)', ->
+
+            # Create 2 nested hollow cylinders.
+            # Expected classification:
+            # - Cylinder 1 outer: level 0 (structure)
+            # - Cylinder 1 inner: level 1 (hole)
+            # - Cylinder 2 outer: level 1 (hole, inside Cylinder 1)
+            # - Cylinder 2 inner: level 2 (structure, inside hole)
+
+            height = 5
+            wallThickness = 1.6
+            gap = 2
+
+            # Create innermost cylinder (should be structure - level 2).
+            inner = await createHollowCylinder(5 + wallThickness, 5, height)
+
+            # Create middle cylinder (should be hole - level 1).
+            middle = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            # Combine cylinders.
+            combined = await Polytree.unite(inner, middle)
+            finalMesh = new THREE.Mesh(combined.geometry, combined.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # Extract first layer.
+            lines = result.split('\n')
+            layerStartIndex = -1
+            layerEndIndex = -1
+
+            for lineIndex in [0...lines.length]
+                if lines[lineIndex].includes('LAYER: 1 of')
+                    layerStartIndex = lineIndex
+                else if layerStartIndex >= 0 and lines[lineIndex].includes('LAYER: 2 of')
+                    layerEndIndex = lineIndex
+                    break
+
+            layerEndIndex = lines.length if layerEndIndex < 0
+
+            layerLines = lines.slice(layerStartIndex, layerEndIndex)
+
+            # Count wall types.
+            outerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-OUTER')).length
+            innerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-INNER')).length
+
+            # Should have 4 outer walls (2 cylinders × 2 boundaries each).
+            # Should have 4 inner walls (second pass for each).
+            expect(outerWallCount).toBe(4)
+            expect(innerWallCount).toBe(4)
+
+            # Verify G-code is valid.
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+            expect(result.length).toBeGreaterThan(1000)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should classify 3 nested hollow cylinders correctly', ->
+
+            # Create 3 nested hollow cylinders.
+            # This tests deeper nesting (up to level 3).
+
+            height = 5
+            wallThickness = 1.6
+            gap = 2
+
+            # Create innermost cylinder (level 2: structure).
+            inner = await createHollowCylinder(5 + wallThickness, 5, height)
+
+            # Create middle cylinder (level 1: hole).
+            middle = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            # Create outer cylinder (level 0: structure).
+            outer = await createHollowCylinder(5 + wallThickness + gap + wallThickness + gap + wallThickness, 5 + wallThickness + gap + wallThickness + gap, height)
+
+            # Combine all cylinders.
+            combined = await Polytree.unite(inner, middle)
+            combined = await Polytree.unite(combined, outer)
+            finalMesh = new THREE.Mesh(combined.geometry, combined.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # Extract first layer.
+            lines = result.split('\n')
+            layerStartIndex = -1
+            layerEndIndex = -1
+
+            for lineIndex in [0...lines.length]
+                if lines[lineIndex].includes('LAYER: 1 of')
+                    layerStartIndex = lineIndex
+                else if layerStartIndex >= 0 and lines[lineIndex].includes('LAYER: 2 of')
+                    layerEndIndex = lineIndex
+                    break
+
+            layerEndIndex = lines.length if layerEndIndex < 0
+
+            layerLines = lines.slice(layerStartIndex, layerEndIndex)
+
+            # Count wall types.
+            outerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-OUTER')).length
+            innerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-INNER')).length
+
+            # Should have 6 outer walls (3 cylinders × 2 boundaries each).
+            # Should have 6 inner walls (second pass for each).
+            expect(outerWallCount).toBe(6)
+            expect(innerWallCount).toBe(6)
+
+            # Verify alternating pattern: walls should be processed correctly.
+            # We can't easily verify exact offset directions from G-code,
+            # but we can verify that slicing completes without errors.
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+            expect(result.length).toBeGreaterThan(2000)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should handle box with nested box structures correctly', ->
+
+            # Create a box with a smaller box inside (simulating LEGO brick pattern).
+            # Expected: outer box (level 0), inner hole (level 1), inner box (level 2).
+
+            # Create outer box.
+            outerGeometry = new THREE.BoxGeometry(20, 20, 5)
+            outerMesh = new THREE.Mesh(outerGeometry, new THREE.MeshBasicMaterial())
+            outerMesh.updateMatrixWorld()
+
+            # Create hole (to subtract).
+            holeGeometry = new THREE.BoxGeometry(16, 16, 6)
+            holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshBasicMaterial())
+            holeMesh.updateMatrixWorld()
+
+            # Create inner structure.
+            innerGeometry = new THREE.BoxGeometry(10, 10, 6)
+            innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial())
+            innerMesh.updateMatrixWorld()
+
+            # Perform CSG operations.
+            hollowBox = await Polytree.subtract(outerMesh, holeMesh)
+            finalMesh = await Polytree.unite(hollowBox, innerMesh)
+
+            result = new THREE.Mesh(finalMesh.geometry, finalMesh.material)
+            result.position.set(0, 0, 2.5)
+            result.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            gcode = slicer.slice(result)
+
+            # Verify slicing completed successfully.
+            expect(gcode).toBeDefined()
+            expect(gcode.length).toBeGreaterThan(500)
+
+            # Verify G-code has wall types.
+            expect(gcode).toContain('WALL-OUTER')
+            expect(gcode).toContain('WALL-INNER')
+
+            # Verify no NaN or undefined coordinates.
+            expect(gcode).not.toContain('NaN')
+            expect(gcode).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should correctly calculate nesting levels for complex nested paths', ->
+
+            # Create a test case with known nesting levels.
+            # We'll use multiple nested cylinders and verify the behavior.
+
+            height = 10
+            wallThickness = 1.6
+            gap = 2
+
+            # Create 4 nested hollow cylinders.
+            cylinders = []
+
+            currentRadius = 5
+            for i in [0...4]
+                outerRadius = currentRadius + wallThickness
+                cylinder = await createHollowCylinder(outerRadius, currentRadius, height)
+                cylinders.push(cylinder)
+                currentRadius = outerRadius + gap
+
+            # Combine all cylinders.
+            combined = cylinders[0]
+            for i in [1...cylinders.length]
+                combined = await Polytree.unite(combined, cylinders[i])
+
+            finalMesh = new THREE.Mesh(combined.geometry, combined.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # Extract first layer to analyze.
+            lines = result.split('\n')
+            layerStartIndex = -1
+            layerEndIndex = -1
+
+            for lineIndex in [0...lines.length]
+                if lines[lineIndex].includes('LAYER: 1 of')
+                    layerStartIndex = lineIndex
+                else if layerStartIndex >= 0 and lines[lineIndex].includes('LAYER: 2 of')
+                    layerEndIndex = lineIndex
+                    break
+
+            layerEndIndex = lines.length if layerEndIndex < 0
+
+            layerLines = lines.slice(layerStartIndex, layerEndIndex)
+
+            # Count wall types.
+            outerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-OUTER')).length
+            innerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-INNER')).length
+
+            # Should have 8 outer walls (4 cylinders × 2 boundaries each).
+            # Should have 8 inner walls (second pass for each).
+            expect(outerWallCount).toBe(8)
+            expect(innerWallCount).toBe(8)
+
+            # Verify G-code is valid and substantial.
+            expect(result).not.toContain('NaN')
+            expect(result.length).toBeGreaterThan(3000)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should handle edge case with single path (no nesting)', ->
+
+            # Test with a simple solid cylinder (no holes, level 0 only).
+
+            geometry = new THREE.CylinderGeometry(5, 5, 5, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 2.5)
+            mesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(mesh)
+
+            # Should complete successfully.
+            expect(result).toBeDefined()
+            expect(result.length).toBeGreaterThan(100)
+
+            # Should have wall markers.
+            expect(result).toContain('WALL-OUTER')
+            expect(result).toContain('WALL-INNER')
+
+            # No errors.
+            expect(result).not.toContain('NaN')
+
+            return # Explicitly return undefined for Jest.
