@@ -1708,6 +1708,3 @@ describe 'Slicing', ->
             expect(result).not.toContain('NaN')
 
             return # Explicitly return undefined for Jest.
-
-
-
