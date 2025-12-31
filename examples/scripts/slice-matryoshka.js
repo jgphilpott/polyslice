@@ -81,7 +81,7 @@ async function createHollowCylinder(outerRadius, innerRadius, height, segments =
  * @param {number} gap - Gap between cylinders in millimeters.
  * @returns {Promise<THREE.Mesh>} The nested cylinders mesh.
  */
-async function createMatryoshka(count, baseHeight = 1.2, wallThickness = 3, gap = 2) {
+async function createMatryoshka(count, baseHeight = 1.2, wallThickness = 5, gap = 3) {
   if (count < 1 || count > 5) {
     throw new Error('Count must be between 1 and 5');
   }
