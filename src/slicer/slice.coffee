@@ -203,6 +203,7 @@ module.exports =
         holeInnerWalls = []  # Inner wall paths of holes (for regular infill clipping).
         holeOuterWalls = []  # Outer wall paths of holes (for travel path optimization).
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
+        structureSkinWalls = []  # Skin wall paths of structures (for skin infill clipping).
         innermostWalls = []
 
         # Track last end point for travel path combing.
@@ -417,6 +418,20 @@ module.exports =
 
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
 
+            # Generate skin walls for structures on skin layers.
+            if not isHole and generateSkinWalls and currentPath and currentPath.length >= 3
+
+                skinWallInset = nozzleDiameter
+                skinWallPath = pathsUtils.createInsetPath(currentPath, skinWallInset, isHole)
+
+                if skinWallPath.length >= 3
+
+                    structureSkinWalls.push(skinWallPath)
+
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, skinWallPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], holeOuterWalls, [], false)
+
+                    lastPathEndPoint = skinEndPoint if skinEndPoint?
+
             return currentPath
 
         calculatePathCentroid = (path) =>
@@ -464,7 +479,23 @@ module.exports =
         for pathIndex in outerBoundaryIndices
 
             path = paths[pathIndex]
-            innermostWall = generateWallsForPath(path, pathIndex, false, false)
+
+            # Determine if skin walls should be generated for this structure.
+            shouldGenerateSkinWalls = false
+
+            if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
+
+                isAbsoluteTopOrBottom = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
+                if isAbsoluteTopOrBottom
+
+                    shouldGenerateSkinWalls = true
+
+                # Note: For structures on middle layers with exposure detection,
+                # we don't generate skin walls. Instead, skin infill is generated
+                # in Phase 2 for exposed areas only.
+
+            innermostWall = generateWallsForPath(path, pathIndex, false, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
 
         # Sort holes by nearest neighbor to minimize travel.
@@ -600,6 +631,9 @@ module.exports =
                 skinWallInset = nozzleDiameter
                 totalInsetForInfill = skinWallInset + infillGap
 
+                # Combine hole skin walls and structure skin walls for exclusion zones.
+                allSkinWalls = holeSkinWalls.concat(structureSkinWalls)
+
                 if isAbsoluteTopOrBottom
 
                     # Absolute top/bottom layers: skin only for clean surfaces.
@@ -607,7 +641,7 @@ module.exports =
 
                         continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
 
                 else
 
@@ -636,7 +670,7 @@ module.exports =
 
                         continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, holeSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
 
                     # Generate skin walls (no infill) for fully covered regions.
                     fullyCoveredInfillBoundaries = []
