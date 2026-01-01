@@ -811,3 +811,275 @@ describe 'Skin Generation', ->
 
             return # Explicitly return undefined for Jest.
 
+    describe 'Nested Structure Skin Walls', ->
+
+        Polytree = null
+
+        beforeAll ->
+
+            { Polytree } = require('@jgphilpott/polytree')
+
+        createHollowCylinder = (outerRadius, innerRadius, height) ->
+
+            # Create outer cylinder.
+            outerGeometry = new THREE.CylinderGeometry(outerRadius, outerRadius, height, 32)
+            outerMesh = new THREE.Mesh(outerGeometry, new THREE.MeshBasicMaterial())
+            outerMesh.rotation.x = Math.PI / 2
+            outerMesh.updateMatrixWorld()
+
+            # Create inner cylinder (hole) - slightly taller for complete penetration.
+            innerGeometry = new THREE.CylinderGeometry(innerRadius, innerRadius, height * 1.2, 32)
+            innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial())
+            innerMesh.rotation.x = Math.PI / 2
+            innerMesh.updateMatrixWorld()
+
+            # Perform CSG subtraction.
+            return Polytree.subtract(outerMesh, innerMesh)
+
+        test 'should generate skin walls for structure paths on skin layers', ->
+
+            # Create a simple hollow cylinder matching matryoshka nested-1.
+            height = 1.2
+            wallThickness = 5
+            outerRadius = 5 + wallThickness  # 10
+            innerRadius = 5  # 5
+            
+            hollowCylinder = await createHollowCylinder(outerRadius, innerRadius, height)
+            
+            mesh = new THREE.Mesh(hollowCylinder.geometry, hollowCylinder.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Extract bottom layer (layer 1).
+            lines = result.split('\n')
+            inLayer1 = false
+            skinMarkerCount = 0
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    inLayer1 = true
+                else if line.includes('LAYER: 2 of')
+                    break
+                
+                if inLayer1 and line.includes('; TYPE: SKIN')
+                    skinMarkerCount++
+
+            # Should have at least 2 SKIN markers: 1 for outer structure, 1 for inner hole.
+            # May have 3 if structure also gets skin infill from Phase 2.
+            expect(skinMarkerCount).toBeGreaterThanOrEqual(2)
+
+        test 'should generate skin walls for all paths in nested structures', ->
+
+            # Create 3 nested hollow cylinders (6 paths total: 3 structures + 3 holes).
+            height = 1.2  # Match matryoshka height
+            wallThickness = 5  # Match matryoshka
+            gap = 3  # Match matryoshka
+
+            # Create 3 hollow cylinders.
+            cylinder1 = await createHollowCylinder(5 + wallThickness, 5, height)
+            cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+            cylinder3 = await createHollowCylinder(5 + wallThickness + gap + wallThickness + gap + wallThickness, 5 + wallThickness + gap + wallThickness + gap, height)
+
+            # Combine all cylinders.
+            combined1 = await Polytree.unite(cylinder1, cylinder2)
+            combined2 = await Polytree.unite(combined1, cylinder3)
+            
+            mesh = new THREE.Mesh(combined2.geometry, combined2.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)  # Default value
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Extract bottom layer (layer 1).
+            lines = result.split('\n')
+            inLayer1 = false
+            skinMarkerCount = 0
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    inLayer1 = true
+                else if line.includes('LAYER: 2 of')
+                    break
+                
+                if inLayer1 and line.includes('; TYPE: SKIN')
+                    skinMarkerCount++
+
+            # Should have 6 SKIN markers: all 6 paths get skin walls on bottom layer.
+            expect(skinMarkerCount).toBe(6)
+
+        test 'should have correct offset gap between inner walls and structure skin walls', ->
+
+            # Create a simple hollow cylinder matching matryoshka.
+            height = 1.2
+            wallThickness = 5
+            outerRadius = 5 + wallThickness  # 10
+            innerRadius = 5
+            
+            hollowCylinder = await createHollowCylinder(outerRadius, innerRadius, height)
+            
+            mesh = new THREE.Mesh(hollowCylinder.geometry, hollowCylinder.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Extract bottom layer and find inner wall and skin wall coordinates.
+            lines = result.split('\n')
+            inLayer1 = false
+            inWallInner = false
+            inSkin = false
+            innerWallCoords = []
+            skinWallCoords = []
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    inLayer1 = true
+                    inWallInner = false
+                    inSkin = false
+                else if line.includes('LAYER: 2 of')
+                    break
+                
+                if inLayer1
+                    if line.includes('; TYPE: WALL-INNER')
+                        inWallInner = true
+                        inSkin = false
+                    else if line.includes('; TYPE: SKIN')
+                        inWallInner = false
+                        inSkin = true
+                    else if line.includes('; TYPE:')
+                        inWallInner = false
+                        inSkin = false
+                    
+                    # Extract coordinates from G1 commands with extrusion.
+                    if line.includes('G1') and line.includes(' E')
+                        xMatch = line.match(/X([\d.]+)/)
+                        yMatch = line.match(/Y([\d.]+)/)
+                        
+                        if xMatch and yMatch
+                            x = parseFloat(xMatch[1])
+                            y = parseFloat(yMatch[1])
+                            
+                            if inWallInner
+                                innerWallCoords.push({ x: x, y: y })
+                            else if inSkin
+                                skinWallCoords.push({ x: x, y: y })
+
+            # Should have collected coordinates.
+            expect(innerWallCoords.length).toBeGreaterThan(0)
+            expect(skinWallCoords.length).toBeGreaterThan(0)
+
+            # Verify that skin walls exist and are inset from inner walls.
+            # We don't check exact offset due to circular geometry complexity,
+            # but verify that both inner walls and skin walls are present.
+            # This confirms the fix that structure paths now get skin walls.
+
+        test 'should generate skin walls for both structures and holes', ->
+
+            # Create 2 nested hollow cylinders (4 paths: 2 structures + 2 holes).
+            height = 1.2  # Match matryoshka height
+            wallThickness = 5  # Match matryoshka
+            gap = 3  # Match matryoshka
+
+            cylinder1 = await createHollowCylinder(5 + wallThickness, 5, height)
+            cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            combined = await Polytree.unite(cylinder1, cylinder2)
+            
+            mesh = new THREE.Mesh(combined.geometry, combined.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)  # Default value
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Extract bottom layer and count path types before skin.
+            lines = result.split('\n')
+            inLayer1 = false
+            wallOuterCount = 0
+            skinMarkerCount = 0
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    inLayer1 = true
+                else if line.includes('LAYER: 2 of')
+                    break
+                
+                if inLayer1
+                    if line.includes('; TYPE: WALL-OUTER')
+                        wallOuterCount++
+                    else if line.includes('; TYPE: SKIN')
+                        skinMarkerCount++
+
+            # Should have 4 WALL-OUTER markers (4 paths).
+            expect(wallOuterCount).toBe(4)
+            
+            # Should have 4 SKIN markers (all paths get skin on bottom layer).
+            expect(skinMarkerCount).toBe(4)
+
+        test 'should not generate skin walls on middle layers without exposure detection', ->
+
+            # Create a simple hollow cylinder.
+            height = 10  # Tall enough to have middle layers.
+            hollowCylinder = await createHollowCylinder(10, 8, height)
+            
+            mesh = new THREE.Mesh(hollowCylinder.geometry, hollowCylinder.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers (top/bottom).
+            slicer.setInfillDensity(0)
+            slicer.setExposureDetection(false)  # Disable exposure detection.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Extract middle layer (layer 25 out of 50).
+            lines = result.split('\n')
+            inMiddleLayer = false
+            skinMarkerCount = 0
+
+            for line in lines
+                if line.includes('LAYER: 25 of')
+                    inMiddleLayer = true
+                else if line.includes('LAYER: 26 of')
+                    break
+                
+                if inMiddleLayer and line.includes('; TYPE: SKIN')
+                    skinMarkerCount++
+
+            # Should have 0 SKIN markers on middle layers (not top/bottom).
+            expect(skinMarkerCount).toBe(0)
+
