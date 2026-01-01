@@ -491,7 +491,12 @@ module.exports =
 
                 if isAbsoluteTopOrBottom
 
-                    shouldGenerateSkinWalls = true
+                    # Only generate structure skin walls in Phase 1 if there are holes on this layer.
+                    # For simple structures without holes, Phase 2 will handle skin (wall + infill).
+                    # For nested structures with holes, Phase 1 generates walls for all paths to seal them.
+                    if holeIndices.length > 0
+
+                        shouldGenerateSkinWalls = true
 
                 # Note: For structures on middle layers with exposure detection,
                 # we don't generate skin walls. Instead, skin infill is generated
@@ -633,8 +638,9 @@ module.exports =
                 skinWallInset = nozzleDiameter
                 totalInsetForInfill = skinWallInset + infillGap
 
-                # Combine hole skin walls and structure skin walls for exclusion zones.
-                allSkinWalls = holeSkinWalls.concat(structureSkinWalls)
+                # Use only hole skin walls for exclusion zones.
+                # Structure skin walls from Phase 1 should NOT exclude their own infill.
+                allSkinWalls = holeSkinWalls
 
                 if isAbsoluteTopOrBottom
 
