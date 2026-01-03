@@ -576,6 +576,10 @@ module.exports =
             
             filteredWalls = []
             
+            # Validate parameters.
+            return filteredWalls if not holeWalls or not holeNestingLevels
+            return filteredWalls if holeWalls.length is 0 or holeNestingLevels.length is 0
+            
             for holeWall, idx in holeWalls
                 
                 # Bounds check to ensure array lengths match.
@@ -700,6 +704,7 @@ module.exports =
                         # Alternative approaches considered:
                         # - Subtract skin areas: Leaves nested structures without infill (original issue)
                         # - Generate infill only in non-skin areas: Complex and may still miss nested structures
+                        # Pass empty array for skinAreas to prevent subtraction.
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, [])
 
                     # Generate skin for exposed areas.
