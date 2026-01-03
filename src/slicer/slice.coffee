@@ -697,14 +697,8 @@ module.exports =
 
                         # For middle layers with adaptive skin, generate full infill without subtracting skin areas.
                         # This ensures nested structures get structural infill even when fully exposed.
-                        # Trade-off: Skin overlaps sparse infill pattern, but this is acceptable because:
-                        # - The skin (solid) will cover the infill pattern completely
-                        # - Nested structures need structural support from infill
-                        # - Attempting to subtract skin from infill can leave nested structures with no infill
-                        # Alternative approaches considered:
-                        # - Subtract skin areas: Leaves nested structures without infill (original issue)
-                        # - Generate infill only in non-skin areas: Complex and may still miss nested structures
-                        # Pass empty array for skinAreas to prevent subtraction.
+                        # The filtered hole approach alone is insufficient because skin area subtraction can
+                        # still exclude nested structures when they are fully covered by skin.
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, [])
 
                     # Generate skin for exposed areas.
