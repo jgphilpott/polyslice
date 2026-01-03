@@ -578,6 +578,9 @@ module.exports =
             
             for holeWall, idx in holeWalls
                 
+                # Bounds check to ensure array lengths match.
+                continue if idx >= holeNestingLevels.length
+                
                 holeLevel = holeNestingLevels[idx]
                 
                 # Only include holes that are direct children (one level deeper).
@@ -690,7 +693,13 @@ module.exports =
 
                         # For middle layers with adaptive skin, generate full infill without subtracting skin areas.
                         # This ensures nested structures get structural infill even when fully exposed.
-                        # The skin will be printed on top, which is acceptable overlap.
+                        # Trade-off: Skin overlaps sparse infill pattern, but this is acceptable because:
+                        # - The skin (solid) will cover the infill pattern completely
+                        # - Nested structures need structural support from infill
+                        # - Attempting to subtract skin from infill can leave nested structures with no infill
+                        # Alternative approaches considered:
+                        # - Subtract skin areas: Leaves nested structures without infill (original issue)
+                        # - Generate infill only in non-skin areas: Complex and may still miss nested structures
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, [])
 
                     # Generate skin for exposed areas.
