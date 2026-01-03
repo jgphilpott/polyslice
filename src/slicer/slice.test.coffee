@@ -1713,3 +1713,183 @@ describe 'Slicing', ->
             expect(result).not.toContain('NaN')
 
             return # Explicitly return undefined for Jest.
+
+    describe 'Nested Structures Infill Generation', ->
+
+        Polytree = null
+
+        beforeAll ->
+
+            { Polytree } = require('@jgphilpott/polytree')
+
+        # Helper to create a hollow cylinder using CSG.
+        createHollowCylinder = (outerRadius, innerRadius, height, segments = 32) ->
+
+            # Create outer cylinder.
+            outerGeometry = new THREE.CylinderGeometry(outerRadius, outerRadius, height, segments)
+            outerMesh = new THREE.Mesh(outerGeometry, new THREE.MeshBasicMaterial())
+            outerMesh.rotation.x = Math.PI / 2
+            outerMesh.updateMatrixWorld()
+
+            # Create inner cylinder (hole).
+            innerGeometry = new THREE.CylinderGeometry(innerRadius, innerRadius, height * 1.2, segments)
+            innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial())
+            innerMesh.rotation.x = Math.PI / 2
+            innerMesh.updateMatrixWorld()
+
+            # Subtract inner from outer.
+            hollowMesh = await Polytree.subtract(outerMesh, innerMesh)
+            finalMesh = new THREE.Mesh(hollowMesh.geometry, hollowMesh.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            return finalMesh
+
+        test 'should generate infill for single hollow cylinder', ->
+
+            # Create a single hollow cylinder.
+            mesh = await createHollowCylinder(10, 5, 1.2)
+
+            # Configure slicer.
+            slicer.setShellSkinThickness(0.4)  # 2 layers.
+            slicer.setShellWallThickness(0.8)  # 2 walls.
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(mesh)
+
+            # Count infill sections (TYPE: FILL).
+            infillMatches = result.match(/TYPE: FILL/g) || []
+
+            # With 6 layers (1.2mm / 0.2mm) and 2 skin layers, expect 2 middle layers with infill.
+            # 1 structure × 2 middle layers = 2 infill sections.
+            expect(infillMatches.length).toBe(2)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should generate infill for nested hollow cylinders', ->
+
+            # Create two nested hollow cylinders (matryoshka-style).
+            innerCylinder = await createHollowCylinder(10, 5, 1.2)
+            outerCylinder = await createHollowCylinder(23, 18, 1.2)
+
+            # Combine using unite.
+            combinedMesh = await Polytree.unite(innerCylinder, outerCylinder)
+            finalMesh = new THREE.Mesh(combinedMesh.geometry, combinedMesh.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setShellSkinThickness(0.4)  # 2 layers.
+            slicer.setShellWallThickness(0.8)  # 2 walls.
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Count infill sections (TYPE: FILL).
+            infillMatches = result.match(/TYPE: FILL/g) || []
+
+            # With 6 layers and 2 skin layers, expect 2 middle layers with infill.
+            # 2 structures × 2 middle layers = 4 infill sections.
+            expect(infillMatches.length).toBe(4)
+
+            # Verify both structures get infill by checking a middle layer.
+            parts = result.split('LAYER: 3 of')
+            expect(parts.length).toBeGreaterThan(1)
+            layer3 = parts[1].split('LAYER: 4 of')[0]
+
+            layer3InfillMatches = layer3.match(/TYPE: FILL/g) || []
+            expect(layer3InfillMatches.length).toBe(2)  # Both structures should have infill.
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should generate infill for three nested hollow cylinders', ->
+
+            # Create three nested hollow cylinders.
+            cylinder1 = await createHollowCylinder(10, 5, 1.2)
+            cylinder2 = await createHollowCylinder(23, 18, 1.2)
+            cylinder3 = await createHollowCylinder(36, 31, 1.2)
+
+            # Combine all using unite.
+            combined12 = await Polytree.unite(cylinder1, cylinder2)
+            combined123 = await Polytree.unite(combined12, cylinder3)
+            finalMesh = new THREE.Mesh(combined123.geometry, combined123.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Count infill sections.
+            infillMatches = result.match(/TYPE: FILL/g) || []
+
+            # 3 structures × 2 middle layers = 6 infill sections.
+            expect(infillMatches.length).toBe(6)
+
+            # Verify all three structures get infill on a middle layer.
+            parts = result.split('LAYER: 3 of')
+            expect(parts.length).toBeGreaterThan(1)
+            layer3 = parts[1].split('LAYER: 4 of')[0]
+
+            layer3InfillMatches = layer3.match(/TYPE: FILL/g) || []
+            expect(layer3InfillMatches.length).toBe(3)  # All three structures should have infill.
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should filter holes by nesting level', ->
+
+            # This test verifies that holes are correctly filtered by nesting level
+            # so that nested structures are not excluded by holes at higher levels.
+
+            # Create two nested cylinders.
+            innerCylinder = await createHollowCylinder(10, 5, 1.2)
+            outerCylinder = await createHollowCylinder(23, 18, 1.2)
+
+            combinedMesh = await Polytree.unite(innerCylinder, outerCylinder)
+            finalMesh = new THREE.Mesh(combinedMesh.geometry, combinedMesh.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # On a middle layer, we should have:
+            # - 2 outer structures (level 0 and level 2)
+            # - 2 holes (level 1 and level 3)
+            # Each structure should generate infill without being excluded by the other structure's hole.
+
+            parts = result.split('LAYER: 3 of')
+            expect(parts.length).toBeGreaterThan(1)
+            layer3 = parts[1].split('LAYER: 4 of')[0]
+
+            # Count outer walls (one per structure + one per hole).
+            outerWallMatches = layer3.match(/TYPE: WALL-OUTER/g) || []
+            expect(outerWallMatches.length).toBe(4)  # 2 structures + 2 holes.
+
+            # Count infill (one per structure on middle layers).
+            infillMatches = layer3.match(/TYPE: FILL/g) || []
+            expect(infillMatches.length).toBe(2)  # Both structures should have infill.
+
+            return # Explicitly return undefined for Jest.
