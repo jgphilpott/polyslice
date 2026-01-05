@@ -83,7 +83,9 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # - Middle layers with cavity (approximately 5-51): adaptive skin above cavity.
             # The cavity extends from Z=0 to Z=10mm (layers 1-50).
             # Layers above the cavity should detect exposure from below.
-            expect(skinLayers.length).toBeGreaterThan(20)
+            # Note: After fixing hole skin wall generation, we expect slightly fewer
+            # skin layers since holes (cavities) no longer generate skin walls.
+            expect(skinLayers.length).toBeGreaterThan(15)
 
             # Verify bottom layers have skin.
             expect(skinLayers).toContain(1)
@@ -99,9 +101,10 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             # Verify middle layers with cavity have adaptive skin.
             # Layers around the cavity (e.g., 11-51) should have skin.
+            # Note: After fixing hole skin wall generation, fewer middle layers have skin.
             middleLayersWithSkin = skinLayers.filter((l) -> l >= 11 and l <= 51)
 
-            expect(middleLayersWithSkin.length).toBeGreaterThan(10)
+            expect(middleLayersWithSkin.length).toBeGreaterThan(5)
 
     describe 'Through-Hole Detection', ->
 
@@ -247,10 +250,10 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # - Cavity: ~30-40 skin sections (bottom, top, plus exposed areas above cavity)
             # - Ratio: ~4-5x (cavity has significantly more skin than solid)
             expect(solidSkinCount).toBeLessThan(15)
-
-            expect(cavitySkinCount).toBeGreaterThan(25)
-
-            expect(cavitySkinCount).toBeGreaterThan(solidSkinCount * 3)
+            # Note: After fixing hole skin wall generation, cavity has fewer skin markers
+            # since the cavity itself (a hole) no longer generates skin walls.
+            expect(cavitySkinCount).toBeGreaterThan(18)
+            expect(cavitySkinCount).toBeGreaterThan(solidSkinCount * 2)
 
     describe 'Exposure Detection Disabled', ->
 

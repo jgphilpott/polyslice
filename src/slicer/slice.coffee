@@ -562,20 +562,10 @@ module.exports =
 
             path = paths[pathIndex]
 
-            # Determine if skin walls should be generated for this hole.
+            # Holes should never generate skin walls in Phase 1.
+            # They only generate their regular walls.
+            # Skin generation for the parent structure will handle the hole boundary.
             shouldGenerateSkinWalls = false
-
-            if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
-
-                isAbsoluteTopOrBottom = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
-
-                if isAbsoluteTopOrBottom
-
-                    shouldGenerateSkinWalls = true
-
-                else if slicer.getExposureDetection()
-
-                    shouldGenerateSkinWalls = exposureModule.shouldGenerateHoleSkinWalls(path, layerIndex, skinLayerCount, totalLayers, allLayers)
 
             innermostWall = generateWallsForPath(path, pathIndex, true, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall

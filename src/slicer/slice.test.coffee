@@ -909,11 +909,12 @@ describe 'Slicing', ->
                     typeSequence.push('SKIN')
 
             # Validate the sequence pattern.
-            # Updated pattern after spacing validation changes:
-            # OUTER_BOUNDARY(OUTER,INNER) + HOLE1(OUTER,INNER) + HOLE2(OUTER,INNER) + ... + SKIN(for holes) + OUTER_BOUNDARY_SKIN + INFILL
-            # We should see at least: 2 outer boundary walls + (2 walls * 4 holes) + skin = 14+ type markers
+            # Updated pattern after fixing hole skin wall generation:
+            # OUTER_BOUNDARY(OUTER,INNER) + HOLE1(OUTER,INNER) + HOLE2(OUTER,INNER) + ... + OUTER_BOUNDARY_SKIN + INFILL
+            # Note: Holes no longer generate skin walls (they only have regular walls).
+            # We should see at least: 2 outer boundary walls + (2 walls * 4 holes) + 1 structure skin = 11+ type markers
 
-            expect(typeSequence.length).toBeGreaterThanOrEqual(14)
+            expect(typeSequence.length).toBeGreaterThanOrEqual(11)
 
             # First two should be outer boundary walls (OUTER, INNER).
             expect(typeSequence[0]).toBe('WALL-OUTER')
@@ -932,7 +933,7 @@ describe 'Slicing', ->
             # We should have at least 4 hole wall pairs (one for each hole).
             expect(holeWallPairCount).toBeGreaterThanOrEqual(4)
 
-            # Count total skin markers (should have some for holes with sufficient spacing).
+            # Count total skin markers (should have some for the outer structure).
             skinCount = typeSequence.filter((t) -> t is 'SKIN').length
             expect(skinCount).toBeGreaterThanOrEqual(1)
 
@@ -1072,17 +1073,16 @@ describe 'Slicing', ->
             typeMatches = layer1.match(/TYPE: (WALL-OUTER|WALL-INNER|SKIN)/g) || []
             types = typeMatches.map((m) -> m.replace('TYPE: ', ''))
 
-            # Expected sequence on skin layer (with PR #96 structure skin walls):
+            # Expected sequence on skin layer (after fixing hole skin wall generation):
             # 1. WALL-OUTER (outer boundary)
             # 2. WALL-INNER (outer boundary)
-            # 3. SKIN (outer boundary structure skin wall) ← PR #96
-            # 4. WALL-OUTER (hole)
+            # 3. SKIN (outer boundary structure skin wall)
+            # 4. WALL-OUTER (hole) - holes no longer have skin walls
             # 5. WALL-INNER (hole)
-            # 6. SKIN (hole skin wall) ← immediately after hole walls (PR #54)
-            # 7. SKIN (outer boundary skin infill)
+            # 6. SKIN (outer boundary skin infill - from Phase 2)
 
             # Verify we have the expected number of wall types.
-            expect(types.length).toBe(7)
+            expect(types.length).toBe(6)
 
             # Verify the 3rd element (index 2) is SKIN.
             # This confirms structure skin wall is generated after structure walls.
@@ -1099,7 +1099,7 @@ describe 'Slicing', ->
 
             expect(outerCount).toBe(2)  # Outer boundary + hole.
             expect(innerCount).toBe(2)  # Outer boundary + hole.
-            expect(skinCount).toBe(3)  # Structure skin wall + hole skin wall + structure skin infill.
+            expect(skinCount).toBe(2)  # Structure skin wall + structure skin infill (holes no longer have skin walls).
 
             return # Explicitly return undefined for Jest.
 
