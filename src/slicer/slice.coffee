@@ -421,7 +421,7 @@ module.exports =
 
                         skinCombingHoleWalls = holeOuterWalls
 
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, true, [], skinCombingHoleWalls, [], false)
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls, [], false)
 
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
 
