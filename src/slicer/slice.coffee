@@ -421,7 +421,7 @@ module.exports =
 
                         skinCombingHoleWalls = holeOuterWalls
 
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls, [], false)
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, true, [], skinCombingHoleWalls, [], false)
 
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
 
@@ -437,7 +437,7 @@ module.exports =
 
                     # Pass currentPath (not skinWallPath) to avoid double offset.
                     # generateSkinGCode will create its own inset for the skin wall.
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], holeOuterWalls, [], false)
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, true, [], holeOuterWalls, [], false)
 
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
 
