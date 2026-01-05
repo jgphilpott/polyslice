@@ -435,9 +435,20 @@ module.exports =
 
                     structureSkinWalls.push(skinWallPath)
 
+                    # Filter holes to only include direct children (one level deeper).
+                    # This prevents skin infill from overlapping with nested structures.
+                    currentStructureNestingLevel = pathNestingLevel[pathIndex]
+                    filteredHoleOuterWalls = []
+                    
+                    for holeWall, idx in holeOuterWalls
+                        if idx < holeOuterWallNestingLevels.length
+                            holeLevel = holeOuterWallNestingLevels[idx]
+                            if holeLevel is currentStructureNestingLevel + 1
+                                filteredHoleOuterWalls.push(holeWall)
+
                     # Pass currentPath (not skinWallPath) to avoid double offset.
                     # generateSkinGCode will create its own inset for the skin wall.
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, true, [], holeOuterWalls, [], false)
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, true, [], filteredHoleOuterWalls, [], false)
 
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
 
