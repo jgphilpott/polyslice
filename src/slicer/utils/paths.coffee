@@ -199,12 +199,53 @@ module.exports =
 
         return [] if path.length < 3
 
-        # Use original path without simplification to preserve geometric detail from Polytree slices.
-        # The old simplification removed points where angle change was < ~2.9 degrees,
-        # which caused wall paths to lose segments and "cut corners" on curved surfaces.
-        simplifiedPath = path
+        # Step 1: Remove only truly degenerate/collinear points to avoid numerical issues.
+        # Use an extremely small threshold to preserve nearly all geometric detail while
+        # avoiding instability from perfectly collinear points in the offset calculation.
+        simplifiedPath = []
+        angleThreshold = 0.0001  # ~0.0057 degrees - only removes perfectly collinear points
 
-        # Step 2: Create inset using the path.
+        n = path.length
+
+        for i in [0...n]
+
+            prevIdx = if i is 0 then n - 1 else i - 1
+            nextIdx = if i is n - 1 then 0 else i + 1
+
+            p1 = path[prevIdx]
+            p2 = path[i]
+            p3 = path[nextIdx]
+
+            # Calculate vectors for the two edges.
+            v1x = p2.x - p1.x
+            v1y = p2.y - p1.y
+            v2x = p3.x - p2.x
+            v2y = p3.y - p2.y
+
+            len1 = Math.sqrt(v1x * v1x + v1y * v1y)
+            len2 = Math.sqrt(v2x * v2x + v2y * v2y)
+
+            # Skip if either edge is degenerate.
+            if len1 < 0.0001 or len2 < 0.0001 then continue
+
+            # Normalize vectors.
+            v1x /= len1
+            v1y /= len1
+            v2x /= len2
+            v2y /= len2
+
+            # Calculate cross product to detect direction change.
+            cross = v1x * v2y - v1y * v2x
+
+            # Keep all points except those that are perfectly collinear (zero cross product).
+            # This preserves geometric detail while avoiding numerical issues in offset calculation.
+            if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
+
+        # If simplification resulted in too few points, use original path.
+        # Use <= to ensure paths with exactly MIN_SIMPLIFIED_CORNERS also fall back to original.
+        if simplifiedPath.length <= MIN_SIMPLIFIED_CORNERS then simplifiedPath = path
+
+        # Step 2: Create inset using the simplified path.
         insetPath = []
         n = simplifiedPath.length
 
