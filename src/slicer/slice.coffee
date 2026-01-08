@@ -205,11 +205,12 @@ module.exports =
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
         structureSkinWalls = []  # Skin wall paths of structures (for skin infill clipping).
         innermostWalls = []
-        
+
         # Track nesting levels for holes to filter exclusion zones.
-        # Key: hole index in holeInnerWalls/holeOuterWalls, Value: nesting level
-        holeInnerWallNestingLevels = []
+        # Key: hole index in holeOuterWalls/holeInnerWalls/holeSkinWalls, Value: nesting level
         holeOuterWallNestingLevels = []
+        holeInnerWallNestingLevels = []
+        holeSkinWallNestingLevels = []
 
         # Track last end point for travel path combing.
         lastPathEndPoint = slicer.lastLayerEndPoint
@@ -411,6 +412,7 @@ module.exports =
                 if skinWallPath.length >= 3
 
                     holeSkinWalls.push(skinWallPath)
+                    holeSkinWallNestingLevels.push(pathNestingLevel[pathIndex]) # Track nesting level
 
                     if pathToHoleIndex[pathIndex]?
 
@@ -573,25 +575,25 @@ module.exports =
         # For a structure at nesting level N, only include holes at level N+1 (direct children).
         # This prevents nested structures from being excluded by holes at higher levels.
         filterHolesByNestingLevel = (holeWalls, holeNestingLevels, structureNestingLevel) =>
-            
+
             filteredWalls = []
-            
+
             # Validate parameters.
             return filteredWalls if not holeWalls or not holeNestingLevels
             return filteredWalls if holeWalls.length is 0 or holeNestingLevels.length is 0
-            
+
             for holeWall, idx in holeWalls
-                
+
                 # Bounds check to ensure array lengths match.
                 continue if idx >= holeNestingLevels.length
-                
+
                 holeLevel = holeNestingLevels[idx]
-                
+
                 # Only include holes that are direct children (one level deeper).
                 if holeLevel is structureNestingLevel + 1
-                    
+
                     filteredWalls.push(holeWall)
-            
+
             return filteredWalls
 
         # Phase 2: Generate infill and skin for outer boundaries.
@@ -608,10 +610,10 @@ module.exports =
             lastWallPoint = lastPathEndPoint or (if currentPath.length > 0 then { x: currentPath[0].x, y: currentPath[0].y, z: z } else null)
 
             infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, pathIsHole[pathIndex])
-            
+
             # Get nesting level of current structure for hole filtering.
             currentStructureNestingLevel = pathNestingLevel[pathIndex]
-            
+
             # Filter holes to only include direct children (one level deeper).
             filteredHoleInnerWalls = filterHolesByNestingLevel(holeInnerWalls, holeInnerWallNestingLevels, currentStructureNestingLevel)
             filteredHoleOuterWalls = filterHolesByNestingLevel(holeOuterWalls, holeOuterWallNestingLevels, currentStructureNestingLevel)
@@ -677,16 +679,30 @@ module.exports =
                 skinWallInset = nozzleDiameter
                 totalInsetForInfill = skinWallInset + infillGap
 
+                # Filter hole skin walls to only include direct children (one level deeper).
+                # This prevents nested structures from having their infill excluded by unrelated holes.
+                filteredHoleSkinWalls = filterHolesByNestingLevel(holeSkinWalls, holeSkinWallNestingLevels, currentStructureNestingLevel)
+
                 # Use only hole skin walls for exclusion zones.
                 # Structure skin walls from Phase 1 should NOT exclude their own infill.
-                allSkinWalls = holeSkinWalls
+                allSkinWalls = filteredHoleSkinWalls
 
                 if isAbsoluteTopOrBottom
 
                     # Absolute top/bottom layers: skin only for clean surfaces.
                     for skinArea in skinAreas
 
-                        continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+                        # For nested structures with holes, Phase 1 already generated skin walls.
+                        # In Phase 2, we need to generate skin infill only (not duplicate walls).
+                        # The simplest approach: check if this structure already has skin walls from Phase 1.
+                        structureAlreadyHasSkinWall = holeIndices.length > 0
+
+                        # Skip if skin area is actually inside a hole (for simple cases without nesting).
+                        # But for nested structures, we've already generated skin walls in Phase 1,
+                        # so we need to generate infill here regardless.
+                        if not structureAlreadyHasSkinWall and coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+
+                            continue
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
 
