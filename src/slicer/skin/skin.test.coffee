@@ -843,9 +843,9 @@ describe 'Skin Generation', ->
             wallThickness = 5
             outerRadius = 5 + wallThickness  # 10
             innerRadius = 5  # 5
-            
+
             hollowCylinder = await createHollowCylinder(outerRadius, innerRadius, height)
-            
+
             mesh = new THREE.Mesh(hollowCylinder.geometry, hollowCylinder.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -869,7 +869,7 @@ describe 'Skin Generation', ->
                     inLayer1 = true
                 else if line.includes('LAYER: 2 of')
                     break
-                
+
                 if inLayer1 and line.includes('; TYPE: SKIN')
                     skinMarkerCount++
 
@@ -892,7 +892,7 @@ describe 'Skin Generation', ->
             # Combine all cylinders.
             combined1 = await Polytree.unite(cylinder1, cylinder2)
             combined2 = await Polytree.unite(combined1, cylinder3)
-            
+
             mesh = new THREE.Mesh(combined2.geometry, combined2.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -916,7 +916,7 @@ describe 'Skin Generation', ->
                     inLayer1 = true
                 else if line.includes('LAYER: 2 of')
                     break
-                
+
                 if inLayer1 and line.includes('; TYPE: SKIN')
                     skinMarkerCount++
 
@@ -931,9 +931,9 @@ describe 'Skin Generation', ->
             wallThickness = 5
             outerRadius = 5 + wallThickness  # 10
             innerRadius = 5
-            
+
             hollowCylinder = await createHollowCylinder(outerRadius, innerRadius, height)
-            
+
             mesh = new THREE.Mesh(hollowCylinder.geometry, hollowCylinder.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -963,7 +963,7 @@ describe 'Skin Generation', ->
                     inSkin = false
                 else if line.includes('LAYER: 2 of')
                     break
-                
+
                 if inLayer1
                     if line.includes('; TYPE: WALL-INNER')
                         inWallInner = true
@@ -974,16 +974,16 @@ describe 'Skin Generation', ->
                     else if line.includes('; TYPE:')
                         inWallInner = false
                         inSkin = false
-                    
+
                     # Extract coordinates from G1 commands with extrusion.
                     if line.includes('G1') and line.includes(' E')
                         xMatch = line.match(/X([\d.]+)/)
                         yMatch = line.match(/Y([\d.]+)/)
-                        
+
                         if xMatch and yMatch
                             x = parseFloat(xMatch[1])
                             y = parseFloat(yMatch[1])
-                            
+
                             if inWallInner
                                 innerWallCoords.push({ x: x, y: y })
                             else if inSkin
@@ -1009,7 +1009,7 @@ describe 'Skin Generation', ->
             cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
 
             combined = await Polytree.unite(cylinder1, cylinder2)
-            
+
             mesh = new THREE.Mesh(combined.geometry, combined.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -1034,7 +1034,7 @@ describe 'Skin Generation', ->
                     inLayer1 = true
                 else if line.includes('LAYER: 2 of')
                     break
-                
+
                 if inLayer1
                     if line.includes('; TYPE: WALL-OUTER')
                         wallOuterCount++
@@ -1043,7 +1043,7 @@ describe 'Skin Generation', ->
 
             # Should have 4 WALL-OUTER markers (4 paths).
             expect(wallOuterCount).toBe(4)
-            
+
             # Should have 6 SKIN markers: Phase 1 generates skin walls for all 4 paths (4 markers),
             # then Phase 2 generates skin (wall + infill) for 2 structures (2 more markers). Total: 6.
             expect(skinMarkerCount).toBe(6)
@@ -1053,7 +1053,7 @@ describe 'Skin Generation', ->
             # Create a simple hollow cylinder.
             height = 10  # Tall enough to have middle layers.
             hollowCylinder = await createHollowCylinder(10, 8, height)
-            
+
             mesh = new THREE.Mesh(hollowCylinder.geometry, hollowCylinder.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -1078,7 +1078,7 @@ describe 'Skin Generation', ->
                     inMiddleLayer = true
                 else if line.includes('LAYER: 26 of')
                     break
-                
+
                 if inMiddleLayer and line.includes('; TYPE: SKIN')
                     skinMarkerCount++
 
@@ -1121,7 +1121,7 @@ describe 'Skin Generation', ->
             cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
 
             combined = await Polytree.unite(cylinder1, cylinder2)
-            
+
             mesh = new THREE.Mesh(combined.geometry, combined.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -1145,7 +1145,7 @@ describe 'Skin Generation', ->
                     inLayer1 = true
                 else if line.includes('LAYER: 2 of')
                     break
-                
+
                 # Count "Moving to skin infill line" comments which indicate skin infill generation.
                 if inLayer1 and line.includes('Moving to skin infill line')
                     skinInfillMoveCount++
@@ -1166,7 +1166,7 @@ describe 'Skin Generation', ->
             cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
 
             combined = await Polytree.unite(cylinder1, cylinder2)
-            
+
             mesh = new THREE.Mesh(combined.geometry, combined.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -1194,7 +1194,7 @@ describe 'Skin Generation', ->
                     if inSkinSection and currentSectionLines.length > 0
                         skinSections.push(currentSectionLines)
                     break
-                
+
                 if inLayer1
                     if line.includes('; TYPE: SKIN')
                         if inSkinSection and currentSectionLines.length > 0
@@ -1240,7 +1240,7 @@ describe 'Skin Generation', ->
 
             combined1 = await Polytree.unite(cylinder1, cylinder2)
             combined2 = await Polytree.unite(combined1, cylinder3)
-            
+
             mesh = new THREE.Mesh(combined2.geometry, combined2.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -1268,7 +1268,7 @@ describe 'Skin Generation', ->
                     if inSkinSection and currentSectionLines.length > 0
                         skinSections.push(currentSectionLines)
                     break
-                
+
                 if inLayer1
                     if line.includes('; TYPE: SKIN')
                         if inSkinSection and currentSectionLines.length > 0
@@ -1286,7 +1286,7 @@ describe 'Skin Generation', ->
             # Count sections with infill.
             sectionsWithInfill = 0
             infillLineCounts = []
-            
+
             for section in skinSections
                 infillMoves = section.filter((line) -> line.includes('Moving to skin infill line')).length
                 if infillMoves > 0
@@ -1313,7 +1313,7 @@ describe 'Skin Generation', ->
             cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
 
             combined = await Polytree.unite(cylinder1, cylinder2)
-            
+
             mesh = new THREE.Mesh(combined.geometry, combined.material)
             mesh.position.set(0, 0, height / 2)
             mesh.updateMatrixWorld()
@@ -1341,7 +1341,7 @@ describe 'Skin Generation', ->
                     if inSkinSection and currentSectionLines.length > 0
                         skinSections.push(currentSectionLines)
                     break
-                
+
                 if inLayer1
                     if line.includes('; TYPE: SKIN')
                         if inSkinSection and currentSectionLines.length > 0
@@ -1370,4 +1370,3 @@ describe 'Skin Generation', ->
             # Before the fix, it would have 0 lines because all hole walls were used for clipping.
             innerStructureInfillCount = Math.min(infillCounts[0], infillCounts[1])
             expect(innerStructureInfillCount).toBeGreaterThan(30)  # Should have many lines, not 0.
-
