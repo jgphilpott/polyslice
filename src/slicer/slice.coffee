@@ -711,26 +711,19 @@ module.exports =
                     # Mixed layers: infill first, then skin.
                     if infillDensity > 0 and infillBoundary.length >= 3
 
-                        # Determine if the current structure has nested structures inside it.
-                        # A nested structure would be at level currentStructureNestingLevel + 2 (even levels are structures).
-                        # We check if any structure-level path is contained within the current path.
-                        hasNestedStructuresInside = false
+                        # Filter skin areas to exclude any that are inside holes before passing to infill generation.
+                        # This reconciles two features:
+                        # - PR 75: Prevent infill/skin overlap by subtracting skin areas from infill boundaries
+                        # - PR 98: Ensure nested structures get infill even when inside skin regions
+                        # The solution: Only subtract skin areas that will actually have skin printed.
+                        # Skin generation (line 740) skips areas inside holes, so infill should do the same.
+                        # This way, infill avoids overlapping with actual skin, but nested structures
+                        # (which exist inside holes) still get their own infill in their own loop iterations.
+                        skinAreasForInfill = []
                         
-                        for idx in [0...paths.length]
-                            # Skip if checking same path or if it's a hole.
-                            continue if idx is pathIndex or pathIsHole[idx]
-                            # Check if this is a deeper nested structure (level > current).
-                            if pathNestingLevel[idx] > currentStructureNestingLevel
-                                # Check if it's inside the current structure by testing if its first point is inside current path.
-                                if paths[idx].length > 0 and primitives.pointInPolygon(paths[idx][0], path)
-                                    hasNestedStructuresInside = true
-                                    break
-
-                        # For middle layers with adaptive skin, subtract skin areas to prevent overlap,
-                        # UNLESS this structure has nested structures inside which need their own infill.
-                        # The filtered hole mechanism handles direct child holes, but skin area subtraction
-                        # can still exclude nested structures when they are fully covered by skin areas.
-                        skinAreasForInfill = if hasNestedStructuresInside then [] else skinAreas
+                        for skinArea in skinAreas
+                            if not coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+                                skinAreasForInfill.push(skinArea)
                         
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, skinAreasForInfill)
 
