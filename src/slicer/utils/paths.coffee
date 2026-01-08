@@ -199,9 +199,11 @@ module.exports =
 
         return [] if path.length < 3
 
-        # Step 1: Simplify the path by detecting significant corners only.
+        # Step 1: Remove only truly degenerate/collinear points to avoid numerical issues.
+        # Use an extremely small threshold to preserve nearly all geometric detail while
+        # avoiding instability from perfectly collinear points in the offset calculation.
+        angleThreshold = 0.0001 # ~0.0057 degrees - only removes perfectly collinear points
         simplifiedPath = []
-        angleThreshold = 0.05 # ~2.9 degrees in radians
 
         n = path.length
 
@@ -235,7 +237,8 @@ module.exports =
             # Calculate cross product to detect direction change.
             cross = v1x * v2y - v1y * v2x
 
-            # If direction changes significantly, this is a real corner.
+            # Keep all points except those that are perfectly collinear (zero cross product).
+            # This preserves geometric detail while avoiding numerical issues in offset calculation.
             if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
 
         # If simplification resulted in too few points, use original path.

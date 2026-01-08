@@ -315,3 +315,73 @@ describe 'Paths', ->
 
             # The minimum distance should be 0.3mm.
             expect(result).toBeCloseTo(0.3, 2)
+
+    describe 'Path Detail Preservation', ->
+
+        test 'should preserve circular path detail when creating insets', ->
+
+            # Create a circular path with many points (simulating a sliced cylinder).
+            numPoints = 32
+            radius = 5
+            path = []
+
+            for i in [0...numPoints]
+                angle = (i / numPoints) * Math.PI * 2
+                path.push({
+                    x: Math.cos(angle) * radius
+                    y: Math.sin(angle) * radius
+                    z: 0
+                })
+
+            # Create inset with small offset (typical nozzle diameter / 2).
+            insetDistance = 0.2
+            insetPath = paths.createInsetPath(path, insetDistance, false)
+
+            # The inset should preserve most points (at least 90% of original).
+            # Previously, simplification would reduce 32 points to ~4, losing circular detail.
+            minExpectedPoints = Math.floor(numPoints * 0.9)
+            expect(insetPath.length).toBeGreaterThanOrEqual(minExpectedPoints)
+
+        test 'should preserve path detail from typical cylinder slice', ->
+
+            # Create a path with 24 points (similar to cylinder slice at 32 segments).
+            numPoints = 24
+            radius = 5
+            path = []
+
+            for i in [0...numPoints]
+                angle = (i / numPoints) * Math.PI * 2
+                path.push({
+                    x: Math.cos(angle) * radius
+                    y: Math.sin(angle) * radius
+                    z: 0
+                })
+
+            insetDistance = 0.2
+            insetPath = paths.createInsetPath(path, insetDistance, false)
+
+            # Should preserve most points (at least 90% of original).
+            minExpectedPoints = Math.floor(numPoints * 0.9)
+            expect(insetPath.length).toBeGreaterThanOrEqual(minExpectedPoints)
+
+        test 'should preserve detail from high-resolution sphere slice', ->
+
+            # Create a path with 64 points (high-resolution sphere).
+            numPoints = 64
+            radius = 5
+            path = []
+
+            for i in [0...numPoints]
+                angle = (i / numPoints) * Math.PI * 2
+                path.push({
+                    x: Math.cos(angle) * radius
+                    y: Math.sin(angle) * radius
+                    z: 0
+                })
+
+            insetDistance = 0.2
+            insetPath = paths.createInsetPath(path, insetDistance, false)
+
+            # Should preserve almost all points (at least 90% of original).
+            minExpectedPoints = Math.floor(numPoints * 0.9)
+            expect(insetPath.length).toBeGreaterThanOrEqual(minExpectedPoints)
