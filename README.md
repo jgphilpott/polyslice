@@ -87,7 +87,7 @@ Polyslice provides a comprehensive set of features for the 3D printing workflow:
 |---------|-------------|---------------|
 | 🚀 **Direct three.js integration** | Work directly with three.js meshes and scenes | [Examples](docs/examples/EXAMPLES.md) |
 | 📁 **File format support** | STL, OBJ, 3MF, AMF, PLY, GLTF/GLB, Collada | [Loaders](docs/loaders/LOADERS.md) |
-| 📝 **G-code generation** | Full set of G-code commands for 3D printing | [G-code](docs/slicer/gcode/GCODE.md) |
+| 📝 **G-code generation** | Full set of G-code commands with configurable precision | [G-code](docs/slicer/gcode/GCODE.md) |
 | ⚙️ **Printer profiles** | 44 pre-configured printer profiles | [Printer Config](docs/config/PRINTER.md) |
 | 🧵 **Filament profiles** | 35 pre-configured filament profiles | [Filament Config](docs/config/FILAMENT.md) |
 | 🔲 **Infill patterns** | Grid, triangles and hexagons patterns (more coming) | [Infill](docs/slicer/infill/INFILL.md) |
@@ -95,6 +95,7 @@ Polyslice provides a comprehensive set of features for the 3D printing workflow:
 | 🎨 **Skin layers** | Top/bottom solid layers with exposure detection | [Skin](docs/slicer/skin/SKIN.md) |
 | 🏗️ **Support structures** | Automatic support generation | [Support](docs/slicer/support/SUPPORT.md) |
 | 🔌 **Serial streaming** | Send G-code directly to printers | [Exporters](docs/exporters/EXPORTERS.md) |
+| 📏 **Precision control** | Optimize file size with configurable precision (20-30% reduction) | [G-code](docs/slicer/gcode/GCODE.md) |
 | 🌐 **Universal** | Works in Node.js and browsers | [API](docs/api/API.md) |
 
 ## Documentation

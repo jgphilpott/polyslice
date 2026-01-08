@@ -4,6 +4,31 @@ polyconvert = require('@jgphilpott/polyconvert')
 
 module.exports =
 
+    # Helper method to format a numeric value to specified decimal precision.
+    # Removes trailing zeros and unnecessary decimal points.
+    formatPrecision: (value, decimals) ->
+
+        if typeof value isnt "number" or isNaN(value)
+
+            return value
+
+        # Round to specified decimal places.
+        factor = Math.pow(10, decimals)
+        rounded = Math.round(value * factor) / factor
+
+        # Convert to string with fixed decimals, then remove trailing zeros.
+        formatted = rounded.toFixed(decimals)
+
+        # Remove trailing zeros after decimal point, but keep at least "0" for zero values.
+        if formatted.includes('.')
+            formatted = formatted.replace(/\.?0+$/, '')
+
+        # Handle edge case where formatted becomes empty string (e.g., 0.0 with 0 decimals).
+        if formatted is '' or formatted is '-'
+            formatted = '0'
+
+        return formatted
+
     # https://marlinfw.org/docs/gcode/G028.html
     # Generate autohome G-code command.
     codeAutohome: (slicer, x = null, y = null, z = null, skip = null, raise = null, leveling = null) ->
@@ -82,25 +107,30 @@ module.exports =
 
         gcode = ""
 
+        # Get precision settings from slicer.
+        coordPrecision = slicer.getCoordinatePrecision()
+        extrusionPrecision = slicer.getExtrusionPrecision()
+        feedratePrecision = slicer.getFeedratePrecision()
+
         if typeof x is "number"
 
-            gcode += " X" + x
+            gcode += " X" + module.exports.formatPrecision(x, coordPrecision)
 
         if typeof y is "number"
 
-            gcode += " Y" + y
+            gcode += " Y" + module.exports.formatPrecision(y, coordPrecision)
 
         if typeof z is "number"
 
-            gcode += " Z" + z
+            gcode += " Z" + module.exports.formatPrecision(z, coordPrecision)
 
         if typeof extrude is "number"
 
-            gcode += " E" + extrude
+            gcode += " E" + module.exports.formatPrecision(extrude, extrusionPrecision)
 
         if typeof feedrate is "number"
 
-            gcode += " F" + feedrate
+            gcode += " F" + module.exports.formatPrecision(feedrate, feedratePrecision)
 
         if typeof power is "number"
 
@@ -199,17 +229,20 @@ module.exports =
 
         gcode += module.exports.codeMovement slicer, x, y, z, extrude, feedrate, power
 
+        # Get coordinate precision for arc offsets.
+        coordPrecision = slicer.getCoordinatePrecision()
+
         if typeof xOffset is "number"
 
-            gcode += " I" + xOffset
+            gcode += " I" + module.exports.formatPrecision(xOffset, coordPrecision)
 
         if typeof yOffset is "number"
 
-            gcode += " J" + yOffset
+            gcode += " J" + module.exports.formatPrecision(yOffset, coordPrecision)
 
         if typeof radius is "number"
 
-            gcode += " R" + radius
+            gcode += " R" + module.exports.formatPrecision(radius, coordPrecision)
 
         if typeof circles is "number"
 

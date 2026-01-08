@@ -340,3 +340,148 @@ describe 'Accessors (Getters and Setters)', ->
             expect(result).toBe(slicer)
             expect(slicer.getTestStrip()).toBe(true)
             expect(slicer.getOutline()).toBe(false)
+
+    describe 'G-code Generation Settings', ->
+
+        test 'should set and get metadata setting', ->
+
+            expect(slicer.getMetadata()).toBe(true) # default.
+            slicer.setMetadata(false)
+            expect(slicer.getMetadata()).toBe(false)
+
+            slicer.setMetadata(true)
+            expect(slicer.getMetadata()).toBe(true)
+
+        test 'should set and get verbose setting', ->
+
+            expect(slicer.getVerbose()).toBe(true) # default.
+            slicer.setVerbose(false)
+            expect(slicer.getVerbose()).toBe(false)
+
+            slicer.setVerbose(true)
+            expect(slicer.getVerbose()).toBe(true)
+
+        test 'should set and get coordinate precision', ->
+
+            expect(slicer.getCoordinatePrecision()).toBe(3) # default.
+            slicer.setCoordinatePrecision(2)
+            expect(slicer.getCoordinatePrecision()).toBe(2)
+
+            slicer.setCoordinatePrecision(5)
+            expect(slicer.getCoordinatePrecision()).toBe(5)
+
+            # Should validate range 0-10.
+            slicer.setCoordinatePrecision(15)
+            expect(slicer.getCoordinatePrecision()).toBe(5) # unchanged.
+
+            slicer.setCoordinatePrecision(-1)
+            expect(slicer.getCoordinatePrecision()).toBe(5) # unchanged.
+
+        test 'should set and get extrusion precision', ->
+
+            expect(slicer.getExtrusionPrecision()).toBe(5) # default.
+            slicer.setExtrusionPrecision(3)
+            expect(slicer.getExtrusionPrecision()).toBe(3)
+
+            slicer.setExtrusionPrecision(7)
+            expect(slicer.getExtrusionPrecision()).toBe(7)
+
+            # Should validate range 0-10.
+            slicer.setExtrusionPrecision(15)
+            expect(slicer.getExtrusionPrecision()).toBe(7) # unchanged.
+
+        test 'should set and get feedrate precision', ->
+
+            expect(slicer.getFeedratePrecision()).toBe(0) # default.
+            slicer.setFeedratePrecision(2)
+            expect(slicer.getFeedratePrecision()).toBe(2)
+
+            slicer.setFeedratePrecision(1)
+            expect(slicer.getFeedratePrecision()).toBe(1)
+
+            # Should validate range 0-10.
+            slicer.setFeedratePrecision(15)
+            expect(slicer.getFeedratePrecision()).toBe(1) # unchanged.
+
+    describe 'Mesh Preprocessing Settings', ->
+
+        test 'should set and get mesh preprocessing setting', ->
+
+            expect(slicer.getMeshPreprocessing()).toBe(false) # default.
+            slicer.setMeshPreprocessing(true)
+            expect(slicer.getMeshPreprocessing()).toBe(true)
+
+            slicer.setMeshPreprocessing(false)
+            expect(slicer.getMeshPreprocessing()).toBe(false)
+
+    describe 'Post-Print Settings', ->
+
+        test 'should set and get buzzer setting', ->
+
+            expect(slicer.getBuzzer()).toBe(true) # default.
+            slicer.setBuzzer(false)
+            expect(slicer.getBuzzer()).toBe(false)
+
+            slicer.setBuzzer(true)
+            expect(slicer.getBuzzer()).toBe(true)
+
+        test 'should set and get wipe nozzle setting', ->
+
+            expect(slicer.getWipeNozzle()).toBe(true) # default.
+            slicer.setWipeNozzle(false)
+            expect(slicer.getWipeNozzle()).toBe(false)
+
+            slicer.setWipeNozzle(true)
+            expect(slicer.getWipeNozzle()).toBe(true)
+
+    describe 'Positioning Mode Settings', ->
+
+        test 'should set and get positioning mode', ->
+
+            expect(slicer.getPositioningMode()).toBe('absolute') # default.
+            slicer.setPositioningMode('relative')
+            expect(slicer.getPositioningMode()).toBe('relative')
+
+            slicer.setPositioningMode('absolute')
+            expect(slicer.getPositioningMode()).toBe('absolute')
+
+            # Should ignore invalid values.
+            slicer.setPositioningMode('invalid')
+            expect(slicer.getPositioningMode()).toBe('absolute') # unchanged.
+
+        test 'should set and get extruder mode', ->
+
+            expect(slicer.getExtruderMode()).toBe('absolute') # default.
+            slicer.setExtruderMode('relative')
+            expect(slicer.getExtruderMode()).toBe('relative')
+
+            slicer.setExtruderMode('absolute')
+            expect(slicer.getExtruderMode()).toBe('absolute')
+
+            # Should ignore invalid values.
+            slicer.setExtruderMode('invalid')
+            expect(slicer.getExtruderMode()).toBe('absolute') # unchanged.
+
+    describe 'Configuration Object Accessors', ->
+
+        Printer = require('../config/printer/printer')
+        Filament = require('../config/filament/filament')
+
+        test 'should set and get printer', ->
+
+            printer = new Printer('Ender3')
+            slicer.setPrinter(printer)
+
+            expect(slicer.getPrinter()).toBe(printer)
+            expect(slicer.getBuildPlateWidth()).toBe(220)
+            expect(slicer.getBuildPlateLength()).toBe(220)
+            expect(slicer.getNozzleDiameter()).toBe(0.4)
+
+        test 'should set and get filament', ->
+
+            filament = new Filament('GenericPLA')
+            slicer.setFilament(filament)
+
+            expect(slicer.getFilament()).toBe(filament)
+            expect(slicer.getNozzleTemperature()).toBe(200)
+            expect(slicer.getBedTemperature()).toBe(60)

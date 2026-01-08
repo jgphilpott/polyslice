@@ -100,6 +100,11 @@ class Polyslice
         @metadata = options.metadata ?= true # Boolean - include metadata header in G-code.
         @verbose = options.verbose ?= true # Boolean - include comments/annotations in G-code.
 
+        # G-code precision settings for output formatting (number of decimal places).
+        @coordinatePrecision = options.coordinatePrecision ?= 3 # Number - decimal places for X, Y, Z coordinates (0.001mm resolution).
+        @extrusionPrecision = options.extrusionPrecision ?= 5 # Number - decimal places for E (extrusion) values.
+        @feedratePrecision = options.feedratePrecision ?= 0 # Number - decimal places for F (feedrate) values (integer mm/min).
+
         # Mesh preprocessing settings to improve slicing quality.
         @meshPreprocessing = options.meshPreprocessing ?= false # Boolean - enable mesh subdivision for sparse geometries.
 
@@ -223,6 +228,15 @@ class Polyslice
 
     getVerbose: ->
         accessors.getVerbose(this)
+
+    getCoordinatePrecision: ->
+        accessors.getCoordinatePrecision(this)
+
+    getExtrusionPrecision: ->
+        accessors.getExtrusionPrecision(this)
+
+    getFeedratePrecision: ->
+        accessors.getFeedratePrecision(this)
 
     getMeshPreprocessing: ->
         accessors.getMeshPreprocessing(this)
@@ -357,6 +371,15 @@ class Polyslice
 
     setVerbose: (verbose = true) ->
         accessors.setVerbose(this, verbose)
+
+    setCoordinatePrecision: (precision = 3) ->
+        accessors.setCoordinatePrecision(this, precision)
+
+    setExtrusionPrecision: (precision = 5) ->
+        accessors.setExtrusionPrecision(this, precision)
+
+    setFeedratePrecision: (precision = 0) ->
+        accessors.setFeedratePrecision(this, precision)
 
     setMeshPreprocessing: (enabled = false) ->
         accessors.setMeshPreprocessing(this, enabled)

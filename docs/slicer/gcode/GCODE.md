@@ -6,6 +6,53 @@ The G-code coders module provides methods for generating G-code commands for 3D 
 
 The coders module (`src/slicer/gcode/coders.coffee`) contains all G-code generation methods used by the slicer. These methods generate properly formatted G-code strings that can be sent to Marlin-compatible 3D printers.
 
+## Precision Settings
+
+Polyslice allows you to configure the decimal precision for G-code output. This can significantly reduce file sizes while maintaining practical printing accuracy.
+
+### Configuration
+
+```javascript
+const slicer = new Polyslice({
+    coordinatePrecision: 3,  // Decimal places for X, Y, Z (default: 3)
+    extrusionPrecision: 5,   // Decimal places for E values (default: 5)
+    feedratePrecision: 0     // Decimal places for F values (default: 0)
+});
+```
+
+### Default Values and Rationale
+
+| Parameter | Default | Resolution | Rationale |
+|-----------|---------|------------|-----------|
+| `coordinatePrecision` | 3 | 0.001mm (1 micron) | Far exceeds typical printer accuracy (~0.01-0.1mm) |
+| `extrusionPrecision` | 5 | 0.00001mm | Balances precision with file size |
+| `feedratePrecision` | 0 | 1 mm/min | Integer speeds are adequate for motion control |
+
+### Performance Impact
+
+Using default precision settings can reduce G-code file sizes by **20-30%** compared to unlimited precision:
+
+```javascript
+// Example: Sphere with 16x16 segments
+// High precision (10 decimals):  1,336,825 bytes
+// Default precision (3/5/0):       981,842 bytes  (-26.6%)
+// Low precision (2/3/0):           851,836 bytes  (-36.3%)
+```
+
+### Adjusting Precision
+
+You can adjust precision at any time using setter methods:
+
+```javascript
+slicer.setCoordinatePrecision(2);  // Lower precision = smaller files
+slicer.setExtrusionPrecision(4);
+slicer.setFeedratePrecision(1);
+
+// Valid range: 0-10 decimal places
+```
+
+**Note:** Trailing zeros are automatically removed for cleaner output.
+
 ## Usage
 
 G-code commands are typically accessed through the Polyslice instance:
