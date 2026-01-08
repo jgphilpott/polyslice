@@ -202,8 +202,8 @@ module.exports =
         # Step 1: Remove only truly degenerate/collinear points to avoid numerical issues.
         # Use an extremely small threshold to preserve nearly all geometric detail while
         # avoiding instability from perfectly collinear points in the offset calculation.
+        angleThreshold = 0.0001 # ~0.0057 degrees - only removes perfectly collinear points
         simplifiedPath = []
-        angleThreshold = 0.0001  # ~0.0057 degrees - only removes perfectly collinear points
 
         n = path.length
 
@@ -242,8 +242,7 @@ module.exports =
             if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
 
         # If simplification resulted in too few points, use original path.
-        # Use <= to ensure paths with exactly MIN_SIMPLIFIED_CORNERS also fall back to original.
-        if simplifiedPath.length <= MIN_SIMPLIFIED_CORNERS then simplifiedPath = path
+        if simplifiedPath.length < MIN_SIMPLIFIED_CORNERS then simplifiedPath = path
 
         # Step 2: Create inset using the simplified path.
         insetPath = []
@@ -396,7 +395,7 @@ module.exports =
             insetWidth = insetMaxX - insetMinX
             insetHeight = insetMaxY - insetMinY
 
-            expectedSizeChange = insetDistance * 2 * 0.05  # Reduced from 0.1 to allow more variation
+            expectedSizeChange = insetDistance * 2 * 0.1
 
             if isHole
 
