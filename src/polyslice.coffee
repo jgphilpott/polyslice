@@ -91,6 +91,8 @@ class Polyslice
         # Build plate adhesion settings for first layer stability.
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
         @adhesionType = options.adhesionType ?= "skirt" # String ['skirt', 'brim', 'raft'].
+        @adhesionDistance = conversions.lengthToInternal(options.adhesionDistance ?= 5, this.lengthUnit) # Number (millimeters internal).
+        @adhesionLineCount = options.adhesionLineCount ?= 3 # Number.
 
         # Test strip and outline settings for print preparation.
         @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
@@ -216,6 +218,12 @@ class Polyslice
 
     getAdhesionType: ->
         accessors.getAdhesionType(this)
+
+    getAdhesionDistance: ->
+        accessors.getAdhesionDistance(this)
+
+    getAdhesionLineCount: ->
+        accessors.getAdhesionLineCount(this)
 
     getTestStrip: ->
         accessors.getTestStrip(this)
@@ -359,6 +367,12 @@ class Polyslice
 
     setAdhesionType: (type = "skirt") ->
         accessors.setAdhesionType(this, type)
+
+    setAdhesionDistance: (distance = 5) ->
+        accessors.setAdhesionDistance(this, distance)
+
+    setAdhesionLineCount: (count = 3) ->
+        accessors.setAdhesionLineCount(this, count)
 
     setTestStrip: (testStrip = false) ->
         accessors.setTestStrip(this, testStrip)

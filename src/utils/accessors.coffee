@@ -138,6 +138,14 @@ module.exports =
 
         return slicer.adhesionType
 
+    getAdhesionDistance: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.adhesionDistance, slicer.lengthUnit)
+
+    getAdhesionLineCount: (slicer) ->
+
+        return slicer.adhesionLineCount
+
     getTestStrip: (slicer) ->
 
         return slicer.testStrip
@@ -471,6 +479,22 @@ module.exports =
         if ["skirt", "brim", "raft"].includes type
 
             slicer.adhesionType = String type
+
+        return slicer
+
+    setAdhesionDistance: (slicer, distance = 5) ->
+
+        if typeof distance is "number" and distance >= 0
+
+            slicer.adhesionDistance = conversions.lengthToInternal(distance, slicer.lengthUnit)
+
+        return slicer
+
+    setAdhesionLineCount: (slicer, count = 3) ->
+
+        if typeof count is "number" and count >= 0
+
+            slicer.adhesionLineCount = Number count
 
         return slicer
 
