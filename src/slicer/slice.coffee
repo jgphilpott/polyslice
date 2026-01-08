@@ -711,11 +711,28 @@ module.exports =
                     # Mixed layers: infill first, then skin.
                     if infillDensity > 0 and infillBoundary.length >= 3
 
-                        # For middle layers with adaptive skin, generate full infill without subtracting skin areas.
-                        # This ensures nested structures get structural infill even when fully exposed.
-                        # The filtered hole approach alone is insufficient because skin area subtraction can
-                        # still exclude nested structures when they are fully covered by skin.
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, [])
+                        # Determine if the current structure has nested structures inside it.
+                        # A nested structure would be at level currentStructureNestingLevel + 2 (even levels are structures).
+                        # We check if any structure-level path is contained within the current path.
+                        hasNestedStructuresInside = false
+                        
+                        for idx in [0...paths.length]
+                            # Skip if checking same path or if it's a hole.
+                            continue if idx is pathIndex or pathIsHole[idx]
+                            # Check if this is a deeper nested structure (level > current).
+                            if pathNestingLevel[idx] > currentStructureNestingLevel
+                                # Check if it's inside the current structure by testing if its first point is inside current path.
+                                if paths[idx].length > 0 and primitives.pointInPolygon(paths[idx][0], path)
+                                    hasNestedStructuresInside = true
+                                    break
+
+                        # For middle layers with adaptive skin, subtract skin areas to prevent overlap,
+                        # UNLESS this structure has nested structures inside which need their own infill.
+                        # The filtered hole mechanism handles direct child holes, but skin area subtraction
+                        # can still exclude nested structures when they are fully covered by skin areas.
+                        skinAreasForInfill = if hasNestedStructuresInside then [] else skinAreas
+                        
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, skinAreasForInfill)
 
                     # Generate skin for exposed areas.
                     for skinArea in skinAreas
