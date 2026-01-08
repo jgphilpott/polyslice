@@ -154,6 +154,18 @@ module.exports =
 
         return slicer.verbose
 
+    getCoordinatePrecision: (slicer) ->
+
+        return slicer.coordinatePrecision
+
+    getExtrusionPrecision: (slicer) ->
+
+        return slicer.extrusionPrecision
+
+    getFeedratePrecision: (slicer) ->
+
+        return slicer.feedratePrecision
+
     getMeshPreprocessing: (slicer) ->
 
         return slicer.meshPreprocessing
@@ -483,6 +495,30 @@ module.exports =
     setVerbose: (slicer, verbose = true) ->
 
         slicer.verbose = Boolean verbose
+
+        return slicer
+
+    setCoordinatePrecision: (slicer, precision = 3) ->
+
+        if typeof precision is "number" and precision >= 0 and precision <= 10
+
+            slicer.coordinatePrecision = Math.floor(Number precision)
+
+        return slicer
+
+    setExtrusionPrecision: (slicer, precision = 5) ->
+
+        if typeof precision is "number" and precision >= 0 and precision <= 10
+
+            slicer.extrusionPrecision = Math.floor(Number precision)
+
+        return slicer
+
+    setFeedratePrecision: (slicer, precision = 0) ->
+
+        if typeof precision is "number" and precision >= 0 and precision <= 10
+
+            slicer.feedratePrecision = Math.floor(Number precision)
 
         return slicer
 
