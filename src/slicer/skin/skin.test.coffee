@@ -1085,3 +1085,289 @@ describe 'Skin Generation', ->
             # Should have 0 SKIN markers on middle layers (not top/bottom).
             expect(skinMarkerCount).toBe(0)
 
+    describe 'Nested Structure Skin Infill', ->
+
+        Polytree = null
+
+        beforeAll ->
+
+            { Polytree } = require('@jgphilpott/polytree')
+
+        createHollowCylinder = (outerRadius, innerRadius, height) ->
+
+            # Create outer cylinder.
+            outerGeometry = new THREE.CylinderGeometry(outerRadius, outerRadius, height, 32)
+            outerMesh = new THREE.Mesh(outerGeometry, new THREE.MeshBasicMaterial())
+            outerMesh.rotation.x = Math.PI / 2
+            outerMesh.updateMatrixWorld()
+
+            # Create inner cylinder (hole) - slightly taller for complete penetration.
+            innerGeometry = new THREE.CylinderGeometry(innerRadius, innerRadius, height * 1.2, 32)
+            innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial())
+            innerMesh.rotation.x = Math.PI / 2
+            innerMesh.updateMatrixWorld()
+
+            # Perform CSG subtraction.
+            return Polytree.subtract(outerMesh, innerMesh)
+
+        test 'should generate skin infill for outer structure in nested cylinders', ->
+
+            # Create 2 nested hollow cylinders to test that outer structure gets skin infill.
+            height = 1.2
+            wallThickness = 5
+            gap = 3
+
+            cylinder1 = await createHollowCylinder(5 + wallThickness, 5, height)
+            cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            combined = await Polytree.unite(cylinder1, cylinder2)
+            
+            mesh = new THREE.Mesh(combined.geometry, combined.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(0)  # No regular infill, only skin.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Extract bottom layer and check for skin infill moves.
+            lines = result.split('\n')
+            inLayer1 = false
+            skinInfillMoveCount = 0
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    inLayer1 = true
+                else if line.includes('LAYER: 2 of')
+                    break
+                
+                # Count "Moving to skin infill line" comments which indicate skin infill generation.
+                if inLayer1 and line.includes('Moving to skin infill line')
+                    skinInfillMoveCount++
+
+            # Should have many skin infill moves (diagonal lines) for the outer structure.
+            # The fix ensures these are generated in Phase 2.
+            expect(skinInfillMoveCount).toBeGreaterThan(50)
+
+        test 'should generate skin infill for inner structure in nested cylinders', ->
+
+            # Create 2 nested hollow cylinders to test that INNER structure also gets skin infill.
+            # This is the key regression test for the bug fix - inner structures were getting 0 infill lines.
+            height = 1.2
+            wallThickness = 5
+            gap = 3
+
+            cylinder1 = await createHollowCylinder(5 + wallThickness, 5, height)
+            cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            combined = await Polytree.unite(cylinder1, cylinder2)
+            
+            mesh = new THREE.Mesh(combined.geometry, combined.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Extract bottom layer and find all SKIN sections.
+            lines = result.split('\n')
+            inLayer1 = false
+            skinSections = []
+            currentSectionLines = []
+            inSkinSection = false
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    inLayer1 = true
+                else if line.includes('LAYER: 2 of')
+                    if inSkinSection and currentSectionLines.length > 0
+                        skinSections.push(currentSectionLines)
+                    break
+                
+                if inLayer1
+                    if line.includes('; TYPE: SKIN')
+                        if inSkinSection and currentSectionLines.length > 0
+                            skinSections.push(currentSectionLines)
+                        currentSectionLines = []
+                        inSkinSection = true
+                    else if line.includes('; TYPE:') and not line.includes('; TYPE: SKIN')
+                        if inSkinSection and currentSectionLines.length > 0
+                            skinSections.push(currentSectionLines)
+                        currentSectionLines = []
+                        inSkinSection = false
+                    else if inSkinSection
+                        currentSectionLines.push(line)
+
+            # With 2 nested cylinders (4 paths: 2 structures + 2 holes):
+            # - Phase 1: 4 SKIN sections (walls only, no infill)
+            # - Phase 2: 2 SKIN sections (wall + infill for structures)
+            # Total: 6 SKIN sections
+            expect(skinSections.length).toBe(6)
+
+            # Count sections with infill (those with "Moving to skin infill line").
+            sectionsWithInfill = 0
+            for section in skinSections
+                hasInfill = section.some((line) -> line.includes('Moving to skin infill line'))
+                if hasInfill
+                    sectionsWithInfill++
+
+            # Both structures (outer and inner) should have skin infill.
+            # This is the key assertion - before the fix, inner structure had 0 infill lines.
+            expect(sectionsWithInfill).toBe(2)
+
+        test 'should filter hole skin walls by nesting level for infill generation', ->
+
+            # Create 3 nested hollow cylinders (6 paths: 3 structures + 3 holes).
+            # This tests that the nesting level filtering works correctly.
+            height = 1.2
+            wallThickness = 5
+            gap = 3
+
+            cylinder1 = await createHollowCylinder(5 + wallThickness, 5, height)
+            cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+            cylinder3 = await createHollowCylinder(5 + wallThickness + gap + wallThickness + gap + wallThickness, 5 + wallThickness + gap + wallThickness + gap, height)
+
+            combined1 = await Polytree.unite(cylinder1, cylinder2)
+            combined2 = await Polytree.unite(combined1, cylinder3)
+            
+            mesh = new THREE.Mesh(combined2.geometry, combined2.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Extract bottom layer and count skin sections with infill.
+            lines = result.split('\n')
+            inLayer1 = false
+            skinSections = []
+            currentSectionLines = []
+            inSkinSection = false
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    inLayer1 = true
+                else if line.includes('LAYER: 2 of')
+                    if inSkinSection and currentSectionLines.length > 0
+                        skinSections.push(currentSectionLines)
+                    break
+                
+                if inLayer1
+                    if line.includes('; TYPE: SKIN')
+                        if inSkinSection and currentSectionLines.length > 0
+                            skinSections.push(currentSectionLines)
+                        currentSectionLines = []
+                        inSkinSection = true
+                    else if line.includes('; TYPE:') and not line.includes('; TYPE: SKIN')
+                        if inSkinSection and currentSectionLines.length > 0
+                            skinSections.push(currentSectionLines)
+                        currentSectionLines = []
+                        inSkinSection = false
+                    else if inSkinSection
+                        currentSectionLines.push(line)
+
+            # Count sections with infill.
+            sectionsWithInfill = 0
+            infillLineCounts = []
+            
+            for section in skinSections
+                infillMoves = section.filter((line) -> line.includes('Moving to skin infill line')).length
+                if infillMoves > 0
+                    sectionsWithInfill++
+                    infillLineCounts.push(infillMoves)
+
+            # All 3 structures should have skin infill.
+            expect(sectionsWithInfill).toBe(3)
+
+            # Each structure should have multiple infill lines (not zero).
+            for count in infillLineCounts
+                expect(count).toBeGreaterThan(0)
+
+        test 'should not clip inner structure infill with outer hole walls', ->
+
+            # Regression test: Before the fix, inner structure's skin infill was being
+            # clipped by ALL hole skin walls, including the outer structure's hole.
+            # This caused the inner structure to have 0 infill lines.
+            height = 1.2
+            wallThickness = 5
+            gap = 3
+
+            cylinder1 = await createHollowCylinder(5 + wallThickness, 5, height)
+            cylinder2 = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            combined = await Polytree.unite(cylinder1, cylinder2)
+            
+            mesh = new THREE.Mesh(combined.geometry, combined.material)
+            mesh.position.set(0, 0, height / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(mesh)
+
+            # Count infill moves in each skin section.
+            lines = result.split('\n')
+            inLayer1 = false
+            skinSections = []
+            currentSectionLines = []
+            inSkinSection = false
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    inLayer1 = true
+                else if line.includes('LAYER: 2 of')
+                    if inSkinSection and currentSectionLines.length > 0
+                        skinSections.push(currentSectionLines)
+                    break
+                
+                if inLayer1
+                    if line.includes('; TYPE: SKIN')
+                        if inSkinSection and currentSectionLines.length > 0
+                            skinSections.push(currentSectionLines)
+                        currentSectionLines = []
+                        inSkinSection = true
+                    else if line.includes('; TYPE:')
+                        if inSkinSection and currentSectionLines.length > 0
+                            skinSections.push(currentSectionLines)
+                        currentSectionLines = []
+                        inSkinSection = false
+                    else if inSkinSection
+                        currentSectionLines.push(line)
+
+            # Get infill counts for Phase 2 sections (last 2 sections should have infill).
+            infillCounts = []
+            for section in skinSections
+                infillMoves = section.filter((line) -> line.includes('Moving to skin infill line')).length
+                if infillMoves > 0
+                    infillCounts.push(infillMoves)
+
+            # Should have 2 sections with infill (outer and inner structures).
+            expect(infillCounts.length).toBe(2)
+
+            # The key regression test: inner structure should have substantial infill lines.
+            # Before the fix, it would have 0 lines because all hole walls were used for clipping.
+            innerStructureInfillCount = Math.min(infillCounts[0], infillCounts[1])
+            expect(innerStructureInfillCount).toBeGreaterThan(30)  # Should have many lines, not 0.
+
