@@ -711,11 +711,21 @@ module.exports =
                     # Mixed layers: infill first, then skin.
                     if infillDensity > 0 and infillBoundary.length >= 3
 
-                        # For middle layers with adaptive skin, generate full infill without subtracting skin areas.
-                        # This ensures nested structures get structural infill even when fully exposed.
-                        # The filtered hole approach alone is insufficient because skin area subtraction can
-                        # still exclude nested structures when they are fully covered by skin.
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, [])
+                        # Filter skin areas to exclude any that are inside holes before passing to infill generation.
+                        # This reconciles two features:
+                        # - PR 75: Prevent infill/skin overlap by subtracting skin areas from infill boundaries
+                        # - PR 98: Ensure nested structures get infill even when inside skin regions
+                        # The solution: Only subtract skin areas that will actually have skin printed.
+                        # Skin generation (line 740) skips areas inside holes, so infill should do the same.
+                        # This way, infill avoids overlapping with actual skin, but nested structures
+                        # (which exist inside holes) still get their own infill in their own loop iterations.
+                        skinAreasForInfill = []
+
+                        for skinArea in skinAreas
+                            if not coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+                                skinAreasForInfill.push(skinArea)
+
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, skinAreasForInfill)
 
                     # Generate skin for exposed areas.
                     for skinArea in skinAreas
