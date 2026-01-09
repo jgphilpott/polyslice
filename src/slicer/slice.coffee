@@ -720,11 +720,11 @@ module.exports =
                         # This way, infill avoids overlapping with actual skin, but nested structures
                         # (which exist inside holes) still get their own infill in their own loop iterations.
                         skinAreasForInfill = []
-                        
+
                         for skinArea in skinAreas
                             if not coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
                                 skinAreasForInfill.push(skinArea)
-                        
+
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, skinAreasForInfill)
 
                     # Generate skin for exposed areas.

@@ -1995,12 +1995,12 @@ describe 'Slicing', ->
 
             # Parse infill lines for each structure to verify both get infill.
             infillSections = layer3.split('TYPE: FILL')
-            
+
             # Remove first element (before first TYPE: FILL).
             infillSections.shift()
-            
+
             expect(infillSections.length).toBe(2)
-            
+
             # Each infill section should have extrusion commands.
             for section in infillSections
                 # Look for G1 commands with E parameter (extrusion).
@@ -2042,10 +2042,10 @@ describe 'Slicing', ->
             for layerNum in [3, 4]  # Middle layers.
                 layerParts = result.split("LAYER: #{layerNum} of")
                 expect(layerParts.length).toBeGreaterThan(1)
-                
+
                 layer = layerParts[1].split("LAYER: #{layerNum + 1} of")[0]
                 layerInfill = layer.match(/TYPE: FILL/g) || []
-                
+
                 # Each middle layer should have infill for both structures.
                 expect(layerInfill.length).toBe(2)
 
