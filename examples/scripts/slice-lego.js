@@ -83,7 +83,7 @@ async function main() {
   console.log(`✅ Sliced in ${dt} ms`);
 
   // Save G-code into examples/output
-  const outDir = path.join(__dirname, "../output");
+  const outDir = path.join(__dirname, "../../resources/gcode/benchmarks");
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
   const outPath = path.join(outDir, "lego-brick.gcode");
   fs.writeFileSync(outPath, gcode);
