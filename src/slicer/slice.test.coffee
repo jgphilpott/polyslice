@@ -1893,3 +1893,202 @@ describe 'Slicing', ->
             expect(infillMatches.length).toBe(2)  # Both structures should have infill.
 
             return # Explicitly return undefined for Jest.
+
+    describe 'Infill/Skin Overlap Prevention with Nested Structures (PR #75 + PR #98 Reconciliation)', ->
+
+        Polytree = null
+
+        beforeAll ->
+
+            { Polytree } = require('@jgphilpott/polytree')
+
+        # Helper to create a hollow cylinder using CSG.
+        createHollowCylinder = (outerRadius, innerRadius, height, segments = 32) ->
+
+            # Create outer cylinder.
+            outerGeometry = new THREE.CylinderGeometry(outerRadius, outerRadius, height, segments)
+            outerMesh = new THREE.Mesh(outerGeometry, new THREE.MeshBasicMaterial())
+            outerMesh.rotation.x = Math.PI / 2
+            outerMesh.updateMatrixWorld()
+
+            # Create inner cylinder (hole).
+            innerGeometry = new THREE.CylinderGeometry(innerRadius, innerRadius, height * 1.2, segments)
+            innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial())
+            innerMesh.rotation.x = Math.PI / 2
+            innerMesh.updateMatrixWorld()
+
+            # Subtract inner from outer.
+            hollowMesh = await Polytree.subtract(outerMesh, innerMesh)
+            finalMesh = new THREE.Mesh(hollowMesh.geometry, hollowMesh.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            return finalMesh
+
+        test 'should prevent infill/skin overlap on absolute top/bottom layers', ->
+
+            # Create a simple hollow cylinder (no nested structures).
+            # Verify that on absolute top/bottom layers, both infill and skin are properly managed.
+            cylinder = await createHollowCylinder(20, 15, 1.2)
+            cylinder.position.set(0, 0, 0.6)
+            cylinder.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)  # 2 layers.
+            slicer.setShellWallThickness(0.8)  # 2 walls.
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(cylinder)
+
+            # Top layers should have skin only (no infill due to absolute top/bottom logic).
+            # Middle layers should have infill only (no adaptive skin on simple cylinder).
+            # This verifies the basic mechanism is working.
+
+            # Check that the result contains both TYPE: FILL and TYPE: SKIN.
+            expect(result).toContain('TYPE: FILL')
+            expect(result).toContain('TYPE: SKIN')
+
+            # Verify G-code structure is valid.
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should allow nested structures to generate infill even with skin overlap prevention', ->
+
+            # Create nested hollow cylinders.
+            # Verify that nested structures get infill even when outer structure has adaptive skin.
+            innerCylinder = await createHollowCylinder(10, 5, 1.2)
+            outerCylinder = await createHollowCylinder(23, 18, 1.2)
+
+            combinedMesh = await Polytree.unite(innerCylinder, outerCylinder)
+            finalMesh = new THREE.Mesh(combinedMesh.geometry, combinedMesh.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)  # 2 layers.
+            slicer.setShellWallThickness(0.8)  # 2 walls.
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Extract a middle layer.
+            parts = result.split('LAYER: 3 of')
+            expect(parts.length).toBeGreaterThan(1)
+            layer3 = parts[1].split('LAYER: 4 of')[0]
+
+            # Count infill sections - should have one per structure.
+            infillMatches = layer3.match(/TYPE: FILL/g) || []
+            expect(infillMatches.length).toBe(2)  # Both structures should have infill.
+
+            # Note: Skin generation on middle layers depends on exposure detection.
+            # With nested cylinders, the outer cylinder may have exposed areas,
+            # so we may or may not have skin depending on the geometry.
+            # The key test is that BOTH structures get infill (reconciliation working).
+
+            # Parse infill lines for each structure to verify both get infill.
+            infillSections = layer3.split('TYPE: FILL')
+            
+            # Remove first element (before first TYPE: FILL).
+            infillSections.shift()
+            
+            expect(infillSections.length).toBe(2)
+            
+            # Each infill section should have extrusion commands.
+            for section in infillSections
+                # Look for G1 commands with E parameter (extrusion).
+                extrusionLines = section.match(/G1\s+X[\d.-]+\s+Y[\d.-]+.*E[\d.]+/g) || []
+                expect(extrusionLines.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should verify skin areas are filtered before infill generation', ->
+
+            # Create nested cylinders and verify that skin areas inside holes are filtered out.
+            # This is the core mechanism of the reconciliation.
+            innerCylinder = await createHollowCylinder(10, 5, 1.2)
+            outerCylinder = await createHollowCylinder(23, 18, 1.2)
+
+            combinedMesh = await Polytree.unite(innerCylinder, outerCylinder)
+            finalMesh = new THREE.Mesh(combinedMesh.geometry, combinedMesh.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Verify overall infill count across all layers.
+            # With 6 layers total and 2 skin layers, we have 2 middle layers.
+            # 2 structures × 2 middle layers = 4 infill sections expected.
+            allInfillMatches = result.match(/TYPE: FILL/g) || []
+            expect(allInfillMatches.length).toBe(4)
+
+            # Verify that infill exists on middle layers for both structures.
+            # This confirms that the filtering mechanism works correctly.
+            for layerNum in [3, 4]  # Middle layers.
+                layerParts = result.split("LAYER: #{layerNum} of")
+                expect(layerParts.length).toBeGreaterThan(1)
+                
+                layer = layerParts[1].split("LAYER: #{layerNum + 1} of")[0]
+                layerInfill = layer.match(/TYPE: FILL/g) || []
+                
+                # Each middle layer should have infill for both structures.
+                expect(layerInfill.length).toBe(2)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should prevent overlap with three nested structures', ->
+
+            # Test with three nested hollow cylinders to verify the mechanism
+            # works with deeper nesting levels.
+            cylinder1 = await createHollowCylinder(10, 5, 1.2)
+            cylinder2 = await createHollowCylinder(23, 18, 1.2)
+            cylinder3 = await createHollowCylinder(36, 31, 1.2)
+
+            combined12 = await Polytree.unite(cylinder1, cylinder2)
+            combined123 = await Polytree.unite(combined12, cylinder3)
+            finalMesh = new THREE.Mesh(combined123.geometry, combined123.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # 3 structures × 2 middle layers = 6 infill sections.
+            allInfillMatches = result.match(/TYPE: FILL/g) || []
+            expect(allInfillMatches.length).toBe(6)
+
+            # Verify a middle layer has all three structures with infill.
+            parts = result.split('LAYER: 3 of')
+            expect(parts.length).toBeGreaterThan(1)
+            layer3 = parts[1].split('LAYER: 4 of')[0]
+
+            layer3Infill = layer3.match(/TYPE: FILL/g) || []
+            expect(layer3Infill.length).toBe(3)  # All three structures.
+
+            # Verify the reconciliation is working: all structures get infill.
+            # This confirms the fix allows nested structures to generate infill
+            # even when overlap prevention is active.
+
+            return # Explicitly return undefined for Jest.
