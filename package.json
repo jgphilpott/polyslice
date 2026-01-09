@@ -1,6 +1,6 @@
 {
   "name": "@jgphilpott/polyslice",
-  "version": "25.12.9",
+  "version": "26.1.0",
   "description": "An AI powered slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
@@ -24,7 +24,7 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
-    "slice": "npm run compile && node examples/scripts/slice-shapes.js && node examples/scripts/slice-holes.js && node examples/scripts/slice-arch.js && node examples/scripts/slice-dome.js && node examples/scripts/slice-pyramid.js && node examples/scripts/slice-matryoshka.js && node examples/scripts/slice-benchy.js low-poly",
+    "slice": "npm run compile && node examples/scripts/slice-shapes.js && node examples/scripts/slice-holes.js && node examples/scripts/slice-arch.js && node examples/scripts/slice-dome.js && node examples/scripts/slice-pyramid.js && node examples/scripts/slice-matryoshka.js && node examples/scripts/slice-lego.js && node examples/scripts/slice-benchy.js low-poly",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write src/**/*.js",
@@ -81,7 +81,7 @@
     "jest": "^30.2.0",
     "prettier": "^3.7.4",
     "three-bvh-csg": "^0.0.17",
-    "three-mesh-bvh": "^0.9.4",
+    "three-mesh-bvh": "^0.9.5",
     "uglify-js": "^3.19.3"
   },
   "jest": {
