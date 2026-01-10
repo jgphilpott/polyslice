@@ -452,12 +452,67 @@ slicer.codePostPrint();
 
 Includes:
 1. Turn off fan
-2. Wipe nozzle (if enabled)
-3. Retract and raise Z
+2. Smart wipe nozzle (if enabled, with retraction to prevent stringing)
+3. Raise Z (with retraction if wipe disabled)
 4. Present print (home X/Y)
 5. Turn off heaters
 6. Disable steppers (except Z)
 7. Play completion tone (if enabled)
+
+#### Smart Wipe Nozzle
+
+The smart wipe feature (enabled by default) intelligently moves the nozzle away from the print before raising the Z axis, preventing marks or filament threads on the finished part.
+
+**Configuration:**
+
+```javascript
+const slicer = new Polyslice({
+    wipeNozzle: true,        // Enable/disable wipe (default: true)
+    smartWipeNozzle: true    // Use smart wipe vs simple X+5, Y+5 (default: true)
+});
+
+// Or using setters
+slicer.setWipeNozzle(true);
+slicer.setSmartWipeNozzle(true);
+```
+
+**How It Works:**
+
+When smart wipe is enabled:
+1. Analyzes the last print position and mesh boundaries
+2. Calculates the shortest path away from the mesh
+3. Moves the nozzle beyond the mesh boundary (3mm backoff)
+4. Retracts filament during the wipe move to prevent oozing
+5. Raises Z without additional retraction
+
+When smart wipe is disabled (or mesh data unavailable):
+- Falls back to simple relative move: X+5, Y+5
+- No retraction during wipe
+- Retraction happens during Z raise
+
+**Example G-code Output:**
+
+With smart wipe enabled:
+```gcode
+; Smart Wipe Nozzle (with retraction)
+G1 X0 Y4.2 E-1 F3000
+; Raise Z
+G1 Z10 F2400
+```
+
+With smart wipe disabled:
+```gcode
+; Wipe Nozzle
+G0 X5 Y5 F3000
+; Retract and Raise Z
+G1 Z10 E-2 F2400
+```
+
+**Benefits:**
+- Prevents wipe moves that land on flat surfaces of the print
+- Reduces stringing by retracting during wipe
+- Automatically adapts to different mesh geometries
+- Safe fallback when mesh data is unavailable
 
 ### Metadata Header
 

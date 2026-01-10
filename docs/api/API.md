@@ -22,6 +22,9 @@ const slicer = new Polyslice(options);
 | `fanSpeed` | number | `100` | Fan speed percentage 0-100 |
 | `exposureDetection` | boolean | `true` | Enable adaptive skin layer generation |
 | `exposureDetectionResolution` | number | `961` | Sample count for exposure detection (31×31 grid) |
+| `wipeNozzle` | boolean | `true` | Perform wipe move during post-print |
+| `smartWipeNozzle` | boolean | `true` | Use smart wipe (avoids mesh) vs simple X+5, Y+5 |
+| `buzzer` | boolean | `true` | Sound buzzer at end of print |
 | `printer` | Printer | `null` | Printer instance for automatic configuration |
 | `filament` | Filament | `null` | Filament instance for automatic configuration |
 
@@ -119,6 +122,14 @@ slicer.getExposureDetection();
 slicer.setExposureDetection(true);
 slicer.getExposureDetectionResolution();
 slicer.setExposureDetectionResolution(961);
+
+// Post-print settings
+slicer.getWipeNozzle();
+slicer.setWipeNozzle(true);
+slicer.getSmartWipeNozzle();
+slicer.setSmartWipeNozzle(true);
+slicer.getBuzzer();
+slicer.setBuzzer(true);
 
 // Printer and Filament
 slicer.getPrinter();
