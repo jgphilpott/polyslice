@@ -111,6 +111,7 @@ class Polyslice
         # Post-print settings.
         @buzzer = options.buzzer ?= true # Boolean - sound buzzer at end of post-print.
         @wipeNozzle = options.wipeNozzle ?= true # Boolean - perform wipe move during post-print.
+        @smartWipeNozzle = options.smartWipeNozzle ?= true # Boolean - use smart wipe (avoids mesh boundaries) instead of simple X+5, Y+5.
 
         # Positioning and extrusion mode settings.
         @positioningMode = options.positioningMode ?= "absolute" # String ['absolute', 'relative'].
@@ -246,6 +247,9 @@ class Polyslice
 
     getWipeNozzle: ->
         accessors.getWipeNozzle(this)
+
+    getSmartWipeNozzle: ->
+        accessors.getSmartWipeNozzle(this)
 
     getPositioningMode: ->
         accessors.getPositioningMode(this)
@@ -389,6 +393,9 @@ class Polyslice
 
     setWipeNozzle: (wipeNozzle = true) ->
         accessors.setWipeNozzle(this, wipeNozzle)
+
+    setSmartWipeNozzle: (smartWipeNozzle = true) ->
+        accessors.setSmartWipeNozzle(this, smartWipeNozzle)
 
     setPositioningMode: (mode = "absolute") ->
         accessors.setPositioningMode(this, mode)

@@ -178,6 +178,10 @@ module.exports =
 
         return slicer.wipeNozzle
 
+    getSmartWipeNozzle: (slicer) ->
+
+        return slicer.smartWipeNozzle
+
     getPositioningMode: (slicer) ->
 
         return slicer.positioningMode
@@ -537,6 +541,12 @@ module.exports =
     setWipeNozzle: (slicer, wipeNozzle = true) ->
 
         slicer.wipeNozzle = Boolean wipeNozzle
+
+        return slicer
+
+    setSmartWipeNozzle: (slicer, smartWipeNozzle = true) ->
+
+        slicer.smartWipeNozzle = Boolean smartWipeNozzle
 
         return slicer
 

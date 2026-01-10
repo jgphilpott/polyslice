@@ -140,6 +140,14 @@ module.exports =
             # Generate G-code for this layer with center offset.
             @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers, allLayers, layerSegments)
 
+        # Store mesh boundary information for smart wipe nozzle in post-print.
+        slicer.meshBounds = {
+            min: { x: boundingBox.min.x, y: boundingBox.min.y }
+            max: { x: boundingBox.max.x, y: boundingBox.max.y }
+        }
+        slicer.centerOffsetX = centerOffsetX
+        slicer.centerOffsetY = centerOffsetY
+
         slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
         slicer.gcode += coders.codePostPrint(slicer)

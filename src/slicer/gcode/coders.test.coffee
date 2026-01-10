@@ -256,6 +256,111 @@ describe 'G-code Generation (Coders)', ->
 
             expect(result).not.toContain('G0 X5 Y5') # No wipe move.
 
+        test 'should use smart wipe when enabled with mesh data', ->
+
+            slicer.setWipeNozzle(true)
+            slicer.setSmartWipeNozzle(true)
+            slicer.setVerbose(false)
+            slicer.setRetractionDistance(1.0)
+
+            # Simulate mesh boundary data from slicing.
+            slicer.lastLayerEndPoint = { x: 5, y: 0, z: 5 }
+            slicer.meshBounds = { min: { x: -5, y: -5 }, max: { x: 5, y: 5 } }
+            slicer.centerOffsetX = 100
+            slicer.centerOffsetY = 100
+
+            result = slicer.codePostPrint()
+
+            # Should NOT contain simple wipe.
+            expect(result).not.toContain('G0 X5 Y5')
+
+            # Should contain smart wipe with retraction.
+            # The exact coordinates depend on the smart wipe logic, but should have relative move and retraction.
+            expect(result).toContain('G91') # Relative positioning.
+
+            # Should contain retraction during wipe (negative E value).
+            lines = result.split('\n')
+            foundSmartWipe = false
+
+            for line in lines
+
+                if line.includes('G1') and line.includes('E-') and (line.includes('X') or line.includes('Y'))
+
+                    foundSmartWipe = true
+                    break
+
+            expect(foundSmartWipe).toBe(true)
+
+        test 'should fall back to simple wipe when smart wipe disabled', ->
+
+            slicer.setWipeNozzle(true)
+            slicer.setSmartWipeNozzle(false)
+            slicer.setVerbose(false)
+
+            result = slicer.codePostPrint()
+
+            expect(result).toContain('G0 X5 Y5') # Simple wipe move.
+
+        test 'should fall back to simple wipe when mesh data not available', ->
+
+            slicer.setWipeNozzle(true)
+            slicer.setSmartWipeNozzle(true)
+            slicer.setVerbose(false)
+
+            # No mesh data available.
+            slicer.lastLayerEndPoint = null
+            slicer.meshBounds = null
+
+            result = slicer.codePostPrint()
+
+            expect(result).toContain('G0 X5 Y5') # Fallback to simple wipe.
+
+        test 'should handle smart wipe retraction correctly', ->
+
+            slicer.setWipeNozzle(true)
+            slicer.setSmartWipeNozzle(true)
+            slicer.setVerbose(false)
+            slicer.setRetractionDistance(1.5)
+
+            # Simulate mesh boundary data.
+            slicer.lastLayerEndPoint = { x: 5, y: 0, z: 5 }
+            slicer.meshBounds = { min: { x: -5, y: -5 }, max: { x: 5, y: 5 } }
+            slicer.centerOffsetX = 100
+            slicer.centerOffsetY = 100
+
+            result = slicer.codePostPrint()
+
+            # Should have retraction equal to configured distance during wipe.
+            expect(result).toContain('E-1.5')
+
+            # After smart wipe with retraction, the Z raise should NOT have additional retraction.
+            lines = result.split('\n')
+            foundSmartWipe = false
+            smartWipeIndex = -1
+
+            for line, index in lines
+
+                if line.includes('G1') and line.includes('E-1.5')
+
+                    foundSmartWipe = true
+                    smartWipeIndex = index
+                    break
+
+            expect(foundSmartWipe).toBe(true)
+
+            # Check that the Z raise after smart wipe doesn't have E-2 (which would be double retraction).
+            # It should only have Z10 without additional retraction.
+            foundRaiseZ = false
+
+            for i in [smartWipeIndex + 1...lines.length]
+
+                if lines[i].includes('Z10') and not lines[i].includes('E-')
+
+                    foundRaiseZ = true
+                    break
+
+            expect(foundRaiseZ).toBe(true)
+
         test 'should generate metadata header', ->
 
             Printer = require('../../config/printer/printer')
