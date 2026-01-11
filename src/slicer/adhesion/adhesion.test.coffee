@@ -78,13 +78,46 @@ describe 'Adhesion Module', ->
 
             expect(slicer.gcode.length).toBeGreaterThan(0)
 
-            # Test with brim (not yet implemented, should return early).
+            # Test with brim (not yet implemented, should add comment).
             slicer.setAdhesionType('brim')
             slicer.gcode = ""
 
             adhesionModule.generateAdhesionGCode(slicer, mesh, 0, 0, boundingBox)
 
-            expect(slicer.gcode.length).toBe(0)
+            # Brim comment should be present even if not fully implemented.
+            expect(slicer.gcode.length).toBeGreaterThan(0)
+
+        test 'should respect adhesionSkirtType setting', ->
+
+            slicer.setAdhesionEnabled(true)
+            slicer.setAdhesionType('skirt')
+            slicer.setAdhesionSkirtType('circular')
+
+            expect(slicer.getAdhesionSkirtType()).toBe('circular')
+
+            # Create a simple geometry for testing.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry)
+
+            boundingBox = new THREE.Box3().setFromObject(mesh)
+
+            # Reset gcode.
+            slicer.gcode = ""
+            slicer.cumulativeE = 0
+
+            # Circular skirt should generate G-code.
+            adhesionModule.generateAdhesionGCode(slicer, mesh, 0, 0, boundingBox)
+
+            expect(slicer.gcode.length).toBeGreaterThan(0)
+
+            # Test with shape type (falls back to circular for now).
+            slicer.setAdhesionSkirtType('shape')
+            slicer.gcode = ""
+            slicer.cumulativeE = 0
+
+            adhesionModule.generateAdhesionGCode(slicer, mesh, 0, 0, boundingBox)
+
+            expect(slicer.gcode.length).toBeGreaterThan(0)
 
         test 'should use adhesionDistance setting', ->
 
@@ -190,6 +223,29 @@ describe 'Adhesion Module', ->
             # Extrusion should have increased.
             expect(slicer.cumulativeE).toBeGreaterThan(initialE)
 
+        test 'should warn when skirt extends beyond build plate', ->
+
+            slicer.setAdhesionEnabled(true)
+            slicer.setAdhesionType('skirt')
+            slicer.setAdhesionSkirtType('circular')
+            slicer.setVerbose(true)
+
+            # Create a large geometry that will cause skirt to exceed build plate.
+            # Build plate is 220x220mm by default, create geometry that is 200mm.
+            geometry = new THREE.BoxGeometry(200, 200, 10)
+            mesh = new THREE.Mesh(geometry)
+
+            boundingBox = new THREE.Box3().setFromObject(mesh)
+
+            # Reset gcode.
+            slicer.gcode = ""
+            slicer.cumulativeE = 0
+
+            adhesionModule.generateAdhesionGCode(slicer, mesh, 0, 0, boundingBox)
+
+            # Should contain warning about build plate boundaries.
+            expect(slicer.gcode).toContain('WARNING: Skirt extends beyond build plate boundaries')
+
     describe 'Getter/Setter Tests', ->
 
         test 'setAdhesionEnabled should validate boolean', ->
@@ -221,6 +277,18 @@ describe 'Adhesion Module', ->
             # Should reject invalid types.
             slicer.setAdhesionType('invalid')
             expect(slicer.getAdhesionType()).toBe('raft')
+
+        test 'setAdhesionSkirtType should validate type', ->
+
+            slicer.setAdhesionSkirtType('circular')
+            expect(slicer.getAdhesionSkirtType()).toBe('circular')
+
+            slicer.setAdhesionSkirtType('shape')
+            expect(slicer.getAdhesionSkirtType()).toBe('shape')
+
+            # Should reject invalid types.
+            slicer.setAdhesionSkirtType('invalid')
+            expect(slicer.getAdhesionSkirtType()).toBe('shape')
 
         test 'setAdhesionDistance should validate number', ->
 

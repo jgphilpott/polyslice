@@ -138,6 +138,10 @@ module.exports =
 
         return slicer.adhesionType
 
+    getAdhesionSkirtType: (slicer) ->
+
+        return slicer.adhesionSkirtType
+
     getAdhesionDistance: (slicer) ->
 
         return conversions.lengthFromInternal(slicer.adhesionDistance, slicer.lengthUnit)
@@ -475,6 +479,16 @@ module.exports =
         if ["skirt", "brim", "raft"].includes type
 
             slicer.adhesionType = String type
+
+        return slicer
+
+    setAdhesionSkirtType: (slicer, type = "circular") ->
+
+        type = type.toLowerCase().trim()
+
+        if ["circular", "shape"].includes type
+
+            slicer.adhesionSkirtType = String type
 
         return slicer
 

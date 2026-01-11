@@ -91,6 +91,7 @@ class Polyslice
         # Build plate adhesion settings for first layer stability.
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
         @adhesionType = options.adhesionType ?= "skirt" # String ['skirt', 'brim', 'raft'].
+        @adhesionSkirtType = options.adhesionSkirtType ?= "circular" # String ['circular', 'shape'].
         @adhesionDistance = conversions.lengthToInternal(options.adhesionDistance ?= 5, this.lengthUnit) # Number (millimeters internal).
         @adhesionLineCount = options.adhesionLineCount ?= 3 # Number.
 
@@ -217,6 +218,9 @@ class Polyslice
 
     getAdhesionType: ->
         accessors.getAdhesionType(this)
+
+    getAdhesionSkirtType: ->
+        accessors.getAdhesionSkirtType(this)
 
     getAdhesionDistance: ->
         accessors.getAdhesionDistance(this)
@@ -363,6 +367,9 @@ class Polyslice
 
     setAdhesionType: (type = "skirt") ->
         accessors.setAdhesionType(this, type)
+
+    setAdhesionSkirtType: (type = "circular") ->
+        accessors.setAdhesionSkirtType(this, type)
 
     setAdhesionDistance: (distance = 5) ->
         accessors.setAdhesionDistance(this, distance)
