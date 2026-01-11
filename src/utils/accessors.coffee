@@ -150,10 +150,6 @@ module.exports =
 
         return slicer.testStrip
 
-    getOutline: (slicer) ->
-
-        return slicer.outline
-
     getMetadata: (slicer) ->
 
         return slicer.metadata
@@ -501,12 +497,6 @@ module.exports =
     setTestStrip: (slicer, testStrip = false) ->
 
         slicer.testStrip = Boolean testStrip
-
-        return slicer
-
-    setOutline: (slicer, outline = true) ->
-
-        slicer.outline = Boolean outline
 
         return slicer
 

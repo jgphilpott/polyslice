@@ -94,9 +94,8 @@ class Polyslice
         @adhesionDistance = conversions.lengthToInternal(options.adhesionDistance ?= 5, this.lengthUnit) # Number (millimeters internal).
         @adhesionLineCount = options.adhesionLineCount ?= 3 # Number.
 
-        # Test strip and outline settings for print preparation.
+        # Test strip settings for print preparation.
         @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
-        @outline = options.outline ?= true # Boolean - make thin outline of layer 1 exterior.
 
         # G-code generation settings.
         @metadata = options.metadata ?= true # Boolean - include metadata header in G-code.
@@ -227,9 +226,6 @@ class Polyslice
 
     getTestStrip: ->
         accessors.getTestStrip(this)
-
-    getOutline: ->
-        accessors.getOutline(this)
 
     getMetadata: ->
         accessors.getMetadata(this)
@@ -376,9 +372,6 @@ class Polyslice
 
     setTestStrip: (testStrip = false) ->
         accessors.setTestStrip(this, testStrip)
-
-    setOutline: (outline = true) ->
-        accessors.setOutline(this, outline)
 
     setMetadata: (metadata = true) ->
         accessors.setMetadata(this, metadata)

@@ -58,9 +58,8 @@ describe 'Polyslice', ->
             expect(slicer.getAdhesionEnabled()).toBe(false)
             expect(slicer.getAdhesionType()).toBe('skirt')
 
-            # Test new test strip and outline settings
+            # Test test strip setting
             expect(slicer.getTestStrip()).toBe(false)
-            expect(slicer.getOutline()).toBe(true)
 
         test 'should create instance with custom options', ->
 

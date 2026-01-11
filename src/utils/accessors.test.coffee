@@ -341,11 +341,10 @@ describe 'Accessors (Getters and Setters)', ->
 
             return # Explicitly return undefined for Jest.
 
-        test 'should set and get test strip and outline settings', ->
+        test 'should set and get test strip setting', ->
 
-            # Test defaults.
+            # Test default.
             expect(slicer.getTestStrip()).toBe(false)
-            expect(slicer.getOutline()).toBe(true)
 
             # Test setting test strip.
             slicer.setTestStrip(true)
@@ -354,18 +353,10 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setTestStrip(false)
             expect(slicer.getTestStrip()).toBe(false)
 
-            # Test setting outline.
-            slicer.setOutline(false)
-            expect(slicer.getOutline()).toBe(false)
-
-            slicer.setOutline(true)
-            expect(slicer.getOutline()).toBe(true)
-
             # Test chaining.
-            result = slicer.setTestStrip(true).setOutline(false)
+            result = slicer.setTestStrip(true)
             expect(result).toBe(slicer)
             expect(slicer.getTestStrip()).toBe(true)
-            expect(slicer.getOutline()).toBe(false)
 
     describe 'G-code Generation Settings', ->
 
