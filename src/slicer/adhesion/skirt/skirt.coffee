@@ -1,6 +1,7 @@
 # Skirt adhesion generation for Polyslice.
 
-coders = require('../gcode/coders')
+coders = require('../../gcode/coders')
+boundaryHelper = require('../helpers/boundary')
 
 module.exports =
 
@@ -11,8 +12,6 @@ module.exports =
         layerHeight = slicer.getLayerHeight()
         adhesionDistance = slicer.getAdhesionDistance()
         adhesionLineCount = slicer.getAdhesionLineCount()
-        buildPlateWidth = slicer.getBuildPlateWidth()
-        buildPlateLength = slicer.getBuildPlateLength()
 
         # Calculate model dimensions in XY plane.
         modelMinX = boundingBox.min.x
@@ -36,23 +35,11 @@ module.exports =
         perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
 
-        # Check if skirt extends beyond build plate boundaries.
+        # Check if skirt extends beyond build plate boundaries using helper.
         maxRadius = baseRadius + (adhesionLineCount * nozzleDiameter)
-        skirtMinX = modelCenterX - maxRadius + centerOffsetX
-        skirtMaxX = modelCenterX + maxRadius + centerOffsetX
-        skirtMinY = modelCenterY - maxRadius + centerOffsetY
-        skirtMaxY = modelCenterY + maxRadius + centerOffsetY
-
-        # Warn if skirt extends beyond build plate.
-        if skirtMinX < 0 or skirtMaxX > buildPlateWidth or skirtMinY < 0 or skirtMaxY > buildPlateLength
-
-            verbose = slicer.getVerbose()
-
-            if verbose
-
-                slicer.gcode += "; WARNING: Skirt extends beyond build plate boundaries" + slicer.newline
-                slicer.gcode += "; Skirt bounds: X(#{skirtMinX.toFixed(2)}, #{skirtMaxX.toFixed(2)}) Y(#{skirtMinY.toFixed(2)}, #{skirtMaxY.toFixed(2)})" + slicer.newline
-                slicer.gcode += "; Build plate: X(0, #{buildPlateWidth}) Y(0, #{buildPlateLength})" + slicer.newline
+        skirtBoundingBox = boundaryHelper.calculateCircularSkirtBounds(modelCenterX, modelCenterY, maxRadius)
+        boundaryInfo = boundaryHelper.checkBuildPlateBoundaries(slicer, skirtBoundingBox, centerOffsetX, centerOffsetY)
+        boundaryHelper.addBoundaryWarning(slicer, boundaryInfo, 'Skirt')
 
         # Generate concentric loops.
         for loopIndex in [0...adhesionLineCount]

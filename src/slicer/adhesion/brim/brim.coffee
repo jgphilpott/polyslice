@@ -4,7 +4,8 @@
 # to increase adhesion and prevent warping. Unlike a skirt, the brim is
 # attached directly to the model.
 
-coders = require('../gcode/coders')
+coders = require('../../gcode/coders')
+boundaryHelper = require('../helpers/boundary')
 
 module.exports =
 
@@ -19,6 +20,8 @@ module.exports =
         #    - Create an offset path (nozzleDiameter * loopIndex) from the model outline
         #    - Generate G-code to print that path
         # 3. Ensure brim is printed before the actual model
+        # 4. Use boundaryHelper.checkBuildPlateBoundaries() to check boundaries
+        # 5. Use boundaryHelper.addBoundaryWarning() to add warning if needed
         #
         # Key differences from skirt:
         # - Brim is attached to the model (no gap)

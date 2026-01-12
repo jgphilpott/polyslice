@@ -4,7 +4,8 @@
 # It provides excellent bed adhesion and creates a flat surface for the model,
 # especially useful for models with small contact areas or warping issues.
 
-coders = require('../gcode/coders')
+coders = require('../../gcode/coders')
+boundaryHelper = require('../helpers/boundary')
 
 module.exports =
 
@@ -19,6 +20,8 @@ module.exports =
         # 3. Generate interface layers (finer infill, slower speed)
         # 4. Optional: Generate surface layer (solid infill)
         # 5. Apply Z offset to model so it starts above the raft
+        # 6. Use boundaryHelper.checkBuildPlateBoundaries() to check boundaries
+        # 7. Use boundaryHelper.addBoundaryWarning() to add warning if needed
         #
         # Raft parameters to consider:
         # - raftMargin: Extra space around model (default: 5mm)

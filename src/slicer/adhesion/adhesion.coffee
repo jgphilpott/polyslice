@@ -1,8 +1,8 @@
 # Adhesion generation module for Polyslice.
 
-skirtModule = require('./skirt')
-brimModule = require('./brim')
-raftModule = require('./raft')
+skirtModule = require('./skirt/skirt')
+brimModule = require('./brim/brim')
+raftModule = require('./raft/raft')
 
 module.exports =
 
