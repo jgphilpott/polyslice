@@ -215,6 +215,19 @@ module.exports =
         # Track last end point for travel path combing.
         lastPathEndPoint = slicer.lastLayerEndPoint
 
+        # Initialize starting position to build plate center if this is the first layer.
+        # This ensures nearest-neighbor sorting starts from the home position.
+        if not lastPathEndPoint
+
+            buildPlateWidth = slicer.getBuildPlateWidth()
+            buildPlateLength = slicer.getBuildPlateLength()
+
+            lastPathEndPoint = {
+                x: buildPlateWidth / 2
+                y: buildPlateLength / 2
+                z: z
+            }
+
         outerBoundaryPath = null
 
         # Pre-pass: Collect all hole outer walls for combing path calculation.
@@ -486,8 +499,42 @@ module.exports =
         # Determine if this layer needs skin (top/bottom or with exposure detection).
         layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount or slicer.getExposureDetection()
 
-        # Process outer boundaries first.
-        for pathIndex in outerBoundaryIndices
+        # Sort outer boundaries by nearest neighbor to minimize travel.
+        sortedOuterBoundaryIndices = []
+        remainingOuterBoundaryIndices = outerBoundaryIndices.slice()
+
+        while remainingOuterBoundaryIndices.length > 0
+
+            nearestIndex = -1
+            nearestDistance = Infinity
+
+            for boundaryIdx in remainingOuterBoundaryIndices
+
+                boundaryPath = paths[boundaryIdx]
+                boundaryCentroid = calculatePathCentroid(boundaryPath)
+
+                if boundaryCentroid
+
+                    distance = calculateDistance(lastPathEndPoint, boundaryCentroid)
+
+                    if distance < nearestDistance
+
+                        nearestDistance = distance
+                        nearestIndex = boundaryIdx
+
+            if nearestIndex >= 0
+
+                sortedOuterBoundaryIndices.push(nearestIndex)
+
+                remainingOuterBoundaryIndices = remainingOuterBoundaryIndices.filter((idx) -> idx isnt nearestIndex)
+
+            else
+
+                sortedOuterBoundaryIndices.push(remainingOuterBoundaryIndices[0])
+                remainingOuterBoundaryIndices.shift()
+
+        # Process outer boundaries in nearest-neighbor order.
+        for pathIndex in sortedOuterBoundaryIndices
 
             path = paths[pathIndex]
 
