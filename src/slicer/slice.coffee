@@ -564,10 +564,10 @@ module.exports =
 
             # For independent objects (no holes), immediately process skin/infill before moving to next object.
             # This ensures each object is completed before starting the next, minimizing travel.
-            if holeIndices.length is 0 and innermostWall and innermostWall.length >= 3
+            # However, if exposure detection is enabled, defer to Phase 2 for proper handling.
+            if holeIndices.length is 0 and innermostWall and innermostWall.length >= 3 and not slicer.getExposureDetection()
 
-                # Simple skin/infill generation for independent objects.
-                # For complex cases (exposure detection, fully covered regions), Phase 2 will handle it.
+                # Simple skin/infill generation for independent objects without exposure detection.
                 currentPath = innermostWall
                 infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, false)
 
