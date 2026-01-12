@@ -215,16 +215,14 @@ module.exports =
         # Track last end point for travel path combing.
         lastPathEndPoint = slicer.lastLayerEndPoint
 
-        # Initialize starting position to build plate center if this is the first layer.
-        # This ensures nearest-neighbor sorting starts from the home position.
+        # Initialize starting position to home position (0, 0) on build plate if this is the first layer.
+        # Convert home position from build plate coordinates to mesh coordinates using center offsets.
+        # This ensures nearest-neighbor sorting starts from the printer's home position.
         if not lastPathEndPoint
 
-            buildPlateWidth = slicer.getBuildPlateWidth()
-            buildPlateLength = slicer.getBuildPlateLength()
-
             lastPathEndPoint = {
-                x: buildPlateWidth / 2
-                y: buildPlateLength / 2
+                x: 0 - centerOffsetX  # Home (0, 0) on build plate in mesh coordinates
+                y: 0 - centerOffsetY
                 z: z
             }
 
@@ -534,6 +532,9 @@ module.exports =
                 remainingOuterBoundaryIndices.shift()
 
         # Process outer boundaries in nearest-neighbor order.
+        # Track which objects have been completed (for independent objects only).
+        completedObjectIndices = {}
+
         for pathIndex in sortedOuterBoundaryIndices
 
             path = paths[pathIndex]
@@ -560,6 +561,34 @@ module.exports =
 
             innermostWall = generateWallsForPath(path, pathIndex, false, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
+
+            # For independent objects (no holes), immediately process skin/infill before moving to next object.
+            # This ensures each object is completed before starting the next, minimizing travel.
+            if holeIndices.length is 0 and innermostWall and innermostWall.length >= 3
+
+                # Simple skin/infill generation for independent objects.
+                # For complex cases (exposure detection, fully covered regions), Phase 2 will handle it.
+                currentPath = innermostWall
+                infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, false)
+
+                # Determine if this region needs skin.
+                needsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
+                if needsSkin
+
+                    # Generate skin for top/bottom layers.
+                    skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], [])
+
+                else
+
+                    # Generate infill for middle layers.
+                    infillDensity = slicer.getInfillDensity()
+
+                    if infillDensity > 0 and infillBoundary.length >= 3
+
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, [], [])
+
+                completedObjectIndices[pathIndex] = true
 
         # Sort holes by nearest neighbor to minimize travel.
         sortedHoleIndices = []
@@ -647,6 +676,9 @@ module.exports =
         for path, pathIndex in paths
 
             continue if path.length < 3 or pathIsHole[pathIndex]
+
+            # Skip objects that were already completed inline (independent objects only).
+            continue if completedObjectIndices[pathIndex]
 
             currentPath = innermostWalls[pathIndex]
 
