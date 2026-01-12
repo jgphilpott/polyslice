@@ -25,7 +25,7 @@ console.log(`- Brand: ${filament.brand}\n`);
 // Base output directory for STL previews (keep next to examples by default).
 const outputDir = path.join(__dirname, '../output');
 // Target directory for G-code artifacts (wayfinding tests/outputs).
-const gcodeDir = path.join(__dirname, '../../resources/gcode/wayfinding');
+const gcodeDir = path.join(__dirname, '../../resources/gcode/wayfinding/pillars');
 
 // Ensure output directories exist.
 if (!fs.existsSync(outputDir)) {
@@ -175,11 +175,11 @@ function sliceAndSave(meshOrGroup, filename) {
     printer: printer,
     filament: filament,
     shellSkinThickness: 0.4,
-    shellWallThickness: 0.4,
+    shellWallThickness: 0.8,
     lengthUnit: 'millimeters',
     timeUnit: 'seconds',
-    infillPattern: 'hexagons',
-    infillDensity: 0,
+    infillPattern: 'grid',
+    infillDensity: 50,
     bedTemperature: 0,
     layerHeight: 0.2,
     testStrip: false,
@@ -241,9 +241,9 @@ console.log('='.repeat(90));
 
   for (const gridSize of gridSizes) {
     const totalPillars = gridSize * gridSize;
-    const baseName = `pillars-${gridSize}x${gridSize}`;
-    const gcodeFilename = `${baseName}.gcode`;
-    const stlFilename = `${baseName}.stl`;
+  const dimension = `${gridSize}x${gridSize}`;
+  const gcodeFilename = `${dimension}.gcode`;
+  const stlFilename = `pillars-${dimension}.stl`;
 
     console.log(`\nProcessing ${gridSize}x${gridSize} grid (${totalPillars} pillar${totalPillars > 1 ? 's' : ''})...`);
 

@@ -26,7 +26,7 @@ console.log(`- Brand: ${filament.brand}\n`);
 // Base output directory for STL previews (keep next to examples by default).
 const outputDir = path.join(__dirname, '../output');
 // Target directory for G-code artifacts (wayfinding tests/outputs).
-const gcodeDir = path.join(__dirname, '../../resources/gcode/wayfinding');
+const gcodeDir = path.join(__dirname, '../../resources/gcode/wayfinding/holes');
 
 // Ensure output directories exist.
 if (!fs.existsSync(outputDir)) {
@@ -228,9 +228,9 @@ console.log('='.repeat(90));
 
   for (const gridSize of gridSizes) {
     const totalHoles = gridSize * gridSize;
-    const baseName = `sheet-${gridSize}x${gridSize}-holes`;
-    const gcodeFilename = `${baseName}.gcode`;
-    const stlFilename = `${baseName}.stl`;
+  const dimension = `${gridSize}x${gridSize}`;
+  const gcodeFilename = `${dimension}.gcode`;
+  const stlFilename = `holes-${dimension}.stl`;
 
     console.log(`\nProcessing ${gridSize}x${gridSize} grid (${totalHoles} hole${totalHoles > 1 ? 's' : ''})...`);
 

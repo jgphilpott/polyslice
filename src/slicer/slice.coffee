@@ -221,7 +221,7 @@ module.exports =
         if not lastPathEndPoint
 
             lastPathEndPoint = {
-                x: 0 - centerOffsetX  # Home (0, 0) on build plate in mesh coordinates
+                x: 0 - centerOffsetX # Home (0, 0) on build plate in mesh coordinates
                 y: 0 - centerOffsetY
                 z: z
             }
