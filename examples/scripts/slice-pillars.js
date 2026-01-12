@@ -43,13 +43,58 @@ const exportSTL = true;
 const meshesDir = outputDir; // write STL next to G-code (same filenames, .stl)
 
 /**
+ * Convert a THREE.Group containing multiple meshes into a single mesh with
+ * all transforms baked into geometry.
+ *
+ * Polyslice's mesh extraction is designed around slicing a single mesh. If we
+ * pass a Group, only the first mesh may get sliced. Merging ensures all
+ * pillars are included.
+ *
+ * @param {THREE.Group|THREE.Object3D} object
+ * @returns {Promise<THREE.Mesh>}
+ */
+async function toMergedMesh(object) {
+  object.updateMatrixWorld(true);
+
+  const geometries = [];
+  object.traverse((child) => {
+    if (!child || !child.isMesh || !child.geometry) return;
+
+    child.updateMatrixWorld(true);
+    const geometryClone = child.geometry.clone();
+    geometryClone.applyMatrix4(child.matrixWorld);
+    geometries.push(geometryClone);
+  });
+
+  if (geometries.length === 0) {
+    throw new Error("No mesh geometries found to merge.");
+  }
+
+  // Dynamic import because three's examples are ESM-only.
+  const mod = await import('three/examples/jsm/utils/BufferGeometryUtils.js');
+  const mergeGeometries = mod.mergeGeometries || mod.BufferGeometryUtils?.mergeGeometries;
+  if (!mergeGeometries) {
+    throw new Error('Could not load mergeGeometries from BufferGeometryUtils');
+  }
+
+  const mergedGeometry = mergeGeometries(geometries, false);
+  if (!mergedGeometry) {
+    throw new Error('Failed to merge geometries');
+  }
+
+  const mergedMesh = new THREE.Mesh(mergedGeometry, new THREE.MeshBasicMaterial());
+  mergedMesh.updateMatrixWorld(true);
+  return mergedMesh;
+}
+
+/**
  * Create an array of independent pillar cylinders arranged in a grid.
  * @param {number} pillarRadius - Radius of each pillar in millimeters.
  * @param {number} pillarHeight - Height of each pillar in millimeters.
  * @param {number} gridSize - Size of the pillar grid (e.g., 2 for 2x2, 3 for 3x3).
  * @returns {THREE.Group} A group containing all pillar meshes positioned at the build plate.
  */
-function createPillarArray(pillarRadius = 3, pillarHeight = 10, gridSize = 1) {
+function createPillarArray(pillarRadius = 3, pillarHeight = 1.2, gridSize = 1) {
   const group = new THREE.Group();
 
   // Calculate spacing between pillars.
@@ -134,7 +179,7 @@ function sliceAndSave(meshOrGroup, filename) {
     lengthUnit: 'millimeters',
     timeUnit: 'seconds',
     infillPattern: 'hexagons',
-    infillDensity: 20,
+    infillDensity: 0,
     bedTemperature: 0,
     layerHeight: 0.2,
     testStrip: false,
@@ -177,8 +222,8 @@ function formatBytes(bytes) {
 
 // Configuration for pillar grids to generate.
 const gridSizes = [1, 2, 3, 4, 5];
-const pillarHeight = 10;
-const pillarRadius = 2;
+const pillarHeight = 1.2;
+const pillarRadius = 3;
 
 console.log('Pillar Configuration:');
 console.log(`- Pillar Radius: ${pillarRadius}mm`);
@@ -206,6 +251,9 @@ console.log('='.repeat(90));
       // Create pillar array.
       const group = createPillarArray(pillarRadius, pillarHeight, gridSize);
 
+  // Merge all pillars into one mesh so the slicer processes them all.
+  const mergedMesh = await toMergedMesh(group);
+
       // Optionally export STL before slicing.
       if (exportSTL) {
         const stlPath = path.join(meshesDir, stlFilename);
@@ -214,7 +262,7 @@ console.log('='.repeat(90));
       }
 
       // Slice and save.
-      const stats = sliceAndSave(group, gcodeFilename);
+      const stats = sliceAndSave(mergedMesh, gcodeFilename);
 
       console.log(`✅ ${gcodeFilename.padEnd(35)} | ${stats.time.toString().padStart(5)}ms | ${stats.lines.toString().padStart(6)} lines | ${stats.layers.toString().padStart(3)} layers | ${formatBytes(stats.size)}`);
 
