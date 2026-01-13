@@ -564,7 +564,55 @@ module.exports =
 
             # For independent objects (no holes), immediately process skin/infill before moving to next object.
             # This ensures each object is completed before starting the next, minimizing travel.
-            # However, if exposure detection is enabled, defer to Phase 2 for proper handling.
+            #
+            # IMPORTANT: Sequential completion only works when exposure detection is DISABLED.
+            # Here's why:
+            #
+            # 1. EXPOSURE DETECTION COMPLEXITY:
+            #    Exposure detection requires analyzing multiple layers together to determine which
+            #    areas are "exposed" (not covered by geometry on adjacent layers). This is done
+            #    in Phase 2 using the calculateExposedAreasForLayer() function which:
+            #    - Samples the current layer's geometry (961 points by default)
+            #    - Checks coverage from layers above and below (skinLayerCount distance)
+            #    - Identifies partially covered regions vs fully covered regions
+            #    - Generates different skin strategies for each (skin infill vs skin walls only)
+            #
+            # 2. THE PHASE 2 DEPENDENCY:
+            #    The inline skin/infill generation here (lines 570-591) is SIMPLIFIED and does NOT:
+            #    - Perform exposure detection calculations
+            #    - Identify fully covered regions (which need special handling)
+            #    - Handle covered area boundaries for infill exclusion
+            #    - Generate skin walls separately from skin infill
+            #    It simply checks: "Is this a top/bottom layer? → skin. Otherwise → infill."
+            #
+            # 3. WHY WE CAN'T JUST CALL EXPOSURE DETECTION HERE:
+            #    The exposure detection module requires:
+            #    - Access to ALL layers' path data (allLayers parameter)
+            #    - Proper hole filtering by nesting level (holeInnerWalls, holeOuterWalls)
+            #    - Coverage calculation functions (calculateExposedAreasForLayer)
+            #    - Skin area subtraction from infill boundaries (subtractSkinAreasFromInfill)
+            #    All of these are set up in Phase 2 after all walls are generated and holes are
+            #    properly classified. Moving this complex logic inline would require duplicating
+            #    ~200 lines of Phase 2 code and maintaining two implementations.
+            #
+            # 4. POTENTIAL FUTURE FIX:
+            #    To enable sequential completion WITH exposure detection, we would need to:
+            #    - Refactor Phase 2's exposure detection into a reusable function
+            #    - Pass all required context (allLayers, hole walls, nesting levels, etc.)
+            #    - Call that function here for each independent object
+            #    - Ensure the function works correctly when called per-object vs per-layer
+            #    This is non-trivial because exposure detection currently assumes it's analyzing
+            #    complete layer data, not individual objects.
+            #
+            # 5. CURRENT TRADEOFF:
+            #    Users choose between:
+            #    - Sequential completion (exposureDetection=false): Optimal travel, simpler processing
+            #    - Exposure detection (exposureDetection=true): Adaptive skin for complex geometry
+            #    Most use cases (simple objects, standard prints) benefit from sequential completion.
+            #    Complex geometries (overhangs, cavities) benefit from exposure detection.
+            #
+            # TODO: Future PR should refactor exposure detection to support per-object processing,
+            # enabling sequential completion AND adaptive skin simultaneously.
             if holeIndices.length is 0 and innermostWall and innermostWall.length >= 3 and not slicer.getExposureDetection()
 
                 # Simple skin/infill generation for independent objects without exposure detection.
