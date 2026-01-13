@@ -105,13 +105,6 @@ module.exports =
         slicer.centerOffsetX = centerOffsetX
         slicer.centerOffsetY = centerOffsetY
 
-        # TODO: Investigate why storing meshBounds here causes test failure in "should center mesh on build plate regardless of world position"
-        # For now, smart wipe will fall back to simple wipe when meshBounds is not available.
-        # slicer._meshBounds = {
-        #     min: { x: boundingBox.min.x, y: boundingBox.min.y }
-        #     max: { x: boundingBox.max.x, y: boundingBox.max.y }
-        # }
-
         verbose = slicer.getVerbose()
 
         # Turn on fan if configured (after pre-print, before actual printing).
