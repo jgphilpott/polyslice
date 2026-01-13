@@ -2,7 +2,7 @@
 
 /**
  * Smart Wipe Nozzle Example
- * 
+ *
  * This example demonstrates the smart wipe nozzle feature, which intelligently
  * moves the nozzle away from the print surface at the end of a print to prevent
  * marks or filament threads on the finished part.

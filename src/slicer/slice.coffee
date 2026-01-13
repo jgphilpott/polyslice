@@ -145,6 +145,7 @@ module.exports =
             min: { x: boundingBox.min.x, y: boundingBox.min.y }
             max: { x: boundingBox.max.x, y: boundingBox.max.y }
         }
+
         slicer.centerOffsetX = centerOffsetX
         slicer.centerOffsetY = centerOffsetY
 

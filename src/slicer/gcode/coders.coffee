@@ -786,7 +786,7 @@ module.exports =
                     slicer.meshBounds,
                     slicer.centerOffsetX,
                     slicer.centerOffsetY,
-                    10  # Maximum wipe distance in mm.
+                    10 # Maximum wipe distance in mm.
                 )
 
                 # Calculate retraction amount during wipe.
@@ -798,7 +798,7 @@ module.exports =
                     wipeDirection.x,
                     wipeDirection.y,
                     null,
-                    -retractionDistance,  # Retract during wipe.
+                    -retractionDistance, # Retract during wipe.
                     3000
                 ).replace(slicer.newline, (if verbose then "; Smart Wipe Nozzle (with retraction)" + slicer.newline else slicer.newline))
 
