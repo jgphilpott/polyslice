@@ -288,6 +288,122 @@ console.log(gcode);
 </html>
 ```
 
+## Example Scripts
+
+Polyslice includes several example scripts demonstrating advanced usage:
+
+### Slice Pillars (`examples/scripts/slice-pillars.js`)
+
+Demonstrates multi-object slicing by creating independent cylindrical pillars in grid patterns.
+
+**Features:**
+- Creates grids from 1x1 to 5x5 pillars (1 to 25 independent objects)
+- Demonstrates travel path optimization for multiple separate objects
+- Exports both STL and G-code files
+- Shows mesh merging for proper slicer input
+
+**Usage:**
+```bash
+npm run compile
+node examples/scripts/slice-pillars.js
+```
+
+**Output:**
+- G-code: `resources/gcode/wayfinding/pillars/`
+- STL: `examples/output/`
+
+**Key Concepts:**
+- **Multi-object slicing**: The slicer handles multiple independent objects efficiently
+- **Travel optimization**: Objects are processed using nearest-neighbor sorting starting from the printer's home position (0, 0)
+- **Sequential completion**: When exposure detection is disabled, each object is fully completed (walls + skin/infill) before moving to the next, minimizing travel distance
+- **Mesh merging**: Multiple three.js meshes are merged into a single mesh using `BufferGeometryUtils.mergeGeometries()`
+
+**Example Configuration:**
+```javascript
+const slicer = new Polyslice({
+  printer: printer,
+  filament: filament,
+  shellSkinThickness: 0.4,
+  shellWallThickness: 0.8,
+  infillPattern: 'grid',
+  infillDensity: 50,
+  layerHeight: 0.2,
+  exposureDetection: false  // Disable for simple objects (faster, sequential completion)
+});
+```
+
+### Slice Holes (`examples/scripts/slice-holes.js`)
+
+Demonstrates slicing sheets with holes punched in them using CSG operations.
+
+**Features:**
+- Creates thin sheets with configurable hole patterns
+- Uses CSG (Constructive Solid Geometry) to subtract holes from base geometry
+- Tests the slicer's hole detection and avoidance algorithms
+- Exports both STL and G-code files
+
+**Usage:**
+```bash
+npm run compile
+node examples/scripts/slice-holes.js
+```
+
+**Output:**
+- G-code: `resources/gcode/wayfinding/holes/`
+- STL: `examples/output/`
+
+**Key Concepts:**
+- **Hole detection**: The slicer automatically detects holes using point-in-polygon testing
+- **Travel combing**: Travel moves avoid crossing holes to prevent stringing
+- **Nested structures**: Handles complex nesting levels (holes within structures within holes)
+
+## Travel Path Optimization
+
+Polyslice includes intelligent travel path optimization to minimize print time and improve quality:
+
+### Independent Objects (Multiple Separate Parts)
+
+When slicing multiple independent objects on the same layer:
+
+1. **Nearest-neighbor sorting**: Objects are processed in order of proximity to minimize travel distance
+2. **Home position start**: On the first layer, sorting starts from the printer's home position (0, 0), converting to mesh coordinates
+3. **Sequential completion** (when exposure detection is disabled):
+   - Each object is fully completed (walls → skin/infill) before moving to the next
+   - Minimizes travel moves between objects
+   - Prevents zigzag patterns across the build plate
+
+Example: For a 3x3 grid of pillars, the slicer will:
+- Start at the pillar closest to home position (0, 0)
+- Complete all walls, skin, and infill for that pillar
+- Move to the nearest unprocessed pillar
+- Repeat until all pillars are complete
+
+### Complex Geometries (Parts with Holes)
+
+When slicing parts with holes or when exposure detection is enabled:
+
+1. **Two-phase processing**:
+   - **Phase 1**: Generate walls for all paths (outer boundaries and holes)
+   - **Phase 2**: Generate skin and infill using collected hole boundaries for accurate coverage analysis
+2. **Hole avoidance**: Travel paths use combing algorithm to avoid crossing holes
+3. **Nesting-aware exclusion**: Properly handles nested structures (holes within structures within holes)
+
+### Configuration Impact
+
+The `exposureDetection` setting affects optimization strategy:
+
+```javascript
+// For simple independent objects (faster, sequential completion)
+const slicer = new Polyslice({
+  exposureDetection: false  // Completes each object before moving to next
+});
+
+// For complex parts or adaptive skin (accurate, two-phase processing)
+const slicer = new Polyslice({
+  exposureDetection: true  // Full Phase 2 processing for coverage analysis
+});
+```
+
 ## Related Documentation
 
 - [API Reference](../api/API.md) - Complete API reference
@@ -295,3 +411,4 @@ console.log(gcode);
 - [G-code Export](../exporters/EXPORTERS.md) - Saving and streaming G-code
 - [Printer Configuration](../config/PRINTER.md) - Available printer profiles
 - [Filament Configuration](../config/FILAMENT.md) - Available filament profiles
+- [Slicing Algorithm](../slicer/SLICING.md) - Detailed slicing algorithm documentation

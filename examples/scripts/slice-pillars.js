@@ -1,17 +1,16 @@
 /**
- * Example showing how to slice sheets with holes punched in them
- * This demonstrates the slicer's ability to handle complex geometries with internal voids
- * using CSG (Constructive Solid Geometry) operations to create holes in a thin sheet
+ * Example showing how to slice arrays of independent pillars (cylinders)
+ * This demonstrates the slicer's ability to handle multiple separate objects
+ * arranged in grid patterns from 1x1 up to 5x5 arrays
  */
 
 const { Polyslice, Printer, Filament } = require('../../src/index');
 const THREE = require('three');
-const { Polytree } = require('@jgphilpott/polytree');
 const path = require('path');
 const fs = require('fs');
 
-console.log('Polyslice Hole Slicing Example');
-console.log('==============================\n');
+console.log('Polyslice Pillar Slicing Example');
+console.log('================================\n');
 
 // Create printer and filament configuration objects.
 const printer = new Printer('Ender5');
@@ -26,7 +25,7 @@ console.log(`- Brand: ${filament.brand}\n`);
 // Base output directory for STL previews (keep next to examples by default).
 const outputDir = path.join(__dirname, '../output');
 // Target directory for G-code artifacts (wayfinding tests/outputs).
-const gcodeDir = path.join(__dirname, '../../resources/gcode/wayfinding/holes');
+const gcodeDir = path.join(__dirname, '../../resources/gcode/wayfinding/pillars');
 
 // Ensure output directories exist.
 if (!fs.existsSync(outputDir)) {
@@ -44,64 +43,98 @@ const exportSTL = true;
 const meshesDir = outputDir; // write STL next to G-code (same filenames, .stl)
 
 /**
- * Create a thin sheet (box) with holes punched in it using CSG.
- * @param {number} width - Width of the sheet in millimeters.
- * @param {number} height - Height of the sheet in millimeters.
- * @param {number} thickness - Thickness of the sheet in millimeters.
- * @param {number} holeRadius - Radius of each hole in millimeters.
- * @param {number} gridSize - Size of the hole grid (e.g., 2 for 2x2, 3 for 3x3).
- * @returns {Promise<THREE.Mesh>} The sheet mesh with holes positioned at the build plate.
+ * Convert a THREE.Group containing multiple meshes into a single mesh with
+ * all transforms baked into geometry.
+ *
+ * Polyslice's mesh extraction is designed around slicing a single mesh. If we
+ * pass a Group, only the first mesh may get sliced. Merging ensures all
+ * pillars are included.
+ *
+ * @param {THREE.Group|THREE.Object3D} object
+ * @returns {Promise<THREE.Mesh>}
  */
-async function createSheetWithHoles(width = 50, height = 50, thickness = 5, holeRadius = 3, gridSize = 1) {
-  // Create the base sheet geometry.
-  const sheetGeometry = new THREE.BoxGeometry(width, height, thickness);
-  const sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial());
+async function toMergedMesh(object) {
+  object.updateMatrixWorld(true);
 
-  // Calculate spacing between holes.
-  const spacing = Math.min(width, height) / (gridSize + 1);
+  const geometries = [];
+  object.traverse((child) => {
+    if (!child || !child.isMesh || !child.geometry) return;
 
-  // Calculate offset to center the grid.
-  const offsetX = -width / 2 + spacing;
-  const offsetY = -height / 2 + spacing;
+    child.updateMatrixWorld(true);
+    const geometryClone = child.geometry.clone();
+    geometryClone.applyMatrix4(child.matrixWorld);
+    geometries.push(geometryClone);
+  });
 
-  // Create hole cylinders and subtract them from the sheet.
-  let resultMesh = sheetMesh;
-
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      // Calculate hole position.
-      const x = offsetX + col * spacing;
-      const y = offsetY + row * spacing;
-
-      // Create cylinder for hole (taller than sheet to ensure complete penetration).
-      const holeGeometry = new THREE.CylinderGeometry(
-        holeRadius,
-        holeRadius,
-        thickness * 2,
-        32
-      );
-
-      // Rotate cylinder to align with Z-axis (sheets are in XY plane).
-      const holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshBasicMaterial());
-      holeMesh.rotation.x = Math.PI / 2;
-      holeMesh.position.set(x, y, 0);
-      holeMesh.updateMatrixWorld();
-
-      // Subtract hole from sheet using Polytree.
-      resultMesh = await Polytree.subtract(resultMesh, holeMesh);
-    }
+  if (geometries.length === 0) {
+    throw new Error("No mesh geometries found to merge.");
   }
 
-  // Wrap in a new THREE.Mesh to ensure full compatibility with three.js tools.
-  const finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material);
-  finalMesh.position.set(0, 0, thickness / 2);
-  finalMesh.updateMatrixWorld();
+  // Dynamic import because three's examples are ESM-only.
+  const mod = await import('three/examples/jsm/utils/BufferGeometryUtils.js');
+  const mergeGeometries = mod.mergeGeometries || mod.BufferGeometryUtils?.mergeGeometries;
+  if (!mergeGeometries) {
+    throw new Error('Could not load mergeGeometries from BufferGeometryUtils');
+  }
 
-  return finalMesh;
+  const mergedGeometry = mergeGeometries(geometries, false);
+  if (!mergedGeometry) {
+    throw new Error('Failed to merge geometries');
+  }
+
+  const mergedMesh = new THREE.Mesh(mergedGeometry, new THREE.MeshBasicMaterial());
+  mergedMesh.updateMatrixWorld(true);
+  return mergedMesh;
 }
 
 /**
- * Export a mesh as an STL file (binary) using three's STLExporter (dynamic import for Node CJS).
+ * Create an array of independent pillar cylinders arranged in a grid.
+ * @param {number} pillarRadius - Radius of each pillar in millimeters.
+ * @param {number} pillarHeight - Height of each pillar in millimeters.
+ * @param {number} gridSize - Size of the pillar grid (e.g., 2 for 2x2, 3 for 3x3).
+ * @returns {THREE.Group} A group containing all pillar meshes positioned at the build plate.
+ */
+function createPillarArray(pillarRadius = 3, pillarHeight = 1.2, gridSize = 1) {
+  const group = new THREE.Group();
+
+  // Calculate spacing between pillars.
+  const spacing = (pillarRadius * 2 + 4); // 4mm gap between pillars
+
+  // Calculate offset to center the grid.
+  const totalWidth = spacing * (gridSize - 1);
+  const offsetX = -totalWidth / 2;
+  const offsetY = -totalWidth / 2;
+
+  // Create pillar cylinders.
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < gridSize; col++) {
+      // Calculate pillar position.
+      const x = offsetX + col * spacing;
+      const y = offsetY + row * spacing;
+
+      // Create cylinder for pillar (aligned with Z-axis).
+      const pillarGeometry = new THREE.CylinderGeometry(
+        pillarRadius,
+        pillarRadius,
+        pillarHeight,
+        32
+      );
+
+      // Rotate cylinder to align with Z-axis (default is Y-axis).
+      const pillarMesh = new THREE.Mesh(pillarGeometry, new THREE.MeshBasicMaterial());
+      pillarMesh.rotation.x = Math.PI / 2;
+      pillarMesh.position.set(x, y, pillarHeight / 2);
+      pillarMesh.updateMatrixWorld();
+
+      group.add(pillarMesh);
+    }
+  }
+
+  return group;
+}
+
+/**
+ * Export a mesh or group as an STL file (binary) using three's STLExporter (dynamic import for Node CJS).
  * @param {THREE.Mesh|THREE.Object3D} object - The mesh/object to export.
  * @param {string} outPath - Output file path ending with .stl
  * @returns {Promise<string>} - Resolves with the written path
@@ -132,30 +165,31 @@ async function exportMeshAsSTL(object, outPath) {
 }
 
 /**
- * Slice a mesh and save the G-code to a file.
- * @param {THREE.Mesh} mesh - The mesh to slice.
+ * Slice a mesh or group and save the G-code to a file.
+ * @param {THREE.Mesh|THREE.Group} meshOrGroup - The mesh or group to slice.
  * @param {string} filename - Name of the output file.
  * @returns {Object} Statistics about the slicing operation.
  */
-function sliceAndSave(mesh, filename) {
+function sliceAndSave(meshOrGroup, filename) {
   const slicer = new Polyslice({
     printer: printer,
     filament: filament,
     shellSkinThickness: 0.4,
-    shellWallThickness: 0.4,
+    shellWallThickness: 0.8,
     lengthUnit: 'millimeters',
     timeUnit: 'seconds',
-    infillPattern: 'hexagons',
-    infillDensity: 20,
+    infillPattern: 'grid',
+    infillDensity: 50,
     bedTemperature: 0,
     layerHeight: 0.2,
     testStrip: false,
     metadata: false,
-    verbose: true
+    verbose: true,
+    exposureDetection: false  // Disable for simple pillars (faster, completes each object before next)
   });
 
   const startTime = Date.now();
-  const gcode = slicer.slice(mesh);
+  const gcode = slicer.slice(meshOrGroup);
   const endTime = Date.now();
 
   const outputPath = path.join(gcodeDir, filename);
@@ -187,39 +221,19 @@ function formatBytes(bytes) {
   return `${mb.toFixed(2)} MB`;
 }
 
-// Configuration for hole grids to generate.
+// Configuration for pillar grids to generate.
 const gridSizes = [1, 2, 3, 4, 5];
-const sheetThickness = 1.4;
-const holeRadius = 2;
+const pillarHeight = 1.2;
+const pillarRadius = 3;
 
-// Dynamic sizing controls
-// - minHoleGap: minimum clearance between adjacent hole edges (mm)
-// - edgeMarginMin: minimum margin from hole edge to sheet edge (mm)
-const minHoleGap = 2;      // mm between hole edges
-const edgeMarginMin = 5;   // mm from outermost hole edge to sheet boundary
-
-// Compute dynamic sheet width/height for a given grid size so holes have
-// adequate spacing and edge margins using the placement scheme in createSheetWithHoles.
-function computeSheetSize(gridSize, holeRadius) {
-  // Required center-to-center spacing s to satisfy:
-  //   - gap between holes >= minHoleGap  => s >= 2*R + minHoleGap
-  //   - margin at edges  >= edgeMarginMin => s - R >= edgeMarginMin => s >= R + edgeMarginMin
-  const s = Math.max(2 * holeRadius + minHoleGap, holeRadius + edgeMarginMin);
-  // With the example's placement, width = s * (gridSize + 1)
-  const width = s * (gridSize + 1);
-  const height = width; // square sheet
-  return { width, height, spacing: s };
-}
-
-console.log('Sheet Configuration (dynamic sizing):');
-console.log(`- Hole Radius: ${holeRadius}mm`);
-console.log(`- Min Hole Gap: ${minHoleGap}mm`);
-console.log(`- Edge Margin: ${edgeMarginMin}mm`);
+console.log('Pillar Configuration:');
+console.log(`- Pillar Radius: ${pillarRadius}mm`);
+console.log(`- Pillar Height: ${pillarHeight}mm`);
 console.log(`- Grid Sizes: ${gridSizes.map(size => `${size}x${size}`).join(', ')}`);
 console.log(`- STL Output Dir: ${outputDir}`);
 console.log(`- G-code Output Dir: ${gcodeDir}\n`);
 
-console.log('Starting hole slicing...\n');
+console.log('Starting pillar slicing...\n');
 console.log('='.repeat(90));
 
 (async () => {
@@ -227,36 +241,35 @@ console.log('='.repeat(90));
   const results = [];
 
   for (const gridSize of gridSizes) {
-    const totalHoles = gridSize * gridSize;
+    const totalPillars = gridSize * gridSize;
   const dimension = `${gridSize}x${gridSize}`;
   const gcodeFilename = `${dimension}.gcode`;
-  const stlFilename = `holes-${dimension}.stl`;
+  const stlFilename = `pillars-${dimension}.stl`;
 
-    console.log(`\nProcessing ${gridSize}x${gridSize} grid (${totalHoles} hole${totalHoles > 1 ? 's' : ''})...`);
+    console.log(`\nProcessing ${gridSize}x${gridSize} grid (${totalPillars} pillar${totalPillars > 1 ? 's' : ''})...`);
 
     try {
-      // Compute dynamic sheet size for this grid
-      const { width, height, spacing } = computeSheetSize(gridSize, holeRadius);
-      console.log(`  Sheet: ${width.toFixed(1)} x ${height.toFixed(1)} x ${sheetThickness} mm (spacing=${spacing.toFixed(1)}mm)`);
+      // Create pillar array.
+      const group = createPillarArray(pillarRadius, pillarHeight, gridSize);
 
-      // Create sheet with holes.
-      const mesh = await createSheetWithHoles(width, height, sheetThickness, holeRadius, gridSize);
+  // Merge all pillars into one mesh so the slicer processes them all.
+  const mergedMesh = await toMergedMesh(group);
 
       // Optionally export STL before slicing.
       if (exportSTL) {
         const stlPath = path.join(meshesDir, stlFilename);
-        await exportMeshAsSTL(mesh, stlPath);
+        await exportMeshAsSTL(group, stlPath);
         console.log(`🧊 STL saved: ${stlFilename}`);
       }
 
       // Slice and save.
-      const stats = sliceAndSave(mesh, gcodeFilename);
+      const stats = sliceAndSave(mergedMesh, gcodeFilename);
 
       console.log(`✅ ${gcodeFilename.padEnd(35)} | ${stats.time.toString().padStart(5)}ms | ${stats.lines.toString().padStart(6)} lines | ${stats.layers.toString().padStart(3)} layers | ${formatBytes(stats.size)}`);
 
       results.push({
         gridSize,
-        totalHoles,
+        totalPillars,
         filename: gcodeFilename,
         ...stats
       });
@@ -270,7 +283,7 @@ console.log('='.repeat(90));
   const totalTime = totalEndTime - totalStartTime;
 
   console.log('\n' + '='.repeat(90));
-  console.log('Hole Slicing Complete');
+  console.log('Pillar Slicing Complete');
   console.log('='.repeat(90));
   console.log(`✅ Successfully generated ${results.length}/${gridSizes.length} files`);
   console.log(`⏱️  Total Time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
@@ -280,13 +293,13 @@ console.log('='.repeat(90));
   if (results.length > 0) {
     console.log('\nGenerated Files:');
     results.forEach(result => {
-      console.log(`  - ${result.filename}: ${result.totalHoles} hole${result.totalHoles > 1 ? 's' : ''}, ${result.layers} layers, ${formatBytes(result.size)}`);
+      console.log(`  - ${result.filename}: ${result.totalPillars} pillar${result.totalPillars > 1 ? 's' : ''}, ${result.layers} layers, ${formatBytes(result.size)}`);
     });
 
-    console.log('\n✅ Hole slicing completed successfully!');
+    console.log('\n✅ Pillar slicing completed successfully!');
     console.log('\nGenerated G-code files can be used with:');
     console.log('- 3D printer or simulator');
     console.log('- G-code visualizer (examples/visualizer/)');
-    console.log('- Analysis and testing of hole slicing capabilities');
+    console.log('- Analysis and testing of multi-object slicing capabilities');
   }
 })();

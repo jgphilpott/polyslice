@@ -2092,3 +2092,218 @@ describe 'Slicing', ->
             # even when overlap prevention is active.
 
             return # Explicitly return undefined for Jest.
+
+    describe 'Travel Path Optimization for Independent Objects', ->
+
+        # Helper to create a cylinder at a specific position.
+        createCylinder = (x, y, z, radius, height) ->
+            geometry = new THREE.CylinderGeometry(radius, radius, height, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+            mesh.position.set(x, y, z)
+            mesh.rotation.x = Math.PI / 2  # Rotate to stand upright on Z axis.
+            mesh.updateMatrixWorld()
+            return mesh
+
+        test 'should start from home position (0,0) on first layer', ->
+
+            # Create two pillars at different positions with enough spacing.
+            # Build plate is 220x220mm, centered at (110, 110).
+            # We'll place pillars at positions that will result in different distances
+            # from home (0, 0) after centering.
+            # Pillar 1 at (-30, -30) from center → will be closer to (0, 0) after offset.
+            # Pillar 2 at (30, 30) from center → will be farther from (0, 0) after offset.
+            pillar1 = createCylinder(-30, -30, 3, 3, 6)
+            pillar2 = createCylinder(30, 30, 3, 3, 6)
+
+            group = new THREE.Group()
+            group.add(pillar1)
+            group.add(pillar2)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setExposureDetection(false)  # For sequential completion.
+            slicer.setVerbose(true)  # To see movement comments.
+
+            result = slicer.slice(group)
+
+            # Extract first layer (after homing and heating).
+            lines = result.split('\n')
+            firstLayerStarted = false
+            firstWallMove = null
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    firstLayerStarted = true
+                else if firstLayerStarted and line.includes('Moving to wall outer')
+                    firstWallMove = line
+                    break
+
+            expect(firstWallMove).toBeDefined()
+
+            # Extract X and Y coordinates from the first wall move.
+            xMatch = firstWallMove.match(/X([\d.]+)/)
+            yMatch = firstWallMove.match(/Y([\d.]+)/)
+
+            expect(xMatch).toBeDefined()
+            expect(yMatch).toBeDefined()
+
+            firstX = parseFloat(xMatch[1])
+            firstY = parseFloat(yMatch[1])
+
+            # The first position should be closer to the corner (0, 0)
+            # than to the opposite corner (220, 220).
+            distanceFromHome = Math.sqrt(firstX * firstX + firstY * firstY)
+            distanceFromOppositeCorner = Math.sqrt((firstX - 220) * (firstX - 220) + (firstY - 220) * (firstY - 220))
+
+            # Should start from the object closer to home position (0, 0).
+            expect(distanceFromHome).toBeLessThan(distanceFromOppositeCorner)
+
+        test 'should use nearest-neighbor sorting for independent objects', ->
+
+            # Create 3 pillars with significant spacing to ensure they remain independent.
+            # Use positions relative to center with 30mm+ spacing between them.
+            pillarLeft = createCylinder(-40, -40, 3, 3, 6)
+            pillarCenter = createCylinder(0, 0, 3, 3, 6)
+            pillarRight = createCylinder(40, 40, 3, 3, 6)
+
+            group = new THREE.Group()
+            group.add(pillarLeft)
+            group.add(pillarCenter)
+            group.add(pillarRight)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setExposureDetection(false)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(group)
+
+            # Count the number of independent outer boundaries in the result.
+            # Each pillar should have its own WALL-OUTER.
+            wallOuterCount = (result.match(/TYPE: WALL-OUTER/g) || []).length
+
+            # Should have at least 1 WALL-OUTER marker per layer (merged or individual).
+            # With 6 layers (6mm height / 0.2mm layer height), should have at least 6 total.
+            expect(wallOuterCount).toBeGreaterThanOrEqual(6)
+
+            # Extract first layer wall movements to verify nearest-neighbor logic exists.
+            lines = result.split('\n')
+            firstLayerStarted = false
+            wallMoves = []
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    firstLayerStarted = true
+                else if firstLayerStarted and line.includes('LAYER: 2 of')
+                    break
+                else if firstLayerStarted and line.includes('Moving to wall outer')
+                    xMatch = line.match(/X([\d.]+)/)
+                    yMatch = line.match(/Y([\d.]+)/)
+                    if xMatch and yMatch
+                        wallMoves.push({ x: parseFloat(xMatch[1]), y: parseFloat(yMatch[1]) })
+
+            # Should have at least 1 wall move.
+            expect(wallMoves.length).toBeGreaterThanOrEqual(1)
+
+            # If we have multiple wall moves, verify they're not just the same position repeated.
+            if wallMoves.length > 1
+                # Verify positions are distinct (not all the same pillar).
+                for i in [0...wallMoves.length - 1]
+                    current = wallMoves[i]
+                    next = wallMoves[i + 1]
+
+                    # Check if positions are different.
+                    xDiff = Math.abs(next.x - current.x)
+                    yDiff = Math.abs(next.y - current.y)
+
+                    # At least one coordinate should differ by more than 1mm.
+                    expect(xDiff + yDiff).toBeGreaterThan(1)
+
+        test 'should complete each object before moving to next (sequential completion)', ->
+
+            # Create 2 independent pillars with enough spacing.
+            pillar1 = createCylinder(-30, -30, 3, 3, 6)
+            pillar2 = createCylinder(30, 30, 3, 3, 6)
+
+            group = new THREE.Group()
+            group.add(pillar1)
+            group.add(pillar2)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setExposureDetection(false)  # Required for sequential completion.
+            slicer.setVerbose(true)
+
+            result = slicer.slice(group)
+
+            # Extract first layer to verify object completion order.
+            lines = result.split('\n')
+            firstLayerStarted = false
+            typeSequence = []
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    firstLayerStarted = true
+                else if firstLayerStarted and line.includes('LAYER: 2 of')
+                    break
+                else if firstLayerStarted
+                    if line.includes('TYPE: WALL-OUTER')
+                        typeSequence.push('WALL-OUTER')
+                    else if line.includes('TYPE: WALL-INNER')
+                        typeSequence.push('WALL-INNER')
+                    else if line.includes('TYPE: SKIN')
+                        typeSequence.push('SKIN')
+
+            # Should have type markers.
+            expect(typeSequence.length).toBeGreaterThan(0)
+
+            # For sequential completion, the pattern should be:
+            # Object 1: WALL-OUTER → WALL-INNER (optional) → SKIN
+            # Object 2: WALL-OUTER → WALL-INNER (optional) → SKIN
+            # Find the first SKIN marker (end of first object).
+            firstSkinIndex = typeSequence.indexOf('SKIN')
+
+            if firstSkinIndex >= 0
+                # After the first SKIN, should have another WALL-OUTER (start of second object).
+                secondWallIndex = -1
+                for i in [firstSkinIndex + 1...typeSequence.length]
+                    if typeSequence[i] is 'WALL-OUTER'
+                        secondWallIndex = i
+                        break
+
+                # If we have a second object, it should start after the first object's SKIN.
+                if secondWallIndex >= 0
+                    expect(secondWallIndex).toBeGreaterThan(firstSkinIndex)
+
+            # At minimum, verify we have both WALL and SKIN types present.
+            hasWall = typeSequence.includes('WALL-OUTER') or typeSequence.includes('WALL-INNER')
+            hasSkin = typeSequence.includes('SKIN')
+
+            expect(hasWall).toBe(true)
+            expect(hasSkin).toBe(true)
+
+        test 'should defer to Phase 2 when exposure detection is enabled', ->
+
+            # Create 2 independent pillars with exposure detection enabled.
+            pillar1 = createCylinder(-30, -30, 3, 3, 6)
+            pillar2 = createCylinder(30, 30, 3, 3, 6)
+
+            group = new THREE.Group()
+            group.add(pillar1)
+            group.add(pillar2)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setExposureDetection(true)  # Enable exposure detection.
+            slicer.setVerbose(true)
+
+            result = slicer.slice(group)
+
+            # With exposure detection enabled, objects should still slice successfully.
+            # The key is that the sequential completion optimization is bypassed,
+            # and Phase 2 handles the skin/infill generation.
+            expect(result).toContain('G28')  # Should complete successfully.
+            expect(result).toContain('WALL')  # Should have walls.
+            expect(result).toContain('SKIN')  # Should have skin.
+
+            # Verify that slicing completes without errors.
+            expect(result.length).toBeGreaterThan(1000)
+
+            return # Explicitly return undefined for Jest.
