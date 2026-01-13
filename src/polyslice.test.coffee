@@ -61,6 +61,11 @@ describe 'Polyslice', ->
             # Test test strip setting
             expect(slicer.getTestStrip()).toBe(false)
 
+            # Test post-print settings
+            expect(slicer.getWipeNozzle()).toBe(true)
+            expect(slicer.getSmartWipeNozzle()).toBe(true)
+            expect(slicer.getBuzzer()).toBe(true)
+
         test 'should create instance with custom options', ->
 
             customSlicer = new Polyslice({

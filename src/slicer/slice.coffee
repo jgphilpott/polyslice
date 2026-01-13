@@ -102,6 +102,10 @@ module.exports =
         centerOffsetX = (buildPlateWidth / 2) - meshCenterX
         centerOffsetY = (buildPlateLength / 2) - meshCenterY
 
+        # Store center offsets for smart wipe nozzle in post-print.
+        slicer.centerOffsetX = centerOffsetX
+        slicer.centerOffsetY = centerOffsetY
+
         verbose = slicer.getVerbose()
 
         # Generate adhesion structures (skirt, brim, or raft) if enabled.

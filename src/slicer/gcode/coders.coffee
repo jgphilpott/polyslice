@@ -764,6 +764,7 @@ module.exports =
 
         verbose = slicer.getVerbose()
         wipeNozzle = slicer.getWipeNozzle()
+        smartWipeNozzle = slicer.getSmartWipeNozzle()
         buzzer = slicer.getBuzzer()
 
         if verbose then gcode += module.exports.codeMessage(slicer, "Starting post-print sequence...")
@@ -776,10 +777,47 @@ module.exports =
 
         if wipeNozzle # Wipe out (optional based on setting).
 
-            gcode += module.exports.codeLinearMovement(slicer, 5, 5, null, null, 3000).replace(slicer.newline, (if verbose then "; Wipe Nozzle" + slicer.newline else slicer.newline))
+            if smartWipeNozzle and slicer.lastLayerEndPoint and slicer._meshBounds and slicer.centerOffsetX? and slicer.centerOffsetY?
+
+                # Use smart wipe logic to avoid wiping onto the mesh.
+                wipeUtils = require('../utils/wipe')
+                wipeDirection = wipeUtils.calculateSmartWipeDirection(
+                    slicer.lastLayerEndPoint,
+                    slicer._meshBounds,
+                    slicer.centerOffsetX,
+                    slicer.centerOffsetY,
+                    10 # Maximum wipe distance in mm.
+                )
+
+                # Calculate retraction amount during wipe.
+                retractionDistance = slicer.getRetractionDistance()
+
+                # Generate wipe move with retraction.
+                gcode += module.exports.codeLinearMovement(
+                    slicer,
+                    wipeDirection.x,
+                    wipeDirection.y,
+                    null,
+                    -retractionDistance, # Retract during wipe.
+                    3000
+                ).replace(slicer.newline, (if verbose then "; Smart Wipe Nozzle (with retraction)" + slicer.newline else slicer.newline))
+
+            else
+
+                # Fall back to simple wipe (X+5, Y+5) if smart wipe data not available.
+                gcode += module.exports.codeLinearMovement(slicer, 5, 5, null, null, 3000).replace(slicer.newline, (if verbose then "; Wipe Nozzle" + slicer.newline else slicer.newline))
 
         # Retract and raise Z.
-        gcode += module.exports.codeLinearMovement(slicer, null, null, 10, -2, 2400).replace(slicer.newline, (if verbose then "; Retract and Raise Z" + slicer.newline else slicer.newline))
+        # Note: Retraction amount is reduced if smart wipe already retracted.
+        if wipeNozzle and smartWipeNozzle and slicer.lastLayerEndPoint and slicer._meshBounds
+
+            # Already retracted during smart wipe, so only raise Z.
+            gcode += module.exports.codeLinearMovement(slicer, null, null, 10, null, 2400).replace(slicer.newline, (if verbose then "; Raise Z" + slicer.newline else slicer.newline))
+
+        else
+
+            # Normal retract and raise Z.
+            gcode += module.exports.codeLinearMovement(slicer, null, null, 10, -2, 2400).replace(slicer.newline, (if verbose then "; Retract and Raise Z" + slicer.newline else slicer.newline))
 
         # Switch back to absolute positioning.
         gcode += module.exports.codePositioningMode(slicer, true).replace(slicer.newline, (if verbose then "; Absolute Positioning" + slicer.newline else slicer.newline))
