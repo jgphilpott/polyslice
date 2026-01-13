@@ -101,9 +101,20 @@ All coordinates are automatically centered on the build plate:
 ### G-code Generation
 
 For each layer:
-1. Travel to start of path (G0)
-2. Print perimeter with calculated extrusion (G1 with E parameter)
-3. Close the path by returning to start
+
+**Two-Phase Approach (complex geometries with holes or exposure detection enabled):**
+1. **Phase 1 - Walls**: Generate walls for all paths (outer boundaries and holes), collecting boundaries
+2. **Phase 2 - Skin & Infill**: Generate skin and infill using collected boundaries for proper coverage
+
+**Single-Phase Approach (independent objects, no holes, exposure detection disabled):**
+1. **Nearest-neighbor sorting**: Sort objects by proximity starting from home position (0, 0)
+2. **Sequential completion**: For each object:
+   - Travel to start (G0)
+   - Print walls with extrusion (G1 with E parameter)
+   - Print skin/infill immediately
+   - Move to next nearest object
+
+This optimization minimizes travel distance for multi-object prints.
 
 ## Configuration Options
 
@@ -119,7 +130,9 @@ Key parameters affecting slicing:
 - `shellSkinThickness`: Top/bottom skin thickness in mm (default: 0.8)
 - `infillDensity`: Infill density percentage 0-100 (default: 20)
 - `infillPattern`: Infill pattern type - 'grid', 'triangles', 'hexagons' (default: 'grid')
-- `exposureDetection`: Enable adaptive skin layer generation (default: true)
+- `exposureDetection`: Enable adaptive skin layer generation (default: false)
+  - When `false`: Uses single-phase optimization for independent objects (faster, sequential completion)
+  - When `true`: Uses two-phase processing for accurate coverage analysis
 
 ## Output Format
 
@@ -150,16 +163,13 @@ M117 Ready for next print
 
 ### Current Limitations
 
-1. **No support structures**: Overhangs are not supported automatically
-2. **No adaptive layer heights**: Uses constant layer height throughout
-3. **Basic path optimization**: Paths could be further optimized for print time
+1. **No adaptive layer heights**: Uses constant layer height throughout
 
 ### Planned Enhancements
 
-1. **Support generation**: Automatic support structure creation for overhangs
-2. **Bridge detection**: Special handling for bridges and overhangs
-3. **Adaptive layer heights**: Variable layer height based on geometry
-4. **Additional infill patterns**: Gyroid, concentric, and other patterns
+1. **Bridge detection**: Special handling for bridges and overhangs
+2. **Adaptive layer heights**: Variable layer height based on geometry
+3. **Additional infill patterns**: Gyroid, concentric, and other patterns
 
 ## Testing
 
@@ -185,7 +195,10 @@ npm test
 
 See the `examples/scripts/` directory for complete examples:
 
-- `slice-cube.js`: Slicing a simple 1cm cube created in three.js
+- `quick-start.js`: Basic example slicing a 1cm cube
+- `slice-cube.js`: Slicing a simple cube with various configurations
+- `slice-pillars.js`: Multi-object slicing with independent cylindrical pillars (1x1 to 5x5 grids)
+- `slice-holes.js`: Slicing sheets with holes demonstrating complex geometry handling
 
 ## Performance
 

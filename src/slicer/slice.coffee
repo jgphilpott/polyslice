@@ -221,6 +221,17 @@ module.exports =
         # Track last end point for travel path combing.
         lastPathEndPoint = slicer.lastLayerEndPoint
 
+        # Initialize starting position to home position (0, 0) on build plate if this is the first layer.
+        # Convert home position from build plate coordinates to mesh coordinates using center offsets.
+        # This ensures nearest-neighbor sorting starts from the printer's home position.
+        if not lastPathEndPoint
+
+            lastPathEndPoint = {
+                x: 0 - centerOffsetX # Home (0, 0) on build plate in mesh coordinates
+                y: 0 - centerOffsetY
+                z: z
+            }
+
         outerBoundaryPath = null
 
         # Pre-pass: Collect all hole outer walls for combing path calculation.
@@ -492,8 +503,45 @@ module.exports =
         # Determine if this layer needs skin (top/bottom or with exposure detection).
         layerNeedsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount or slicer.getExposureDetection()
 
-        # Process outer boundaries first.
-        for pathIndex in outerBoundaryIndices
+        # Sort outer boundaries by nearest neighbor to minimize travel.
+        sortedOuterBoundaryIndices = []
+        remainingOuterBoundaryIndices = outerBoundaryIndices.slice()
+
+        while remainingOuterBoundaryIndices.length > 0
+
+            nearestIndex = -1
+            nearestDistance = Infinity
+
+            for boundaryIdx in remainingOuterBoundaryIndices
+
+                boundaryPath = paths[boundaryIdx]
+                boundaryCentroid = calculatePathCentroid(boundaryPath)
+
+                if boundaryCentroid
+
+                    distance = calculateDistance(lastPathEndPoint, boundaryCentroid)
+
+                    if distance < nearestDistance
+
+                        nearestDistance = distance
+                        nearestIndex = boundaryIdx
+
+            if nearestIndex >= 0
+
+                sortedOuterBoundaryIndices.push(nearestIndex)
+
+                remainingOuterBoundaryIndices = remainingOuterBoundaryIndices.filter((idx) -> idx isnt nearestIndex)
+
+            else
+
+                sortedOuterBoundaryIndices.push(remainingOuterBoundaryIndices[0])
+                remainingOuterBoundaryIndices.shift()
+
+        # Process outer boundaries in nearest-neighbor order.
+        # Track which objects have been completed (for independent objects only).
+        completedObjectIndices = {}
+
+        for pathIndex in sortedOuterBoundaryIndices
 
             path = paths[pathIndex]
 
@@ -519,6 +567,31 @@ module.exports =
 
             innermostWall = generateWallsForPath(path, pathIndex, false, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
+
+            if holeIndices.length is 0 and innermostWall and innermostWall.length >= 3 and not slicer.getExposureDetection()
+
+                # Simple skin/infill generation for independent objects without exposure detection.
+                currentPath = innermostWall
+                infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, false)
+
+                # Determine if this region needs skin.
+                needsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
+                if needsSkin
+
+                    # Generate skin for top/bottom layers.
+                    skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], [])
+
+                else
+
+                    # Generate infill for middle layers.
+                    infillDensity = slicer.getInfillDensity()
+
+                    if infillDensity > 0 and infillBoundary.length >= 3
+
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, [], [])
+
+                completedObjectIndices[pathIndex] = true
 
         # Sort holes by nearest neighbor to minimize travel.
         sortedHoleIndices = []
@@ -606,6 +679,9 @@ module.exports =
         for path, pathIndex in paths
 
             continue if path.length < 3 or pathIsHole[pathIndex]
+
+            # Skip objects that were already completed inline (independent objects only).
+            continue if completedObjectIndices[pathIndex]
 
             currentPath = innermostWalls[pathIndex]
 
@@ -717,11 +793,21 @@ module.exports =
                     # Mixed layers: infill first, then skin.
                     if infillDensity > 0 and infillBoundary.length >= 3
 
-                        # For middle layers with adaptive skin, generate full infill without subtracting skin areas.
-                        # This ensures nested structures get structural infill even when fully exposed.
-                        # The filtered hole approach alone is insufficient because skin area subtraction can
-                        # still exclude nested structures when they are fully covered by skin.
-                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, [])
+                        # Filter skin areas to exclude any that are inside holes before passing to infill generation.
+                        # This reconciles two features:
+                        # - PR 75: Prevent infill/skin overlap by subtracting skin areas from infill boundaries
+                        # - PR 98: Ensure nested structures get infill even when inside skin regions
+                        # The solution: Only subtract skin areas that will actually have skin printed.
+                        # Skin generation (line 740) skips areas inside holes, so infill should do the same.
+                        # This way, infill avoids overlapping with actual skin, but nested structures
+                        # (which exist inside holes) still get their own infill in their own loop iterations.
+                        skinAreasForInfill = []
+
+                        for skinArea in skinAreas
+                            if not coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+                                skinAreasForInfill.push(skinArea)
+
+                        infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, skinAreasForInfill)
 
                     # Generate skin for exposed areas.
                     for skinArea in skinAreas

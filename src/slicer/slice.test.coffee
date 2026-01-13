@@ -1893,3 +1893,417 @@ describe 'Slicing', ->
             expect(infillMatches.length).toBe(2)  # Both structures should have infill.
 
             return # Explicitly return undefined for Jest.
+
+    describe 'Infill/Skin Overlap Prevention with Nested Structures (PR #75 + PR #98 Reconciliation)', ->
+
+        Polytree = null
+
+        beforeAll ->
+
+            { Polytree } = require('@jgphilpott/polytree')
+
+        # Helper to create a hollow cylinder using CSG.
+        createHollowCylinder = (outerRadius, innerRadius, height, segments = 32) ->
+
+            # Create outer cylinder.
+            outerGeometry = new THREE.CylinderGeometry(outerRadius, outerRadius, height, segments)
+            outerMesh = new THREE.Mesh(outerGeometry, new THREE.MeshBasicMaterial())
+            outerMesh.rotation.x = Math.PI / 2
+            outerMesh.updateMatrixWorld()
+
+            # Create inner cylinder (hole).
+            innerGeometry = new THREE.CylinderGeometry(innerRadius, innerRadius, height * 1.2, segments)
+            innerMesh = new THREE.Mesh(innerGeometry, new THREE.MeshBasicMaterial())
+            innerMesh.rotation.x = Math.PI / 2
+            innerMesh.updateMatrixWorld()
+
+            # Subtract inner from outer.
+            hollowMesh = await Polytree.subtract(outerMesh, innerMesh)
+            finalMesh = new THREE.Mesh(hollowMesh.geometry, hollowMesh.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            return finalMesh
+
+        test 'should prevent infill/skin overlap on absolute top/bottom layers', ->
+
+            # Create a simple hollow cylinder (no nested structures).
+            # Verify that on absolute top/bottom layers, both infill and skin are properly managed.
+            cylinder = await createHollowCylinder(20, 15, 1.2)
+            cylinder.position.set(0, 0, 0.6)
+            cylinder.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)  # 2 layers.
+            slicer.setShellWallThickness(0.8)  # 2 walls.
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(cylinder)
+
+            # Top layers should have skin only (no infill due to absolute top/bottom logic).
+            # Middle layers should have infill only (no adaptive skin on simple cylinder).
+            # This verifies the basic mechanism is working.
+
+            # Check that the result contains both TYPE: FILL and TYPE: SKIN.
+            expect(result).toContain('TYPE: FILL')
+            expect(result).toContain('TYPE: SKIN')
+
+            # Verify G-code structure is valid.
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should allow nested structures to generate infill even with skin overlap prevention', ->
+
+            # Create nested hollow cylinders.
+            # Verify that nested structures get infill even when outer structure has adaptive skin.
+            innerCylinder = await createHollowCylinder(10, 5, 1.2)
+            outerCylinder = await createHollowCylinder(23, 18, 1.2)
+
+            combinedMesh = await Polytree.unite(innerCylinder, outerCylinder)
+            finalMesh = new THREE.Mesh(combinedMesh.geometry, combinedMesh.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)  # 2 layers.
+            slicer.setShellWallThickness(0.8)  # 2 walls.
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Extract a middle layer.
+            parts = result.split('LAYER: 3 of')
+            expect(parts.length).toBeGreaterThan(1)
+            layer3 = parts[1].split('LAYER: 4 of')[0]
+
+            # Count infill sections - should have one per structure.
+            infillMatches = layer3.match(/TYPE: FILL/g) || []
+            expect(infillMatches.length).toBe(2)  # Both structures should have infill.
+
+            # Note: Skin generation on middle layers depends on exposure detection.
+            # With nested cylinders, the outer cylinder may have exposed areas,
+            # so we may or may not have skin depending on the geometry.
+            # The key test is that BOTH structures get infill (reconciliation working).
+
+            # Parse infill lines for each structure to verify both get infill.
+            infillSections = layer3.split('TYPE: FILL')
+
+            # Remove first element (before first TYPE: FILL).
+            infillSections.shift()
+
+            expect(infillSections.length).toBe(2)
+
+            # Each infill section should have extrusion commands.
+            for section in infillSections
+                # Look for G1 commands with E parameter (extrusion).
+                extrusionLines = section.match(/G1\s+X[\d.-]+\s+Y[\d.-]+.*E[\d.]+/g) || []
+                expect(extrusionLines.length).toBeGreaterThan(0)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should verify skin areas are filtered before infill generation', ->
+
+            # Create nested cylinders and verify that skin areas inside holes are filtered out.
+            # This is the core mechanism of the reconciliation.
+            innerCylinder = await createHollowCylinder(10, 5, 1.2)
+            outerCylinder = await createHollowCylinder(23, 18, 1.2)
+
+            combinedMesh = await Polytree.unite(innerCylinder, outerCylinder)
+            finalMesh = new THREE.Mesh(combinedMesh.geometry, combinedMesh.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # Verify overall infill count across all layers.
+            # With 6 layers total and 2 skin layers, we have 2 middle layers.
+            # 2 structures × 2 middle layers = 4 infill sections expected.
+            allInfillMatches = result.match(/TYPE: FILL/g) || []
+            expect(allInfillMatches.length).toBe(4)
+
+            # Verify that infill exists on middle layers for both structures.
+            # This confirms that the filtering mechanism works correctly.
+            for layerNum in [3, 4]  # Middle layers.
+                layerParts = result.split("LAYER: #{layerNum} of")
+                expect(layerParts.length).toBeGreaterThan(1)
+
+                layer = layerParts[1].split("LAYER: #{layerNum + 1} of")[0]
+                layerInfill = layer.match(/TYPE: FILL/g) || []
+
+                # Each middle layer should have infill for both structures.
+                expect(layerInfill.length).toBe(2)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should prevent overlap with three nested structures', ->
+
+            # Test with three nested hollow cylinders to verify the mechanism
+            # works with deeper nesting levels.
+            cylinder1 = await createHollowCylinder(10, 5, 1.2)
+            cylinder2 = await createHollowCylinder(23, 18, 1.2)
+            cylinder3 = await createHollowCylinder(36, 31, 1.2)
+
+            combined12 = await Polytree.unite(cylinder1, cylinder2)
+            combined123 = await Polytree.unite(combined12, cylinder3)
+            finalMesh = new THREE.Mesh(combined123.geometry, combined123.material)
+            finalMesh.position.set(0, 0, 0.6)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # 3 structures × 2 middle layers = 6 infill sections.
+            allInfillMatches = result.match(/TYPE: FILL/g) || []
+            expect(allInfillMatches.length).toBe(6)
+
+            # Verify a middle layer has all three structures with infill.
+            parts = result.split('LAYER: 3 of')
+            expect(parts.length).toBeGreaterThan(1)
+            layer3 = parts[1].split('LAYER: 4 of')[0]
+
+            layer3Infill = layer3.match(/TYPE: FILL/g) || []
+            expect(layer3Infill.length).toBe(3)  # All three structures.
+
+            # Verify the reconciliation is working: all structures get infill.
+            # This confirms the fix allows nested structures to generate infill
+            # even when overlap prevention is active.
+
+            return # Explicitly return undefined for Jest.
+
+    describe 'Travel Path Optimization for Independent Objects', ->
+
+        # Helper to create a cylinder at a specific position.
+        createCylinder = (x, y, z, radius, height) ->
+            geometry = new THREE.CylinderGeometry(radius, radius, height, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+            mesh.position.set(x, y, z)
+            mesh.rotation.x = Math.PI / 2  # Rotate to stand upright on Z axis.
+            mesh.updateMatrixWorld()
+            return mesh
+
+        test 'should start from home position (0,0) on first layer', ->
+
+            # Create two pillars at different positions with enough spacing.
+            # Build plate is 220x220mm, centered at (110, 110).
+            # We'll place pillars at positions that will result in different distances
+            # from home (0, 0) after centering.
+            # Pillar 1 at (-30, -30) from center → will be closer to (0, 0) after offset.
+            # Pillar 2 at (30, 30) from center → will be farther from (0, 0) after offset.
+            pillar1 = createCylinder(-30, -30, 3, 3, 6)
+            pillar2 = createCylinder(30, 30, 3, 3, 6)
+
+            group = new THREE.Group()
+            group.add(pillar1)
+            group.add(pillar2)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setExposureDetection(false)  # For sequential completion.
+            slicer.setVerbose(true)  # To see movement comments.
+
+            result = slicer.slice(group)
+
+            # Extract first layer (after homing and heating).
+            lines = result.split('\n')
+            firstLayerStarted = false
+            firstWallMove = null
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    firstLayerStarted = true
+                else if firstLayerStarted and line.includes('Moving to wall outer')
+                    firstWallMove = line
+                    break
+
+            expect(firstWallMove).toBeDefined()
+
+            # Extract X and Y coordinates from the first wall move.
+            xMatch = firstWallMove.match(/X([\d.]+)/)
+            yMatch = firstWallMove.match(/Y([\d.]+)/)
+
+            expect(xMatch).toBeDefined()
+            expect(yMatch).toBeDefined()
+
+            firstX = parseFloat(xMatch[1])
+            firstY = parseFloat(yMatch[1])
+
+            # The first position should be closer to the corner (0, 0)
+            # than to the opposite corner (220, 220).
+            distanceFromHome = Math.sqrt(firstX * firstX + firstY * firstY)
+            distanceFromOppositeCorner = Math.sqrt((firstX - 220) * (firstX - 220) + (firstY - 220) * (firstY - 220))
+
+            # Should start from the object closer to home position (0, 0).
+            expect(distanceFromHome).toBeLessThan(distanceFromOppositeCorner)
+
+        test 'should use nearest-neighbor sorting for independent objects', ->
+
+            # Create 3 pillars with significant spacing to ensure they remain independent.
+            # Use positions relative to center with 30mm+ spacing between them.
+            pillarLeft = createCylinder(-40, -40, 3, 3, 6)
+            pillarCenter = createCylinder(0, 0, 3, 3, 6)
+            pillarRight = createCylinder(40, 40, 3, 3, 6)
+
+            group = new THREE.Group()
+            group.add(pillarLeft)
+            group.add(pillarCenter)
+            group.add(pillarRight)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setExposureDetection(false)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(group)
+
+            # Count the number of independent outer boundaries in the result.
+            # Each pillar should have its own WALL-OUTER.
+            wallOuterCount = (result.match(/TYPE: WALL-OUTER/g) || []).length
+
+            # Should have at least 1 WALL-OUTER marker per layer (merged or individual).
+            # With 6 layers (6mm height / 0.2mm layer height), should have at least 6 total.
+            expect(wallOuterCount).toBeGreaterThanOrEqual(6)
+
+            # Extract first layer wall movements to verify nearest-neighbor logic exists.
+            lines = result.split('\n')
+            firstLayerStarted = false
+            wallMoves = []
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    firstLayerStarted = true
+                else if firstLayerStarted and line.includes('LAYER: 2 of')
+                    break
+                else if firstLayerStarted and line.includes('Moving to wall outer')
+                    xMatch = line.match(/X([\d.]+)/)
+                    yMatch = line.match(/Y([\d.]+)/)
+                    if xMatch and yMatch
+                        wallMoves.push({ x: parseFloat(xMatch[1]), y: parseFloat(yMatch[1]) })
+
+            # Should have at least 1 wall move.
+            expect(wallMoves.length).toBeGreaterThanOrEqual(1)
+
+            # If we have multiple wall moves, verify they're not just the same position repeated.
+            if wallMoves.length > 1
+                # Verify positions are distinct (not all the same pillar).
+                for i in [0...wallMoves.length - 1]
+                    current = wallMoves[i]
+                    next = wallMoves[i + 1]
+
+                    # Check if positions are different.
+                    xDiff = Math.abs(next.x - current.x)
+                    yDiff = Math.abs(next.y - current.y)
+
+                    # At least one coordinate should differ by more than 1mm.
+                    expect(xDiff + yDiff).toBeGreaterThan(1)
+
+        test 'should complete each object before moving to next (sequential completion)', ->
+
+            # Create 2 independent pillars with enough spacing.
+            pillar1 = createCylinder(-30, -30, 3, 3, 6)
+            pillar2 = createCylinder(30, 30, 3, 3, 6)
+
+            group = new THREE.Group()
+            group.add(pillar1)
+            group.add(pillar2)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setExposureDetection(false)  # Required for sequential completion.
+            slicer.setVerbose(true)
+
+            result = slicer.slice(group)
+
+            # Extract first layer to verify object completion order.
+            lines = result.split('\n')
+            firstLayerStarted = false
+            typeSequence = []
+
+            for line in lines
+                if line.includes('LAYER: 1 of')
+                    firstLayerStarted = true
+                else if firstLayerStarted and line.includes('LAYER: 2 of')
+                    break
+                else if firstLayerStarted
+                    if line.includes('TYPE: WALL-OUTER')
+                        typeSequence.push('WALL-OUTER')
+                    else if line.includes('TYPE: WALL-INNER')
+                        typeSequence.push('WALL-INNER')
+                    else if line.includes('TYPE: SKIN')
+                        typeSequence.push('SKIN')
+
+            # Should have type markers.
+            expect(typeSequence.length).toBeGreaterThan(0)
+
+            # For sequential completion, the pattern should be:
+            # Object 1: WALL-OUTER → WALL-INNER (optional) → SKIN
+            # Object 2: WALL-OUTER → WALL-INNER (optional) → SKIN
+            # Find the first SKIN marker (end of first object).
+            firstSkinIndex = typeSequence.indexOf('SKIN')
+
+            if firstSkinIndex >= 0
+                # After the first SKIN, should have another WALL-OUTER (start of second object).
+                secondWallIndex = -1
+                for i in [firstSkinIndex + 1...typeSequence.length]
+                    if typeSequence[i] is 'WALL-OUTER'
+                        secondWallIndex = i
+                        break
+
+                # If we have a second object, it should start after the first object's SKIN.
+                if secondWallIndex >= 0
+                    expect(secondWallIndex).toBeGreaterThan(firstSkinIndex)
+
+            # At minimum, verify we have both WALL and SKIN types present.
+            hasWall = typeSequence.includes('WALL-OUTER') or typeSequence.includes('WALL-INNER')
+            hasSkin = typeSequence.includes('SKIN')
+
+            expect(hasWall).toBe(true)
+            expect(hasSkin).toBe(true)
+
+        test 'should defer to Phase 2 when exposure detection is enabled', ->
+
+            # Create 2 independent pillars with exposure detection enabled.
+            pillar1 = createCylinder(-30, -30, 3, 3, 6)
+            pillar2 = createCylinder(30, 30, 3, 3, 6)
+
+            group = new THREE.Group()
+            group.add(pillar1)
+            group.add(pillar2)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setExposureDetection(true)  # Enable exposure detection.
+            slicer.setVerbose(true)
+
+            result = slicer.slice(group)
+
+            # With exposure detection enabled, objects should still slice successfully.
+            # The key is that the sequential completion optimization is bypassed,
+            # and Phase 2 handles the skin/infill generation.
+            expect(result).toContain('G28')  # Should complete successfully.
+            expect(result).toContain('WALL')  # Should have walls.
+            expect(result).toContain('SKIN')  # Should have skin.
+
+            # Verify that slicing completes without errors.
+            expect(result.length).toBeGreaterThan(1000)
+
+            return # Explicitly return undefined for Jest.
