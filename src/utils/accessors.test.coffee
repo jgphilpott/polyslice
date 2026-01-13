@@ -434,6 +434,15 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setWipeNozzle(true)
             expect(slicer.getWipeNozzle()).toBe(true)
 
+        test 'should set and get smart wipe nozzle setting', ->
+
+            expect(slicer.getSmartWipeNozzle()).toBe(true) # default.
+            slicer.setSmartWipeNozzle(false)
+            expect(slicer.getSmartWipeNozzle()).toBe(false)
+
+            slicer.setSmartWipeNozzle(true)
+            expect(slicer.getSmartWipeNozzle()).toBe(true)
+
     describe 'Positioning Mode Settings', ->
 
         test 'should set and get positioning mode', ->

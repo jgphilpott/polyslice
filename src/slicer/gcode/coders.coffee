@@ -777,13 +777,13 @@ module.exports =
 
         if wipeNozzle # Wipe out (optional based on setting).
 
-            if smartWipeNozzle and slicer.lastLayerEndPoint and slicer.meshBounds and slicer.centerOffsetX? and slicer.centerOffsetY?
+            if smartWipeNozzle and slicer.lastLayerEndPoint and slicer._meshBounds and slicer.centerOffsetX? and slicer.centerOffsetY?
 
                 # Use smart wipe logic to avoid wiping onto the mesh.
                 wipeUtils = require('../utils/wipe')
                 wipeDirection = wipeUtils.calculateSmartWipeDirection(
                     slicer.lastLayerEndPoint,
-                    slicer.meshBounds,
+                    slicer._meshBounds,
                     slicer.centerOffsetX,
                     slicer.centerOffsetY,
                     10 # Maximum wipe distance in mm.
@@ -809,7 +809,7 @@ module.exports =
 
         # Retract and raise Z.
         # Note: Retraction amount is reduced if smart wipe already retracted.
-        if wipeNozzle and smartWipeNozzle and slicer.lastLayerEndPoint and slicer.meshBounds
+        if wipeNozzle and smartWipeNozzle and slicer.lastLayerEndPoint and slicer._meshBounds
 
             # Already retracted during smart wipe, so only raise Z.
             gcode += module.exports.codeLinearMovement(slicer, null, null, 10, null, 2400).replace(slicer.newline, (if verbose then "; Raise Z" + slicer.newline else slicer.newline))

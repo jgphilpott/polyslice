@@ -265,7 +265,7 @@ describe 'G-code Generation (Coders)', ->
 
             # Simulate mesh boundary data from slicing.
             slicer.lastLayerEndPoint = { x: 5, y: 0, z: 5 }
-            slicer.meshBounds = { min: { x: -5, y: -5 }, max: { x: 5, y: 5 } }
+            slicer._meshBounds = { min: { x: -5, y: -5 }, max: { x: 5, y: 5 } }
             slicer.centerOffsetX = 100
             slicer.centerOffsetY = 100
 
@@ -309,7 +309,7 @@ describe 'G-code Generation (Coders)', ->
 
             # No mesh data available.
             slicer.lastLayerEndPoint = null
-            slicer.meshBounds = null
+            slicer._meshBounds = null
 
             result = slicer.codePostPrint()
 
@@ -324,7 +324,7 @@ describe 'G-code Generation (Coders)', ->
 
             # Simulate mesh boundary data.
             slicer.lastLayerEndPoint = { x: 5, y: 0, z: 5 }
-            slicer.meshBounds = { min: { x: -5, y: -5 }, max: { x: 5, y: 5 } }
+            slicer._meshBounds = { min: { x: -5, y: -5 }, max: { x: 5, y: 5 } }
             slicer.centerOffsetX = 100
             slicer.centerOffsetY = 100
 
