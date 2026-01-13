@@ -5,6 +5,29 @@ boundaryHelper = require('../helpers/boundary')
 
 module.exports =
 
+    # Generate skirt adhesion (dispatches to circular or shape-based).
+    generateSkirt: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox) ->
+
+        # Get skirt type configuration (default to 'circular').
+        skirtType = slicer.getAdhesionSkirtType?() or 'circular'
+
+        switch skirtType
+
+            when 'circular'
+
+                @generateCircularSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
+
+            when 'shape'
+
+                @generateShapeSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
+
+            else
+
+                # Default to circular if invalid type.
+                @generateCircularSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
+
+        return
+
     # Generate circular skirt around the model.
     generateCircularSkirt: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox) ->
 

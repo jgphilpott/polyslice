@@ -21,7 +21,7 @@ module.exports =
 
                 if verbose then slicer.gcode += "; TYPE: SKIRT" + slicer.newline
 
-                @generateSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
+                skirtModule.generateSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
 
             when 'brim'
 
@@ -34,29 +34,6 @@ module.exports =
                 if verbose then slicer.gcode += "; TYPE: RAFT" + slicer.newline
 
                 raftModule.generateRaft(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
-
-        return
-
-    # Generate skirt adhesion (dispatches to circular or shape-based).
-    generateSkirt: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox) ->
-
-        # Get skirt type configuration (default to 'circular').
-        skirtType = slicer.getAdhesionSkirtType?() or 'circular'
-
-        switch skirtType
-
-            when 'circular'
-
-                skirtModule.generateCircularSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
-
-            when 'shape'
-
-                skirtModule.generateShapeSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
-
-            else
-
-                # Default to circular if invalid type.
-                skirtModule.generateCircularSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
 
         return
 
