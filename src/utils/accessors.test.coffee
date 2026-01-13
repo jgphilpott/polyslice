@@ -305,6 +305,32 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setAdhesionType('invalid')
             expect(slicer.getAdhesionType()).toBe('raft')
 
+            # Test adhesion distance (default 5mm).
+            expect(slicer.getAdhesionDistance()).toBe(5)
+
+            slicer.setAdhesionDistance(10)
+            expect(slicer.getAdhesionDistance()).toBe(10)
+
+            slicer.setAdhesionDistance(8)
+            expect(slicer.getAdhesionDistance()).toBe(8)
+
+            # Should ignore negative values.
+            slicer.setAdhesionDistance(-5)
+            expect(slicer.getAdhesionDistance()).toBe(8) # unchanged.
+
+            # Test adhesion line count (default 3).
+            expect(slicer.getAdhesionLineCount()).toBe(3)
+
+            slicer.setAdhesionLineCount(5)
+            expect(slicer.getAdhesionLineCount()).toBe(5)
+
+            slicer.setAdhesionLineCount(2)
+            expect(slicer.getAdhesionLineCount()).toBe(2)
+
+            # Should ignore negative values.
+            slicer.setAdhesionLineCount(-1)
+            expect(slicer.getAdhesionLineCount()).toBe(2) # unchanged.
+
         test 'should support all infill patterns', ->
 
             patterns = ['grid', 'lines', 'triangles', 'cubic', 'gyroid', 'honeycomb']
@@ -315,11 +341,10 @@ describe 'Accessors (Getters and Setters)', ->
 
             return # Explicitly return undefined for Jest.
 
-        test 'should set and get test strip and outline settings', ->
+        test 'should set and get test strip setting', ->
 
-            # Test defaults.
+            # Test default.
             expect(slicer.getTestStrip()).toBe(false)
-            expect(slicer.getOutline()).toBe(true)
 
             # Test setting test strip.
             slicer.setTestStrip(true)
@@ -328,18 +353,10 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setTestStrip(false)
             expect(slicer.getTestStrip()).toBe(false)
 
-            # Test setting outline.
-            slicer.setOutline(false)
-            expect(slicer.getOutline()).toBe(false)
-
-            slicer.setOutline(true)
-            expect(slicer.getOutline()).toBe(true)
-
             # Test chaining.
-            result = slicer.setTestStrip(true).setOutline(false)
+            result = slicer.setTestStrip(true)
             expect(result).toBe(slicer)
             expect(slicer.getTestStrip()).toBe(true)
-            expect(slicer.getOutline()).toBe(false)
 
     describe 'G-code Generation Settings', ->
 

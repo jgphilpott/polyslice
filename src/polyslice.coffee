@@ -91,10 +91,12 @@ class Polyslice
         # Build plate adhesion settings for first layer stability.
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
         @adhesionType = options.adhesionType ?= "skirt" # String ['skirt', 'brim', 'raft'].
+        @adhesionSkirtType = options.adhesionSkirtType ?= "circular" # String ['circular', 'shape'].
+        @adhesionDistance = conversions.lengthToInternal(options.adhesionDistance ?= 5, this.lengthUnit) # Number (millimeters internal).
+        @adhesionLineCount = options.adhesionLineCount ?= 3 # Number.
 
-        # Test strip and outline settings for print preparation.
+        # Test strip settings for print preparation.
         @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
-        @outline = options.outline ?= true # Boolean - make thin outline of layer 1 exterior.
 
         # G-code generation settings.
         @metadata = options.metadata ?= true # Boolean - include metadata header in G-code.
@@ -217,11 +219,17 @@ class Polyslice
     getAdhesionType: ->
         accessors.getAdhesionType(this)
 
+    getAdhesionSkirtType: ->
+        accessors.getAdhesionSkirtType(this)
+
+    getAdhesionDistance: ->
+        accessors.getAdhesionDistance(this)
+
+    getAdhesionLineCount: ->
+        accessors.getAdhesionLineCount(this)
+
     getTestStrip: ->
         accessors.getTestStrip(this)
-
-    getOutline: ->
-        accessors.getOutline(this)
 
     getMetadata: ->
         accessors.getMetadata(this)
@@ -360,11 +368,17 @@ class Polyslice
     setAdhesionType: (type = "skirt") ->
         accessors.setAdhesionType(this, type)
 
+    setAdhesionSkirtType: (type = "circular") ->
+        accessors.setAdhesionSkirtType(this, type)
+
+    setAdhesionDistance: (distance = 5) ->
+        accessors.setAdhesionDistance(this, distance)
+
+    setAdhesionLineCount: (count = 3) ->
+        accessors.setAdhesionLineCount(this, count)
+
     setTestStrip: (testStrip = false) ->
         accessors.setTestStrip(this, testStrip)
-
-    setOutline: (outline = true) ->
-        accessors.setOutline(this, outline)
 
     setMetadata: (metadata = true) ->
         accessors.setMetadata(this, metadata)

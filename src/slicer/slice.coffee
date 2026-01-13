@@ -12,6 +12,7 @@ infillModule = require('./infill/infill')
 skinModule = require('./skin/skin')
 wallsModule = require('./walls/walls')
 supportModule = require('./support/support')
+adhesionModule = require('./adhesion/adhesion')
 exposureModule = require('./skin/exposure/exposure')
 preprocessingModule = require('./preprocessing/preprocessing')
 
@@ -102,6 +103,11 @@ module.exports =
         centerOffsetY = (buildPlateLength / 2) - meshCenterY
 
         verbose = slicer.getVerbose()
+
+        # Generate adhesion structures (skirt, brim, or raft) if enabled.
+        if slicer.getAdhesionEnabled()
+
+            adhesionModule.generateAdhesionGCode(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
 
         # Turn on fan if configured (after pre-print, before actual printing).
         fanSpeed = slicer.getFanSpeed()

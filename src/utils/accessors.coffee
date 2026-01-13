@@ -138,13 +138,21 @@ module.exports =
 
         return slicer.adhesionType
 
+    getAdhesionSkirtType: (slicer) ->
+
+        return slicer.adhesionSkirtType
+
+    getAdhesionDistance: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.adhesionDistance, slicer.lengthUnit)
+
+    getAdhesionLineCount: (slicer) ->
+
+        return slicer.adhesionLineCount
+
     getTestStrip: (slicer) ->
 
         return slicer.testStrip
-
-    getOutline: (slicer) ->
-
-        return slicer.outline
 
     getMetadata: (slicer) ->
 
@@ -474,15 +482,35 @@ module.exports =
 
         return slicer
 
-    setTestStrip: (slicer, testStrip = false) ->
+    setAdhesionSkirtType: (slicer, type = "circular") ->
 
-        slicer.testStrip = Boolean testStrip
+        type = type.toLowerCase().trim()
+
+        if ["circular", "shape"].includes type
+
+            slicer.adhesionSkirtType = String type
 
         return slicer
 
-    setOutline: (slicer, outline = true) ->
+    setAdhesionDistance: (slicer, distance = 5) ->
 
-        slicer.outline = Boolean outline
+        if typeof distance is "number" and distance >= 0
+
+            slicer.adhesionDistance = conversions.lengthToInternal(distance, slicer.lengthUnit)
+
+        return slicer
+
+    setAdhesionLineCount: (slicer, count = 3) ->
+
+        if typeof count is "number" and count >= 0
+
+            slicer.adhesionLineCount = Number count
+
+        return slicer
+
+    setTestStrip: (slicer, testStrip = false) ->
+
+        slicer.testStrip = Boolean testStrip
 
         return slicer
 
