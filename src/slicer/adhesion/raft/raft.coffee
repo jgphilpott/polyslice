@@ -1,5 +1,5 @@
 # Raft adhesion generation for Polyslice.
-# 
+#
 # A raft is a horizontal mesh of filament printed below the model.
 # It provides excellent bed adhesion and creates a flat surface for the model,
 # especially useful for models with small contact areas or warping issues.
@@ -13,7 +13,7 @@ module.exports =
     generateRaft: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox) ->
 
         # TODO: Implement raft generation in future PR.
-        # 
+        #
         # Raft generation algorithm:
         # 1. Calculate raft dimensions (model bounds + margin)
         # 2. Generate base layer (coarse infill, slower speed)
@@ -30,7 +30,7 @@ module.exports =
         # - raftInterfaceThickness: Thickness per interface layer (default: 0.2mm)
         # - raftAirGap: Gap between raft and model (default: 0.2mm)
         # - raftLineSpacing: Spacing between raft lines
-        
+
         verbose = slicer.getVerbose()
 
         if verbose

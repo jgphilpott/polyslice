@@ -1,6 +1,6 @@
 /**
  * Slice script for adhesion examples
- * 
+ *
  * This script slices cube and cylinder geometries with adhesion (skirt) enabled
  * and saves the G-code to resources/gcode/adhesion for version control.
  */
@@ -19,7 +19,7 @@ const slicerConfig = {
   adhesionType: 'skirt',
   adhesionDistance: 5,
   adhesionLineCount: 3,
-  
+
   // Basic slicing settings
   layerHeight: 0.2,
   nozzleDiameter: 0.4,
@@ -27,15 +27,15 @@ const slicerConfig = {
   shellSkinThickness: 0.8,
   infillDensity: 20,
   infillPattern: 'grid',
-  
+
   // Print settings
   nozzleTemperature: 200,
   bedTemperature: 60,
   fanSpeed: 100,
-  
+
   // G-code settings
   verbose: true,
-  metadata: true
+  metadata: false
 };
 
 // Define the geometries to slice (only cube and cylinder)
@@ -57,40 +57,40 @@ async function processGeometries() {
   for (let index = 0; index < geometries.length; index++) {
     const geometry = geometries[index];
     console.log(`[${index + 1}/${geometries.length}] Slicing ${geometry.name}...`);
-    
+
     try {
       // Build the full path to the STL file
       const stlPath = path.join(__dirname, '../../resources/stl', geometry.file);
-      
+
       if (!fs.existsSync(stlPath)) {
         console.error(`  ✗ Error: File not found: ${stlPath}\n`);
         continue;
       }
-      
+
       // Load the STL file (async)
       const mesh = await Loader.loadSTL(stlPath);
-      
+
       if (!mesh) {
         console.error(`  ✗ Error: Failed to load mesh\n`);
         continue;
       }
-      
+
       // Create slicer instance
       const slicer = new Polyslice(slicerConfig);
-      
+
       // Generate G-code
       const startTime = Date.now();
       const gcode = slicer.slice(mesh);
       const endTime = Date.now();
       const slicingTime = ((endTime - startTime) / 1000).toFixed(2);
-      
+
       // Write output file
       const outputPath = path.join(outputDir, geometry.output);
       fs.writeFileSync(outputPath, gcode);
-      
+
       const fileSizeKB = (gcode.length / 1024).toFixed(2);
       console.log(`  ✓ ${geometry.output} (${fileSizeKB} KB) - ${slicingTime}s\n`);
-      
+
     } catch (error) {
       console.error(`  ✗ Error processing ${geometry.name}:`, error.message);
       console.log('');

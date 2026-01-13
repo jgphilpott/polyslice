@@ -199,7 +199,6 @@ describe 'Adhesion Module Integration', ->
             expect(slicer.getAdhesionDistance()).toBe(8)
             expect(slicer.getAdhesionLineCount()).toBe(4)
 
-
     slicer = null
 
     beforeEach ->

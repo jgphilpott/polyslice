@@ -36,4 +36,3 @@ module.exports =
                 raftModule.generateRaft(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
 
         return
-
