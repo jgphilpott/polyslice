@@ -79,9 +79,9 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jest": "^29.12.1",
     "jest": "^30.2.0",
-    "prettier": "^3.7.4",
+    "prettier": "^3.8.0",
     "three-bvh-csg": "^0.0.17",
-    "three-mesh-bvh": "^0.9.5",
+    "three-mesh-bvh": "^0.9.7",
     "uglify-js": "^3.19.3"
   },
   "jest": {
