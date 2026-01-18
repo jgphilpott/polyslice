@@ -133,7 +133,51 @@ describe 'Skirt Module', ->
 
     describe 'Shape-based Skirt Generation', ->
 
-        test 'should fall back to circular skirt with message', ->
+        test 'should generate shape-based skirt when firstLayerPaths provided', ->
+
+            Polytree = require('@jgphilpott/polytree')
+            pathsUtils = require('../../utils/paths')
+
+            slicer.setVerbose(true)
+            slicer.setAdhesionEnabled(true)
+            slicer.setAdhesionType('skirt')
+            slicer.setAdhesionSkirtType('shape')
+            slicer.setAdhesionLineCount(2)
+
+            # Create a simple geometry for testing.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry)
+
+            boundingBox = new THREE.Box3().setFromObject(mesh)
+
+            # Slice the mesh to get first layer paths.
+            layerHeight = slicer.getLayerHeight()
+            minZ = boundingBox.min.z
+            maxZ = boundingBox.max.z
+            adjustedMinZ = minZ + 0.001
+
+            allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
+            firstLayerSegments = allLayers[0]
+            firstLayerPaths = pathsUtils.connectSegmentsToPaths(firstLayerSegments)
+
+            # Reset gcode.
+            slicer.gcode = ""
+            slicer.cumulativeE = 0
+
+            skirtModule.generateShapeSkirt(slicer, mesh, 0, 0, boundingBox, firstLayerPaths)
+
+            # Should contain G-code.
+            expect(slicer.gcode.length).toBeGreaterThan(0)
+
+            # Should have extrusion moves.
+            g1Count = (slicer.gcode.match(/G1.*E/g) || []).length
+            expect(g1Count).toBeGreaterThan(0)
+
+            # Should NOT contain fallback message.
+            expect(slicer.gcode).not.toContain('not yet implemented')
+            expect(slicer.gcode).not.toContain('using circular skirt')
+
+        test 'should fall back to circular skirt when no firstLayerPaths', ->
 
             slicer.setVerbose(true)
             slicer.setAdhesionEnabled(true)
@@ -150,10 +194,87 @@ describe 'Skirt Module', ->
             slicer.gcode = ""
             slicer.cumulativeE = 0
 
-            skirtModule.generateShapeSkirt(slicer, mesh, 0, 0, boundingBox)
+            # Call without firstLayerPaths.
+            skirtModule.generateShapeSkirt(slicer, mesh, 0, 0, boundingBox, null)
 
-            # Should contain message about not yet implemented.
-            expect(slicer.gcode).toContain('Shape-based skirt not yet implemented')
+            # Should contain message about fallback.
+            expect(slicer.gcode).toContain('using circular skirt')
 
             # Should still generate some G-code (from fallback).
             expect(slicer.gcode.length).toBeGreaterThan(100)
+
+        test 'should generate multiple loops based on adhesionLineCount', ->
+
+            Polytree = require('@jgphilpott/polytree')
+            pathsUtils = require('../../utils/paths')
+
+            slicer.setAdhesionEnabled(true)
+            slicer.setAdhesionType('skirt')
+            slicer.setAdhesionSkirtType('shape')
+            slicer.setAdhesionLineCount(3)
+
+            # Create a simple geometry for testing.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry)
+
+            boundingBox = new THREE.Box3().setFromObject(mesh)
+
+            # Slice the mesh to get first layer paths.
+            layerHeight = slicer.getLayerHeight()
+            minZ = boundingBox.min.z
+            maxZ = boundingBox.max.z
+            adjustedMinZ = minZ + 0.001
+
+            allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
+            firstLayerSegments = allLayers[0]
+            firstLayerPaths = pathsUtils.connectSegmentsToPaths(firstLayerSegments)
+
+            # Reset gcode.
+            slicer.gcode = ""
+            slicer.cumulativeE = 0
+
+            skirtModule.generateShapeSkirt(slicer, mesh, 0, 0, boundingBox, firstLayerPaths)
+
+            # Count G1 commands with extrusion.
+            g1Count = (slicer.gcode.match(/G1.*E/g) || []).length
+
+            # Should have multiple extrusion moves (3 loops around the shape).
+            # A box has 4 sides, so we expect at least 12 moves (4 sides * 3 loops).
+            expect(g1Count).toBeGreaterThan(10)
+
+        test 'should increase cumulative extrusion', ->
+
+            Polytree = require('@jgphilpott/polytree')
+            pathsUtils = require('../../utils/paths')
+
+            slicer.setAdhesionEnabled(true)
+            slicer.setAdhesionType('skirt')
+            slicer.setAdhesionSkirtType('shape')
+            slicer.setAdhesionLineCount(1)
+
+            # Create a simple geometry for testing.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry)
+
+            boundingBox = new THREE.Box3().setFromObject(mesh)
+
+            # Slice the mesh to get first layer paths.
+            layerHeight = slicer.getLayerHeight()
+            minZ = boundingBox.min.z
+            maxZ = boundingBox.max.z
+            adjustedMinZ = minZ + 0.001
+
+            allLayers = Polytree.sliceIntoLayers(mesh, layerHeight, adjustedMinZ, maxZ)
+            firstLayerSegments = allLayers[0]
+            firstLayerPaths = pathsUtils.connectSegmentsToPaths(firstLayerSegments)
+
+            # Reset gcode.
+            slicer.gcode = ""
+            slicer.cumulativeE = 0
+
+            initialE = slicer.cumulativeE
+
+            skirtModule.generateShapeSkirt(slicer, mesh, 0, 0, boundingBox, firstLayerPaths)
+
+            # Extrusion should have increased.
+            expect(slicer.cumulativeE).toBeGreaterThan(initialE)
