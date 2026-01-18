@@ -412,6 +412,10 @@ describe 'Wall Generation', ->
                 console.warn('three-bvh-csg not available, skipping combing test')
                 return
 
+            # Suppress MeshBVH deprecation warnings from three-bvh-csg.
+            originalWarn = console.warn
+            console.warn = jest.fn()
+
             # Create a sheet (box).
             sheetGeometry = new THREE.BoxGeometry(50, 50, 2)
             sheetBrush = new Brush(sheetGeometry)
@@ -427,6 +431,9 @@ describe 'Wall Generation', ->
             # Subtract hole from sheet.
             csgEvaluator = new Evaluator()
             resultBrush = csgEvaluator.evaluate(sheetBrush, holeBrush, SUBTRACTION)
+
+            # Restore console.warn.
+            console.warn = originalWarn
 
             # Create final mesh.
             mesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
@@ -460,6 +467,10 @@ describe 'Wall Generation', ->
                 console.warn('three-bvh-csg not available, skipping combing test')
                 return
 
+            # Suppress MeshBVH deprecation warnings from three-bvh-csg.
+            originalWarn = console.warn
+            console.warn = jest.fn()
+
             # Create a sheet (box).
             sheetGeometry = new THREE.BoxGeometry(50, 50, 2)
             sheetBrush = new Brush(sheetGeometry)
@@ -483,6 +494,9 @@ describe 'Wall Generation', ->
                     holeBrush.updateMatrixWorld()
 
                     resultBrush = csgEvaluator.evaluate(resultBrush, holeBrush, SUBTRACTION)
+
+            # Restore console.warn.
+            console.warn = originalWarn
 
             # Create final mesh.
             mesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())

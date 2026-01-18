@@ -650,6 +650,10 @@ describe 'Slicing', ->
             # Import CSG dependencies.
             { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
 
+            # Suppress MeshBVH deprecation warnings from three-bvh-csg.
+            originalWarn = console.warn
+            console.warn = jest.fn()
+
             # Create a sheet with holes using CSG operations.
             sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
             sheetBrush = new Brush(sheetGeometry)
@@ -684,6 +688,9 @@ describe 'Slicing', ->
 
                     # Subtract hole from sheet.
                     resultBrush = csgEvaluator.evaluate(resultBrush, holeMesh, SUBTRACTION)
+
+            # Restore console.warn.
+            console.warn = originalWarn
 
             # Create final mesh.
             finalMesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
@@ -822,6 +829,10 @@ describe 'Slicing', ->
             # Import CSG dependencies.
             { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
 
+            # Suppress MeshBVH deprecation warnings from three-bvh-csg.
+            originalWarn = console.warn
+            console.warn = jest.fn()
+
             # Create a sheet with holes using CSG operations.
             sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
             sheetBrush = new Brush(sheetGeometry)
@@ -856,6 +867,9 @@ describe 'Slicing', ->
 
                     # Subtract hole from sheet.
                     resultBrush = csgEvaluator.evaluate(resultBrush, holeMesh, SUBTRACTION)
+
+            # Restore console.warn.
+            console.warn = originalWarn
 
             # Create final mesh.
             finalMesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())

@@ -36,7 +36,14 @@ describe 'Printer', ->
 
         test 'should default to Ender3 for unknown printer model', ->
 
+            # Suppress expected warning.
+            originalWarn = console.warn
+            console.warn = jest.fn()
+
             unknownPrinter = new Printer('UnknownModel')
+
+            # Restore console.warn.
+            console.warn = originalWarn
 
             expect(unknownPrinter.getModel()).toBe('UnknownModel')
             expect(unknownPrinter.getSizeX()).toBe(220) # Ender3 defaults
