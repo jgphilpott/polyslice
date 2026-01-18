@@ -462,4 +462,3 @@ describe 'Loader', ->
             expect(typeof Loader.loadPLY).toBe('function')
             expect(typeof Loader.loadGLTF).toBe('function')
             expect(typeof Loader.loadCollada).toBe('function')
-
