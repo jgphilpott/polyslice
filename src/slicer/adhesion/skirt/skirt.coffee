@@ -182,6 +182,89 @@ module.exports =
 
             return
 
+        # Helper function to create an outset path (expand outward).
+        createOutsetPath = (path, outsetDistance) =>
+
+            return [] if path.length < 3
+
+            outsetPath = []
+            n = path.length
+
+            # Calculate signed area to determine winding order.
+            signedArea = 0
+
+            for i in [0...n]
+
+                nextIdx = if i is n - 1 then 0 else i + 1
+                signedArea += path[i].x * path[nextIdx].y - path[nextIdx].x * path[i].y
+
+            isCCW = signedArea > 0
+
+            # Create offset lines for each edge.
+            offsetLines = []
+
+            for i in [0...n]
+
+                nextIdx = if i is n - 1 then 0 else i + 1
+
+                p1 = path[i]
+                p2 = path[nextIdx]
+
+                # Edge vector.
+                edgeX = p2.x - p1.x
+                edgeY = p2.y - p1.y
+
+                edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY)
+
+                continue if edgeLength < 0.0001
+
+                # Normalize.
+                edgeX /= edgeLength
+                edgeY /= edgeLength
+
+                # Perpendicular outward normal.
+                if isCCW
+
+                    normalX = edgeY   # Outward for CCW
+                    normalY = -edgeX
+
+                else
+
+                    normalX = -edgeY  # Outward for CW
+                    normalY = edgeX
+
+                # Offset the edge outward.
+                offset1X = p1.x + normalX * outsetDistance
+                offset1Y = p1.y + normalY * outsetDistance
+                offset2X = p2.x + normalX * outsetDistance
+                offset2Y = p2.y + normalY * outsetDistance
+
+                offsetLines.push({
+                    p1: { x: offset1X, y: offset1Y }
+                    p2: { x: offset2X, y: offset2Y }
+                })
+
+            # Find intersections of adjacent offset lines.
+            for i in [0...offsetLines.length]
+
+                prevIdx = if i is 0 then offsetLines.length - 1 else i - 1
+
+                line1 = offsetLines[prevIdx]
+                line2 = offsetLines[i]
+
+                intersection = primitives.lineIntersection(line1.p1, line1.p2, line2.p1, line2.p2)
+
+                if intersection
+
+                    outsetPath.push({ x: intersection.x, y: intersection.y })
+
+                else
+
+                    # Parallel lines - use midpoint.
+                    outsetPath.push({ x: line2.p1.x, y: line2.p1.y })
+
+            return outsetPath
+
         # Generate concentric loops around all outer paths.
         for loopIndex in [0...adhesionLineCount]
 
@@ -190,14 +273,12 @@ module.exports =
             offsetDistance = adhesionDistance + (loopIndex * nozzleDiameter)
 
             # Create offset paths for each outer boundary.
-            # Use negative offset to expand outward (createInsetPath with negative distance).
             offsetPaths = []
 
             for outerPath in outerPaths
 
-                # For skirt, we want to offset outward (expand), so use negative inset distance.
-                # isHole = false because these are outer boundaries.
-                skirtPath = pathsUtils.createInsetPath(outerPath, -offsetDistance, false)
+                # Create outset path (expand outward).
+                skirtPath = createOutsetPath(outerPath, offsetDistance)
 
                 if skirtPath.length >= 3
 
