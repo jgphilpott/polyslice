@@ -370,7 +370,14 @@ describe 'Loader', ->
 
             Loader.initialize()
 
+            # Suppress expected error log.
+            originalError = console.error
+            console.error = jest.fn()
+
             loader = await Loader.loadLoader('NonExistentLoader')
+
+            # Restore console.error.
+            console.error = originalError
 
             expect(loader).toBeNull()
 
@@ -455,4 +462,3 @@ describe 'Loader', ->
             expect(typeof Loader.loadPLY).toBe('function')
             expect(typeof Loader.loadGLTF).toBe('function')
             expect(typeof Loader.loadCollada).toBe('function')
-

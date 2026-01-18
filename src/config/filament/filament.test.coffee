@@ -37,7 +37,14 @@ describe 'Filament', ->
 
         test 'should default to GenericPLA for unknown material', ->
 
+            # Suppress expected warning.
+            originalWarn = console.warn
+            console.warn = jest.fn()
+
             unknown = new Filament('UnknownMaterial')
+
+            # Restore console.warn.
+            console.warn = originalWarn
 
             expect(unknown.getMaterial()).toBe('UnknownMaterial')
             expect(unknown.getType()).toBe('pla') # GenericPLA defaults
