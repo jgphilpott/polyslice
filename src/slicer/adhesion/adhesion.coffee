@@ -7,7 +7,7 @@ raftModule = require('./raft/raft')
 module.exports =
 
     # Generate G-code for build plate adhesion (skirt, brim, or raft).
-    generateAdhesionGCode: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox) ->
+    generateAdhesionGCode: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox, firstLayerPaths = null) ->
 
         return unless slicer.getAdhesionEnabled()
 
@@ -21,18 +21,18 @@ module.exports =
 
                 if verbose then slicer.gcode += "; TYPE: SKIRT" + slicer.newline
 
-                skirtModule.generateSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
+                skirtModule.generateSkirt(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox, firstLayerPaths)
 
             when 'brim'
 
                 if verbose then slicer.gcode += "; TYPE: BRIM" + slicer.newline
 
-                brimModule.generateBrim(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
+                brimModule.generateBrim(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox, firstLayerPaths)
 
             when 'raft'
 
                 if verbose then slicer.gcode += "; TYPE: RAFT" + slicer.newline
 
-                raftModule.generateRaft(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
+                raftModule.generateRaft(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox, firstLayerPaths)
 
         return
