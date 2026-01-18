@@ -10,7 +10,7 @@ boundaryHelper = require('../helpers/boundary')
 module.exports =
 
     # Generate raft beneath the model.
-    generateRaft: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox) ->
+    generateRaft: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox, firstLayerPaths = null) ->
 
         # TODO: Implement raft generation in future PR.
         #
@@ -22,6 +22,8 @@ module.exports =
         # 5. Apply Z offset to model so it starts above the raft
         # 6. Use boundaryHelper.checkBuildPlateBoundaries() to check boundaries
         # 7. Use boundaryHelper.addBoundaryWarning() to add warning if needed
+        #
+        # Note: firstLayerPaths parameter available for future use if needed.
         #
         # Raft parameters to consider:
         # - raftMargin: Extra space around model (default: 5mm)

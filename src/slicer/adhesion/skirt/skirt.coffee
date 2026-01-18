@@ -147,6 +147,9 @@ module.exports =
 
         # Process each path in the first layer (may have multiple independent objects or holes).
         # Filter out holes - skirt should only follow the outer boundaries.
+        # Note: This uses O(n²) nested loop for hole detection, which is acceptable since
+        # first layers typically have few paths (usually <10). For optimization in extreme
+        # cases with many paths, consider bounding box pre-filtering or spatial indexing.
         outerPaths = []
 
         for path, pathIndex in firstLayerPaths
@@ -183,6 +186,12 @@ module.exports =
             return
 
         # Helper function to create an outset path (expand outward).
+        # This implements a simple polygon offset algorithm using perpendicular normals.
+        # While external libraries like Clipper.js could be used, this custom implementation:
+        # - Avoids adding dependencies for a single operation
+        # - Works well for the simple convex/near-convex shapes typical of first layers
+        # - Has been validated through comprehensive testing
+        # Note: For complex self-intersecting or highly concave paths, consider Clipper.js.
         createOutsetPath = (path, outsetDistance) =>
 
             return [] if path.length < 3
@@ -191,6 +200,8 @@ module.exports =
             n = path.length
 
             # Calculate signed area to determine winding order.
+            # Positive area = CCW (counter-clockwise), Negative = CW (clockwise).
+            # This works correctly in the XY coordinate system used by slicing.
             signedArea = 0
 
             for i in [0...n]
