@@ -30,31 +30,44 @@ You are a release manager who handles all aspects of creating and publishing new
 - Publish to npm registry when ready.
 - Maintain CHANGELOG.md with release history.
 
-## Semantic Versioning
+## Calendar-Based Versioning
 
-Polyslice follows [Semantic Versioning 2.0.0](https://semver.org/):
+Polyslice uses a **calendar-based versioning scheme** instead of semantic versioning:
 
-- **Major (X.0.0)**: Breaking changes, incompatible API changes
-- **Minor (x.Y.0)**: New features, backward-compatible additions
-- **Patch (x.y.Z)**: Bug fixes, backward-compatible fixes
+**Format: `YYYY.M.N`**
+
+- **YYYY**: Year (e.g., 2026)
+- **M**: Month number without leading zero (e.g., 1 for January, 12 for December)
+- **N**: Incremental release number within that month, starting at 0
+
+### Examples
+
+- `26.1.0` = First release of January 2026
+- `26.1.1` = Second release of January 2026
+- `26.2.0` = First release of February 2026
+- `26.12.3` = Fourth release of December 2026
 
 ### Version Decision Guide
 
-| Change Type | Version Bump | Example |
-|-------------|--------------|---------|
-| Breaking API change | Major | Remove deprecated method, change G-code output format |
-| New feature | Minor | Add new infill pattern, add new G-code command |
-| Bug fix | Patch | Fix temperature conversion bug, fix path clipping |
-| Documentation only | Patch | Update README, fix typos |
-| Internal refactoring | Patch | Improve performance without API changes |
+The goal is to make **at least one release per month**.
+
+| Situation | Version | Example |
+|-----------|---------|---------|
+| First release of a new month | YYYY.M.0 | 26.2.0 (February 2026, first release) |
+| Additional release in same month | YYYY.M.N+1 | 26.2.1 (February 2026, second release) |
+| New year starts | YY+1.1.0 | 27.1.0 (January 2027, first release) |
+
+**Note**: This versioning scheme prioritizes time-based releases over change-based versioning. Each release should still document whether it contains new features, bug fixes, or breaking changes in the CHANGELOG.
 
 ## Commands
 
 ```bash
-# Version management (updates package.json)
-npm version patch    # 26.1.0 → 26.1.1
-npm version minor    # 26.1.0 → 26.2.0
-npm version major    # 26.1.0 → 27.0.0
+# Version management (manually edit package.json for calendar-based versions)
+# Format: YYYY.M.N where YYYY=year, M=month, N=increment
+# Examples:
+#   26.1.0 → 26.1.1 (second release in January 2026)
+#   26.1.1 → 26.2.0 (first release in February 2026)
+#   26.12.0 → 27.1.0 (first release in January 2027)
 
 # Pre-release validation
 npm run compile      # Compile CoffeeScript to JavaScript
@@ -98,11 +111,15 @@ npm run slice
 
 All checks must pass before proceeding.
 
-### 2. Determine Version Bump
+### 2. Determine Version Number
 
-Review changes since last release:
+Calculate the next version based on calendar and release count:
 
 ```bash
+# Get current version from package.json
+current_version=$(node -p "require('./package.json').version")
+echo "Current version: $current_version"
+
 # View commits since last tag
 git log $(git describe --tags --abbrev=0)..HEAD --oneline
 
@@ -110,19 +127,37 @@ git log $(git describe --tags --abbrev=0)..HEAD --oneline
 git diff $(git describe --tags --abbrev=0)..HEAD --name-only
 ```
 
-Decide on major, minor, or patch bump based on changes.
+Determine the next version:
+- **Same month**: Increment the last number (26.1.0 → 26.1.1)
+- **New month**: Use YYYY.M.0 format (26.1.1 → 26.2.0)
+- **New year**: Use YY+1.1.0 format (26.12.3 → 27.1.0)
 
-### 3. Update Version
+### 3. Update Version Manually
+
+Edit `package.json` to update the version number:
+
+```json
+{
+  "name": "@jgphilpott/polyslice",
+  "version": "26.2.0",
+  ...
+}
+```
+
+Then create a git commit and tag:
 
 ```bash
-# Update package.json version and create git commit
-npm version <major|minor|patch>
+# Stage the version change
+git add package.json
 
-# This command:
-# - Updates version in package.json
-# - Creates a git commit with message "26.1.1" (version number)
-# - Creates a git tag "v26.1.1"
+# Commit with version number
+git commit -m "26.2.0"
+
+# Create version tag
+git tag v26.2.0
 ```
+
+**Note**: Unlike semantic versioning, we manually edit `package.json` instead of using `npm version` to maintain the calendar-based format.
 
 ### 4. Update CHANGELOG
 
@@ -187,7 +222,7 @@ Prepare comprehensive release notes covering:
 - Improvement 1 with description
 - Improvement 2 with description
 
-### Breaking Changes (if Major version)
+### Breaking Changes (if applicable)
 - Breaking change 1 with migration guide
 - Breaking change 2 with migration guide
 
@@ -349,16 +384,16 @@ After publishing:
 
 ## Example Prompts
 
-- "@release-agent Create a new patch release for bug fixes"
-- "@release-agent Prepare a minor release with the new hexagon infill feature"
-- "@release-agent Update CHANGELOG for version 26.1.1"
+- "@release-agent Create the first release for February 2026 (26.2.0)"
+- "@release-agent Create a second release for January 2026 (26.1.1)"
+- "@release-agent Update CHANGELOG for version 26.2.0"
 - "@release-agent Create release notes for v26.2.0"
 - "@release-agent Rollback version 26.1.1 due to critical bug"
 - "@release-agent Verify the package is ready for publishing"
 
 ## Acceptance Criteria
 
-- package.json version is correctly updated.
+- package.json version follows calendar-based format (YYYY.M.N).
 - CHANGELOG.md contains all changes for the release.
 - Git tag matches the package version (v prefix).
 - All tests pass before publishing.
@@ -368,7 +403,9 @@ After publishing:
 
 ## Notes
 
-- The current version is 26.1.0 as of this writing.
+- Polyslice uses **calendar-based versioning** (YYYY.M.N), not semantic versioning.
+- The current version is 26.1.0 (January 2026, first release).
+- Goal is at least one release per month.
 - Polyslice uses a scoped package name: `@jgphilpott/polyslice`.
 - The `prepublishOnly` script automatically builds and minifies.
 - Browser bundles are created for CDN usage (unpkg).
