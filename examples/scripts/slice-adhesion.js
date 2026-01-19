@@ -97,6 +97,13 @@ async function processGeometries() {
           continue;
         }
 
+        // Ensure the cylinder stands upright (STL sources can differ in orientation).
+        // Rotate 90° about X so the cylinder's axis aligns with Z.
+        if (geometry.name === 'Cylinder') {
+          mesh.rotation.x = Math.PI / 2;
+          mesh.updateMatrixWorld(true);
+        }
+
         // Create slicer instance with variant-specific config
         const slicerConfig = { ...baseSlicerConfig, ...variant.config };
         const slicer = new Polyslice(slicerConfig);
