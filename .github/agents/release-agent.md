@@ -34,9 +34,9 @@ You are a release manager who handles all aspects of creating and publishing new
 
 Polyslice uses a **calendar-based versioning scheme** instead of semantic versioning:
 
-**Format: `YYYY.M.N`**
+**Format: `YY.M.N`**
 
-- **YYYY**: Year (e.g., 2026)
+- **YY**: Year (e.g., 2026 would be just 26)
 - **M**: Month number without leading zero (e.g., 1 for January, 12 for December)
 - **N**: Incremental release number within that month, starting at 0
 
@@ -53,8 +53,8 @@ The goal is to make **at least one release per month**.
 
 | Situation | Version | Example |
 |-----------|---------|---------|
-| First release of a new month | YYYY.M.0 | 26.2.0 (February 2026, first release) |
-| Additional release in same month | YYYY.M.N+1 | 26.2.1 (February 2026, second release) |
+| First release of a new month | YY.M.0 | 26.2.0 (February 2026, first release) |
+| Additional release in same month | YY.M.N+1 | 26.2.1 (February 2026, second release) |
 | New year starts | YY+1.1.0 | 27.1.0 (January 2027, first release) |
 
 **Note**: This versioning scheme prioritizes time-based releases over change-based versioning. Each release should still document whether it contains new features, bug fixes, or breaking changes in the CHANGELOG.
@@ -63,7 +63,7 @@ The goal is to make **at least one release per month**.
 
 ```bash
 # Version management (manually edit package.json for calendar-based versions)
-# Format: YYYY.M.N where YYYY=year, M=month, N=increment
+# Format: YY.M.N where YY=year, M=month, N=increment
 # Examples:
 #   26.1.0 → 26.1.1 (second release in January 2026)
 #   26.1.1 → 26.2.0 (first release in February 2026)
@@ -129,7 +129,7 @@ git diff $(git describe --tags --abbrev=0)..HEAD --name-only
 
 Determine the next version:
 - **Same month**: Increment the last number (26.1.0 → 26.1.1)
-- **New month**: Use YYYY.M.0 format (26.1.1 → 26.2.0)
+- **New month**: Use YY.M.0 format (26.1.1 → 26.2.0)
 - **New year**: Use YY+1.1.0 format (26.12.3 → 27.1.0)
 
 ### 3. Update Version Manually
@@ -171,7 +171,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [26.1.1] - 2024-01-18
+## [26.1.1] - 2026-01-?
 
 ### Fixed
 - Fixed temperature conversion bug in setNozzleTemperature
@@ -180,7 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improved combing path performance
 
-## [26.1.0] - 2024-01-15
+## [26.1.0] - 2026-01-09
 
 ### Added
 - New hexagon infill pattern
@@ -314,7 +314,7 @@ Follow [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format:
 
 ### Format
 ```markdown
-## [Version] - YYYY-MM-DD
+## [Version] - YY-MM-DD
 
 ### Added
 - New feature description
@@ -393,7 +393,7 @@ After publishing:
 
 ## Acceptance Criteria
 
-- package.json version follows calendar-based format (YYYY.M.N).
+- package.json version follows calendar-based format (YY.M.N).
 - CHANGELOG.md contains all changes for the release.
 - Git tag matches the package version (v prefix).
 - All tests pass before publishing.
@@ -403,7 +403,7 @@ After publishing:
 
 ## Notes
 
-- Polyslice uses **calendar-based versioning** (YYYY.M.N), not semantic versioning.
+- Polyslice uses **calendar-based versioning** (YY.M.N), not semantic versioning.
 - The current version is 26.1.0 (January 2026, first release).
 - Goal is at least one release per month.
 - Polyslice uses a scoped package name: `@jgphilpott/polyslice`.
