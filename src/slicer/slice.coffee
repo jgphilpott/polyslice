@@ -111,7 +111,15 @@ module.exports =
         # Generate adhesion structures (skirt, brim, or raft) if enabled.
         if slicer.getAdhesionEnabled()
 
-            adhesionModule.generateAdhesionGCode(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox)
+            # Get first layer paths for shape-based adhesion.
+            firstLayerPaths = null
+
+            if allLayers.length > 0
+
+                firstLayerSegments = allLayers[0]
+                firstLayerPaths = pathsUtils.connectSegmentsToPaths(firstLayerSegments)
+
+            adhesionModule.generateAdhesionGCode(slicer, mesh, centerOffsetX, centerOffsetY, boundingBox, firstLayerPaths)
 
         # Turn on fan if configured (after pre-print, before actual printing).
         fanSpeed = slicer.getFanSpeed()

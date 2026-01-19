@@ -1,8 +1,8 @@
 /**
  * Slice script for adhesion examples
  *
- * This script slices cube and cylinder geometries with adhesion (skirt) enabled
- * and saves the G-code to resources/gcode/adhesion for version control.
+ * This script slices cube and cylinder geometries with different adhesion types
+ * and saves the G-code to resources/gcode/adhesion subdirectories for version control.
  */
 
 const { Polyslice, Loader } = require('../../src/index');
@@ -12,9 +12,9 @@ const fs = require('fs');
 console.log('Slicing Adhesion Examples');
 console.log('=========================\n');
 
-// Configuration for all slicing operations
-const slicerConfig = {
-  // Adhesion settings
+// Base configuration for all slicing operations
+const baseSlicerConfig = {
+  // Adhesion settings (will be overridden per variant)
   adhesionEnabled: true,
   adhesionType: 'skirt',
   adhesionDistance: 5,
@@ -38,66 +38,97 @@ const slicerConfig = {
   metadata: false
 };
 
-// Define the geometries to slice (only cube and cylinder)
+// Define the geometries to slice
 const geometries = [
-  { name: 'Cube', file: 'cube/cube-1cm.stl', output: 'cube.gcode' },
-  { name: 'Cylinder', file: 'cylinder/cylinder-1cm.stl', output: 'cylinder.gcode' }
+  { name: 'Cube', file: 'cube/cube-1cm.stl' },
+  { name: 'Cylinder', file: 'cylinder/cylinder-1cm.stl' }
 ];
 
-// Create output directory
-const outputDir = path.join(__dirname, '../../resources/gcode/adhesion');
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
-}
+// Define adhesion variants to generate
+const adhesionVariants = [
+  {
+    name: 'Circular Skirt',
+    config: { adhesionSkirtType: 'circular' },
+    outputSubdir: 'skirt/circular'
+  },
+  {
+    name: 'Shape Skirt',
+    config: { adhesionSkirtType: 'shape' },
+    outputSubdir: 'skirt/shape'
+  }
+];
 
-console.log(`Output directory: ${outputDir}\n`);
+// Base output directory
+const baseOutputDir = path.join(__dirname, '../../resources/gcode/adhesion');
 
 // Process geometries with async/await
 async function processGeometries() {
-  for (let index = 0; index < geometries.length; index++) {
-    const geometry = geometries[index];
-    console.log(`[${index + 1}/${geometries.length}] Slicing ${geometry.name}...`);
+  let totalCount = 0;
+  const totalVariants = geometries.length * adhesionVariants.length;
 
-    try {
-      // Build the full path to the STL file
-      const stlPath = path.join(__dirname, '../../resources/stl', geometry.file);
+  for (const variant of adhesionVariants) {
+    console.log(`\n${variant.name}`);
+    console.log('─'.repeat(variant.name.length));
 
-      if (!fs.existsSync(stlPath)) {
-        console.error(`  ✗ Error: File not found: ${stlPath}\n`);
-        continue;
+    // Create output directory for this variant
+    const outputDir = path.join(baseOutputDir, variant.outputSubdir);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    for (const geometry of geometries) {
+      totalCount++;
+      console.log(`[${totalCount}/${totalVariants}] Slicing ${geometry.name}...`);
+
+      try {
+        // Build the full path to the STL file
+        const stlPath = path.join(__dirname, '../../resources/stl', geometry.file);
+
+        if (!fs.existsSync(stlPath)) {
+          console.error(`  ✗ Error: File not found: ${stlPath}\n`);
+          continue;
+        }
+
+        // Load the STL file (async)
+        const mesh = await Loader.loadSTL(stlPath);
+
+        if (!mesh) {
+          console.error(`  ✗ Error: Failed to load mesh\n`);
+          continue;
+        }
+
+        // Ensure the cylinder stands upright (STL sources can differ in orientation).
+        // Rotate 90° about X so the cylinder's axis aligns with Z.
+        if (geometry.name === 'Cylinder') {
+          mesh.rotation.x = Math.PI / 2;
+          mesh.updateMatrixWorld(true);
+        }
+
+        // Create slicer instance with variant-specific config
+        const slicerConfig = { ...baseSlicerConfig, ...variant.config };
+        const slicer = new Polyslice(slicerConfig);
+
+        // Generate G-code
+        const startTime = Date.now();
+        const gcode = slicer.slice(mesh);
+        const endTime = Date.now();
+        const slicingTime = ((endTime - startTime) / 1000).toFixed(2);
+
+        // Write output file
+        const outputFilename = `${geometry.name.toLowerCase()}.gcode`;
+        const outputPath = path.join(outputDir, outputFilename);
+        fs.writeFileSync(outputPath, gcode);
+
+        const fileSizeKB = (gcode.length / 1024).toFixed(2);
+        console.log(`  ✓ ${outputFilename} (${fileSizeKB} KB) - ${slicingTime}s`);
+
+      } catch (error) {
+        console.error(`  ✗ Error processing ${geometry.name}:`, error.message);
       }
-
-      // Load the STL file (async)
-      const mesh = await Loader.loadSTL(stlPath);
-
-      if (!mesh) {
-        console.error(`  ✗ Error: Failed to load mesh\n`);
-        continue;
-      }
-
-      // Create slicer instance
-      const slicer = new Polyslice(slicerConfig);
-
-      // Generate G-code
-      const startTime = Date.now();
-      const gcode = slicer.slice(mesh);
-      const endTime = Date.now();
-      const slicingTime = ((endTime - startTime) / 1000).toFixed(2);
-
-      // Write output file
-      const outputPath = path.join(outputDir, geometry.output);
-      fs.writeFileSync(outputPath, gcode);
-
-      const fileSizeKB = (gcode.length / 1024).toFixed(2);
-      console.log(`  ✓ ${geometry.output} (${fileSizeKB} KB) - ${slicingTime}s\n`);
-
-    } catch (error) {
-      console.error(`  ✗ Error processing ${geometry.name}:`, error.message);
-      console.log('');
     }
   }
 
-  console.log('Adhesion examples sliced successfully!');
+  console.log('\nAdhesion examples sliced successfully!');
 }
 
 // Run the async process

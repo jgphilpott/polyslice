@@ -10,12 +10,12 @@ boundaryHelper = require('../helpers/boundary')
 module.exports =
 
     # Generate brim around the model base.
-    generateBrim: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox) ->
+    generateBrim: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox, firstLayerPaths = null) ->
 
         # TODO: Implement brim generation in future PR.
         #
         # Brim generation algorithm:
-        # 1. Get the first layer paths from the model
+        # 1. Get the first layer paths from the model (firstLayerPaths parameter)
         # 2. For each adhesionLineCount:
         #    - Create an offset path (nozzleDiameter * loopIndex) from the model outline
         #    - Generate G-code to print that path
