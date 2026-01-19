@@ -2348,8 +2348,10 @@ describe 'Slicing', ->
                 # Merge geometries using dynamic import.
                 return import('three/examples/jsm/utils/BufferGeometryUtils.js').then (mod) ->
 
-                    BufferGeometryUtils = mod
-                    mergedGeometry = BufferGeometryUtils.mergeGeometries([geo1, geo2], false)
+                    # Use the mergeGeometries function from the module.
+                    # The module may export it directly or via BufferGeometryUtils namespace.
+                    mergeFunc = mod.mergeGeometries or mod.BufferGeometryUtils?.mergeGeometries
+                    mergedGeometry = mergeFunc([geo1, geo2], false)
                     mergedMesh = new THREE.Mesh(mergedGeometry, new THREE.MeshBasicMaterial())
                     mergedMesh.updateMatrixWorld()
 

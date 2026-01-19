@@ -553,6 +553,9 @@ module.exports =
         # Track which objects have been completed (for independent objects only).
         completedObjectIndices = {}
 
+        # Calculate if this layer is absolute top or bottom (used multiple times below).
+        isAbsoluteTopOrBottom = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
         for pathIndex in sortedOuterBoundaryIndices
 
             path = paths[pathIndex]
@@ -561,8 +564,6 @@ module.exports =
             shouldGenerateSkinWalls = false
 
             if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[pathIndex]
-
-                isAbsoluteTopOrBottom = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
 
                 if isAbsoluteTopOrBottom
 
@@ -594,7 +595,6 @@ module.exports =
             #
             # For middle layers with exposure detection enabled, we need the two-phase approach
             # to properly detect which areas are exposed and need skin.
-            isAbsoluteTopOrBottom = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
             canUseSequentialCompletion = holeIndices.length is 0 and innermostWall and innermostWall.length >= 3 and (not slicer.getExposureDetection() or isAbsoluteTopOrBottom)
 
             if canUseSequentialCompletion
