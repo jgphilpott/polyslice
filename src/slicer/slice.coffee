@@ -580,9 +580,26 @@ module.exports =
             innermostWall = generateWallsForPath(path, pathIndex, false, shouldGenerateSkinWalls)
             innermostWalls[pathIndex] = innermostWall
 
-            if holeIndices.length is 0 and innermostWall and innermostWall.length >= 3 and not slicer.getExposureDetection()
+            # Check if sequential object completion optimization can be used.
+            # This optimization completes each independent object (walls + skin/infill) before moving to the next,
+            # minimizing travel distance between objects.
+            #
+            # Conditions for using this optimization:
+            # 1. No holes on this layer (independent objects)
+            # 2. Valid innermost wall exists
+            # 3. Either:
+            #    a) Exposure detection is disabled (always use optimization), OR
+            #    b) Exposure detection is enabled BUT this is an absolute top/bottom layer
+            #       (exposure detection not needed since skin is always generated on top/bottom)
+            #
+            # For middle layers with exposure detection enabled, we need the two-phase approach
+            # to properly detect which areas are exposed and need skin.
+            isAbsoluteTopOrBottom = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+            canUseSequentialCompletion = holeIndices.length is 0 and innermostWall and innermostWall.length >= 3 and (not slicer.getExposureDetection() or isAbsoluteTopOrBottom)
 
-                # Simple skin/infill generation for independent objects without exposure detection.
+            if canUseSequentialCompletion
+
+                # Sequential object completion: generate skin/infill immediately after walls.
                 currentPath = innermostWall
                 infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, false)
 
