@@ -58,6 +58,14 @@ describe 'Polyslice', ->
             expect(slicer.getAdhesionEnabled()).toBe(false)
             expect(slicer.getAdhesionType()).toBe('skirt')
 
+            # Test raft adhesion settings
+            expect(slicer.getRaftMargin()).toBe(5)
+            expect(slicer.getRaftBaseThickness()).toBe(0.3)
+            expect(slicer.getRaftInterfaceLayers()).toBe(2)
+            expect(slicer.getRaftInterfaceThickness()).toBe(0.2)
+            expect(slicer.getRaftAirGap()).toBe(0.2)
+            expect(slicer.getRaftLineSpacing()).toBe(2)
+
             # Test test strip setting
             expect(slicer.getTestStrip()).toBe(false)
 

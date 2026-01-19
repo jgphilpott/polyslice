@@ -331,6 +331,92 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setAdhesionLineCount(-1)
             expect(slicer.getAdhesionLineCount()).toBe(2) # unchanged.
 
+        test 'should set and get raft settings', ->
+
+            # Test raft margin (default 5mm).
+            expect(slicer.getRaftMargin()).toBe(5)
+
+            slicer.setRaftMargin(8)
+            expect(slicer.getRaftMargin()).toBe(8)
+
+            slicer.setRaftMargin(3)
+            expect(slicer.getRaftMargin()).toBe(3)
+
+            # Should ignore negative values.
+            slicer.setRaftMargin(-2)
+            expect(slicer.getRaftMargin()).toBe(3) # unchanged.
+
+            # Test raft base thickness (default 0.3mm).
+            expect(slicer.getRaftBaseThickness()).toBe(0.3)
+
+            slicer.setRaftBaseThickness(0.4)
+            expect(slicer.getRaftBaseThickness()).toBe(0.4)
+
+            slicer.setRaftBaseThickness(0.25)
+            expect(slicer.getRaftBaseThickness()).toBe(0.25)
+
+            # Should ignore zero and negative values.
+            slicer.setRaftBaseThickness(0)
+            expect(slicer.getRaftBaseThickness()).toBe(0.25) # unchanged.
+
+            slicer.setRaftBaseThickness(-0.1)
+            expect(slicer.getRaftBaseThickness()).toBe(0.25) # unchanged.
+
+            # Test raft interface layers (default 2).
+            expect(slicer.getRaftInterfaceLayers()).toBe(2)
+
+            slicer.setRaftInterfaceLayers(3)
+            expect(slicer.getRaftInterfaceLayers()).toBe(3)
+
+            slicer.setRaftInterfaceLayers(1)
+            expect(slicer.getRaftInterfaceLayers()).toBe(1)
+
+            # Should ignore negative values.
+            slicer.setRaftInterfaceLayers(-1)
+            expect(slicer.getRaftInterfaceLayers()).toBe(1) # unchanged.
+
+            # Test raft interface thickness (default 0.2mm).
+            expect(slicer.getRaftInterfaceThickness()).toBe(0.2)
+
+            slicer.setRaftInterfaceThickness(0.25)
+            expect(slicer.getRaftInterfaceThickness()).toBe(0.25)
+
+            slicer.setRaftInterfaceThickness(0.15)
+            expect(slicer.getRaftInterfaceThickness()).toBe(0.15)
+
+            # Should ignore zero and negative values.
+            slicer.setRaftInterfaceThickness(0)
+            expect(slicer.getRaftInterfaceThickness()).toBe(0.15) # unchanged.
+
+            # Test raft air gap (default 0.2mm).
+            expect(slicer.getRaftAirGap()).toBe(0.2)
+
+            slicer.setRaftAirGap(0.3)
+            expect(slicer.getRaftAirGap()).toBe(0.3)
+
+            slicer.setRaftAirGap(0.1)
+            expect(slicer.getRaftAirGap()).toBe(0.1)
+
+            # Should ignore negative values (but allow 0 for no gap).
+            slicer.setRaftAirGap(-0.1)
+            expect(slicer.getRaftAirGap()).toBe(0.1) # unchanged.
+
+            # Test raft line spacing (default 2mm).
+            expect(slicer.getRaftLineSpacing()).toBe(2)
+
+            slicer.setRaftLineSpacing(3)
+            expect(slicer.getRaftLineSpacing()).toBe(3)
+
+            slicer.setRaftLineSpacing(1.5)
+            expect(slicer.getRaftLineSpacing()).toBe(1.5)
+
+            # Should ignore zero and negative values.
+            slicer.setRaftLineSpacing(0)
+            expect(slicer.getRaftLineSpacing()).toBe(1.5) # unchanged.
+
+            slicer.setRaftLineSpacing(-1)
+            expect(slicer.getRaftLineSpacing()).toBe(1.5) # unchanged.
+
         test 'should support all infill patterns', ->
 
             patterns = ['grid', 'lines', 'triangles', 'cubic', 'gyroid', 'honeycomb']
