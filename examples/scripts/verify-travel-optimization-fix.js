@@ -8,7 +8,7 @@
  * of travel optimization on the most important layers (top/bottom surfaces).
  */
 
-const { Polyslice, Printer, Filament } = require('./src/index');
+const { Polyslice, Printer, Filament } = require('../../src/index');
 const THREE = require('three');
 
 console.log('='.repeat(70));
