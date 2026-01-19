@@ -48,13 +48,18 @@ const geometries = [
 const adhesionVariants = [
   {
     name: 'Circular Skirt',
-    config: { adhesionSkirtType: 'circular' },
+    config: { adhesionType: 'skirt', adhesionSkirtType: 'circular' },
     outputSubdir: 'skirt/circular'
   },
   {
     name: 'Shape Skirt',
-    config: { adhesionSkirtType: 'shape' },
+    config: { adhesionType: 'skirt', adhesionSkirtType: 'shape' },
     outputSubdir: 'skirt/shape'
+  },
+  {
+    name: 'Brim',
+    config: { adhesionType: 'brim' },
+    outputSubdir: 'brim'
   }
 ];
 
