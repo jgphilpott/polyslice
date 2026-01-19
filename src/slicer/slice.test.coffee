@@ -2321,3 +2321,93 @@ describe 'Slicing', ->
             expect(result.length).toBeGreaterThan(1000)
 
             return # Explicitly return undefined for Jest.
+
+        test 'should use sequential completion for top/bottom layers with exposure detection enabled', ->
+
+            # Helper to create merged mesh from multiple cylinders.
+            # This is an async test because we need to dynamically import BufferGeometryUtils.
+            createMergedPillars = ->
+
+                # Create two separate cylinders.
+                geometry1 = new THREE.CylinderGeometry(3, 3, 1.2, 32)
+                mesh1 = new THREE.Mesh(geometry1, new THREE.MeshBasicMaterial())
+                mesh1.rotation.x = Math.PI / 2
+                mesh1.position.set(-5, 0, 0.6)
+                mesh1.updateMatrixWorld()
+                geo1 = mesh1.geometry.clone()
+                geo1.applyMatrix4(mesh1.matrixWorld)
+
+                geometry2 = new THREE.CylinderGeometry(3, 3, 1.2, 32)
+                mesh2 = new THREE.Mesh(geometry2, new THREE.MeshBasicMaterial())
+                mesh2.rotation.x = Math.PI / 2
+                mesh2.position.set(5, 0, 0.6)
+                mesh2.updateMatrixWorld()
+                geo2 = mesh2.geometry.clone()
+                geo2.applyMatrix4(mesh2.matrixWorld)
+
+                # Merge geometries using dynamic import.
+                return import('three/examples/jsm/utils/BufferGeometryUtils.js').then (mod) ->
+
+                    # Use the mergeGeometries function from the module.
+                    # The module may export it directly or via BufferGeometryUtils namespace.
+                    mergeFunc = mod.mergeGeometries or mod.BufferGeometryUtils?.mergeGeometries
+                    mergedGeometry = mergeFunc([geo1, geo2], false)
+                    mergedMesh = new THREE.Mesh(mergedGeometry, new THREE.MeshBasicMaterial())
+                    mergedMesh.updateMatrixWorld()
+
+                    return mergedMesh
+
+            # Return promise for async test.
+            return createMergedPillars().then (mergedMesh) ->
+
+                # Configure slicer with exposure detection enabled.
+                slicer.setLayerHeight(0.2)
+                slicer.setShellSkinThickness(0.4)  # 2 layers top/bottom
+                slicer.setExposureDetection(true)  # This is the key - exposure detection enabled!
+                slicer.setVerbose(true)
+
+                result = slicer.slice(mergedMesh)
+
+                # Analyze the G-code pattern for last layer (top layer).
+                lines = result.split('\n')
+                lastLayerStart = -1
+
+                for i in [0...lines.length]
+
+                    if lines[i].includes('LAYER: 6 of')
+                        lastLayerStart = i
+                        break
+
+                expect(lastLayerStart).toBeGreaterThan(-1)
+
+                # Extract last layer content (from LAYER: 6 to end).
+                lastLayerLines = lines[lastLayerStart...]
+                lastLayerContent = lastLayerLines.join('\n')
+
+                # For top/bottom layers with independent objects and exposure detection enabled,
+                # we should see sequential completion: WALL-OUTER → WALL-INNER → SKIN (per pillar).
+                # Count how many times we see WALL followed by SKIN (sequential completion pattern).
+                wallToSkinTransitions = 0
+                prevLineHadWall = false
+
+                for line in lastLayerLines
+
+                    if line.includes('TYPE: WALL')
+                        prevLineHadWall = true
+                    else if line.includes('TYPE: SKIN') and prevLineHadWall
+                        wallToSkinTransitions++
+                        prevLineHadWall = false
+                    else if line.includes('TYPE:')
+                        # Other type, reset
+                        prevLineHadWall = false
+
+                # With sequential completion, we expect at least 2 wall-to-skin transitions
+                # (one for each pillar on this top layer).
+                expect(wallToSkinTransitions).toBeGreaterThanOrEqual(2)
+
+                # Verify the G-code contains expected elements.
+                expect(result).toContain('WALL-OUTER')
+                expect(result).toContain('SKIN')
+                expect(result.length).toBeGreaterThan(1000)
+
+                return # Explicitly return undefined for Jest.
