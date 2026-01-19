@@ -130,6 +130,19 @@ module.exports =
 
         if verbose then slicer.gcode += coders.codeMessage(slicer, "Printing #{allLayers.length} layers...")
 
+        # Calculate Z offset for raft if enabled.
+        raftZOffset = 0
+
+        if slicer.getAdhesionEnabled() and slicer.getAdhesionType() is 'raft'
+
+            raftBaseThickness = slicer.getRaftBaseThickness()
+            raftInterfaceLayers = slicer.getRaftInterfaceLayers()
+            raftInterfaceThickness = slicer.getRaftInterfaceThickness()
+            raftAirGap = slicer.getRaftAirGap()
+
+            # Total raft height = base + all interface layers + air gap.
+            raftZOffset = raftBaseThickness + (raftInterfaceLayers * raftInterfaceThickness) + raftAirGap
+
         # Process each layer.
         totalLayers = allLayers.length
 
@@ -139,7 +152,7 @@ module.exports =
         for layerIndex in [0...totalLayers]
 
             layerSegments = allLayers[layerIndex]
-            currentZ = adjustedMinZ + layerIndex * layerHeight
+            currentZ = adjustedMinZ + layerIndex * layerHeight + raftZOffset
 
             # Convert Polytree line segments to closed paths.
             layerPaths = pathsUtils.connectSegmentsToPaths(layerSegments)

@@ -150,6 +150,30 @@ module.exports =
 
         return slicer.adhesionLineCount
 
+    getRaftMargin: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.raftMargin, slicer.lengthUnit)
+
+    getRaftBaseThickness: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.raftBaseThickness, slicer.lengthUnit)
+
+    getRaftInterfaceLayers: (slicer) ->
+
+        return slicer.raftInterfaceLayers
+
+    getRaftInterfaceThickness: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.raftInterfaceThickness, slicer.lengthUnit)
+
+    getRaftAirGap: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.raftAirGap, slicer.lengthUnit)
+
+    getRaftLineSpacing: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.raftLineSpacing, slicer.lengthUnit)
+
     getTestStrip: (slicer) ->
 
         return slicer.testStrip
@@ -509,6 +533,54 @@ module.exports =
         if typeof count is "number" and count >= 0
 
             slicer.adhesionLineCount = Number count
+
+        return slicer
+
+    setRaftMargin: (slicer, margin = 5) ->
+
+        if typeof margin is "number" and margin >= 0
+
+            slicer.raftMargin = conversions.lengthToInternal(margin, slicer.lengthUnit)
+
+        return slicer
+
+    setRaftBaseThickness: (slicer, thickness = 0.3) ->
+
+        if typeof thickness is "number" and thickness > 0
+
+            slicer.raftBaseThickness = conversions.lengthToInternal(thickness, slicer.lengthUnit)
+
+        return slicer
+
+    setRaftInterfaceLayers: (slicer, layers = 2) ->
+
+        if typeof layers is "number" and layers >= 0
+
+            slicer.raftInterfaceLayers = Number layers
+
+        return slicer
+
+    setRaftInterfaceThickness: (slicer, thickness = 0.2) ->
+
+        if typeof thickness is "number" and thickness > 0
+
+            slicer.raftInterfaceThickness = conversions.lengthToInternal(thickness, slicer.lengthUnit)
+
+        return slicer
+
+    setRaftAirGap: (slicer, gap = 0.2) ->
+
+        if typeof gap is "number" and gap >= 0
+
+            slicer.raftAirGap = conversions.lengthToInternal(gap, slicer.lengthUnit)
+
+        return slicer
+
+    setRaftLineSpacing: (slicer, spacing = 2) ->
+
+        if typeof spacing is "number" and spacing > 0
+
+            slicer.raftLineSpacing = conversions.lengthToInternal(spacing, slicer.lengthUnit)
 
         return slicer
 
