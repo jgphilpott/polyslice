@@ -60,6 +60,11 @@ const adhesionVariants = [
     name: 'Brim',
     config: { adhesionType: 'brim' },
     outputSubdir: 'brim'
+  },
+  {
+    name: 'Raft',
+    config: { adhesionType: 'raft' },
+    outputSubdir: 'raft'
   }
 ];
 

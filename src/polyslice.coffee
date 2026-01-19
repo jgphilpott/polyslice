@@ -95,6 +95,14 @@ class Polyslice
         @adhesionDistance = conversions.lengthToInternal(options.adhesionDistance ?= 5, this.lengthUnit) # Number (millimeters internal).
         @adhesionLineCount = options.adhesionLineCount ?= 3 # Number.
 
+        # Raft adhesion settings.
+        @raftMargin = conversions.lengthToInternal(options.raftMargin ?= 5, this.lengthUnit) # Number (mm internal).
+        @raftBaseThickness = conversions.lengthToInternal(options.raftBaseThickness ?= 0.3, this.lengthUnit) # Number (mm internal).
+        @raftInterfaceLayers = options.raftInterfaceLayers ?= 2 # Number.
+        @raftInterfaceThickness = conversions.lengthToInternal(options.raftInterfaceThickness ?= 0.2, this.lengthUnit) # Number (mm internal).
+        @raftAirGap = conversions.lengthToInternal(options.raftAirGap ?= 0.2, this.lengthUnit) # Number (mm internal).
+        @raftLineSpacing = conversions.lengthToInternal(options.raftLineSpacing ?= 2, this.lengthUnit) # Number (mm internal).
+
         # Test strip settings for print preparation.
         @testStrip = options.testStrip ?= false # Boolean - lay down test strip before main print.
 
@@ -228,6 +236,24 @@ class Polyslice
 
     getAdhesionLineCount: ->
         accessors.getAdhesionLineCount(this)
+
+    getRaftMargin: ->
+        accessors.getRaftMargin(this)
+
+    getRaftBaseThickness: ->
+        accessors.getRaftBaseThickness(this)
+
+    getRaftInterfaceLayers: ->
+        accessors.getRaftInterfaceLayers(this)
+
+    getRaftInterfaceThickness: ->
+        accessors.getRaftInterfaceThickness(this)
+
+    getRaftAirGap: ->
+        accessors.getRaftAirGap(this)
+
+    getRaftLineSpacing: ->
+        accessors.getRaftLineSpacing(this)
 
     getTestStrip: ->
         accessors.getTestStrip(this)
@@ -380,6 +406,24 @@ class Polyslice
 
     setAdhesionLineCount: (count = 3) ->
         accessors.setAdhesionLineCount(this, count)
+
+    setRaftMargin: (margin = 5) ->
+        accessors.setRaftMargin(this, margin)
+
+    setRaftBaseThickness: (thickness = 0.3) ->
+        accessors.setRaftBaseThickness(this, thickness)
+
+    setRaftInterfaceLayers: (layers = 2) ->
+        accessors.setRaftInterfaceLayers(this, layers)
+
+    setRaftInterfaceThickness: (thickness = 0.2) ->
+        accessors.setRaftInterfaceThickness(this, thickness)
+
+    setRaftAirGap: (gap = 0.2) ->
+        accessors.setRaftAirGap(this, gap)
+
+    setRaftLineSpacing: (spacing = 2) ->
+        accessors.setRaftLineSpacing(this, spacing)
 
     setTestStrip: (testStrip = false) ->
         accessors.setTestStrip(this, testStrip)
