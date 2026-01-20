@@ -207,7 +207,7 @@ createOutsetPath = (path, outsetDistance) ->
         nextIdx = if i is n - 1 then 0 else i + 1
         signedArea += path[i].x * path[nextIdx].y - path[nextIdx].x * path[i].y
     isCCW = signedArea > 0
-    
+
     # 2. Generate perpendicular normals for each edge
     for i in [0...n]
         edgeX = p2.x - p1.x
@@ -215,7 +215,7 @@ createOutsetPath = (path, outsetDistance) ->
         # Normalize and get perpendicular
         normalX = if isCCW then edgeY else -edgeY
         normalY = if isCCW then -edgeX else edgeX
-        
+
     # 3. Offset edges and find intersections
     intersection = primitives.lineIntersection(...)
 ```
