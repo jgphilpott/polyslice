@@ -301,6 +301,32 @@ module.exports =
             # Print each offset path.
             for skirtPath, pathIdx in offsetPaths
 
+                # Optimize starting point to be closest to home position (for first loop) or previous end
+                # This prevents corner clipping artifacts
+                if skirtPath.length >= 3
+                    
+                    # For the first path, start closest to home position (0, 0 in build plate coords)
+                    # For subsequent paths, start closest to where we last ended
+                    referenceX = if loopIndex is 0 and pathIdx is 0 then -centerOffsetX else prevPoint?.x ? -centerOffsetX
+                    referenceY = if loopIndex is 0 and pathIdx is 0 then -centerOffsetY else prevPoint?.y ? -centerOffsetY
+                    
+                    # Find the point in the path closest to the reference position
+                    minDistSq = Infinity
+                    bestStartIndex = 0
+                    
+                    for point, idx in skirtPath
+                        dx = point.x - referenceX
+                        dy = point.y - referenceY
+                        distSq = dx * dx + dy * dy
+                        
+                        if distSq < minDistSq
+                            minDistSq = distSq
+                            bestStartIndex = idx
+                    
+                    # Rotate the path to start at the best point
+                    if bestStartIndex > 0
+                        skirtPath = skirtPath[bestStartIndex...].concat(skirtPath[0...bestStartIndex])
+
                 # Travel to start of skirt path.
                 if loopIndex is 0 and pathIdx is 0
 

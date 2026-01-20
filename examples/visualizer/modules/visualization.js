@@ -99,7 +99,13 @@ export function updateLayerVisibility(layerState) {
   // Get currently enabled movement types
   const enabledTypes = new Set();
   document.querySelectorAll('.legend-checkbox:checked').forEach(checkbox => {
-    enabledTypes.add(checkbox.dataset.type);
+    const type = checkbox.dataset.type;
+    enabledTypes.add(type);
+    // Also enable related adhesion types when SKIRT is checked
+    if (type === 'SKIRT') {
+      enabledTypes.add('BRIM');
+      enabledTypes.add('RAFT');
+    }
   });
 
   // Update visibility for all line segments
@@ -156,7 +162,13 @@ export function updateMoveVisibility(layerState) {
   // Get enabled movement types
   const enabledTypes = new Set();
   document.querySelectorAll('.legend-checkbox:checked').forEach(checkbox => {
-    enabledTypes.add(checkbox.dataset.type);
+    const type = checkbox.dataset.type;
+    enabledTypes.add(type);
+    // Also enable related adhesion types when SKIRT is checked
+    if (type === 'SKIRT') {
+      enabledTypes.add('BRIM');
+      enabledTypes.add('RAFT');
+    }
   });
 
   // Calculate chronological segments
