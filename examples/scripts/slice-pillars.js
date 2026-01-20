@@ -184,7 +184,8 @@ function sliceAndSave(meshOrGroup, filename) {
     layerHeight: 0.2,
     testStrip: false,
     metadata: false,
-    verbose: true
+    verbose: true,
+    exposureDetection: false // Disable for simple independent objects
   });
 
   const startTime = Date.now();

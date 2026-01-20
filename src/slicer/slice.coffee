@@ -607,7 +607,7 @@ module.exports =
             #       (exposure detection not needed since skin is always generated on top/bottom)
             #
             # For middle layers with exposure detection enabled, we need the two-phase approach
-            # to properly detect which areas are exposed and need skin.
+            # to properly detect which areas are exposed and need skin (e.g., for pyramids, cones).
             canUseSequentialCompletion = holeIndices.length is 0 and innermostWall and innermostWall.length >= 3 and (not slicer.getExposureDetection() or isAbsoluteTopOrBottom)
 
             if canUseSequentialCompletion
