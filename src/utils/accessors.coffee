@@ -138,17 +138,25 @@ module.exports =
 
         return slicer.adhesionType
 
-    getAdhesionSkirtType: (slicer) ->
+    getSkirtType: (slicer) ->
 
-        return slicer.adhesionSkirtType
+        return slicer.skirtType
 
-    getAdhesionDistance: (slicer) ->
+    getSkirtDistance: (slicer) ->
 
-        return conversions.lengthFromInternal(slicer.adhesionDistance, slicer.lengthUnit)
+        return conversions.lengthFromInternal(slicer.skirtDistance, slicer.lengthUnit)
 
-    getAdhesionLineCount: (slicer) ->
+    getSkirtLineCount: (slicer) ->
 
-        return slicer.adhesionLineCount
+        return slicer.skirtLineCount
+
+    getBrimDistance: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.brimDistance, slicer.lengthUnit)
+
+    getBrimLineCount: (slicer) ->
+
+        return slicer.brimLineCount
 
     getRaftMargin: (slicer) ->
 
@@ -510,29 +518,45 @@ module.exports =
 
         return slicer
 
-    setAdhesionSkirtType: (slicer, type = "circular") ->
+    setSkirtType: (slicer, type = "circular") ->
 
         type = type.toLowerCase().trim()
 
         if ["circular", "shape"].includes type
 
-            slicer.adhesionSkirtType = String type
+            slicer.skirtType = String type
 
         return slicer
 
-    setAdhesionDistance: (slicer, distance = 5) ->
+    setSkirtDistance: (slicer, distance = 5) ->
 
         if typeof distance is "number" and distance >= 0
 
-            slicer.adhesionDistance = conversions.lengthToInternal(distance, slicer.lengthUnit)
+            slicer.skirtDistance = conversions.lengthToInternal(distance, slicer.lengthUnit)
 
         return slicer
 
-    setAdhesionLineCount: (slicer, count = 3) ->
+    setSkirtLineCount: (slicer, count = 3) ->
 
         if typeof count is "number" and count >= 0
 
-            slicer.adhesionLineCount = Number count
+            slicer.skirtLineCount = Number count
+
+        return slicer
+
+    setBrimDistance: (slicer, distance = 0) ->
+
+        if typeof distance is "number" and distance >= 0
+
+            slicer.brimDistance = conversions.lengthToInternal(distance, slicer.lengthUnit)
+
+        return slicer
+
+    setBrimLineCount: (slicer, count = 8) ->
+
+        if typeof count is "number" and count >= 0
+
+            slicer.brimLineCount = Number count
 
         return slicer
 

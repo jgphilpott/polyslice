@@ -91,9 +91,15 @@ class Polyslice
         # Build plate adhesion settings for first layer stability.
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
         @adhesionType = options.adhesionType ?= "skirt" # String ['skirt', 'brim', 'raft'].
-        @adhesionSkirtType = options.adhesionSkirtType ?= "circular" # String ['circular', 'shape'].
-        @adhesionDistance = conversions.lengthToInternal(options.adhesionDistance ?= 5, this.lengthUnit) # Number (millimeters internal).
-        @adhesionLineCount = options.adhesionLineCount ?= 3 # Number.
+
+        # Skirt adhesion settings.
+        @skirtType = options.skirtType ?= "circular" # String ['circular', 'shape'].
+        @skirtDistance = conversions.lengthToInternal(options.skirtDistance ?= 5, this.lengthUnit) # Number (mm internal).
+        @skirtLineCount = options.skirtLineCount ?= 3 # Number.
+
+        # Brim adhesion settings.
+        @brimDistance = conversions.lengthToInternal(options.brimDistance ?= 0, this.lengthUnit) # Number (mm internal).
+        @brimLineCount = options.brimLineCount ?= 8 # Number.
 
         # Raft adhesion settings.
         @raftMargin = conversions.lengthToInternal(options.raftMargin ?= 5, this.lengthUnit) # Number (mm internal).
@@ -228,14 +234,20 @@ class Polyslice
     getAdhesionType: ->
         accessors.getAdhesionType(this)
 
-    getAdhesionSkirtType: ->
-        accessors.getAdhesionSkirtType(this)
+    getSkirtType: ->
+        accessors.getSkirtType(this)
 
-    getAdhesionDistance: ->
-        accessors.getAdhesionDistance(this)
+    getSkirtDistance: ->
+        accessors.getSkirtDistance(this)
 
-    getAdhesionLineCount: ->
-        accessors.getAdhesionLineCount(this)
+    getSkirtLineCount: ->
+        accessors.getSkirtLineCount(this)
+
+    getBrimDistance: ->
+        accessors.getBrimDistance(this)
+
+    getBrimLineCount: ->
+        accessors.getBrimLineCount(this)
 
     getRaftMargin: ->
         accessors.getRaftMargin(this)
@@ -398,14 +410,20 @@ class Polyslice
     setAdhesionType: (type = "skirt") ->
         accessors.setAdhesionType(this, type)
 
-    setAdhesionSkirtType: (type = "circular") ->
-        accessors.setAdhesionSkirtType(this, type)
+    setSkirtType: (type = "circular") ->
+        accessors.setSkirtType(this, type)
 
-    setAdhesionDistance: (distance = 5) ->
-        accessors.setAdhesionDistance(this, distance)
+    setSkirtDistance: (distance = 5) ->
+        accessors.setSkirtDistance(this, distance)
 
-    setAdhesionLineCount: (count = 3) ->
-        accessors.setAdhesionLineCount(this, count)
+    setSkirtLineCount: (count = 3) ->
+        accessors.setSkirtLineCount(this, count)
+
+    setBrimDistance: (distance = 0) ->
+        accessors.setBrimDistance(this, distance)
+
+    setBrimLineCount: (count = 8) ->
+        accessors.setBrimLineCount(this, count)
 
     setRaftMargin: (margin = 5) ->
         accessors.setRaftMargin(this, margin)

@@ -19,7 +19,7 @@ describe 'Skirt Module', ->
             slicer.setVerbose(true)
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionSkirtType('circular')
+            slicer.setSkirtType('circular')
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -40,8 +40,8 @@ describe 'Skirt Module', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionSkirtType('circular')
-            slicer.setAdhesionLineCount(1)
+            slicer.setSkirtType('circular')
+            slicer.setSkirtLineCount(1)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -65,7 +65,7 @@ describe 'Skirt Module', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionLineCount(3)
+            slicer.setSkirtLineCount(3)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -89,7 +89,7 @@ describe 'Skirt Module', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionLineCount(1)
+            slicer.setSkirtLineCount(1)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -112,7 +112,7 @@ describe 'Skirt Module', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionSkirtType('circular')
+            slicer.setSkirtType('circular')
             slicer.setVerbose(true)
 
             # Create a large geometry that will cause skirt to exceed build plate.
@@ -141,8 +141,8 @@ describe 'Skirt Module', ->
             slicer.setVerbose(true)
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionSkirtType('shape')
-            slicer.setAdhesionLineCount(2)
+            slicer.setSkirtType('shape')
+            slicer.setSkirtLineCount(2)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -182,7 +182,7 @@ describe 'Skirt Module', ->
             slicer.setVerbose(true)
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionSkirtType('shape')
+            slicer.setSkirtType('shape')
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -210,8 +210,8 @@ describe 'Skirt Module', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionSkirtType('shape')
-            slicer.setAdhesionLineCount(3)
+            slicer.setSkirtType('shape')
+            slicer.setSkirtLineCount(3)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -249,8 +249,8 @@ describe 'Skirt Module', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionSkirtType('shape')
-            slicer.setAdhesionLineCount(1)
+            slicer.setSkirtType('shape')
+            slicer.setSkirtLineCount(1)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)

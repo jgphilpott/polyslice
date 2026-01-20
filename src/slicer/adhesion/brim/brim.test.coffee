@@ -22,7 +22,7 @@ describe 'Brim Module', ->
             slicer.setVerbose(true)
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('brim')
-            slicer.setAdhesionLineCount(2)
+            slicer.setBrimLineCount(2)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -60,7 +60,7 @@ describe 'Brim Module', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('brim')
-            slicer.setAdhesionLineCount(3)
+            slicer.setBrimLineCount(3)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -98,7 +98,7 @@ describe 'Brim Module', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('brim')
-            slicer.setAdhesionLineCount(1)
+            slicer.setBrimLineCount(1)
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -157,7 +157,7 @@ describe 'Brim Module', ->
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('brim')
             slicer.setVerbose(true)
-            slicer.setAdhesionLineCount(3)
+            slicer.setBrimLineCount(3)
 
             # Create a large geometry that will cause brim to exceed build plate.
             # Build plate is 220x220mm by default, create geometry that is 210mm.

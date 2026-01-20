@@ -85,13 +85,13 @@ describe 'Adhesion Module Integration', ->
             # Brim comment should be present even if not fully implemented.
             expect(slicer.gcode.length).toBeGreaterThan(0)
 
-        test 'should respect adhesionSkirtType setting', ->
+        test 'should respect skirtType setting', ->
 
             slicer.setAdhesionEnabled(true)
             slicer.setAdhesionType('skirt')
-            slicer.setAdhesionSkirtType('circular')
+            slicer.setSkirtType('circular')
 
-            expect(slicer.getAdhesionSkirtType()).toBe('circular')
+            expect(slicer.getSkirtType()).toBe('circular')
 
             # Create a simple geometry for testing.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -109,7 +109,7 @@ describe 'Adhesion Module Integration', ->
             expect(slicer.gcode.length).toBeGreaterThan(0)
 
             # Test with shape type (falls back to circular for now).
-            slicer.setAdhesionSkirtType('shape')
+            slicer.setSkirtType('shape')
             slicer.gcode = ""
             slicer.cumulativeE = 0
 
@@ -149,55 +149,83 @@ describe 'Adhesion Module Integration', ->
             slicer.setAdhesionType('invalid')
             expect(slicer.getAdhesionType()).toBe('raft')
 
-        test 'setAdhesionSkirtType should validate type', ->
+        test 'setSkirtType should validate type', ->
 
-            slicer.setAdhesionSkirtType('circular')
-            expect(slicer.getAdhesionSkirtType()).toBe('circular')
+            slicer.setSkirtType('circular')
+            expect(slicer.getSkirtType()).toBe('circular')
 
-            slicer.setAdhesionSkirtType('shape')
-            expect(slicer.getAdhesionSkirtType()).toBe('shape')
+            slicer.setSkirtType('shape')
+            expect(slicer.getSkirtType()).toBe('shape')
 
             # Should reject invalid types.
-            slicer.setAdhesionSkirtType('invalid')
-            expect(slicer.getAdhesionSkirtType()).toBe('shape')
+            slicer.setSkirtType('invalid')
+            expect(slicer.getSkirtType()).toBe('shape')
 
-        test 'setAdhesionDistance should validate number', ->
+        test 'setSkirtDistance should validate number', ->
 
-            slicer.setAdhesionDistance(10)
-            expect(slicer.getAdhesionDistance()).toBe(10)
+            slicer.setSkirtDistance(10)
+            expect(slicer.getSkirtDistance()).toBe(10)
 
-            slicer.setAdhesionDistance(5)
-            expect(slicer.getAdhesionDistance()).toBe(5)
-
-            # Should ignore negative values.
-            slicer.setAdhesionDistance(-5)
-            expect(slicer.getAdhesionDistance()).toBe(5)
-
-        test 'setAdhesionLineCount should validate number', ->
-
-            slicer.setAdhesionLineCount(5)
-            expect(slicer.getAdhesionLineCount()).toBe(5)
-
-            slicer.setAdhesionLineCount(3)
-            expect(slicer.getAdhesionLineCount()).toBe(3)
+            slicer.setSkirtDistance(5)
+            expect(slicer.getSkirtDistance()).toBe(5)
 
             # Should ignore negative values.
-            slicer.setAdhesionLineCount(-1)
-            expect(slicer.getAdhesionLineCount()).toBe(3)
+            slicer.setSkirtDistance(-5)
+            expect(slicer.getSkirtDistance()).toBe(5)
+
+        test 'setSkirtLineCount should validate number', ->
+
+            slicer.setSkirtLineCount(5)
+            expect(slicer.getSkirtLineCount()).toBe(5)
+
+            slicer.setSkirtLineCount(3)
+            expect(slicer.getSkirtLineCount()).toBe(3)
+
+            # Should ignore negative values.
+            slicer.setSkirtLineCount(-1)
+            expect(slicer.getSkirtLineCount()).toBe(3)
+
+        test 'setBrimDistance should validate number', ->
+
+            slicer.setBrimDistance(2)
+            expect(slicer.getBrimDistance()).toBe(2)
+
+            slicer.setBrimDistance(0)
+            expect(slicer.getBrimDistance()).toBe(0)
+
+            # Should ignore negative values.
+            slicer.setBrimDistance(-1)
+            expect(slicer.getBrimDistance()).toBe(0)
+
+        test 'setBrimLineCount should validate number', ->
+
+            slicer.setBrimLineCount(10)
+            expect(slicer.getBrimLineCount()).toBe(10)
+
+            slicer.setBrimLineCount(5)
+            expect(slicer.getBrimLineCount()).toBe(5)
+
+            # Should ignore negative values.
+            slicer.setBrimLineCount(-1)
+            expect(slicer.getBrimLineCount()).toBe(5)
 
         test 'should support method chaining', ->
 
             result = slicer
                 .setAdhesionEnabled(true)
                 .setAdhesionType('skirt')
-                .setAdhesionDistance(8)
-                .setAdhesionLineCount(4)
+                .setSkirtDistance(8)
+                .setSkirtLineCount(4)
+                .setBrimDistance(1)
+                .setBrimLineCount(6)
 
             expect(result).toBe(slicer)
             expect(slicer.getAdhesionEnabled()).toBe(true)
             expect(slicer.getAdhesionType()).toBe('skirt')
-            expect(slicer.getAdhesionDistance()).toBe(8)
-            expect(slicer.getAdhesionLineCount()).toBe(4)
+            expect(slicer.getSkirtDistance()).toBe(8)
+            expect(slicer.getSkirtLineCount()).toBe(4)
+            expect(slicer.getBrimDistance()).toBe(1)
+            expect(slicer.getBrimLineCount()).toBe(6)
 
     slicer = null
 

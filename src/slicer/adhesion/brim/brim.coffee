@@ -28,7 +28,8 @@ module.exports =
 
         nozzleDiameter = slicer.getNozzleDiameter()
         layerHeight = slicer.getLayerHeight()
-        adhesionLineCount = slicer.getAdhesionLineCount()
+        brimDistance = slicer.getBrimDistance()
+        brimLineCount = slicer.getBrimLineCount()
 
         # First layer Z height.
         z = layerHeight
@@ -156,13 +157,13 @@ module.exports =
             return outsetPath
 
         # Generate concentric loops around all outer paths.
-        # Key difference from skirt: brim starts at nozzleDiameter/2 (attached to model).
-        for loopIndex in [0...adhesionLineCount]
+        # Key difference from skirt: brim starts at brimDistance (default 0, attached to model).
+        for loopIndex in [0...brimLineCount]
 
             # Calculate offset distance for this loop.
-            # First loop starts at nozzleDiameter/2 (half nozzle width from model edge).
+            # First loop starts at brimDistance + nozzleDiameter/2 (half nozzle width from model edge).
             # Subsequent loops are spaced by nozzleDiameter.
-            offsetDistance = (nozzleDiameter / 2) + (loopIndex * nozzleDiameter)
+            offsetDistance = brimDistance + (nozzleDiameter / 2) + (loopIndex * nozzleDiameter)
 
             # Create offset paths for each outer boundary.
             offsetPaths = []
@@ -229,7 +230,7 @@ module.exports =
         for outerPath in outerPaths
 
             # Maximum offset distance (last loop).
-            maxOffsetDistance = (nozzleDiameter / 2) + ((adhesionLineCount - 1) * nozzleDiameter)
+            maxOffsetDistance = brimDistance + (nozzleDiameter / 2) + ((brimLineCount - 1) * nozzleDiameter)
             pathBounds = boundaryHelper.calculatePathBounds(outerPath, maxOffsetDistance)
 
             if pathBounds
