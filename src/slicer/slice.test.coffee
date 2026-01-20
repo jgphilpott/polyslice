@@ -2412,7 +2412,7 @@ describe 'Slicing', ->
 
                 return # Explicitly return undefined for Jest.
 
-        test 'should use sequential completion for infill layers with exposure detection disabled', ->
+        test 'should use sequential completion for infill layers even with exposure detection enabled', ->
 
             # Helper to create merged mesh from multiple cylinders.
             # This is an async test because we need to dynamically import BufferGeometryUtils.
@@ -2449,10 +2449,11 @@ describe 'Slicing', ->
             # Return promise for async test.
             return createMergedPillars().then (mergedMesh) ->
 
-                # Configure slicer with exposure detection disabled.
+                # Configure slicer with exposure detection enabled (default).
+                # Sequential completion should work for independent objects regardless.
                 slicer.setLayerHeight(0.2)
                 slicer.setShellSkinThickness(0.4)  # 2 layers top/bottom
-                slicer.setExposureDetection(false)  # Disable to enable sequential completion
+                slicer.setExposureDetection(true)  # Keep enabled (default)
                 slicer.setInfillDensity(50)  # Enable infill
                 slicer.setVerbose(true)
 
