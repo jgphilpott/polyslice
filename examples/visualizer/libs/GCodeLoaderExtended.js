@@ -110,6 +110,8 @@ class GCodeLoaderExtended extends Loader {
       SUPPORT: new LineBasicMaterial({ color: 0xff00ff, name: 'SUPPORT' }),
       'SUPPORT-INTERFACE': new LineBasicMaterial({ color: 0xcc00cc, name: 'SUPPORT-INTERFACE' }),
       SKIRT: new LineBasicMaterial({ color: 0x888888, name: 'SKIRT' }),
+      BRIM: new LineBasicMaterial({ color: 0x888888, name: 'BRIM' }),
+      RAFT: new LineBasicMaterial({ color: 0x888888, name: 'RAFT' }),
       PRIME: new LineBasicMaterial({ color: 0x00ff00, name: 'PRIME' }),
     };
 
