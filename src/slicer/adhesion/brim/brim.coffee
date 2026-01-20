@@ -28,7 +28,8 @@ module.exports =
 
         nozzleDiameter = slicer.getNozzleDiameter()
         layerHeight = slicer.getLayerHeight()
-        adhesionLineCount = slicer.getAdhesionLineCount()
+        brimDistance = slicer.getBrimDistance()
+        brimLineCount = slicer.getBrimLineCount()
 
         # First layer Z height.
         z = layerHeight
@@ -156,13 +157,13 @@ module.exports =
             return outsetPath
 
         # Generate concentric loops around all outer paths.
-        # Key difference from skirt: brim starts at nozzleDiameter/2 (attached to model).
-        for loopIndex in [0...adhesionLineCount]
+        # Key difference from skirt: brim starts at brimDistance (default 0, attached to model).
+        for loopIndex in [0...brimLineCount]
 
             # Calculate offset distance for this loop.
-            # First loop starts at nozzleDiameter/2 (half nozzle width from model edge).
+            # First loop starts at brimDistance + nozzleDiameter/2 (half nozzle width from model edge).
             # Subsequent loops are spaced by nozzleDiameter.
-            offsetDistance = (nozzleDiameter / 2) + (loopIndex * nozzleDiameter)
+            offsetDistance = brimDistance + (nozzleDiameter / 2) + (loopIndex * nozzleDiameter)
 
             # Create offset paths for each outer boundary.
             offsetPaths = []
@@ -181,6 +182,32 @@ module.exports =
 
             # Print each offset path.
             for brimPath, pathIdx in offsetPaths
+
+                # Optimize starting point to be closest to home position (for first loop) or previous end
+                # This prevents corner clipping artifacts
+                if brimPath.length >= 3
+                    
+                    # For the first path, start closest to home position (0, 0 in build plate coords)
+                    # For subsequent paths, start closest to where we last ended
+                    referenceX = if loopIndex is 0 and pathIdx is 0 then -centerOffsetX else prevPoint?.x ? -centerOffsetX
+                    referenceY = if loopIndex is 0 and pathIdx is 0 then -centerOffsetY else prevPoint?.y ? -centerOffsetY
+                    
+                    # Find the point in the path closest to the reference position
+                    minDistSq = Infinity
+                    bestStartIndex = 0
+                    
+                    for point, idx in brimPath
+                        dx = point.x - referenceX
+                        dy = point.y - referenceY
+                        distSq = dx * dx + dy * dy
+                        
+                        if distSq < minDistSq
+                            minDistSq = distSq
+                            bestStartIndex = idx
+                    
+                    # Rotate the path to start at the best point
+                    if bestStartIndex > 0
+                        brimPath = brimPath[bestStartIndex...].concat(brimPath[0...bestStartIndex])
 
                 # Travel to start of brim path.
                 if loopIndex is 0 and pathIdx is 0
@@ -229,7 +256,7 @@ module.exports =
         for outerPath in outerPaths
 
             # Maximum offset distance (last loop).
-            maxOffsetDistance = (nozzleDiameter / 2) + ((adhesionLineCount - 1) * nozzleDiameter)
+            maxOffsetDistance = brimDistance + (nozzleDiameter / 2) + ((brimLineCount - 1) * nozzleDiameter)
             pathBounds = boundaryHelper.calculatePathBounds(outerPath, maxOffsetDistance)
 
             if pathBounds

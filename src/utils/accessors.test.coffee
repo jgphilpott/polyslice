@@ -305,31 +305,57 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setAdhesionType('invalid')
             expect(slicer.getAdhesionType()).toBe('raft')
 
-            # Test adhesion distance (default 5mm).
-            expect(slicer.getAdhesionDistance()).toBe(5)
+            # Test skirt distance (default 5mm).
+            expect(slicer.getSkirtDistance()).toBe(5)
 
-            slicer.setAdhesionDistance(10)
-            expect(slicer.getAdhesionDistance()).toBe(10)
+            slicer.setSkirtDistance(10)
+            expect(slicer.getSkirtDistance()).toBe(10)
 
-            slicer.setAdhesionDistance(8)
-            expect(slicer.getAdhesionDistance()).toBe(8)
-
-            # Should ignore negative values.
-            slicer.setAdhesionDistance(-5)
-            expect(slicer.getAdhesionDistance()).toBe(8) # unchanged.
-
-            # Test adhesion line count (default 3).
-            expect(slicer.getAdhesionLineCount()).toBe(3)
-
-            slicer.setAdhesionLineCount(5)
-            expect(slicer.getAdhesionLineCount()).toBe(5)
-
-            slicer.setAdhesionLineCount(2)
-            expect(slicer.getAdhesionLineCount()).toBe(2)
+            slicer.setSkirtDistance(8)
+            expect(slicer.getSkirtDistance()).toBe(8)
 
             # Should ignore negative values.
-            slicer.setAdhesionLineCount(-1)
-            expect(slicer.getAdhesionLineCount()).toBe(2) # unchanged.
+            slicer.setSkirtDistance(-5)
+            expect(slicer.getSkirtDistance()).toBe(8) # unchanged.
+
+            # Test skirt line count (default 3).
+            expect(slicer.getSkirtLineCount()).toBe(3)
+
+            slicer.setSkirtLineCount(5)
+            expect(slicer.getSkirtLineCount()).toBe(5)
+
+            slicer.setSkirtLineCount(2)
+            expect(slicer.getSkirtLineCount()).toBe(2)
+
+            # Should ignore negative values.
+            slicer.setSkirtLineCount(-1)
+            expect(slicer.getSkirtLineCount()).toBe(2) # unchanged.
+
+            # Test brim distance (default 0mm).
+            expect(slicer.getBrimDistance()).toBe(0)
+
+            slicer.setBrimDistance(2)
+            expect(slicer.getBrimDistance()).toBe(2)
+
+            slicer.setBrimDistance(1)
+            expect(slicer.getBrimDistance()).toBe(1)
+
+            # Should ignore negative values.
+            slicer.setBrimDistance(-1)
+            expect(slicer.getBrimDistance()).toBe(1) # unchanged.
+
+            # Test brim line count (default 8).
+            expect(slicer.getBrimLineCount()).toBe(8)
+
+            slicer.setBrimLineCount(10)
+            expect(slicer.getBrimLineCount()).toBe(10)
+
+            slicer.setBrimLineCount(5)
+            expect(slicer.getBrimLineCount()).toBe(5)
+
+            # Should ignore negative values.
+            slicer.setBrimLineCount(-1)
+            expect(slicer.getBrimLineCount()).toBe(5) # unchanged.
 
         test 'should set and get raft settings', ->
 

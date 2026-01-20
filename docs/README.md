@@ -46,6 +46,8 @@ docs/
     │   └── EXPOSURE_DETECTION.md       # Adaptive skin layer algorithm
     ├── support/
     │   └── SUPPORT.md                  # Support structure generation
+    ├── adhesion/
+    │   └── ADHESION.md                 # Build plate adhesion (skirt, brim, raft)
     ├── utils/
     │   └── UTILS.md                    # Utility functions
     └── walls/
@@ -105,6 +107,10 @@ docs/
 ### Support Structures
 
 - [Support](slicer/support/SUPPORT.md) - Automatic support generation for overhanging geometry
+
+### Build Plate Adhesion
+
+- [Adhesion](slicer/adhesion/ADHESION.md) - Build plate adhesion structures (skirt, brim, raft)
 
 ### Utilities
 

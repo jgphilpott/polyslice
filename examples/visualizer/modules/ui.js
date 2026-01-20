@@ -42,7 +42,7 @@ export function createLegend() {
                 <div class="legend-item">
                     <input type="checkbox" class="legend-checkbox" data-type="SKIRT" checked />
                     <div class="legend-color" style="background-color: #888888;"></div>
-                    <span>Skirt/Brim</span>
+                    <span>Adhesion (Skirt/Brim/Raft)</span>
                 </div>
                 <div class="legend-item">
                     <input type="checkbox" class="legend-checkbox" data-type="path" checked />

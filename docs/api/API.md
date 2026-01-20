@@ -117,6 +117,40 @@ slicer.setInfillDensity(20);
 slicer.getInfillPattern();
 slicer.setInfillPattern('grid');
 
+// Build Plate Adhesion
+slicer.getAdhesionEnabled();
+slicer.setAdhesionEnabled(true);
+slicer.getAdhesionType();
+slicer.setAdhesionType('skirt');
+
+// Skirt Settings
+slicer.getSkirtType();
+slicer.setSkirtType('circular');
+slicer.getSkirtDistance();
+slicer.setSkirtDistance(5);
+slicer.getSkirtLineCount();
+slicer.setSkirtLineCount(3);
+
+// Brim Settings
+slicer.getBrimDistance();
+slicer.setBrimDistance(0);
+slicer.getBrimLineCount();
+slicer.setBrimLineCount(8);
+
+// Raft Settings
+slicer.getRaftMargin();
+slicer.setRaftMargin(5);
+slicer.getRaftBaseThickness();
+slicer.setRaftBaseThickness(0.3);
+slicer.getRaftInterfaceLayers();
+slicer.setRaftInterfaceLayers(2);
+slicer.getRaftInterfaceThickness();
+slicer.setRaftInterfaceThickness(0.2);
+slicer.getRaftAirGap();
+slicer.setRaftAirGap(0.2);
+slicer.getRaftLineSpacing();
+slicer.setRaftLineSpacing(2);
+
 // Exposure detection
 slicer.getExposureDetection();
 slicer.setExposureDetection(true);

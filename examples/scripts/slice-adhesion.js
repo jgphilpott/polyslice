@@ -17,8 +17,8 @@ const baseSlicerConfig = {
   // Adhesion settings (will be overridden per variant)
   adhesionEnabled: true,
   adhesionType: 'skirt',
-  adhesionDistance: 5,
-  adhesionLineCount: 3,
+  skirtDistance: 5,
+  skirtLineCount: 3,
 
   // Basic slicing settings
   layerHeight: 0.2,
@@ -48,12 +48,12 @@ const geometries = [
 const adhesionVariants = [
   {
     name: 'Circular Skirt',
-    config: { adhesionType: 'skirt', adhesionSkirtType: 'circular' },
+    config: { adhesionType: 'skirt', skirtType: 'circular' },
     outputSubdir: 'skirt/circular'
   },
   {
     name: 'Shape Skirt',
-    config: { adhesionType: 'skirt', adhesionSkirtType: 'shape' },
+    config: { adhesionType: 'skirt', skirtType: 'shape' },
     outputSubdir: 'skirt/shape'
   },
   {

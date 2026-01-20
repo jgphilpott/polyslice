@@ -9,7 +9,7 @@ module.exports =
     generateSkirt: (slicer, mesh, centerOffsetX, centerOffsetY, boundingBox, firstLayerPaths = null) ->
 
         # Get skirt type configuration (default to 'circular').
-        skirtType = slicer.getAdhesionSkirtType?() or 'circular'
+        skirtType = slicer.getSkirtType?() or 'circular'
 
         switch skirtType
 
@@ -33,8 +33,8 @@ module.exports =
 
         nozzleDiameter = slicer.getNozzleDiameter()
         layerHeight = slicer.getLayerHeight()
-        adhesionDistance = slicer.getAdhesionDistance()
-        adhesionLineCount = slicer.getAdhesionLineCount()
+        skirtDistance = slicer.getSkirtDistance()
+        skirtLineCount = slicer.getSkirtLineCount()
 
         # Calculate model dimensions in XY plane.
         modelMinX = boundingBox.min.x
@@ -49,8 +49,8 @@ module.exports =
         modelHeight = modelMaxY - modelMinY
 
         # Calculate the radius for circular skirt (use larger dimension).
-        # Add adhesion distance as starting offset.
-        baseRadius = Math.sqrt((modelWidth / 2) ** 2 + (modelHeight / 2) ** 2) + adhesionDistance
+        # Add skirt distance as starting offset.
+        baseRadius = Math.sqrt((modelWidth / 2) ** 2 + (modelHeight / 2) ** 2) + skirtDistance
 
         # First layer Z height.
         z = layerHeight
@@ -59,13 +59,13 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
 
         # Check if skirt extends beyond build plate boundaries using helper.
-        maxRadius = baseRadius + (adhesionLineCount * nozzleDiameter)
+        maxRadius = baseRadius + (skirtLineCount * nozzleDiameter)
         skirtBoundingBox = boundaryHelper.calculateCircularSkirtBounds(modelCenterX, modelCenterY, maxRadius)
         boundaryInfo = boundaryHelper.checkBuildPlateBoundaries(slicer, skirtBoundingBox, centerOffsetX, centerOffsetY)
         boundaryHelper.addBoundaryWarning(slicer, boundaryInfo, 'Skirt')
 
         # Generate concentric loops.
-        for loopIndex in [0...adhesionLineCount]
+        for loopIndex in [0...skirtLineCount]
 
             radius = baseRadius + (loopIndex * nozzleDiameter)
 
@@ -136,8 +136,8 @@ module.exports =
 
         nozzleDiameter = slicer.getNozzleDiameter()
         layerHeight = slicer.getLayerHeight()
-        adhesionDistance = slicer.getAdhesionDistance()
-        adhesionLineCount = slicer.getAdhesionLineCount()
+        skirtDistance = slicer.getSkirtDistance()
+        skirtLineCount = slicer.getSkirtLineCount()
 
         # First layer Z height.
         z = layerHeight
@@ -277,11 +277,11 @@ module.exports =
             return outsetPath
 
         # Generate concentric loops around all outer paths.
-        for loopIndex in [0...adhesionLineCount]
+        for loopIndex in [0...skirtLineCount]
 
             # Calculate offset distance for this loop.
-            # First loop is at adhesionDistance, subsequent loops are spaced by nozzleDiameter.
-            offsetDistance = adhesionDistance + (loopIndex * nozzleDiameter)
+            # First loop is at skirtDistance, subsequent loops are spaced by nozzleDiameter.
+            offsetDistance = skirtDistance + (loopIndex * nozzleDiameter)
 
             # Create offset paths for each outer boundary.
             offsetPaths = []
@@ -300,6 +300,32 @@ module.exports =
 
             # Print each offset path.
             for skirtPath, pathIdx in offsetPaths
+
+                # Optimize starting point to be closest to home position (for first loop) or previous end
+                # This prevents corner clipping artifacts
+                if skirtPath.length >= 3
+                    
+                    # For the first path, start closest to home position (0, 0 in build plate coords)
+                    # For subsequent paths, start closest to where we last ended
+                    referenceX = if loopIndex is 0 and pathIdx is 0 then -centerOffsetX else prevPoint?.x ? -centerOffsetX
+                    referenceY = if loopIndex is 0 and pathIdx is 0 then -centerOffsetY else prevPoint?.y ? -centerOffsetY
+                    
+                    # Find the point in the path closest to the reference position
+                    minDistSq = Infinity
+                    bestStartIndex = 0
+                    
+                    for point, idx in skirtPath
+                        dx = point.x - referenceX
+                        dy = point.y - referenceY
+                        distSq = dx * dx + dy * dy
+                        
+                        if distSq < minDistSq
+                            minDistSq = distSq
+                            bestStartIndex = idx
+                    
+                    # Rotate the path to start at the best point
+                    if bestStartIndex > 0
+                        skirtPath = skirtPath[bestStartIndex...].concat(skirtPath[0...bestStartIndex])
 
                 # Travel to start of skirt path.
                 if loopIndex is 0 and pathIdx is 0
@@ -347,7 +373,7 @@ module.exports =
 
         for outerPath in outerPaths
 
-            maxOffsetDistance = adhesionDistance + ((adhesionLineCount - 1) * nozzleDiameter)
+            maxOffsetDistance = skirtDistance + ((skirtLineCount - 1) * nozzleDiameter)
             pathBounds = boundaryHelper.calculatePathBounds(outerPath, maxOffsetDistance)
 
             if pathBounds
