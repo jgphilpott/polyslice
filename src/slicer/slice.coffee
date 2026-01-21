@@ -601,14 +601,12 @@ module.exports =
             # Conditions for using this optimization:
             # 1. No holes on this layer (independent objects)
             # 2. Valid innermost wall exists
-            # 3. Either:
-            #    a) Exposure detection is disabled (always use optimization), OR
-            #    b) Exposure detection is enabled BUT this is an absolute top/bottom layer
-            #       (exposure detection not needed since skin is always generated on top/bottom)
             #
-            # For middle layers with exposure detection enabled, we need the two-phase approach
-            # to properly detect which areas are exposed and need skin.
-            canUseSequentialCompletion = holeIndices.length is 0 and innermostWall and innermostWall.length >= 3 and (not slicer.getExposureDetection() or isAbsoluteTopOrBottom)
+            # For independent objects, we always use sequential completion because:
+            # - Objects don't interfere with each other
+            # - Optimal travel path is to complete one object before moving to the next
+            # - Exposure detection (if enabled) can be applied independently to each object
+            canUseSequentialCompletion = holeIndices.length is 0 and innermostWall and innermostWall.length >= 3
 
             if canUseSequentialCompletion
 
@@ -616,21 +614,83 @@ module.exports =
                 currentPath = innermostWall
                 infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, false)
 
-                # Determine if this region needs skin.
-                needsSkin = layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+                # Determine if this region needs skin based on layer position and exposure detection.
+                needsSkin = false
+                skinAreas = []
+                isAbsoluteTopOrBottom = false
+                coveringRegionsAbove = []
+                coveringRegionsBelow = []
+
+                # Check for absolute top/bottom layers.
+                if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
+                    needsSkin = true
+                    skinAreas = [currentPath]
+                    isAbsoluteTopOrBottom = true
+
+                else if slicer.getExposureDetection()
+
+                    # For middle layers with exposure detection enabled, check if this object
+                    # has exposed areas (e.g., due to changing cross-section like pyramids/cones).
+                    exposureResult = exposureModule.calculateExposedAreasForLayer(
+                        currentPath,
+                        layerIndex,
+                        skinLayerCount,
+                        totalLayers,
+                        allLayers,
+                        slicer.getExposureDetectionResolution()
+                    )
+
+                    skinAreas = exposureResult.exposedAreas
+                    coveringRegionsAbove = exposureResult.coveringRegionsAbove
+                    coveringRegionsBelow = exposureResult.coveringRegionsBelow
+                    needsSkin = skinAreas.length > 0
+
+                # Strategy: top/bottom = skin only; mixed = infill then skin; middle = infill only.
+                infillDensity = slicer.getInfillDensity()
 
                 if needsSkin
 
-                    # Generate skin for top/bottom layers.
-                    skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], [])
+                    # Identify fully covered areas for skin infill exclusion.
+                    fullyCoveredRegions = exposureModule.identifyFullyCoveredRegions(currentPath, coveringRegionsAbove, coveringRegionsBelow)
+                    fullyCoveredSkinWalls = exposureModule.filterFullyCoveredSkinWalls(fullyCoveredRegions, currentPath)
+
+                    if isAbsoluteTopOrBottom
+
+                        # Absolute top/bottom layers: skin only for clean surfaces.
+                        for skinArea in skinAreas
+                            skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], fullyCoveredSkinWalls)
+
+                    else
+
+                        # Mixed layers: infill first, then skin.
+                        if infillDensity > 0 and infillBoundary.length >= 3
+
+                            # For mixed layers, pass skin areas to infill to prevent overlap.
+                            infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, [], [], skinAreas)
+
+                        # Generate skin for exposed areas.
+                        for skinArea in skinAreas
+                            skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], fullyCoveredSkinWalls)
+
+                        # Generate skin walls (no infill) for fully covered regions.
+                        for fullyCoveredSkinWall in fullyCoveredSkinWalls
+                            continue if fullyCoveredSkinWall.length < 3
+                            skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, false, [], [], [], true)
+
+                            if infillDensity > 0
+                                infillGap = 0
+                                skinWallInset = nozzleDiameter
+                                totalInsetForInfill = skinWallInset + infillGap
+                                coveredInfillBoundary = pathsUtils.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
+
+                                if coveredInfillBoundary.length >= 3
+                                    infillModule.generateInfillGCode(slicer, coveredInfillBoundary, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, [], [], [])
 
                 else
 
-                    # Generate infill for middle layers.
-                    infillDensity = slicer.getInfillDensity()
-
+                    # No skin needed - generate sparse infill only.
                     if infillDensity > 0 and infillBoundary.length >= 3
-
                         infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, [], [])
 
                 completedObjectIndices[pathIndex] = true

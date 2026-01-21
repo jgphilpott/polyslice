@@ -2411,3 +2411,116 @@ describe 'Slicing', ->
                 expect(result.length).toBeGreaterThan(1000)
 
                 return # Explicitly return undefined for Jest.
+
+        test 'should use sequential completion for infill layers even with exposure detection enabled', ->
+
+            # Helper to create merged mesh from multiple cylinders.
+            # This is an async test because we need to dynamically import BufferGeometryUtils.
+            createMergedPillars = ->
+
+                # Create two separate cylinders.
+                geometry1 = new THREE.CylinderGeometry(3, 3, 6, 32)
+                mesh1 = new THREE.Mesh(geometry1, new THREE.MeshBasicMaterial())
+                mesh1.rotation.x = Math.PI / 2
+                mesh1.position.set(-30, -30, 3)
+                mesh1.updateMatrixWorld()
+                geo1 = mesh1.geometry.clone()
+                geo1.applyMatrix4(mesh1.matrixWorld)
+
+                geometry2 = new THREE.CylinderGeometry(3, 3, 6, 32)
+                mesh2 = new THREE.Mesh(geometry2, new THREE.MeshBasicMaterial())
+                mesh2.rotation.x = Math.PI / 2
+                mesh2.position.set(30, 30, 3)
+                mesh2.updateMatrixWorld()
+                geo2 = mesh2.geometry.clone()
+                geo2.applyMatrix4(mesh2.matrixWorld)
+
+                # Merge geometries using dynamic import.
+                return import('three/examples/jsm/utils/BufferGeometryUtils.js').then (mod) ->
+
+                    # Use the mergeGeometries function from the module.
+                    mergeFunc = mod.mergeGeometries or mod.BufferGeometryUtils?.mergeGeometries
+                    mergedGeometry = mergeFunc([geo1, geo2], false)
+                    mergedMesh = new THREE.Mesh(mergedGeometry, new THREE.MeshBasicMaterial())
+                    mergedMesh.updateMatrixWorld()
+
+                    return mergedMesh
+
+            # Return promise for async test.
+            return createMergedPillars().then (mergedMesh) ->
+
+                # Configure slicer with exposure detection enabled (default).
+                # Sequential completion should work for independent objects regardless.
+                slicer.setLayerHeight(0.2)
+                slicer.setShellSkinThickness(0.4)  # 2 layers top/bottom
+                slicer.setExposureDetection(true)  # Keep enabled (default)
+                slicer.setInfillDensity(50)  # Enable infill
+                slicer.setVerbose(true)
+
+                result = slicer.slice(mergedMesh)
+
+                # Analyze layer 4 (middle infill layer).
+                # With 6mm height / 0.2mm layer height = 30 layers
+                # Skin: layers 1-2 (bottom) and 29-30 (top)
+                # Infill: layers 3-28
+                lines = result.split('\n')
+                layer4Start = -1
+                layer5Start = -1
+
+                for i in [0...lines.length]
+                    if lines[i].includes('LAYER: 4 of')
+                        layer4Start = i
+                    else if layer4Start >= 0 and lines[i].includes('LAYER: 5 of')
+                        layer5Start = i
+                        break
+
+                expect(layer4Start).toBeGreaterThan(-1)
+                expect(layer5Start).toBeGreaterThan(-1)
+
+                # Extract layer 4 content.
+                layer4Lines = lines[layer4Start...layer5Start]
+                typeSequence = []
+
+                for line in layer4Lines
+                    if line.includes('TYPE: WALL-OUTER')
+                        typeSequence.push('WALL-OUTER')
+                    else if line.includes('TYPE: WALL-INNER')
+                        typeSequence.push('WALL-INNER')
+                    else if line.includes('TYPE: FILL')
+                        typeSequence.push('FILL')
+
+                # Verify we have infill on this layer.
+                hasFill = typeSequence.includes('FILL')
+                expect(hasFill).toBe(true)
+
+                # For sequential completion on infill layers, the pattern should be:
+                # Pillar 1: WALL-OUTER → WALL-INNER → FILL
+                # Pillar 2: WALL-OUTER → WALL-INNER → FILL
+                # This is NOT:
+                # All walls first: WALL-OUTER → WALL-INNER → WALL-OUTER → WALL-INNER
+                # Then all fills: FILL → FILL
+
+                # Count wall-to-fill transitions (sequential completion pattern).
+                wallToFillTransitions = 0
+                prevLineHadWall = false
+
+                for type in typeSequence
+                    if type is 'WALL-OUTER' or type is 'WALL-INNER'
+                        prevLineHadWall = true
+                    else if type is 'FILL' and prevLineHadWall
+                        wallToFillTransitions++
+                        prevLineHadWall = false
+                    else
+                        prevLineHadWall = false
+
+                # With sequential completion, we expect at least 2 wall-to-fill transitions
+                # (one for each pillar on this infill layer).
+                # If the old two-pass behavior was happening, there would be only 1 transition.
+                expect(wallToFillTransitions).toBeGreaterThanOrEqual(2)
+
+                # Verify the G-code contains expected elements.
+                expect(result).toContain('WALL-OUTER')
+                expect(result).toContain('FILL')
+                expect(result.length).toBeGreaterThan(1000)
+
+                return # Explicitly return undefined for Jest.
