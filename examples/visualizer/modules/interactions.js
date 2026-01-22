@@ -274,20 +274,20 @@ export function setupHoverHandler(scene, camera, renderer) {
           intersect.object instanceof THREE.Line) {
 
         const object = intersect.object;
-        
+
         // Check if this segment has source G-code data
         if (object.userData && object.userData.sourceCmds && object.userData.sourceLines) {
           // Calculate which line segment was intersected
           const index = intersect.index !== undefined ? Math.floor(intersect.index / 2) : 0;
-          
+
           // Only log if we're hovering over a different segment
           if (lastLoggedObject !== object || lastLoggedIndex !== index) {
             if (index >= 0 && index < object.userData.sourceCmds.length) {
               const lineNumber = object.userData.sourceLines[index];
               const gcodeCommand = object.userData.sourceCmds[index];
-              
+
               console.log(`G-code line ${lineNumber + 1}: ${gcodeCommand}`);
-              
+
               lastLoggedObject = object;
               lastLoggedIndex = index;
             }

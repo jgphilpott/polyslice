@@ -197,18 +197,6 @@ export function loadGCode(content, filename, scene, callbacks) {
   loader.splitLayer = true;
   const gcodeObject = loader.parse(content);
 
-  // Log metadata
-  if (gcodeObject.userData.metadata) {
-    console.log('G-code metadata:', gcodeObject.userData.metadata);
-
-    const moveTypes = gcodeObject.userData.metadata.moveTypes || {};
-    if (Object.keys(moveTypes).length === 0) {
-      console.warn('No TYPE comments detected in G-code. Using legacy red/green colors.');
-    } else {
-      console.log('TYPE comments detected! Color-coded visualization active.');
-    }
-  }
-
   // Add to scene
   scene.add(gcodeObject);
 
