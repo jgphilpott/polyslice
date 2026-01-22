@@ -275,6 +275,11 @@ export function setupHoverHandler(scene, camera, renderer) {
 
         const object = intersect.object;
 
+        // Check if the line is visible (active in the view)
+        if (!object.visible) {
+          continue;
+        }
+
         // Check if this segment has source G-code data
         if (object.userData && object.userData.sourceCmds && object.userData.sourceLines) {
           // Calculate which line segment was intersected
