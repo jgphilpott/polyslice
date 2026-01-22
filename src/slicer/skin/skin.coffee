@@ -124,17 +124,21 @@ module.exports =
         # Calculate infill boundary.
         # If wall was generated, use its offset; otherwise calculate from boundary.
         infillGap = nozzleDiameter / 2
+        
+        # Add small epsilon to ensure diagonal lines at boundary corners aren't excluded
+        # due to floating-point precision issues in point-in-polygon tests.
+        boundaryEpsilon = 0.05  # 0.05mm = 50 microns
 
         if generateWall
 
             skinWallInset = nozzleDiameter
-            infillInset = skinWallInset + infillGap
+            infillInset = skinWallInset + infillGap - boundaryEpsilon
 
         else
 
             # No wall generated, calculate infill boundary directly from boundaryPath.
             # Use the same offset as if wall had been generated.
-            infillInset = nozzleDiameter + infillGap
+            infillInset = nozzleDiameter + infillGap - boundaryEpsilon
 
         infillBoundary = paths.createInsetPath(boundaryPath, infillInset, isHole)
 
