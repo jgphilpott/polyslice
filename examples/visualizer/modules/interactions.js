@@ -35,85 +35,173 @@ export function setupKeyboardControls(camera, controls) {
   const rotateSpeed = 0.05;
   const panSpeed = 5;
 
+  // Track which slider is currently focused
+  let focusedSlider = null;
+
+  // Add focus/blur listeners to all sliders
+  const layerSliderMin = document.getElementById('layer-slider-min');
+  const layerSliderMax = document.getElementById('layer-slider-max');
+  const moveSlider = document.getElementById('move-slider');
+
+  const sliders = [layerSliderMin, layerSliderMax, moveSlider];
+
+  sliders.forEach(slider => {
+    if (slider) {
+      slider.addEventListener('focus', () => {
+        focusedSlider = slider;
+      });
+
+      slider.addEventListener('blur', () => {
+        if (focusedSlider === slider) {
+          focusedSlider = null;
+        }
+      });
+    }
+  });
+
   window.addEventListener('keydown', (event) => {
     let needsUpdate = false;
+    let sliderHandled = false;
 
-    // Get camera's current orientation vectors
-    const forward = new THREE.Vector3();
-    const right = new THREE.Vector3();
-    const up = new THREE.Vector3(0, 1, 0);
+    // Check if a slider is focused and handle arrow keys for slider control
+    if (focusedSlider) {
+      const isVerticalSlider = (focusedSlider === layerSliderMin || focusedSlider === layerSliderMax);
+      const isHorizontalSlider = (focusedSlider === moveSlider);
 
-    camera.getWorldDirection(forward);
-    right.crossVectors(forward, up).normalize();
+      const currentValue = parseInt(focusedSlider.value);
+      const minValue = parseInt(focusedSlider.min);
+      const maxValue = parseInt(focusedSlider.max);
 
-    switch (event.key.toLowerCase()) {
-      case 'w':
-        // Rotate camera up (around the right axis)
-        camera.position.sub(controls.target);
-        camera.position.applyAxisAngle(right, -rotateSpeed);
-        camera.position.add(controls.target);
-        needsUpdate = true;
-        break;
+      switch (event.key.toLowerCase()) {
+        case 'arrowup':
+          if (isVerticalSlider) {
+            // For vertical sliders, up arrow increases value
+            if (currentValue < maxValue) {
+              focusedSlider.value = currentValue + 1;
+              focusedSlider.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            sliderHandled = true;
+            event.preventDefault();
+          }
+          break;
 
-      case 's':
-        // Rotate camera down (around the right axis)
-        camera.position.sub(controls.target);
-        camera.position.applyAxisAngle(right, rotateSpeed);
-        camera.position.add(controls.target);
-        needsUpdate = true;
-        break;
+        case 'arrowdown':
+          if (isVerticalSlider) {
+            // For vertical sliders, down arrow decreases value
+            if (currentValue > minValue) {
+              focusedSlider.value = currentValue - 1;
+              focusedSlider.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            sliderHandled = true;
+            event.preventDefault();
+          }
+          break;
 
-      case 'a':
-        // Rotate camera left (around the up axis)
-        camera.position.sub(controls.target);
-        camera.position.applyAxisAngle(up, rotateSpeed);
-        camera.position.add(controls.target);
-        needsUpdate = true;
-        break;
+        case 'arrowleft':
+          if (isHorizontalSlider) {
+            // For horizontal slider, left arrow decreases value
+            if (currentValue > minValue) {
+              focusedSlider.value = currentValue - 1;
+              focusedSlider.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            sliderHandled = true;
+            event.preventDefault();
+          }
+          break;
 
-      case 'd':
-        // Rotate camera right (around the up axis)
-        camera.position.sub(controls.target);
-        camera.position.applyAxisAngle(up, -rotateSpeed);
-        camera.position.add(controls.target);
-        needsUpdate = true;
-        break;
-
-      case 'arrowup':
-        // Move camera and target forward
-        camera.position.addScaledVector(forward, panSpeed);
-        controls.target.addScaledVector(forward, panSpeed);
-        needsUpdate = true;
-        event.preventDefault();
-        break;
-
-      case 'arrowdown':
-        // Move camera and target backward
-        camera.position.addScaledVector(forward, -panSpeed);
-        controls.target.addScaledVector(forward, -panSpeed);
-        needsUpdate = true;
-        event.preventDefault();
-        break;
-
-      case 'arrowleft':
-        // Move camera and target left
-        camera.position.addScaledVector(right, -panSpeed);
-        controls.target.addScaledVector(right, -panSpeed);
-        needsUpdate = true;
-        event.preventDefault();
-        break;
-
-      case 'arrowright':
-        // Move camera and target right
-        camera.position.addScaledVector(right, panSpeed);
-        controls.target.addScaledVector(right, panSpeed);
-        needsUpdate = true;
-        event.preventDefault();
-        break;
+        case 'arrowright':
+          if (isHorizontalSlider) {
+            // For horizontal slider, right arrow increases value
+            if (currentValue < maxValue) {
+              focusedSlider.value = currentValue + 1;
+              focusedSlider.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            sliderHandled = true;
+            event.preventDefault();
+          }
+          break;
+      }
     }
 
-    if (needsUpdate) {
-      controls.update();
+    // If slider didn't handle the key, use it for camera control
+    if (!sliderHandled) {
+      // Get camera's current orientation vectors
+      const forward = new THREE.Vector3();
+      const right = new THREE.Vector3();
+      const up = new THREE.Vector3(0, 1, 0);
+
+      camera.getWorldDirection(forward);
+      right.crossVectors(forward, up).normalize();
+
+      switch (event.key.toLowerCase()) {
+        case 'w':
+          // Rotate camera up (around the right axis)
+          camera.position.sub(controls.target);
+          camera.position.applyAxisAngle(right, -rotateSpeed);
+          camera.position.add(controls.target);
+          needsUpdate = true;
+          break;
+
+        case 's':
+          // Rotate camera down (around the right axis)
+          camera.position.sub(controls.target);
+          camera.position.applyAxisAngle(right, rotateSpeed);
+          camera.position.add(controls.target);
+          needsUpdate = true;
+          break;
+
+        case 'a':
+          // Rotate camera left (around the up axis)
+          camera.position.sub(controls.target);
+          camera.position.applyAxisAngle(up, rotateSpeed);
+          camera.position.add(controls.target);
+          needsUpdate = true;
+          break;
+
+        case 'd':
+          // Rotate camera right (around the up axis)
+          camera.position.sub(controls.target);
+          camera.position.applyAxisAngle(up, -rotateSpeed);
+          camera.position.add(controls.target);
+          needsUpdate = true;
+          break;
+
+        case 'arrowup':
+          // Move camera and target forward
+          camera.position.addScaledVector(forward, panSpeed);
+          controls.target.addScaledVector(forward, panSpeed);
+          needsUpdate = true;
+          event.preventDefault();
+          break;
+
+        case 'arrowdown':
+          // Move camera and target backward
+          camera.position.addScaledVector(forward, -panSpeed);
+          controls.target.addScaledVector(forward, -panSpeed);
+          needsUpdate = true;
+          event.preventDefault();
+          break;
+
+        case 'arrowleft':
+          // Move camera and target left
+          camera.position.addScaledVector(right, -panSpeed);
+          controls.target.addScaledVector(right, -panSpeed);
+          needsUpdate = true;
+          event.preventDefault();
+          break;
+
+        case 'arrowright':
+          // Move camera and target right
+          camera.position.addScaledVector(right, panSpeed);
+          controls.target.addScaledVector(right, panSpeed);
+          needsUpdate = true;
+          event.preventDefault();
+          break;
+      }
+
+      if (needsUpdate) {
+        controls.update();
+      }
     }
   });
 }
@@ -150,6 +238,75 @@ export function setupDoubleClickHandler(scene, camera, renderer, controls) {
         focusCameraOnPoint(point, camera, controls);
         break;
       }
+    }
+  });
+}
+
+/**
+ * Setup hover handler to log G-code commands when hovering over lines.
+ */
+export function setupHoverHandler(scene, camera, renderer) {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let lastLoggedObject = null;
+  let lastLoggedIndex = null;
+
+  raycaster.params.Line.threshold = 2;
+
+  renderer.domElement.addEventListener('mousemove', (event) => {
+    // Calculate mouse position in normalized device coordinates
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Update the raycaster
+    raycaster.setFromCamera(mouse, camera);
+
+    // Calculate intersections
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    // Find the first intersected line segment
+    let found = false;
+    for (let i = 0; i < intersects.length; i++) {
+      const intersect = intersects[i];
+
+      if (intersect.object instanceof THREE.LineSegments ||
+          intersect.object instanceof THREE.Line) {
+
+        const object = intersect.object;
+
+        // Check if the line is visible (active in the view)
+        if (!object.visible) {
+          continue;
+        }
+
+        // Check if this segment has source G-code data
+        if (object.userData && object.userData.sourceCmds && object.userData.sourceLines) {
+          // Calculate which line segment was intersected
+          const index = intersect.index !== undefined ? Math.floor(intersect.index / 2) : 0;
+
+          // Only log if we're hovering over a different segment
+          if (lastLoggedObject !== object || lastLoggedIndex !== index) {
+            if (index >= 0 && index < object.userData.sourceCmds.length) {
+              const lineNumber = object.userData.sourceLines[index];
+              const gcodeCommand = object.userData.sourceCmds[index];
+
+              console.log(`G-code line ${lineNumber + 1}: ${gcodeCommand}`);
+
+              lastLoggedObject = object;
+              lastLoggedIndex = index;
+            }
+          }
+          found = true;
+          break;
+        }
+      }
+    }
+
+    // Reset tracking if not hovering over any line
+    if (!found) {
+      lastLoggedObject = null;
+      lastLoggedIndex = null;
     }
   });
 }

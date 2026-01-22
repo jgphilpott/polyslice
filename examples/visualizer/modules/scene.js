@@ -34,7 +34,7 @@ export function initScene() {
     1000
   );
   camera.up.set(0, 0, 1);
-  camera.position.set(300, 300, 300);
+  camera.position.set(300, 300, 150);
   camera.lookAt(0, 0, 0);
 
   // Create renderer.

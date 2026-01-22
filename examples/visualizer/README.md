@@ -63,11 +63,20 @@ The visualizer automatically detects and color-codes different types of movement
   - **S**: Tilt camera down
   - **A**: Rotate camera left
   - **D**: Rotate camera right
-- **Arrow Keys**: Move the camera position
-  - **↑ (Up Arrow)**: Move camera forward
-  - **↓ (Down Arrow)**: Move camera backward
-  - **← (Left Arrow)**: Move camera left
-  - **→ (Right Arrow)**: Move camera right
+- **Arrow Keys**:
+  - **When no slider is focused**: Move the camera position
+    - **↑ (Up Arrow)**: Move camera forward
+    - **↓ (Down Arrow)**: Move camera backward
+    - **← (Left Arrow)**: Move camera left
+    - **→ (Right Arrow)**: Move camera right
+  - **When a vertical slider is focused** (click or tab to a layer slider):
+    - **↑ (Up Arrow)**: Increase slider value by 1 (show one more layer)
+    - **↓ (Down Arrow)**: Decrease slider value by 1 (hide one layer)
+  - **When the horizontal slider is focused** (click or tab to the move slider):
+    - **← (Left Arrow)**: Decrease slider value by 1 (show one less move)
+    - **→ (Right Arrow)**: Increase slider value by 1 (show one more move)
+
+> **Tip**: Click on any slider or press Tab to cycle through focusable elements. When a slider is focused, it will show a colored outline matching the slider's color.
 
 ### Settings Panel
 
@@ -256,6 +265,7 @@ When G-code contains layer information (LAYER comments), a dual vertical slider 
   - Drag down to show more layers from the bottom
 - Shows "All Layers" when all layers are visible
 - Displays current layer range (e.g., "Layers 5 - 15 (11 / 25)")
+- **Keyboard control**: Click a slider to focus it, then use **↑/↓ arrow keys** to adjust by 1 layer at a time
 
 This is particularly useful for:
 - Examining individual layers in detail
@@ -263,6 +273,7 @@ This is particularly useful for:
 - Understanding the layer-by-layer build sequence
 - Isolating a specific range of layers to focus on a particular section of the print
 - Removing clutter from top and bottom to inspect middle layers
+- **Precise layer navigation**: Use arrow keys for fine-grained control when you need to view a specific layer
 
 ### Move Slider
 
@@ -274,6 +285,7 @@ When G-code is loaded, a horizontal slider appears at the bottom center of the s
   - Displays current progress percentage (e.g., "Move Progress: 75%")
   - Only affects the topmost visible layer when multiple layers are selected
   - Moves are shown in order as they appear in the G-code
+- **Keyboard control**: Click the slider to focus it, then use **←/→ arrow keys** to adjust by 1% at a time
 
 This is particularly useful for:
 - Stepping through the print path move-by-move on a specific layer
@@ -281,6 +293,7 @@ This is particularly useful for:
 - Debugging issues with specific movements or sections
 - Analyzing how the printer will execute the layer
 - Educational purposes to see how G-code translates to physical movements
+- **Precise move control**: Use arrow keys to step through moves one at a time
 
 ## Cura G-code Format Support
 

@@ -39,7 +39,8 @@ import {
 import {
   setupEventListeners,
   setupKeyboardControls,
-  setupDoubleClickHandler
+  setupDoubleClickHandler,
+  setupHoverHandler
 } from './modules/interactions.js';
 import { sliceModel } from './modules/slicer.js';
 import {
@@ -135,6 +136,9 @@ function init() {
 
   // Setup double-click handler
   setupDoubleClickHandler(scene, camera, renderer, controls);
+
+  // Setup hover handler for G-code logging
+  setupHoverHandler(scene, camera, renderer);
 
   // Hide G-code specific legends initially
   hideGCodeLegends();
