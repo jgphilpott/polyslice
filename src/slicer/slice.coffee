@@ -880,6 +880,7 @@ module.exports =
                         # In Phase 2, we need to generate skin infill only (not duplicate walls).
                         # The simplest approach: check if this structure already has skin walls from Phase 1.
                         structureAlreadyHasSkinWall = holeIndices.length > 0
+                        shouldGenerateWall = not structureAlreadyHasSkinWall
 
                         # Skip if skin area is actually inside a hole (for simple cases without nesting).
                         # But for nested structures, we've already generated skin walls in Phase 1,
@@ -889,7 +890,7 @@ module.exports =
                             continue
 
                         # Pass generateWall=false if skin wall was already generated in Phase 1.
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls, false, not structureAlreadyHasSkinWall)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls, false, shouldGenerateWall)
 
                 else
 
@@ -920,8 +921,9 @@ module.exports =
                         # For nested structures with holes, Phase 1 already generated skin walls.
                         # Pass generateWall=false if skin wall was already generated in Phase 1.
                         structureAlreadyHasSkinWall = holeIndices.length > 0
+                        shouldGenerateWall = not structureAlreadyHasSkinWall
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls, false, not structureAlreadyHasSkinWall)
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls, false, shouldGenerateWall)
 
                     # Generate skin walls (no infill) for fully covered regions.
                     fullyCoveredInfillBoundaries = []
