@@ -33,10 +33,15 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Grid: both +45° and -45° lines on every layer, centered at origin.
+        # Grid: both +45° and -45° lines on every layer, centered on the infill boundary.
         allInfillLines = []
 
-        centerOffset = 0
+        # Calculate center of the infill boundary for proper line centering.
+        centerX = (minX + maxX) / 2
+        centerY = (minY + maxY) / 2
+
+        # For +45° lines (y = x + offset), center offset is y - x at center point.
+        centerOffset = centerY - centerX
 
         numLinesUp = Math.ceil(diagonalSpan / (lineSpacing * Math.sqrt(2)))
 
@@ -85,7 +90,8 @@ module.exports =
             offset += lineSpacing * Math.sqrt(2)
 
         # Generate -45° lines.
-        centerOffset = 0
+        # For -45° lines (y = -x + offset), center offset is y + x at center point.
+        centerOffset = centerY + centerX
 
         offset = centerOffset - numLinesUp * lineSpacing * Math.sqrt(2)
         maxOffset = centerOffset + numLinesUp * lineSpacing * Math.sqrt(2)

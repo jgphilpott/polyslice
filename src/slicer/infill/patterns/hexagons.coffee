@@ -52,8 +52,9 @@ module.exports =
 
                 return "#{rx2},#{ry2}-#{rx1},#{ry1}"
 
-        patternCenterX = 0
-        patternCenterY = 0
+        # Center the hexagon pattern on the infill boundary center.
+        patternCenterX = (minX + maxX) / 2
+        patternCenterY = (minY + maxY) / 2
 
         numRows = Math.ceil(height / verticalSpacing) + 2
         numCols = Math.ceil(width / horizontalSpacing) + 2
