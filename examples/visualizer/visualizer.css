@@ -164,6 +164,11 @@ body {
   border: none;
 }
 
+#layer-slider-min:focus {
+  outline: 2px solid #ff6600;
+  outline-offset: 2px;
+}
+
 #layer-slider-max::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -181,6 +186,11 @@ body {
   cursor: pointer;
   border-radius: 3px;
   border: none;
+}
+
+#layer-slider-max:focus {
+  outline: 2px solid #4caf50;
+  outline-offset: 2px;
 }
 
 #layer-info {
@@ -240,6 +250,11 @@ body {
   cursor: pointer;
   border-radius: 50%;
   border: none;
+}
+
+#move-slider:focus {
+  outline: 2px solid #00ccff;
+  outline-offset: 2px;
 }
 
 #move-info {

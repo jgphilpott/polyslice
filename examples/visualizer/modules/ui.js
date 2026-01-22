@@ -102,8 +102,8 @@ export function createLegend() {
 export function createLayerSlider() {
   const sliderHTML = `
         <div id="layer-slider-container">
-            <input type="range" id="layer-slider-max" min="0" max="100" value="100" orient="vertical">
-            <input type="range" id="layer-slider-min" min="0" max="100" value="0" orient="vertical">
+            <input type="range" id="layer-slider-max" min="0" max="100" value="100" orient="vertical" tabindex="0">
+            <input type="range" id="layer-slider-min" min="0" max="100" value="0" orient="vertical" tabindex="0">
             <div id="layer-info">All Layers</div>
         </div>`;
 
@@ -117,7 +117,7 @@ export function createMoveSlider() {
   const sliderHTML = `
         <div id="move-slider-container">
             <div id="move-info">Move Progress: 0%</div>
-            <input type="range" id="move-slider" min="0" max="100" value="100">
+            <input type="range" id="move-slider" min="0" max="100" value="100" tabindex="0">
         </div>`;
 
   document.body.insertAdjacentHTML('beforeend', sliderHTML);
