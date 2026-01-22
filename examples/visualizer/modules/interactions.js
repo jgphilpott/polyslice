@@ -241,3 +241,67 @@ export function setupDoubleClickHandler(scene, camera, renderer, controls) {
     }
   });
 }
+
+/**
+ * Setup hover handler to log G-code commands when hovering over lines.
+ */
+export function setupHoverHandler(scene, camera, renderer) {
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let lastLoggedObject = null;
+  let lastLoggedIndex = null;
+
+  raycaster.params.Line.threshold = 2;
+
+  renderer.domElement.addEventListener('mousemove', (event) => {
+    // Calculate mouse position in normalized device coordinates
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // Update the raycaster
+    raycaster.setFromCamera(mouse, camera);
+
+    // Calculate intersections
+    const intersects = raycaster.intersectObjects(scene.children, true);
+
+    // Find the first intersected line segment
+    let found = false;
+    for (let i = 0; i < intersects.length; i++) {
+      const intersect = intersects[i];
+
+      if (intersect.object instanceof THREE.LineSegments ||
+          intersect.object instanceof THREE.Line) {
+
+        const object = intersect.object;
+        
+        // Check if this segment has source G-code data
+        if (object.userData && object.userData.sourceCmds && object.userData.sourceLines) {
+          // Calculate which line segment was intersected
+          const index = intersect.index !== undefined ? Math.floor(intersect.index / 2) : 0;
+          
+          // Only log if we're hovering over a different segment
+          if (lastLoggedObject !== object || lastLoggedIndex !== index) {
+            if (index >= 0 && index < object.userData.sourceCmds.length) {
+              const lineNumber = object.userData.sourceLines[index];
+              const gcodeCommand = object.userData.sourceCmds[index];
+              
+              console.log(`G-code line ${lineNumber + 1}: ${gcodeCommand}`);
+              
+              lastLoggedObject = object;
+              lastLoggedIndex = index;
+            }
+          }
+          found = true;
+          break;
+        }
+      }
+    }
+
+    // Reset tracking if not hovering over any line
+    if (!found) {
+      lastLoggedObject = null;
+      lastLoggedIndex = null;
+    }
+  });
+}
