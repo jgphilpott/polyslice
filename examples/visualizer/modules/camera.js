@@ -82,7 +82,7 @@ export function focusCameraOnPoint(point, camera, controls) {
  * Reset camera to default position.
  */
 export function resetCameraToDefault(camera, controls) {
-  camera.position.set(300, 300, 300);
+  camera.position.set(300, 300, 150);
   camera.lookAt(0, 0, 0);
   controls.target.set(0, 0, 0);
   controls.update();

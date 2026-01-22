@@ -63,7 +63,7 @@ The visualizer automatically detects and color-codes different types of movement
   - **S**: Tilt camera down
   - **A**: Rotate camera left
   - **D**: Rotate camera right
-- **Arrow Keys**: 
+- **Arrow Keys**:
   - **When no slider is focused**: Move the camera position
     - **↑ (Up Arrow)**: Move camera forward
     - **↓ (Down Arrow)**: Move camera backward
@@ -75,7 +75,7 @@ The visualizer automatically detects and color-codes different types of movement
   - **When the horizontal slider is focused** (click or tab to the move slider):
     - **← (Left Arrow)**: Decrease slider value by 1 (show one less move)
     - **→ (Right Arrow)**: Increase slider value by 1 (show one more move)
-  
+
 > **Tip**: Click on any slider or press Tab to cycle through focusable elements. When a slider is focused, it will show a colored outline matching the slider's color.
 
 ### Settings Panel
