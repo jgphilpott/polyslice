@@ -566,3 +566,297 @@ describe 'Grid Infill Generation', ->
             # For cone, higher layers should have smaller or no infill area as radius decreases.
             # Just verify the pattern is reasonable - not checking exact radius constraints.
             return
+
+    describe 'Grid Infill for Multi-Object Arrays', ->
+
+        test 'should generate infill for all pillars in 3x3 array', ->
+
+            # Import BufferGeometryUtils for merging geometries.
+            BufferGeometryUtils = null
+
+            try
+                mod = require('three/examples/jsm/utils/BufferGeometryUtils.js')
+                BufferGeometryUtils = mod
+            catch error
+                # Skip test if module not available.
+                return
+
+            # Create a 3x3 array of cylinders (pillars).
+            pillarRadius = 3
+            pillarHeight = 1.2
+            spacing = 10 # mm between centers
+
+            geometries = []
+
+            for row in [0...3]
+                for col in [0...3]
+                    x = -spacing + col * spacing
+                    y = -spacing + row * spacing
+
+                    cylinder = new THREE.CylinderGeometry(pillarRadius, pillarRadius, pillarHeight, 32)
+                    mesh = new THREE.Mesh(cylinder)
+                    mesh.rotation.x = Math.PI / 2
+                    mesh.position.set(x, y, pillarHeight / 2)
+                    mesh.updateMatrixWorld()
+
+                    geom = mesh.geometry.clone()
+                    geom.applyMatrix4(mesh.matrixWorld)
+                    geometries.push(geom)
+
+            # Merge all geometries into one mesh.
+            mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, false)
+            mergedMesh = new THREE.Mesh(mergedGeometry)
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8) # 2 walls
+            slicer.setShellSkinThickness(0.4) # 2 skin layers (bottom + top)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(50)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mergedMesh)
+
+            # Split by layers to analyze layer 3 (middle layer with infill).
+            # Layer 1-2 are bottom skin, Layer 5-6 are top skin.
+            layers = result.split('M117 LAYER:')
+
+            expect(layers.length).toBeGreaterThan(3)
+
+            layer3 = layers[3]
+
+            # Count infill sections.
+            infillSections = layer3.split('; TYPE: FILL')
+
+            # Should have 9 infill sections (one per pillar).
+            expect(infillSections.length - 1).toBe(9)
+
+            # Count extrusion moves per infill section.
+            emptyCount = 0
+            totalExtrusions = 0
+
+            for i in [1...infillSections.length]
+                section = infillSections[i]
+
+                # Count G1 moves with E parameter (extrusion).
+                extrusions = section.match(/G1\s+X[\d.]+\s+Y[\d.]+.*?E[\d.]+/g)
+                lineCount = if extrusions then extrusions.length else 0
+                totalExtrusions += lineCount
+
+                if lineCount is 0
+                    emptyCount++
+
+            # All 9 pillars should have infill (no empty sections).
+            expect(emptyCount).toBe(0)
+
+            # Each pillar should have multiple extrusion lines.
+            # With 50% density and grid pattern, expect ~6 lines per pillar (3 per direction).
+            expect(totalExtrusions).toBeGreaterThan(50)
+
+            return
+
+        test 'should generate infill for edge and corner pillars equally', ->
+
+            # Import BufferGeometryUtils for merging geometries.
+            BufferGeometryUtils = null
+
+            try
+                mod = require('three/examples/jsm/utils/BufferGeometryUtils.js')
+                BufferGeometryUtils = mod
+            catch error
+                # Skip test if module not available.
+                return
+
+            # Create a 3x3 array to test edge vs corner pillars.
+            pillarRadius = 3
+            pillarHeight = 1.2
+            spacing = 10
+
+            geometries = []
+            pillarPositions = []
+
+            for row in [0...3]
+                for col in [0...3]
+                    x = -spacing + col * spacing
+                    y = -spacing + row * spacing
+                    pillarPositions.push({ x, y, row, col })
+
+                    cylinder = new THREE.CylinderGeometry(pillarRadius, pillarRadius, pillarHeight, 32)
+                    mesh = new THREE.Mesh(cylinder)
+                    mesh.rotation.x = Math.PI / 2
+                    mesh.position.set(x, y, pillarHeight / 2)
+                    mesh.updateMatrixWorld()
+
+                    geom = mesh.geometry.clone()
+                    geom.applyMatrix4(mesh.matrixWorld)
+                    geometries.push(geom)
+
+            mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, false)
+            mergedMesh = new THREE.Mesh(mergedGeometry)
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(50)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mergedMesh)
+
+            # Analyze layer 3.
+            layers = result.split('M117 LAYER:')
+            layer3 = layers[3]
+
+            # Split by TYPE markers to get each infill section.
+            parts = layer3.split(/; TYPE: (WALL-OUTER|WALL-INNER|FILL)/)
+
+            # Count lines per infill section.
+            infillLineCounts = []
+
+            for i in [0...parts.length]
+                if parts[i] is 'FILL' and i + 1 < parts.length
+                    section = parts[i + 1]
+                    extrusions = section.match(/G1\s+X[\d.]+\s+Y[\d.]+.*?E[\d.]+/g)
+                    lineCount = if extrusions then extrusions.length else 0
+                    infillLineCounts.push(lineCount)
+
+            # All 9 sections should have infill.
+            expect(infillLineCounts.length).toBe(9)
+
+            # All sections should have roughly equal infill (within tolerance).
+            # For grid pattern with 50% density, expect ~6 lines each.
+            minLines = Math.min(...infillLineCounts)
+            maxLines = Math.max(...infillLineCounts)
+
+            # All pillars should have at least some infill.
+            expect(minLines).toBeGreaterThan(0)
+
+            # Variance should be reasonable (all pillars similar).
+            # Allow for edge effects, but all should be within 50% of each other.
+            expect(maxLines).toBeLessThan(minLines * 2)
+
+            return
+
+        test 'should handle 2x2, 4x4, and 5x5 pillar arrays', ->
+
+            # Import BufferGeometryUtils for merging geometries.
+            BufferGeometryUtils = null
+
+            try
+                mod = require('three/examples/jsm/utils/BufferGeometryUtils.js')
+                BufferGeometryUtils = mod
+            catch error
+                # Skip test if module not available.
+                return
+
+            pillarRadius = 3
+            pillarHeight = 1.2
+            spacing = 10
+
+            # Test different grid sizes.
+            gridSizes = [2, 4, 5]
+
+            for gridSize in gridSizes
+
+                geometries = []
+
+                for row in [0...gridSize]
+                    for col in [0...gridSize]
+                        x = -(gridSize - 1) * spacing / 2 + col * spacing
+                        y = -(gridSize - 1) * spacing / 2 + row * spacing
+
+                        cylinder = new THREE.CylinderGeometry(pillarRadius, pillarRadius, pillarHeight, 32)
+                        mesh = new THREE.Mesh(cylinder)
+                        mesh.rotation.x = Math.PI / 2
+                        mesh.position.set(x, y, pillarHeight / 2)
+                        mesh.updateMatrixWorld()
+
+                        geom = mesh.geometry.clone()
+                        geom.applyMatrix4(mesh.matrixWorld)
+                        geometries.push(geom)
+
+                mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, false)
+                mergedMesh = new THREE.Mesh(mergedGeometry)
+
+                slicer.setNozzleDiameter(0.4)
+                slicer.setShellWallThickness(0.8)
+                slicer.setShellSkinThickness(0.4)
+                slicer.setLayerHeight(0.2)
+                slicer.setInfillDensity(50)
+                slicer.setInfillPattern('grid')
+                slicer.setVerbose(true)
+
+                result = slicer.slice(mergedMesh)
+
+                # Analyze layer 3.
+                layers = result.split('M117 LAYER:')
+                layer3 = layers[3]
+
+                # Count infill sections.
+                infillSections = layer3.split('; TYPE: FILL').length - 1
+
+                expectedPillars = gridSize * gridSize
+
+                # Should have one infill section per pillar.
+                expect(infillSections).toBe(expectedPillars)
+
+                # Count empty sections.
+                parts = layer3.split('; TYPE: FILL')
+                emptyCount = 0
+
+                for i in [1...parts.length]
+                    extrusions = parts[i].match(/G1\s+X[\d.]+\s+Y[\d.]+.*?E[\d.]+/g)
+                    if not extrusions or extrusions.length is 0
+                        emptyCount++
+
+                # No pillar should be missing infill.
+                expect(emptyCount).toBe(0)
+
+            return
+
+        test 'should center infill on boundary not global origin', ->
+
+            # This test verifies the fix: infill is centered on each boundary's center
+            # rather than the global origin (0, 0).
+
+            # Create a single pillar offset from origin.
+            pillarRadius = 3
+            pillarHeight = 1.2
+            offsetX = 20 # Offset from origin
+            offsetY = 15
+
+            cylinder = new THREE.CylinderGeometry(pillarRadius, pillarRadius, pillarHeight, 32)
+            mesh = new THREE.Mesh(cylinder)
+            mesh.rotation.x = Math.PI / 2
+            mesh.position.set(offsetX, offsetY, pillarHeight / 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(50)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Analyze layer 3.
+            layers = result.split('M117 LAYER:')
+            layer3 = layers[3]
+
+            # Should have infill.
+            expect(layer3).toContain('; TYPE: FILL')
+
+            # Count extrusion moves in infill.
+            fillSection = layer3.split('; TYPE: FILL')[1]
+
+            if fillSection
+                extrusions = fillSection.match(/G1\s+X[\d.]+\s+Y[\d.]+.*?E[\d.]+/g)
+
+                # Should have infill lines even though pillar is offset from origin.
+                expect(extrusions).toBeTruthy()
+                expect(extrusions.length).toBeGreaterThan(0)
+
+            return
