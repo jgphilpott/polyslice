@@ -465,7 +465,7 @@ module.exports =
 
                         skinCombingHoleWalls = holeOuterWalls
 
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls, [], false)
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], skinCombingHoleWalls, [], false, true)
 
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
 
@@ -481,7 +481,7 @@ module.exports =
 
                     # Pass currentPath (not skinWallPath) to avoid double offset.
                     # generateSkinGCode will create its own inset for the skin wall.
-                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], holeOuterWalls, [], false)
+                    skinEndPoint = skinModule.generateSkinGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, isHole, false, [], holeOuterWalls, [], false, true)
 
                     lastPathEndPoint = skinEndPoint if skinEndPoint?
 
@@ -659,7 +659,7 @@ module.exports =
 
                         # Absolute top/bottom layers: skin only for clean surfaces.
                         for skinArea in skinAreas
-                            skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], fullyCoveredSkinWalls)
+                            skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], fullyCoveredSkinWalls, false, true)
 
                     else
 
@@ -671,12 +671,12 @@ module.exports =
 
                         # Generate skin for exposed areas.
                         for skinArea in skinAreas
-                            skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], fullyCoveredSkinWalls)
+                            skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], fullyCoveredSkinWalls, false, true)
 
                         # Generate skin walls (no infill) for fully covered regions.
                         for fullyCoveredSkinWall in fullyCoveredSkinWalls
                             continue if fullyCoveredSkinWall.length < 3
-                            skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, false, [], [], [], true)
+                            skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, false, [], [], [], true, true)
 
                             if infillDensity > 0
                                 infillGap = 0
@@ -888,7 +888,8 @@ module.exports =
 
                             continue
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
+                        # Pass generateWall=false if skin wall was already generated in Phase 1.
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls, false, not structureAlreadyHasSkinWall)
 
                 else
 
@@ -916,7 +917,11 @@ module.exports =
 
                         continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls)
+                        # For nested structures with holes, Phase 1 already generated skin walls.
+                        # Pass generateWall=false if skin wall was already generated in Phase 1.
+                        structureAlreadyHasSkinWall = holeIndices.length > 0
+
+                        skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls, false, not structureAlreadyHasSkinWall)
 
                     # Generate skin walls (no infill) for fully covered regions.
                     fullyCoveredInfillBoundaries = []
@@ -927,7 +932,7 @@ module.exports =
 
                         continue if coverage.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], holeOuterWalls, [], true)
+                        skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], holeOuterWalls, [], true, true)
 
                         if infillDensity > 0
 
