@@ -7,6 +7,8 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.1.1] - 2026-01-23
+
 ### Added
 - Release agent profile for managing version releases with calendar-based versioning
 - CHANGELOG.md to track version history
@@ -41,5 +43,6 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 Initial release for January 2026. See GitHub releases and commit history for details on previous versions.
 
-[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.1.0...HEAD
+[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.1.1...HEAD
+[26.1.1]: https://github.com/jgphilpott/polyslice/compare/v26.1.0...v26.1.1
 [26.1.0]: https://github.com/jgphilpott/polyslice/releases/tag/v26.1.0
