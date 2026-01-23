@@ -1,16 +1,16 @@
 /**
  * Example showing how to slice arch and dome shapes with support structures enabled.
  * This script outputs G-code to resources/gcode/support for version control and study.
- * 
+ *
  * Shapes:
  * - Arch: Box minus horizontal cylinder (semi-circular opening)
  * - Dome: Box minus hemisphere (dome ceiling cavity)
- * 
+ *
  * Each shape is sliced in three orientations:
  * - upright (0°)
  * - flipped (180°)
  * - sideways (90°)
- * 
+ *
  * Usage:
  *   node examples/scripts/slice-supports.js
  */
@@ -157,17 +157,20 @@ async function main() {
         shellWallThickness: 0.8,
         lengthUnit: "millimeters",
         timeUnit: "seconds",
-        infillPattern: "hexagons",
-        infillDensity: 30,
+        infillPattern: "grid",
+        infillDensity: 20,
         bedTemperature: 0,
         layerHeight: 0.2,
         testStrip: false,
-        verbose: true,
-        supportEnabled: true,  // ENABLED for support output
         metadata: false,
+        verbose: true,
+
+        // Support Settings
+        supportEnabled: true,  // ENABLED for all output
         supportType: "normal",
         supportPlacement: "buildPlate",
-        supportThreshold: 45
+        supportThreshold: 55
+
     });
 
     console.log("Slicer Configuration:");
@@ -263,7 +266,7 @@ async function main() {
     }
 
     console.log("=== Exporting STL Files ===\n");
-    
+
     const archStlPath = path.join(stlOutDir, "arch-with-supports.stl");
     try {
         await exportMeshAsSTL(archMesh, archStlPath);
