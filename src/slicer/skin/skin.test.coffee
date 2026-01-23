@@ -1652,7 +1652,7 @@ describe 'Skin Generation', ->
             # With epsilon of 0.05mm, the gap should be approximately 0.55mm.
             # This test verifies that epsilon adjustment is working.
             gap = wallMaxX - infillMaxX
-            
+
             # Gap should be reasonable: not too large (< 0.7mm) and not too small (> 0.1mm).
             # The actual gap depends on the exact wall and infill boundary calculations.
             expect(gap).toBeLessThan(0.7)

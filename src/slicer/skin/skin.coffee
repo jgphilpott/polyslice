@@ -124,7 +124,7 @@ module.exports =
         # Calculate infill boundary.
         # If wall was generated, use its offset; otherwise calculate from boundary.
         infillGap = nozzleDiameter / 2
-        
+
         # Add small epsilon to ensure diagonal lines at boundary corners aren't excluded
         # due to floating-point precision issues in point-in-polygon tests.
         boundaryEpsilon = 0.05  # 0.05mm = 50 microns
