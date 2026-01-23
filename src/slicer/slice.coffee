@@ -24,6 +24,10 @@ module.exports =
         # Reset G-code output.
         slicer.gcode = ""
 
+        # Reset cached overhang regions for support generation.
+        # This ensures supports are recalculated for each new mesh/orientation.
+        slicer._overhangRegions = null
+
         # Extract mesh from scene if provided.
         originalMesh = preprocessingModule.extractMesh(scene)
 

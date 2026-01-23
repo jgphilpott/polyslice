@@ -218,3 +218,34 @@ describe 'Support Module', ->
             cachedRegions = slicer._overhangRegions
             supportModule.generateSupportGCode(slicer, mesh, [], 1, 0.2, 0, 0, 0, 0.2)
             expect(slicer._overhangRegions).toBe(cachedRegions)
+
+        test 'should recalculate overhangs for different mesh orientations', ->
+
+            slicer.setSupportEnabled(true)
+            slicer.setSupportThreshold(45)
+
+            # Create an arch-like geometry (box with a hole).
+            geometry = new THREE.BoxGeometry(20, 10, 10)
+            geometry.computeVertexNormals()
+            mesh = new THREE.Mesh(geometry)
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            # Slice upright orientation - this would generate support regions.
+            gcode1 = slicer.slice(mesh)
+            overhangRegions1 = slicer._overhangRegions
+
+            # Rotate 180 degrees (flipped).
+            mesh.rotation.y = Math.PI
+            mesh.updateMatrixWorld()
+
+            # Slice flipped orientation - support regions should be recalculated.
+            gcode2 = slicer.slice(mesh)
+            overhangRegions2 = slicer._overhangRegions
+
+            # The overhang regions should have been recalculated (new array instance).
+            # Note: We can't easily compare content here without complex geometry, but we
+            # ensure the cache was cleared and regenerated (not the same instance).
+            expect(overhangRegions1).toBeDefined()
+            expect(overhangRegions2).toBeDefined()
+            expect(overhangRegions2).not.toBe(overhangRegions1)
