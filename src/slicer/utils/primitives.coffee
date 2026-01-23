@@ -91,12 +91,32 @@ module.exports =
 
     # Check if a point is inside a polygon using ray casting algorithm.
     # This is the standard point-in-polygon test used in computational geometry.
-    pointInPolygon: (point, polygon) ->
+    # Optional epsilon parameter: if provided, points within epsilon distance of boundary edges are treated as inside.
+    pointInPolygon: (point, polygon, epsilon = 0) ->
 
         return false if not point or not polygon or polygon.length < 3
 
         x = point.x
         y = point.y
+
+        # If epsilon is provided, first check if point is within epsilon of any boundary edge.
+        # This prevents floating-point precision issues from excluding points near boundaries.
+        if epsilon > 0
+
+            for i in [0...polygon.length]
+
+                nextIdx = if i is polygon.length - 1 then 0 else i + 1
+
+                edgeStart = polygon[i]
+                edgeEnd = polygon[nextIdx]
+
+                # Calculate distance from point to this edge.
+                dist = @distanceFromPointToLineSegment(x, y, edgeStart, edgeEnd)
+
+                # If point is within epsilon of this edge, treat as inside.
+                if dist < epsilon
+
+                    return true
 
         inside = false
 
