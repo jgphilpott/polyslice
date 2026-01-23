@@ -114,6 +114,39 @@ describe 'Clipping', ->
             expect(segments[0].end.x).toBeCloseTo(10, 1)
             expect(segments[0].end.y).toBeCloseTo(10, 1)
 
+        test 'should use epsilon tolerance for inclusion boundary clipping', ->
+
+            # Line with endpoints inside using epsilon tolerance.
+            # This line is entirely within epsilon distance of the boundary.
+            lineStart = { x: 5, y: 9.9 }
+            lineEnd = { x: 10.1, y: 9.9 }
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Without epsilon, this line would be clipped because x=10.1 is outside.
+            segmentsNoEpsilon = clipping.clipLineToPolygon(lineStart, lineEnd, polygon, 0)
+            expect(segmentsNoEpsilon.length).toBeGreaterThanOrEqual(1)
+            # End would be clipped to x=10
+            if segmentsNoEpsilon.length > 0
+                expect(segmentsNoEpsilon[segmentsNoEpsilon.length - 1].end.x).toBeLessThanOrEqual(10.01)
+
+            # With epsilon 0.3mm, both endpoints are treated as inside.
+            # The line extends slightly past the boundary but is kept intact
+            # because both points are within epsilon of the boundary.
+            segmentsWithEpsilon = clipping.clipLineToPolygon(lineStart, lineEnd, polygon, 0.3)
+            expect(segmentsWithEpsilon.length).toBeGreaterThanOrEqual(1)
+            # The final segment should extend to the original endpoint
+            if segmentsWithEpsilon.length > 0
+                lastSeg = segmentsWithEpsilon[segmentsWithEpsilon.length - 1]
+                expect(lastSeg.end.x).toBeCloseTo(10.1, 1)
+                expect(lastSeg.end.y).toBeCloseTo(9.9, 1)
+
     describe 'clipLineWithHoles', ->
 
         test 'should return full line when no holes provided', ->

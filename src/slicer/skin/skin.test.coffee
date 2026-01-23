@@ -1370,3 +1370,290 @@ describe 'Skin Generation', ->
             # Before the fix, it would have 0 lines because all hole walls were used for clipping.
             innerStructureInfillCount = Math.min(infillCounts[0], infillCounts[1])
             expect(innerStructureInfillCount).toBeGreaterThan(30)  # Should have many lines, not 0.
+
+    describe 'generateWall Parameter', ->
+
+        test 'should generate both wall and infill when generateWall=true', ->
+
+            # Create a 2cm x 2cm x 0.4mm sheet (single layer).
+            geometry = new THREE.BoxGeometry(20, 20, 0.4)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 0.2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.4)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            lines = result.split('\n')
+            inSkin = false
+            skinWallMoves = 0
+            skinInfillMoves = 0
+
+            for line in lines
+
+                if line.includes('; TYPE: SKIN')
+                    inSkin = true
+                    continue
+
+                if line.includes('; TYPE:') and inSkin
+                    break
+
+                if inSkin
+                    # Wall moves are the first perimeter loop.
+                    # Infill moves are marked with "Moving to skin infill line".
+                    if line.includes('G1') and line.includes('E') and line.includes('F1800')
+                        skinWallMoves++
+                    if line.includes('Moving to skin infill line')
+                        skinInfillMoves++
+
+            # Should have both wall moves and infill moves.
+            expect(skinWallMoves).toBeGreaterThan(0)
+            expect(skinInfillMoves).toBeGreaterThan(0)
+
+        test 'should not generate duplicate walls for structures with holes', ->
+
+            # Create a sheet with a hole to trigger two-phase generation.
+            outerWidth = 30
+            outerHeight = 30
+            holeRadius = 3
+            thickness = 0.4
+
+            # Create outer boundary.
+            outerShape = new THREE.Shape()
+            outerShape.moveTo(-outerWidth/2, -outerHeight/2)
+            outerShape.lineTo(outerWidth/2, -outerHeight/2)
+            outerShape.lineTo(outerWidth/2, outerHeight/2)
+            outerShape.lineTo(-outerWidth/2, outerHeight/2)
+            outerShape.lineTo(-outerWidth/2, -outerHeight/2)
+
+            # Create hole.
+            holePath = new THREE.Path()
+            for angle in [0...360] by 30
+                rad = angle * Math.PI / 180
+                x = holeRadius * Math.cos(rad)
+                y = holeRadius * Math.sin(rad)
+                if angle is 0
+                    holePath.moveTo(x, y)
+                else
+                    holePath.lineTo(x, y)
+            holePath.lineTo(holeRadius, 0)  # Close path.
+
+            outerShape.holes.push(holePath)
+
+            # Extrude to create geometry.
+            extrudeSettings = {
+                depth: thickness
+                bevelEnabled: false
+            }
+            geometry = new THREE.ExtrudeGeometry(outerShape, extrudeSettings)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, thickness/2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.4)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            lines = result.split('\n')
+            skinSections = []
+            currentSection = []
+            inSkin = false
+
+            for line in lines
+
+                if line.includes('; TYPE: SKIN')
+                    if currentSection.length > 0
+                        skinSections.push(currentSection)
+                    currentSection = []
+                    inSkin = true
+                    continue
+
+                if line.includes('; TYPE:') and inSkin
+                    if currentSection.length > 0
+                        skinSections.push(currentSection)
+                    currentSection = []
+                    inSkin = false
+
+                if inSkin
+                    currentSection.push(line)
+
+            if currentSection.length > 0
+                skinSections.push(currentSection)
+
+            # Check that no two consecutive sections both have wall perimeters at similar coordinates.
+            # Wall perimeters are at F1800, infill is at F3600.
+            wallSections = []
+            for section in skinSections
+                wallMoves = section.filter((line) ->
+                    line.includes('G1') and line.includes('E') and line.includes('F1800')
+                ).length
+                if wallMoves > 3  # More than just a few moves = actual wall perimeter.
+                    wallSections.push(section)
+
+            # Should have only one wall section for the outer boundary (not duplicate).
+            # If there were duplicates, we'd see 2+ wall sections with similar perimeters.
+            # The fix ensures Phase 1 generates wall-only, Phase 2 generates infill-only.
+            expect(wallSections.length).toBeLessThanOrEqual(2)  # One for outer, possibly one for hole.
+
+    describe 'Boundary Epsilon for Infill Coverage', ->
+
+        test 'should not have gaps larger than line spacing at boundary edges', ->
+
+            # Create a 2.5cm x 2.5cm sheet to test boundary coverage.
+            geometry = new THREE.BoxGeometry(25, 25, 0.4)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 0.2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.4)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            lines = result.split('\n')
+            inSkin = false
+            infillYCoords = []
+
+            # Extract Y coordinates of infill lines at the right edge (X > 11).
+            for line in lines
+
+                if line.includes('; TYPE: SKIN')
+                    inSkin = true
+                    continue
+
+                if line.includes('; TYPE:') and inSkin
+                    break
+
+                if inSkin and line.includes('G1') and line.includes('E')
+                    # Extract X and Y coordinates.
+                    xMatch = line.match(/X([\d.]+)/)
+                    yMatch = line.match(/Y([\d.]+)/)
+                    if xMatch and yMatch
+                        x = parseFloat(xMatch[1])
+                        y = parseFloat(yMatch[1])
+                        # Focus on right edge where boundary issues occur.
+                        if x > 11
+                            infillYCoords.push(y)
+
+            # Sort Y coordinates.
+            infillYCoords.sort((a, b) -> a - b)
+
+            # Calculate gaps between consecutive lines.
+            expectedSpacing = 0.4 * Math.sqrt(2)  # ~0.566mm for 45° lines.
+            maxGap = 0
+            for i in [0...infillYCoords.length - 1]
+                gap = infillYCoords[i + 1] - infillYCoords[i]
+                if gap > maxGap
+                    maxGap = gap
+
+            # With boundary epsilon fix, max gap should not exceed 1.5x expected spacing.
+            # Before fix, gaps could be 3x or more due to missing lines at boundary.
+            expect(maxGap).toBeLessThan(expectedSpacing * 1.5)
+
+        test 'should include infill lines near boundary edges', ->
+
+            # Create a square sheet to test edge coverage.
+            geometry = new THREE.BoxGeometry(20, 20, 0.4)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 0.2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.4)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            lines = result.split('\n')
+            inSkin = false
+            edgeLineCount = 0
+
+            # Check for infill lines near the edges (within 1mm of boundary at ~9mm).
+            for line in lines
+
+                if line.includes('; TYPE: SKIN')
+                    inSkin = true
+                    continue
+
+                if line.includes('; TYPE:') and inSkin
+                    break
+
+                if inSkin and line.includes('G1') and line.includes('E') and line.includes('F3600')
+                    xMatch = line.match(/X([-\d.]+)/)
+                    yMatch = line.match(/Y([-\d.]+)/)
+                    if xMatch and yMatch
+                        x = parseFloat(xMatch[1])
+                        y = parseFloat(yMatch[1])
+
+                        # Check if near any edge (within 1mm of expected wall position ~9mm).
+                        # Wall is at ~9.6mm (10 - 0.4), so check for lines beyond 8.5mm.
+                        if Math.abs(x) > 8.5 or Math.abs(y) > 8.5
+                            edgeLineCount++
+
+            # Should have infill lines near boundary edges.
+            # With epsilon fix, boundary-adjacent lines are not excluded.
+            expect(edgeLineCount).toBeGreaterThan(10)
+
+        test 'should maintain proper gap between skin wall and infill boundary', ->
+
+            # Create a simple sheet.
+            geometry = new THREE.BoxGeometry(20, 20, 0.4)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 0.2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.4)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            lines = result.split('\n')
+            inSkin = false
+            wallMaxX = -Infinity
+            infillMaxX = -Infinity
+
+            # Find max X coordinate for wall and infill.
+            for line in lines
+
+                if line.includes('; TYPE: SKIN')
+                    inSkin = true
+                    continue
+
+                if line.includes('; TYPE:') and inSkin
+                    break
+
+                if inSkin and line.includes('G1') and line.includes('E')
+                    xMatch = line.match(/X([\d.]+)/)
+                    if xMatch
+                        x = parseFloat(xMatch[1])
+                        # F1800 = wall, F3600 = infill.
+                        if line.includes('F1800')
+                            wallMaxX = Math.max(wallMaxX, x)
+                        else if line.includes('F3600')
+                            infillMaxX = Math.max(infillMaxX, x)
+
+            # With epsilon of 0.05mm, the gap should be approximately 0.55mm.
+            # This test verifies that epsilon adjustment is working.
+            gap = wallMaxX - infillMaxX
+
+            # Gap should be reasonable: not too large (< 0.7mm) and not too small (> 0.1mm).
+            # The actual gap depends on the exact wall and infill boundary calculations.
+            expect(gap).toBeLessThan(0.7)
+            expect(gap).toBeGreaterThan(0.1)

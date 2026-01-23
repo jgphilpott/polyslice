@@ -179,6 +179,114 @@ describe 'Primitives', ->
             # Ray casting can vary on boundary - just check it returns a boolean.
             expect(typeof result).toBe('boolean')
 
+        test 'should treat point within epsilon of boundary edge as inside', ->
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Point just outside right edge (10.2mm from left, 10mm is edge).
+            point = { x: 10.2, y: 5 }
+
+            # Without epsilon, point should be outside.
+            resultNoEpsilon = primitives.pointInPolygon(point, polygon, 0)
+            expect(resultNoEpsilon).toBe(false)
+
+            # With epsilon of 0.3mm, point within 0.3mm of boundary should be inside.
+            resultWithEpsilon = primitives.pointInPolygon(point, polygon, 0.3)
+            expect(resultWithEpsilon).toBe(true)
+
+        test 'should not affect points clearly inside when using epsilon', ->
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Point well inside.
+            point = { x: 5, y: 5 }
+
+            # Should be inside with or without epsilon.
+            resultNoEpsilon = primitives.pointInPolygon(point, polygon, 0)
+            expect(resultNoEpsilon).toBe(true)
+
+            resultWithEpsilon = primitives.pointInPolygon(point, polygon, 0.3)
+            expect(resultWithEpsilon).toBe(true)
+
+        test 'should not affect points clearly outside when using epsilon', ->
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Point far outside (more than epsilon distance).
+            point = { x: 15, y: 5 }
+
+            # Should be outside with or without epsilon.
+            resultNoEpsilon = primitives.pointInPolygon(point, polygon, 0)
+            expect(resultNoEpsilon).toBe(false)
+
+            resultWithEpsilon = primitives.pointInPolygon(point, polygon, 0.3)
+            expect(resultWithEpsilon).toBe(false)
+
+        test 'should handle epsilon tolerance on corner proximity', ->
+
+            # Square polygon.
+            polygon = [
+                { x: 0, y: 0 }
+                { x: 10, y: 0 }
+                { x: 10, y: 10 }
+                { x: 0, y: 10 }
+            ]
+
+            # Point near top-right corner (10.15, 10.15).
+            point = { x: 10.15, y: 10.15 }
+
+            # Distance to corner is sqrt(0.15^2 + 0.15^2) = 0.212mm.
+            # With epsilon 0.3mm, should be inside.
+            resultWithEpsilon = primitives.pointInPolygon(point, polygon, 0.3)
+            expect(resultWithEpsilon).toBe(true)
+
+            # With smaller epsilon 0.1mm, should be outside.
+            resultSmallEpsilon = primitives.pointInPolygon(point, polygon, 0.1)
+            expect(resultSmallEpsilon).toBe(false)
+
+        test 'should handle complex polygon with epsilon tolerance', ->
+
+            # Pentagon polygon.
+            polygon = [
+                { x: 5, y: 0 }
+                { x: 10, y: 4 }
+                { x: 8, y: 10 }
+                { x: 2, y: 10 }
+                { x: 0, y: 4 }
+            ]
+
+            # Point just outside the bottom-left edge (near the line from (0,4) to (5,0)).
+            # The line from (0,4) to (5,0) has equation: y = 4 - 0.8*x
+            # At x=2, the line is at y = 4 - 1.6 = 2.4
+            # Point at (2, 2.15) is 0.25mm below the line (outside).
+            point = { x: 2, y: 2.15 }
+
+            # Without epsilon, should be outside.
+            resultNoEpsilon = primitives.pointInPolygon(point, polygon, 0)
+            expect(resultNoEpsilon).toBe(false)
+
+            # With epsilon 0.3mm, should be inside (point is 0.25mm from edge).
+            resultWithEpsilon = primitives.pointInPolygon(point, polygon, 0.3)
+            expect(resultWithEpsilon).toBe(true)
+
     describe 'distanceFromPointToLineSegment', ->
 
         test 'should calculate distance from point to line segment', ->

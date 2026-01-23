@@ -7,15 +7,16 @@ primitives = require('./primitives')
 module.exports =
 
     # Clip a line segment to a polygon boundary.
-    clipLineToPolygon: (lineStart, lineEnd, polygon) ->
+    # epsilon: margin for point-in-polygon tests (prevents precision issues at boundaries)
+    clipLineToPolygon: (lineStart, lineEnd, polygon, epsilon = 0.3) ->
 
         return [] if not polygon or polygon.length < 3
         return [] if not lineStart or not lineEnd
 
         intersections = []
 
-        lineStartInside = primitives.pointInPolygon(lineStart, polygon)
-        lineEndInside = primitives.pointInPolygon(lineEnd, polygon)
+        lineStartInside = primitives.pointInPolygon(lineStart, polygon, epsilon)
+        lineEndInside = primitives.pointInPolygon(lineEnd, polygon, epsilon)
 
         if lineStartInside
 
@@ -75,7 +76,7 @@ module.exports =
             midY = lineStart.y + midT * (lineEnd.y - lineStart.y)
             midPoint = { x: midX, y: midY }
 
-            if primitives.pointInPolygon(midPoint, polygon)
+            if primitives.pointInPolygon(midPoint, polygon, epsilon)
 
                 segments.push({
                     start: startIntersection.point

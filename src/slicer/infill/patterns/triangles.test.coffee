@@ -595,11 +595,12 @@ describe 'Triangles Infill Generation', ->
                     if inFill and line.includes('G1') and line.includes('E')
                         fillMoves++
 
-            # At 90% density, we should have 21 infill lines for a 1cm cube.
+            # At 90% density, we should have 22 infill lines for a 1cm cube.
             # Very tight line spacing results in dense infill coverage.
             # Note: After implementing outer wall offset (half nozzle diameter inset),
             # the infill area is slightly smaller, resulting in fewer lines than before.
-            expect(fillMoves).toBe(21)
+            # Note: After adding 0.05mm boundary epsilon, one additional line fits at the edges.
+            expect(fillMoves).toBe(22)
 
     describe 'Triangles Infill Clipping to Polygon Boundaries', ->
 

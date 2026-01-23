@@ -8,7 +8,7 @@ combing = require('../geometry/combing')
 module.exports =
 
     # Generate G-code for skin (top/bottom solid infill).
-    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = [], holeOuterWalls = [], coveredAreaSkinWalls = [], isCoveredArea = false) ->
+    generateSkinGCode: (slicer, boundaryPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint = null, isHole = false, generateInfill = true, holeSkinWalls = [], holeOuterWalls = [], coveredAreaSkinWalls = [], isCoveredArea = false, generateWall = true) ->
 
         return if boundaryPath.length < 3
 
@@ -17,108 +17,128 @@ module.exports =
 
         if verbose then slicer.gcode += "; TYPE: SKIN" + slicer.newline
 
-        # Generate skin wall perimeter.
-        skinWallInset = nozzleDiameter
-        offsetDirection = if isCoveredArea then false else isHole
-        skinWallPath = paths.createInsetPath(boundaryPath, skinWallInset, offsetDirection)
+        # Generate skin wall perimeter (unless disabled).
+        skinWallPath = null
 
-        if skinWallPath.length >= 3
+        if generateWall
 
-            # Find starting point closest to last position.
-            if lastWallPoint?
+            skinWallInset = nozzleDiameter
+            offsetDirection = if isCoveredArea then false else isHole
+            skinWallPath = paths.createInsetPath(boundaryPath, skinWallInset, offsetDirection)
 
-                minDistSq = Infinity
-                startIdx = 0
+            if skinWallPath.length >= 3
 
-                for point, idx in skinWallPath
+                # Find starting point closest to last position.
+                if lastWallPoint?
 
-                    distSq = (point.x - lastWallPoint.x) ** 2 + (point.y - lastWallPoint.y) ** 2
+                    minDistSq = Infinity
+                    startIdx = 0
 
-                    if distSq < minDistSq
+                    for point, idx in skinWallPath
 
-                        minDistSq = distSq
-                        startIdx = idx
+                        distSq = (point.x - lastWallPoint.x) ** 2 + (point.y - lastWallPoint.y) ** 2
 
-                skinWallPath = skinWallPath[startIdx...] .concat(skinWallPath[0...startIdx]) if startIdx > 0
+                        if distSq < minDistSq
 
-            firstPoint = skinWallPath[0]
-            targetPoint = { x: firstPoint.x, y: firstPoint.y, z: z }
+                            minDistSq = distSq
+                            startIdx = idx
 
-            # Use combing if holes exist.
-            if lastWallPoint? and holeOuterWalls.length > 0
+                    skinWallPath = skinWallPath[startIdx...] .concat(skinWallPath[0...startIdx]) if startIdx > 0
 
-                combingPath = combing.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath, nozzleDiameter)
+                firstPoint = skinWallPath[0]
+                targetPoint = { x: firstPoint.x, y: firstPoint.y, z: z }
 
-                travelSpeedMmMin = slicer.getTravelSpeed() * 60
+                # Use combing if holes exist.
+                if lastWallPoint? and holeOuterWalls.length > 0
 
-                for i in [0...combingPath.length - 1]
+                    combingPath = combing.findCombingPath(lastWallPoint, targetPoint, holeOuterWalls, boundaryPath, nozzleDiameter)
 
-                    waypoint = combingPath[i + 1]
+                    travelSpeedMmMin = slicer.getTravelSpeed() * 60
 
-                    offsetX = waypoint.x + centerOffsetX
-                    offsetY = waypoint.y + centerOffsetY
+                    for i in [0...combingPath.length - 1]
 
-                    if i is 0 and verbose
-                        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, "; Moving to skin wall" + slicer.newline)
-                    else
-                        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
+                        waypoint = combingPath[i + 1]
 
-            else
+                        offsetX = waypoint.x + centerOffsetX
+                        offsetY = waypoint.y + centerOffsetY
 
-                offsetX = firstPoint.x + centerOffsetX
-                offsetY = firstPoint.y + centerOffsetY
+                        if i is 0 and verbose
+                            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, "; Moving to skin wall" + slicer.newline)
+                        else
+                            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin)
 
-                travelSpeedMmMin = slicer.getTravelSpeed() * 60
+                else
 
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin wall" + slicer.newline else slicer.newline))
+                    offsetX = firstPoint.x + centerOffsetX
+                    offsetY = firstPoint.y + centerOffsetY
 
-            perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
+                    travelSpeedMmMin = slicer.getTravelSpeed() * 60
 
-            # Draw skin wall perimeter.
-            for pointIndex in [1...skinWallPath.length]
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin wall" + slicer.newline else slicer.newline))
 
-                point = skinWallPath[pointIndex]
-                prevPoint = skinWallPath[pointIndex - 1]
+                perimeterSpeedMmMin = slicer.getPerimeterSpeed() * 60
 
-                dx = point.x - prevPoint.x
-                dy = point.y - prevPoint.y
+                # Draw skin wall perimeter.
+                for pointIndex in [1...skinWallPath.length]
+
+                    point = skinWallPath[pointIndex]
+                    prevPoint = skinWallPath[pointIndex - 1]
+
+                    dx = point.x - prevPoint.x
+                    dy = point.y - prevPoint.y
+
+                    distance = Math.sqrt(dx * dx + dy * dy)
+
+                    continue if distance < 0.001
+
+                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    slicer.cumulativeE += extrusionDelta
+
+                    offsetX = point.x + centerOffsetX
+                    offsetY = point.y + centerOffsetY
+
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+
+                # Close loop.
+                firstPoint = skinWallPath[0]
+                lastPoint = skinWallPath[skinWallPath.length - 1]
+
+                dx = firstPoint.x - lastPoint.x
+                dy = firstPoint.y - lastPoint.y
 
                 distance = Math.sqrt(dx * dx + dy * dy)
 
-                continue if distance < 0.001
+                if distance > 0.001
 
-                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                slicer.cumulativeE += extrusionDelta
+                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    slicer.cumulativeE += extrusionDelta
 
-                offsetX = point.x + centerOffsetX
-                offsetY = point.y + centerOffsetY
+                    offsetX = firstPoint.x + centerOffsetX
+                    offsetY = firstPoint.y + centerOffsetY
 
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
-
-            # Close loop.
-            firstPoint = skinWallPath[0]
-            lastPoint = skinWallPath[skinWallPath.length - 1]
-
-            dx = firstPoint.x - lastPoint.x
-            dy = firstPoint.y - lastPoint.y
-
-            distance = Math.sqrt(dx * dx + dy * dy)
-
-            if distance > 0.001
-
-                extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
-                slicer.cumulativeE += extrusionDelta
-
-                offsetX = firstPoint.x + centerOffsetX
-                offsetY = firstPoint.y + centerOffsetY
-
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, perimeterSpeedMmMin)
 
         # Generate diagonal skin infill.
         return unless generateInfill
 
+        # Calculate infill boundary.
+        # If wall was generated, use its offset; otherwise calculate from boundary.
         infillGap = nozzleDiameter / 2
-        infillInset = skinWallInset + infillGap
+
+        # Add small epsilon to ensure diagonal lines at boundary corners aren't excluded
+        # due to floating-point precision issues in point-in-polygon tests.
+        boundaryEpsilon = 0.05  # 0.05mm = 50 microns
+
+        if generateWall
+
+            skinWallInset = nozzleDiameter
+            infillInset = skinWallInset + infillGap - boundaryEpsilon
+
+        else
+
+            # No wall generated, calculate infill boundary directly from boundaryPath.
+            # Use the same offset as if wall had been generated.
+            infillInset = nozzleDiameter + infillGap - boundaryEpsilon
 
         infillBoundary = paths.createInsetPath(boundaryPath, infillInset, isHole)
 
@@ -247,7 +267,8 @@ module.exports =
             offset += lineSpacing * Math.sqrt(2)
 
         # Render lines in nearest-neighbor order.
-        lastEndPoint = if skinWallPath.length >= 3 then { x: skinWallPath[0].x, y: skinWallPath[0].y, z: z } else null
+        # lastEndPoint: use skin wall if available, otherwise null.
+        lastEndPoint = if skinWallPath and skinWallPath.length >= 3 then { x: skinWallPath[0].x, y: skinWallPath[0].y, z: z } else null
 
         while allSkinLines.length > 0
 
