@@ -169,7 +169,7 @@ async function main() {
         supportEnabled: true,  // ENABLED for all output
         supportType: "normal",
         supportPlacement: "buildPlate",
-        supportThreshold: 55
+        supportThreshold: 45
 
     });
 
@@ -267,7 +267,7 @@ async function main() {
 
     console.log("=== Exporting STL Files ===\n");
 
-    const archStlPath = path.join(stlOutDir, "arch-with-supports.stl");
+    const archStlPath = path.join(stlOutDir, "arch.stl");
     try {
         await exportMeshAsSTL(archMesh, archStlPath);
         console.log(`🧊 Arch STL saved to: ${archStlPath}`);
@@ -275,7 +275,7 @@ async function main() {
         console.warn(`⚠️  Failed to export arch STL: ${e.message}`);
     }
 
-    const domeStlPath = path.join(stlOutDir, "dome-with-supports.stl");
+    const domeStlPath = path.join(stlOutDir, "dome.stl");
     try {
         await exportMeshAsSTL(domeMesh, domeStlPath);
         console.log(`🧊 Dome STL saved to: ${domeStlPath}`);
