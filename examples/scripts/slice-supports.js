@@ -289,7 +289,7 @@ async function main() {
     console.log(`- Dome G-code: ${domeOutputDir}`);
     console.log("\nNotes:");
     console.log("- All shapes sliced with supports enabled (supportEnabled: true)");
-    console.log("- Support threshold set to 45° (faces angled more than 45° from vertical get supports)");
+    console.log("- Support threshold set to 55° (faces angled more than 55° from vertical get supports)");
     console.log("- Three orientations per shape: upright, flipped, sideways");
     console.log("- Output is version controlled in resources/gcode/support/ for algorithm study");
 }
