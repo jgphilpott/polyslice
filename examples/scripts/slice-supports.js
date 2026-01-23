@@ -169,7 +169,7 @@ async function main() {
         supportEnabled: true,  // ENABLED for all output
         supportType: "normal",
         supportPlacement: "buildPlate",
-        supportThreshold: 45
+        supportThreshold: 55
 
     });
 
