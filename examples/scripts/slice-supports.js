@@ -204,11 +204,11 @@ async function main() {
     for (const o of orientations) {
         // For sideways orientation, generate two versions: buildPlate and everywhere
         const placements = (o.name === "sideways") ? ["buildPlate", "everywhere"] : ["buildPlate"];
-        
+
         for (const placement of placements) {
             // Set support placement for this iteration
             slicer.setSupportPlacement(placement);
-            
+
             // Clone mesh to avoid mutating base orientation
             const variant = new THREE.Mesh(archMesh.geometry.clone(), archMesh.material);
             variant.position.copy(archMesh.position);
@@ -220,7 +220,7 @@ async function main() {
             const placementSuffix = (placement === "everywhere") ? "-everywhere" : "";
             console.log(`Slicing arch (${o.name}${placementSuffix})...`);
             console.log(`  Support placement: ${placement}`);
-            
+
             const start = Date.now();
             const gcode = slicer.slice(variant);
             const end = Date.now();
@@ -248,11 +248,11 @@ async function main() {
     for (const o of orientations) {
         // For sideways orientation, generate two versions: buildPlate and everywhere
         const placements = (o.name === "sideways") ? ["buildPlate", "everywhere"] : ["buildPlate"];
-        
+
         for (const placement of placements) {
             // Set support placement for this iteration
             slicer.setSupportPlacement(placement);
-            
+
             // Clone mesh so rotations don't accumulate
             const variant = new THREE.Mesh(domeMesh.geometry.clone(), domeMesh.material);
             variant.position.copy(domeMesh.position);
@@ -264,7 +264,7 @@ async function main() {
             const placementSuffix = (placement === "everywhere") ? "-everywhere" : "";
             console.log(`Slicing dome (${o.name}${placementSuffix})...`);
             console.log(`  Support placement: ${placement}`);
-            
+
             const start = Date.now();
             const gcode = slicer.slice(variant);
             const end = Date.now();
