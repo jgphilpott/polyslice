@@ -202,28 +202,39 @@ async function main() {
     }
 
     for (const o of orientations) {
-        // Clone mesh to avoid mutating base orientation
-        const variant = new THREE.Mesh(archMesh.geometry.clone(), archMesh.material);
-        variant.position.copy(archMesh.position);
-        variant.rotation.copy(archMesh.rotation);
-        variant.scale.copy(archMesh.scale);
-        variant.rotation.y += o.rotY;
-        variant.updateMatrixWorld(true);
+        // For sideways orientation, generate two versions: buildPlate and everywhere
+        const placements = (o.name === "sideways") ? ["buildPlate", "everywhere"] : ["buildPlate"];
+        
+        for (const placement of placements) {
+            // Set support placement for this iteration
+            slicer.setSupportPlacement(placement);
+            
+            // Clone mesh to avoid mutating base orientation
+            const variant = new THREE.Mesh(archMesh.geometry.clone(), archMesh.material);
+            variant.position.copy(archMesh.position);
+            variant.rotation.copy(archMesh.rotation);
+            variant.scale.copy(archMesh.scale);
+            variant.rotation.y += o.rotY;
+            variant.updateMatrixWorld(true);
 
-        console.log(`Slicing arch (${o.name})...`);
-        const start = Date.now();
-        const gcode = slicer.slice(variant);
-        const end = Date.now();
-        console.log(`- Done in ${end - start}ms`);
+            const placementSuffix = (placement === "everywhere") ? "-everywhere" : "";
+            console.log(`Slicing arch (${o.name}${placementSuffix})...`);
+            console.log(`  Support placement: ${placement}`);
+            
+            const start = Date.now();
+            const gcode = slicer.slice(variant);
+            const end = Date.now();
+            console.log(`- Done in ${end - start}ms`);
 
-        const outPath = path.join(archOutputDir, `${o.name}.gcode`);
-        fs.writeFileSync(outPath, gcode);
-        console.log(`✅ Saved: ${outPath}`);
+            const outPath = path.join(archOutputDir, `${o.name}${placementSuffix}.gcode`);
+            fs.writeFileSync(outPath, gcode);
+            console.log(`✅ Saved: ${outPath}`);
 
-        // Brief stats
-        const lines = gcode.split("\n");
-        const supportLines = lines.filter(line => line.includes("TYPE: SUPPORT"));
-        console.log(`- Total lines: ${lines.length}, Support type lines: ${supportLines.length}\n`);
+            // Brief stats
+            const lines = gcode.split("\n");
+            const supportLines = lines.filter(line => line.includes("TYPE: SUPPORT"));
+            console.log(`- Total lines: ${lines.length}, Support type lines: ${supportLines.length}\n`);
+        }
     }
 
     // Slice dome with all orientations
@@ -235,28 +246,39 @@ async function main() {
     }
 
     for (const o of orientations) {
-        // Clone mesh so rotations don't accumulate
-        const variant = new THREE.Mesh(domeMesh.geometry.clone(), domeMesh.material);
-        variant.position.copy(domeMesh.position);
-        variant.rotation.copy(domeMesh.rotation);
-        variant.scale.copy(domeMesh.scale);
-        variant.rotation.y += o.rotY;
-        variant.updateMatrixWorld(true);
+        // For sideways orientation, generate two versions: buildPlate and everywhere
+        const placements = (o.name === "sideways") ? ["buildPlate", "everywhere"] : ["buildPlate"];
+        
+        for (const placement of placements) {
+            // Set support placement for this iteration
+            slicer.setSupportPlacement(placement);
+            
+            // Clone mesh so rotations don't accumulate
+            const variant = new THREE.Mesh(domeMesh.geometry.clone(), domeMesh.material);
+            variant.position.copy(domeMesh.position);
+            variant.rotation.copy(domeMesh.rotation);
+            variant.scale.copy(domeMesh.scale);
+            variant.rotation.y += o.rotY;
+            variant.updateMatrixWorld(true);
 
-        console.log(`Slicing dome (${o.name})...`);
-        const start = Date.now();
-        const gcode = slicer.slice(variant);
-        const end = Date.now();
-        console.log(`- Done in ${end - start}ms`);
+            const placementSuffix = (placement === "everywhere") ? "-everywhere" : "";
+            console.log(`Slicing dome (${o.name}${placementSuffix})...`);
+            console.log(`  Support placement: ${placement}`);
+            
+            const start = Date.now();
+            const gcode = slicer.slice(variant);
+            const end = Date.now();
+            console.log(`- Done in ${end - start}ms`);
 
-        const outPath = path.join(domeOutputDir, `${o.name}.gcode`);
-        fs.writeFileSync(outPath, gcode);
-        console.log(`✅ Saved: ${outPath}`);
+            const outPath = path.join(domeOutputDir, `${o.name}${placementSuffix}.gcode`);
+            fs.writeFileSync(outPath, gcode);
+            console.log(`✅ Saved: ${outPath}`);
 
-        // Brief stats
-        const lines = gcode.split("\n");
-        const supportLines = lines.filter(line => line.includes("TYPE: SUPPORT"));
-        console.log(`- Total lines: ${lines.length}, Support type lines: ${supportLines.length}\n`);
+            // Brief stats
+            const lines = gcode.split("\n");
+            const supportLines = lines.filter(line => line.includes("TYPE: SUPPORT"));
+            console.log(`- Total lines: ${lines.length}, Support type lines: ${supportLines.length}\n`);
+        }
     }
 
     // Export STLs to examples/output for reference

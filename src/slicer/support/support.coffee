@@ -15,11 +15,12 @@ module.exports =
 
         return unless supportType is 'normal'
 
-        return unless supportPlacement is 'buildPlate'
+        # Support 'buildPlate' and 'everywhere' placements.
+        return unless supportPlacement in ['buildPlate', 'everywhere']
 
         if not slicer._overhangRegions?
 
-            slicer._overhangRegions = @detectOverhangs(mesh, supportThreshold, minZ)
+            slicer._overhangRegions = @detectOverhangs(mesh, supportThreshold, minZ, supportPlacement)
 
         overhangRegions = slicer._overhangRegions
 
@@ -46,7 +47,7 @@ module.exports =
         return
 
     # Detect overhanging regions based on support threshold angle.
-    detectOverhangs: (mesh, thresholdAngle, buildPlateZ = 0) ->
+    detectOverhangs: (mesh, thresholdAngle, buildPlateZ = 0, supportPlacement = 'buildPlate') ->
 
         return [] unless mesh?.geometry
 
@@ -113,7 +114,14 @@ module.exports =
                     centerY = (v0.y + v1.y + v2.y) / 3
                     centerZ = (v0.z + v1.z + v2.z) / 3
 
-                    if centerZ > buildPlateZ + 0.5
+                    # For 'buildPlate' placement, only generate supports above build plate.
+                    # For 'everywhere' placement, support all overhangs regardless of height.
+                    shouldGenerateSupport = if supportPlacement is 'everywhere'
+                        centerZ > buildPlateZ
+                    else
+                        centerZ > buildPlateZ + 0.5
+
+                    if shouldGenerateSupport
 
                         overhangRegions.push({
                             x: centerX
