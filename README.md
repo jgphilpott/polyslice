@@ -99,6 +99,39 @@ Polyslice provides a comprehensive set of features for the 3D printing workflow:
 | 📏 **Precision control** | Optimize file size with configurable precision (20-30% reduction) | [G-code](docs/slicer/gcode/GCODE.md) |
 | 🌐 **Universal** | Works in Node.js and browsers | [API](docs/api/API.md) |
 
+## Mesh Complexity
+
+Polyslice uses a path connection algorithm with O(n³) complexity, which means slicing time grows exponentially with mesh detail. Very detailed meshes may take several minutes to slice or appear to hang.
+
+### Performance Guidelines
+
+| Complexity Score* | Expected Time | Recommendation |
+|------------------|---------------|----------------|
+| < 1M | Fast (< 10s) | ✅ Optimal |
+| 1M - 5M | Moderate (10s - 2min) | ⚠️ Consider simplification |
+| > 5M | Slow (> 2min) | 🚫 Reduce mesh detail |
+
+**Complexity Score = Triangles × Estimated Layers*
+
+### How to Reduce Mesh Complexity
+
+If you encounter performance issues:
+
+1. **Reduce mesh detail** in your 3D modeling software
+2. **Increase layer height** (e.g., from 0.1mm to 0.2mm)
+3. **Simplify geometry** using tools like [MeshLab](https://www.meshlab.net/) or Blender's Decimate modifier
+4. **Scale down** large models if possible
+
+### Example Warning Output
+
+```
+⚠️  WARNING: Very high mesh complexity detected!
+   Triangles: 32512, Estimated layers: 500
+   Complexity score: 16256k
+   Slicing may take several minutes or appear to hang.
+   Consider reducing mesh detail or increasing layer height.
+```
+
 ## Documentation
 
 For detailed documentation, see the [docs folder](docs/README.md):
