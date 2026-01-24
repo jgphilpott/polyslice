@@ -172,6 +172,32 @@ describe 'Support Module', ->
             overhangs90 = supportModule.detectOverhangs(mesh, 90, 0)
             expect(overhangs90.length).toBe(0)
 
+        test 'should detect different overhangs for buildPlate vs everywhere placement', ->
+
+            slicer.setSupportEnabled(true)
+            slicer.setSupportThreshold(45)
+
+            # Create a box positioned very close to the build plate (just above the 0.5mm threshold).
+            # The bottom face (z ≈ 0.3mm) will be excluded by 'buildPlate' (requires z > 0.5mm)
+            # but included by 'everywhere' (requires z > 0mm).
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            geometry.computeVertexNormals() # Required for detection.
+            mesh = new THREE.Mesh(geometry)
+            mesh.position.set(0, 0, 5.3) # Bottom at z ≈ 0.3mm (below 0.5mm threshold).
+            mesh.updateMatrixWorld()
+
+            # Detect with 'buildPlate' placement (default).
+            overhangsBuildPlate = supportModule.detectOverhangs(mesh, 45, 0, 'buildPlate')
+
+            # Detect with 'everywhere' placement.
+            overhangsEverywhere = supportModule.detectOverhangs(mesh, 45, 0, 'everywhere')
+
+            # 'buildPlate' should exclude the overhang (z=0.3mm < 0.5mm threshold).
+            expect(overhangsBuildPlate.length).toBe(0)
+
+            # 'everywhere' should include the overhang (z=0.3mm > 0mm).
+            expect(overhangsEverywhere.length).toBeGreaterThan(0)
+
     describe 'Support Column Generation', ->
 
         test 'should generate G-code for support columns', ->
