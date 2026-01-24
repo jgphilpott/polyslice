@@ -5,17 +5,20 @@
  * Shapes:
  * - Arch: Box minus horizontal cylinder (semi-circular opening)
  * - Dome: Box minus hemisphere (dome ceiling cavity)
+ * - Strip: Test strip with various threshold values
  *
  * Each shape is sliced in three orientations:
  * - upright (0°)
  * - flipped (180°)
  * - sideways (90°)
  *
+ * The strip is sliced with threshold values from 0 to 100 (step 10).
+ *
  * Usage:
  *   node examples/scripts/slice-supports.js
  */
 
-const { Polyslice, Printer, Filament } = require("../../src/index");
+const { Polyslice, Printer, Filament, Loader } = require("../../src/index");
 const fs = require("fs");
 const path = require("path");
 const THREE = require("three");
@@ -281,6 +284,56 @@ async function main() {
         }
     }
 
+    // Slice strip.test.stl with various threshold values
+    console.log("=== Slicing Strip with Threshold Variations ===\n");
+    
+    const stripStlPath = path.join(__dirname, "..", "..", "resources", "testing", "strip.test.stl");
+    console.log(`Loading strip.test.stl from: ${stripStlPath}`);
+    
+    let stripMesh = null;
+    try {
+        stripMesh = await Loader.loadSTL(stripStlPath);
+        console.log("✅ Strip mesh loaded successfully");
+        const stripPos = stripMesh.geometry.attributes.position;
+        console.log(`- Geometry type: ${stripMesh.geometry.type}`);
+        console.log(`- Vertices: ${stripPos ? stripPos.count : "(unknown)"}`);
+        if (stripPos) console.log(`- Triangles (approx): ${(stripPos.count / 3) | 0}\n`);
+    } catch (e) {
+        console.warn(`⚠️  Failed to load strip.test.stl: ${e.message}`);
+        console.log("Skipping threshold examples.\n");
+    }
+
+    if (stripMesh) {
+        const thresholdOutputDir = path.join(__dirname, "..", "..", "resources", "gcode", "support", "threshold");
+        if (!fs.existsSync(thresholdOutputDir)) {
+            fs.mkdirSync(thresholdOutputDir, { recursive: true });
+            console.log(`📁 Created directory: ${thresholdOutputDir}\n`);
+        }
+
+        // Reset support placement to buildPlate for threshold tests
+        slicer.setSupportPlacement("buildPlate");
+
+        // Generate G-code for threshold values from 0 to 100, step 10
+        for (let threshold = 0; threshold <= 100; threshold += 10) {
+            console.log(`Slicing strip with threshold ${threshold}°...`);
+            slicer.setSupportThreshold(threshold);
+
+            const start = Date.now();
+            const gcode = slicer.slice(stripMesh);
+            const end = Date.now();
+            console.log(`- Done in ${end - start}ms`);
+
+            const outPath = path.join(thresholdOutputDir, `threshold-${threshold}.gcode`);
+            fs.writeFileSync(outPath, gcode);
+            console.log(`✅ Saved: ${outPath}`);
+
+            // Brief stats
+            const lines = gcode.split("\n");
+            const supportLines = lines.filter(line => line.includes("TYPE: SUPPORT"));
+            console.log(`- Total lines: ${lines.length}, Support type lines: ${supportLines.length}\n`);
+        }
+    }
+
     // Export STLs to examples/output for reference
     const stlOutDir = path.join(__dirname, "..", "output");
     if (!fs.existsSync(stlOutDir)) {
@@ -309,9 +362,14 @@ async function main() {
     console.log("\nOutput locations:");
     console.log(`- Arch G-code: ${archOutputDir}`);
     console.log(`- Dome G-code: ${domeOutputDir}`);
+    if (stripMesh) {
+        const thresholdOutputDir = path.join(__dirname, "..", "..", "resources", "gcode", "support", "threshold");
+        console.log(`- Threshold examples: ${thresholdOutputDir}`);
+    }
     console.log("\nNotes:");
     console.log("- All shapes sliced with supports enabled (supportEnabled: true)");
-    console.log("- Support threshold set to 55° (faces angled more than 55° from vertical get supports)");
+    console.log("- Arch and Dome: Support threshold set to 55° (faces angled more than 55° from vertical get supports)");
+    console.log("- Threshold examples: Strip sliced with thresholds from 0° to 100° (step 10°)");
     console.log("- Three orientations per shape: upright, flipped, sideways");
     console.log("- Output is version controlled in resources/gcode/support/ for algorithm study");
 }
