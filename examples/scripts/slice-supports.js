@@ -286,10 +286,10 @@ async function main() {
 
     // Slice strip.test.stl with various threshold values
     console.log("=== Slicing Strip with Threshold Variations ===\n");
-    
+
     const stripStlPath = path.join(__dirname, "..", "..", "resources", "testing", "strip.test.stl");
     console.log(`Loading strip.test.stl from: ${stripStlPath}`);
-    
+
     let stripMesh = null;
     try {
         stripMesh = await Loader.loadSTL(stripStlPath);
