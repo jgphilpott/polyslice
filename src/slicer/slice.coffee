@@ -58,6 +58,11 @@ module.exports =
         # Reset cumulative extrusion counter (absolute mode starts at 0).
         slicer.cumulativeE = 0
 
+        # Initialize print statistics tracking.
+        slicer.totalFilamentLength = 0 # Total filament extruded (mm).
+        slicer.totalPrintTime = 0 # Total print time (seconds).
+        slicer.totalLayers = 0 # Number of layers printed.
+
         # Get mesh bounding box for slicing.
         boundingBox = new THREE.Box3().setFromObject(mesh)
 
@@ -175,9 +180,16 @@ module.exports =
             # Generate G-code for this layer with center offset.
             @generateLayerGCode(slicer, layerPaths, currentZ, layerIndex, centerOffsetX, centerOffsetY, totalLayers, allLayers, layerSegments)
 
+        # Store final print statistics after all layers are processed.
+        slicer.totalFilamentLength = slicer.cumulativeE # Final extrusion value equals total filament used (mm).
+        slicer.totalLayers = totalLayers
+
         slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
         slicer.gcode += coders.codePostPrint(slicer)
+
+        # Update metadata with print statistics after all G-code is generated.
+        coders.updateMetadataWithStats(slicer)
 
         return slicer.gcode
 
