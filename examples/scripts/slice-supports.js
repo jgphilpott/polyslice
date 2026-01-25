@@ -303,8 +303,10 @@ async function main() {
         console.log("Skipping threshold examples.\n");
     }
 
+    // Define threshold output directory (used later for logging)
+    const thresholdOutputDir = path.join(__dirname, "..", "..", "resources", "gcode", "support", "threshold");
+
     if (stripMesh) {
-        const thresholdOutputDir = path.join(__dirname, "..", "..", "resources", "gcode", "support", "threshold");
         if (!fs.existsSync(thresholdOutputDir)) {
             fs.mkdirSync(thresholdOutputDir, { recursive: true });
             console.log(`📁 Created directory: ${thresholdOutputDir}\n`);
@@ -323,7 +325,7 @@ async function main() {
             const end = Date.now();
             console.log(`- Done in ${end - start}ms`);
 
-            const outPath = path.join(thresholdOutputDir, `threshold-${threshold}.gcode`);
+            const outPath = path.join(thresholdOutputDir, `${threshold}-degrees.gcode`);
             fs.writeFileSync(outPath, gcode);
             console.log(`✅ Saved: ${outPath}`);
 
@@ -363,7 +365,6 @@ async function main() {
     console.log(`- Arch G-code: ${archOutputDir}`);
     console.log(`- Dome G-code: ${domeOutputDir}`);
     if (stripMesh) {
-        const thresholdOutputDir = path.join(__dirname, "..", "..", "resources", "gcode", "support", "threshold");
         console.log(`- Threshold examples: ${thresholdOutputDir}`);
     }
     console.log("\nNotes:");
