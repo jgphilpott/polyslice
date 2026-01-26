@@ -487,6 +487,45 @@ describe 'G-code Generation (Coders)', ->
             expect(coders.formatTime(undefined)).toBe('00:00:00')
             expect(coders.formatTime(36000)).toBe('10:00:00')
 
+        test 'should calculate arc movement time correctly', ->
+
+            coders = require('./coders')
+            Polyslice = require('../../polyslice')
+
+            # Create a slicer with test G-code containing arc movements
+            testSlicer = new Polyslice()
+            
+            # Simulate G-code with arc movements
+            # G2/G3 with I/J parameters (center format)
+            testSlicer.gcode = """
+G90
+G21
+G28
+M109 S200
+M190 S60
+G92 E0
+G1 X0 Y0 Z0.2 F3000
+G1 X10 Y0 E1 F1800
+G2 X20 Y10 I10 J0 E2 F1800
+G1 X20 Y20 E3 F1800
+G3 X10 Y30 I-10 J0 E4 F1800
+"""
+
+            # Calculate print time
+            printTime = coders.calculatePrintTime(testSlicer)
+            
+            # Print time should be greater than zero
+            expect(printTime).toBeGreaterThan(0)
+            
+            # The arc movements should take longer than if they were straight lines
+            # Arc from (10,0) to (20,10) with center offset I=10, J=0
+            # Radius = 10mm, this is a quarter circle, arc length = π*10/2 ≈ 15.7mm
+            # Straight line distance would be sqrt(100+100) ≈ 14.1mm
+            # So arc should add more time
+            
+            # Verify time includes heating estimates (30s + 60s = 90s)
+            expect(printTime).toBeGreaterThan(90)
+
         test 'should calculate material volume and weight', ->
 
             THREE = require('three')

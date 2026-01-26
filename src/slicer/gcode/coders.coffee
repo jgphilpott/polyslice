@@ -61,6 +61,11 @@ module.exports =
                 newZ = currentZ
 
                 newFeedrate = currentFeedrate
+                
+                # Arc parameters (for G2/G3)
+                arcI = null
+                arcJ = null
+                arcR = null
 
                 for part in parts[1..]
 
@@ -72,13 +77,64 @@ module.exports =
                         newZ = parseFloat(part.substring(1))
                     else if part.startsWith('F')
                         newFeedrate = parseFloat(part.substring(1))
+                    else if part.startsWith('I')
+                        arcI = parseFloat(part.substring(1))
+                    else if part.startsWith('J')
+                        arcJ = parseFloat(part.substring(1))
+                    else if part.startsWith('R')
+                        arcR = parseFloat(part.substring(1))
 
                 # Calculate distance moved.
-                dx = newX - currentX
-                dy = newY - currentY
-                dz = newZ - currentZ
-
-                distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+                distance = 0
+                
+                # For arc movements (G2/G3), calculate arc length
+                if (command is 'G2' or command is 'G3') and (arcI? or arcJ? or arcR?)
+                    
+                    # Calculate arc length using the arc parameters
+                    if arcR?
+                        # R format: radius is given directly
+                        radius = Math.abs(arcR)
+                    else if arcI? or arcJ?
+                        # I/J format: center offset from start point
+                        i = arcI ? 0
+                        j = arcJ ? 0
+                        radius = Math.sqrt(i * i + j * j)
+                    
+                    if radius > 0
+                        # Calculate the chord length (straight line distance)
+                        dx = newX - currentX
+                        dy = newY - currentY
+                        dz = newZ - currentZ
+                        chordLength = Math.sqrt(dx * dx + dy * dy)
+                        
+                        # Calculate the angle subtended by the arc
+                        # Using the formula: angle = 2 * arcsin(chord / (2 * radius))
+                        if chordLength < 2 * radius
+                            angle = 2 * Math.asin(chordLength / (2 * radius))
+                            
+                            # Arc length = radius * angle
+                            arcLength = radius * angle
+                            
+                            # Include Z component if present (helical arc)
+                            if dz isnt 0
+                                distance = Math.sqrt(arcLength * arcLength + dz * dz)
+                            else
+                                distance = arcLength
+                        else
+                            # Chord is too long for the radius (degenerate case), use straight line
+                            distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+                    else
+                        # Invalid radius, fall back to straight line
+                        dx = newX - currentX
+                        dy = newY - currentY
+                        dz = newZ - currentZ
+                        distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+                else
+                    # Linear movement (G0/G1) or arc without parameters
+                    dx = newX - currentX
+                    dy = newY - currentY
+                    dz = newZ - currentZ
+                    distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
 
                 # Calculate time for this move if we have a feedrate.
                 if distance > 0 and newFeedrate isnt null and newFeedrate > 0
