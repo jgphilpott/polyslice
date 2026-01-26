@@ -69,6 +69,22 @@ describe 'Polyslice', ->
             # Test test strip setting
             expect(slicer.getTestStrip()).toBe(false)
 
+            # Test metadata field settings (all should default to true)
+            expect(slicer.getMetadataTitle()).toBe(true)
+            expect(slicer.getMetadataVersion()).toBe(true)
+            expect(slicer.getMetadataTimestamp()).toBe(true)
+            expect(slicer.getMetadataRepository()).toBe(true)
+            expect(slicer.getMetadataPrinter()).toBe(true)
+            expect(slicer.getMetadataFilament()).toBe(true)
+            expect(slicer.getMetadataNozzleTemp()).toBe(true)
+            expect(slicer.getMetadataBedTemp()).toBe(true)
+            expect(slicer.getMetadataLayerHeight()).toBe(true)
+            expect(slicer.getMetadataTotalLayers()).toBe(true)
+            expect(slicer.getMetadataFilamentLength()).toBe(true)
+            expect(slicer.getMetadataMaterialVolume()).toBe(true)
+            expect(slicer.getMetadataMaterialWeight()).toBe(true)
+            expect(slicer.getMetadataPrintTime()).toBe(true)
+
             # Test post-print settings
             expect(slicer.getWipeNozzle()).toBe(true)
             expect(slicer.getSmartWipeNozzle()).toBe(true)
