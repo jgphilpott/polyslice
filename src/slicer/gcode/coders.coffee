@@ -41,6 +41,9 @@ module.exports =
         currentZ = 0
 
         currentFeedrate = null # Feedrate in mm/min.
+        
+        # Track positioning mode (true = absolute G90, false = relative G91)
+        isAbsolutePositioning = true
 
         for line in lines
 
@@ -51,6 +54,14 @@ module.exports =
             # Extract command and parameters.
             parts = line.split(/\s+/)
             command = parts[0]
+            
+            # Track positioning mode changes
+            if command is 'G90'
+                isAbsolutePositioning = true
+                continue
+            else if command is 'G91'
+                isAbsolutePositioning = false
+                continue
 
             # Process movement commands (G0, G1, G2, G3).
             if command in ['G0', 'G1', 'G2', 'G3']
@@ -66,15 +77,26 @@ module.exports =
                 arcI = null
                 arcJ = null
                 arcR = null
+                
+                # Track if coordinates were specified
+                hasX = false
+                hasY = false
+                hasZ = false
+                xValue = 0
+                yValue = 0
+                zValue = 0
 
                 for part in parts[1..]
 
                     if part.startsWith('X')
-                        newX = parseFloat(part.substring(1))
+                        hasX = true
+                        xValue = parseFloat(part.substring(1))
                     else if part.startsWith('Y')
-                        newY = parseFloat(part.substring(1))
+                        hasY = true
+                        yValue = parseFloat(part.substring(1))
                     else if part.startsWith('Z')
-                        newZ = parseFloat(part.substring(1))
+                        hasZ = true
+                        zValue = parseFloat(part.substring(1))
                     else if part.startsWith('F')
                         newFeedrate = parseFloat(part.substring(1))
                     else if part.startsWith('I')
@@ -83,6 +105,18 @@ module.exports =
                         arcJ = parseFloat(part.substring(1))
                     else if part.startsWith('R')
                         arcR = parseFloat(part.substring(1))
+                
+                # Apply positioning mode to coordinates
+                if isAbsolutePositioning
+                    # Absolute mode: coordinates are absolute positions
+                    newX = xValue if hasX
+                    newY = yValue if hasY
+                    newZ = zValue if hasZ
+                else
+                    # Relative mode: coordinates are offsets from current position
+                    newX = currentX + xValue if hasX
+                    newY = currentY + yValue if hasY
+                    newZ = currentZ + zValue if hasZ
 
                 # Calculate distance moved.
                 distance = 0
