@@ -27,6 +27,12 @@ module.exports =
         infillGap = nozzleDiameter / 2
         infillBoundary = paths.createInsetPath(boundaryPath, infillGap)
 
+        # For thin walls, if the inset fails, use the boundary path directly.
+        # This allows infill generation for very thin geometries where additional insetting
+        # would result in degenerate paths.
+        if infillBoundary.length < 3
+            infillBoundary = boundaryPath
+
         return if infillBoundary.length < 3
 
         # Subtract skin areas from infill boundary if provided.
