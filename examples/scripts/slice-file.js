@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 /**
  * Generic file slicing script for Polyslice.
- * Usage: node slice-file.js /path/to/model.(stl|obj)
+ * Usage: node slice-file.js /path/to/model.(stl|obj) [rotation]
+ *
+ * Optional rotation argument format: <axis><degrees>
+ *   Examples: x90, y-45, z180
+ *
  * Saves G-code beside the source model (same directory, same basename + .gcode).
  */
 
@@ -52,10 +56,47 @@ function liftToBuildPlate(root) {
   return root;
 }
 
+/**
+ * Parse and apply rotation from command line argument.
+ * Format: <axis><degrees> (e.g., x90, y-45, z180)
+ */
+function applyRotation(mesh, rotationArg) {
+  if (!rotationArg) return;
+
+  const match = rotationArg.match(/^([xyz])([-\d.]+)$/i);
+  if (!match) {
+    console.warn(`Warning: Invalid rotation format '${rotationArg}'. Expected format: x90, y-45, z180`);
+    return;
+  }
+
+  const axis = match[1].toLowerCase();
+  const degrees = parseFloat(match[2]);
+  const radians = (degrees * Math.PI) / 180;
+
+  console.log(`Applying rotation: ${degrees}° around ${axis.toUpperCase()}-axis`);
+
+  switch (axis) {
+    case 'x':
+      mesh.rotation.x = radians;
+      break;
+    case 'y':
+      mesh.rotation.y = radians;
+      break;
+    case 'z':
+      mesh.rotation.z = radians;
+      break;
+  }
+
+  mesh.updateMatrixWorld(true);
+}
+
 async function main() {
   const argPath = process.argv[2];
+  const rotationArg = process.argv[3];
+
   if (!argPath) {
-    console.error("Usage: node slice-file.js /path/to/model.(stl|obj)");
+    console.error("Usage: node slice-file.js /path/to/model.(stl|obj) [rotation]");
+    console.error("  rotation format: <axis><degrees> (e.g., x90, y-45, z180)");
     process.exit(1);
   }
   const inputPath = path.resolve(argPath);
@@ -69,6 +110,9 @@ async function main() {
     console.error("Load error:", e.message);
     process.exit(1);
   }
+
+  // Apply rotation if specified
+  applyRotation(mesh, rotationArg);
 
   liftToBuildPlate(mesh);
 
