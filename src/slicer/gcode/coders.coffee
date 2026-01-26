@@ -39,6 +39,7 @@ module.exports =
         currentX = 0
         currentY = 0
         currentZ = 0
+
         currentFeedrate = null # Feedrate in mm/min.
 
         for line in lines
@@ -58,6 +59,7 @@ module.exports =
                 newX = currentX
                 newY = currentY
                 newZ = currentZ
+
                 newFeedrate = currentFeedrate
 
                 for part in parts[1..]
@@ -75,6 +77,7 @@ module.exports =
                 dx = newX - currentX
                 dy = newY - currentY
                 dz = newZ - currentZ
+
                 distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
 
                 # Calculate time for this move if we have a feedrate.
@@ -89,6 +92,7 @@ module.exports =
                 currentX = newX
                 currentY = newY
                 currentZ = newZ
+
                 currentFeedrate = newFeedrate
 
             # Process dwell commands (G4).
