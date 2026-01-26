@@ -494,7 +494,7 @@ describe 'G-code Generation (Coders)', ->
 
             # Create a slicer with test G-code containing arc movements
             testSlicer = new Polyslice()
-            
+
             # Simulate G-code with arc movements
             # G2/G3 with I/J parameters (center format)
             testSlicer.gcode = """
@@ -513,16 +513,16 @@ G3 X10 Y30 I-10 J0 E4 F1800
 
             # Calculate print time
             printTime = coders.calculatePrintTime(testSlicer)
-            
+
             # Print time should be greater than zero
             expect(printTime).toBeGreaterThan(0)
-            
+
             # The arc movements should take longer than if they were straight lines
             # Arc from (10,0) to (20,10) with center offset I=10, J=0
             # Radius = 10mm, this is a quarter circle, arc length = π*10/2 ≈ 15.7mm
             # Straight line distance would be sqrt(100+100) ≈ 14.1mm
             # So arc should add more time
-            
+
             # Verify time includes heating estimates (30s + 60s = 90s)
             expect(printTime).toBeGreaterThan(90)
 
@@ -533,7 +533,7 @@ G3 X10 Y30 I-10 J0 E4 F1800
 
             # Create a slicer with test G-code using relative positioning
             testSlicer = new Polyslice()
-            
+
             # Test G-code with mixed absolute and relative positioning
             testSlicer.gcode = """
 G90
@@ -553,17 +553,17 @@ G1 X0 Y0 E4 F1800
 
             # Calculate print time
             printTime = coders.calculatePrintTime(testSlicer)
-            
+
             # Print time should be greater than zero
             expect(printTime).toBeGreaterThan(0)
-            
+
             # Verify time includes heating estimates (30s + 60s = 90s)
             expect(printTime).toBeGreaterThan(90)
-            
+
             # Calculate expected move distances
             # Absolute: (0,0,0) -> (10,10,0.2) = sqrt(100+100+0.04) ≈ 14.14mm
             # Relative: (10,10) -> (15,10) = 5mm
-            # Relative: (15,10) -> (15,15) = 5mm  
+            # Relative: (15,10) -> (15,15) = 5mm
             # Relative: (15,15) -> (10,15) = 5mm
             # Absolute: (10,15) -> (0,0) = sqrt(100+225) ≈ 18.03mm
             # Total distance ≈ 47mm at 1800mm/min = 30mm/s -> ~1.57s

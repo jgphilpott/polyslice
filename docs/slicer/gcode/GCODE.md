@@ -610,7 +610,7 @@ Each metadata field can be individually enabled or disabled (all default to `tru
 ```javascript
 const slicer = new Polyslice({
     metadata: true,  // Enable metadata header
-    
+
     // Configuration fields (all default to true)
     metadataVersion: false,       // Hide version number
     metadataTimestamp: false,     // Hide timestamp
@@ -620,7 +620,7 @@ const slicer = new Polyslice({
     metadataNozzleTemp: true,     // Show nozzle temperature
     metadataBedTemp: true,        // Show bed temperature
     metadataLayerHeight: true,    // Show layer height
-    
+
     // Statistics fields (all default to true)
     metadataTotalLayers: true,      // Show layer count
     metadataFilamentLength: true,   // Show filament usage

@@ -41,7 +41,7 @@ module.exports =
         currentZ = 0
 
         currentFeedrate = null # Feedrate in mm/min.
-        
+
         # Track positioning mode (true = absolute G90, false = relative G91)
         isAbsolutePositioning = true
 
@@ -54,7 +54,7 @@ module.exports =
             # Extract command and parameters.
             parts = line.split(/\s+/)
             command = parts[0]
-            
+
             # Track positioning mode changes
             if command is 'G90'
                 isAbsolutePositioning = true
@@ -72,12 +72,12 @@ module.exports =
                 newZ = currentZ
 
                 newFeedrate = currentFeedrate
-                
+
                 # Arc parameters (for G2/G3)
                 arcI = null
                 arcJ = null
                 arcR = null
-                
+
                 # Track if coordinates were specified
                 hasX = false
                 hasY = false
@@ -105,7 +105,7 @@ module.exports =
                         arcJ = parseFloat(part.substring(1))
                     else if part.startsWith('R')
                         arcR = parseFloat(part.substring(1))
-                
+
                 # Apply positioning mode to coordinates
                 if isAbsolutePositioning
                     # Absolute mode: coordinates are absolute positions
@@ -120,10 +120,10 @@ module.exports =
 
                 # Calculate distance moved.
                 distance = 0
-                
+
                 # For arc movements (G2/G3), calculate arc length
                 if (command is 'G2' or command is 'G3') and (arcI? or arcJ? or arcR?)
-                    
+
                     # Calculate arc length using the arc parameters
                     if arcR?
                         # R format: radius is given directly
@@ -133,22 +133,22 @@ module.exports =
                         i = arcI ? 0
                         j = arcJ ? 0
                         radius = Math.sqrt(i * i + j * j)
-                    
+
                     if radius > 0
                         # Calculate the chord length (straight line distance)
                         dx = newX - currentX
                         dy = newY - currentY
                         dz = newZ - currentZ
                         chordLength = Math.sqrt(dx * dx + dy * dy)
-                        
+
                         # Calculate the angle subtended by the arc
                         # Using the formula: angle = 2 * arcsin(chord / (2 * radius))
                         if chordLength < 2 * radius
                             angle = 2 * Math.asin(chordLength / (2 * radius))
-                            
+
                             # Arc length = radius * angle
                             arcLength = radius * angle
-                            
+
                             # Include Z component if present (helical arc)
                             if dz isnt 0
                                 distance = Math.sqrt(arcLength * arcLength + dz * dz)
