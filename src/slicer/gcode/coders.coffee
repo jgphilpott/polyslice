@@ -29,6 +29,205 @@ module.exports =
 
         return formatted
 
+    # Calculate estimated print time from G-code.
+    # Parses G-code commands to estimate total print time based on movement distances and feedrates.
+    calculatePrintTime: (slicer) ->
+
+        totalTime = 0 # Total time in seconds.
+        lines = slicer.gcode.split(slicer.newline)
+
+        currentX = 0
+        currentY = 0
+        currentZ = 0
+
+        currentFeedrate = null # Feedrate in mm/min.
+
+        # Track positioning mode (true = absolute G90, false = relative G91)
+        isAbsolutePositioning = true
+
+        for line in lines
+
+            # Skip empty lines and comments.
+            line = line.trim()
+            continue if line is '' or line.startsWith(';')
+
+            # Extract command and parameters.
+            parts = line.split(/\s+/)
+            command = parts[0]
+
+            # Track positioning mode changes
+            if command is 'G90'
+                isAbsolutePositioning = true
+                continue
+            else if command is 'G91'
+                isAbsolutePositioning = false
+                continue
+
+            # Process movement commands (G0, G1, G2, G3).
+            if command in ['G0', 'G1', 'G2', 'G3']
+
+                # Extract coordinates and feedrate from the command.
+                newX = currentX
+                newY = currentY
+                newZ = currentZ
+
+                newFeedrate = currentFeedrate
+
+                # Arc parameters (for G2/G3)
+                arcI = null
+                arcJ = null
+                arcR = null
+
+                # Track if coordinates were specified
+                hasX = false
+                hasY = false
+                hasZ = false
+                xValue = 0
+                yValue = 0
+                zValue = 0
+
+                for part in parts[1..]
+
+                    if part.startsWith('X')
+                        hasX = true
+                        xValue = parseFloat(part.substring(1))
+                    else if part.startsWith('Y')
+                        hasY = true
+                        yValue = parseFloat(part.substring(1))
+                    else if part.startsWith('Z')
+                        hasZ = true
+                        zValue = parseFloat(part.substring(1))
+                    else if part.startsWith('F')
+                        newFeedrate = parseFloat(part.substring(1))
+                    else if part.startsWith('I')
+                        arcI = parseFloat(part.substring(1))
+                    else if part.startsWith('J')
+                        arcJ = parseFloat(part.substring(1))
+                    else if part.startsWith('R')
+                        arcR = parseFloat(part.substring(1))
+
+                # Apply positioning mode to coordinates
+                if isAbsolutePositioning
+                    # Absolute mode: coordinates are absolute positions
+                    newX = xValue if hasX
+                    newY = yValue if hasY
+                    newZ = zValue if hasZ
+                else
+                    # Relative mode: coordinates are offsets from current position
+                    newX = currentX + xValue if hasX
+                    newY = currentY + yValue if hasY
+                    newZ = currentZ + zValue if hasZ
+
+                # Calculate distance moved.
+                distance = 0
+
+                # For arc movements (G2/G3), calculate arc length
+                if (command is 'G2' or command is 'G3') and (arcI? or arcJ? or arcR?)
+
+                    # Calculate arc length using the arc parameters
+                    if arcR?
+                        # R format: radius is given directly
+                        radius = Math.abs(arcR)
+                    else if arcI? or arcJ?
+                        # I/J format: center offset from start point
+                        i = arcI ? 0
+                        j = arcJ ? 0
+                        radius = Math.sqrt(i * i + j * j)
+
+                    if radius > 0
+                        # Calculate the chord length (straight line distance)
+                        dx = newX - currentX
+                        dy = newY - currentY
+                        dz = newZ - currentZ
+                        chordLength = Math.sqrt(dx * dx + dy * dy)
+
+                        # Calculate the angle subtended by the arc
+                        # Using the formula: angle = 2 * arcsin(chord / (2 * radius))
+                        if chordLength < 2 * radius
+                            angle = 2 * Math.asin(chordLength / (2 * radius))
+
+                            # Arc length = radius * angle
+                            arcLength = radius * angle
+
+                            # Include Z component if present (helical arc)
+                            if dz isnt 0
+                                distance = Math.sqrt(arcLength * arcLength + dz * dz)
+                            else
+                                distance = arcLength
+                        else
+                            # Chord is too long for the radius (degenerate case), use straight line
+                            distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+                    else
+                        # Invalid radius, fall back to straight line
+                        dx = newX - currentX
+                        dy = newY - currentY
+                        dz = newZ - currentZ
+                        distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+                else
+                    # Linear movement (G0/G1) or arc without parameters
+                    dx = newX - currentX
+                    dy = newY - currentY
+                    dz = newZ - currentZ
+                    distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+                # Calculate time for this move if we have a feedrate.
+                if distance > 0 and newFeedrate isnt null and newFeedrate > 0
+
+                    # Feedrate is in mm/min, convert to mm/s then calculate time.
+                    speedMmPerSec = newFeedrate / 60
+                    moveTime = distance / speedMmPerSec
+                    totalTime += moveTime
+
+                # Update current position and feedrate.
+                currentX = newX
+                currentY = newY
+                currentZ = newZ
+
+                currentFeedrate = newFeedrate
+
+            # Process dwell commands (G4).
+            else if command is 'G4'
+
+                for part in parts[1..]
+
+                    if part.startsWith('P')
+                        # P parameter is in milliseconds.
+                        dwellTime = parseFloat(part.substring(1)) / 1000
+                        totalTime += dwellTime
+                    else if part.startsWith('S')
+                        # S parameter is in seconds.
+                        dwellTime = parseFloat(part.substring(1))
+                        totalTime += dwellTime
+
+            # Process heating commands (M109, M190) - add estimated heating time.
+            else if command in ['M109', 'M190']
+
+                # Estimate heating time: ~30 seconds for nozzle, ~60 seconds for bed.
+                if command is 'M109'
+                    totalTime += 30
+                else if command is 'M190'
+                    totalTime += 60
+
+        return totalTime
+
+    # Format time in seconds to HH:MM:SS format.
+    formatTime: (timeInSeconds) ->
+
+        # Handle negative or invalid time values.
+        if typeof timeInSeconds isnt 'number' or isNaN(timeInSeconds) or timeInSeconds < 0
+            return "00:00:00"
+
+        hours = Math.floor(timeInSeconds / 3600)
+        minutes = Math.floor((timeInSeconds % 3600) / 60)
+        seconds = Math.floor(timeInSeconds % 60)
+
+        # Pad with zeros for consistent formatting.
+        hoursStr = String(hours).padStart(2, '0')
+        minutesStr = String(minutes).padStart(2, '0')
+        secondsStr = String(seconds).padStart(2, '0')
+
+        return "#{hoursStr}:#{minutesStr}:#{secondsStr}"
+
     # https://marlinfw.org/docs/gcode/G028.html
     # Generate autohome G-code command.
     codeAutohome: (slicer, x = null, y = null, z = null, skip = null, raise = null, leveling = null) ->
@@ -608,6 +807,81 @@ module.exports =
 
         return gcode + slicer.newline
 
+    # Update metadata in G-code with print statistics.
+    # This should be called after slicing is complete to add statistics to the metadata header.
+    updateMetadataWithStats: (slicer) ->
+
+        # Only update if metadata is enabled.
+        return unless slicer.getMetadata()
+
+        # Find the end of the metadata block (marked by blank line after metadata).
+        lines = slicer.gcode.split(slicer.newline)
+        metadataEndIndex = -1
+
+        inMetadata = false
+
+        for line, index in lines
+
+            # Metadata starts with "; Generated by Polyslice"
+            if line.startsWith('; Generated by Polyslice')
+                inMetadata = true
+
+            # Metadata ends with a blank line
+            else if inMetadata and line.trim() is ''
+                metadataEndIndex = index
+                break
+
+        # If we found the metadata block, insert statistics before the blank line.
+        if metadataEndIndex > 0
+
+            statsLines = []
+
+            # Add print statistics.
+            if slicer.getMetadataTotalLayers() and slicer.totalLayers?
+
+                statsLines.push("; Total Layers: " + slicer.totalLayers)
+
+            if slicer.totalFilamentLength?
+
+                # Filament length in mm.
+                filamentLengthMm = slicer.totalFilamentLength
+
+                if slicer.getMetadataFilamentLength()
+
+                    statsLines.push("; Filament Length: " + module.exports.formatPrecision(filamentLengthMm, 2) + "mm")
+
+                # Calculate material volume in mm³.
+                # Use internal units (filamentDiameter is already in mm).
+                filamentRadius = slicer.filamentDiameter / 2
+                volumeMm3 = Math.PI * filamentRadius * filamentRadius * filamentLengthMm
+
+                if slicer.getMetadataMaterialVolume()
+
+                    statsLines.push("; Material Volume: " + module.exports.formatPrecision(volumeMm3, 2) + "mm³")
+
+                # Calculate material weight in grams if filament density is available.
+                if slicer.getMetadataMaterialWeight() and slicer.filament and slicer.filament.getDensity()
+
+                    densityGPerCm3 = slicer.filament.getDensity()
+                    volumeCm3 = volumeMm3 / 1000 # Convert mm³ to cm³.
+                    weightGrams = volumeCm3 * densityGPerCm3
+                    statsLines.push("; Material Weight: " + module.exports.formatPrecision(weightGrams, 2) + "g")
+
+            # Calculate estimated print time.
+            if slicer.getMetadataPrintTime()
+
+                printTimeSeconds = module.exports.calculatePrintTime(slicer)
+                formattedTime = module.exports.formatTime(printTimeSeconds)
+                statsLines.push("; Estimated Print Time: " + formattedTime)
+
+            # Insert statistics before the blank line that ends the metadata block.
+            lines.splice(metadataEndIndex, 0, statsLines...)
+
+            # Reconstruct the G-code.
+            slicer.gcode = lines.join(slicer.newline)
+
+        return
+
     # Generate metadata header comment for G-code.
     codeMetadata: (slicer) ->
 
@@ -626,23 +900,41 @@ module.exports =
             version = "Unknown"
 
         # Generate metadata header.
+        # Always include the title as a marker for the metadata block.
         gcode += "; Generated by Polyslice" + slicer.newline
-        gcode += "; Version: " + version + slicer.newline
-        gcode += "; Timestamp: " + timestamp + slicer.newline
-        gcode += "; Repository: https://github.com/jgphilpott/polyslice" + slicer.newline
 
-        if slicer.printer # Add printer information if available.
+        if slicer.getMetadataVersion()
+
+            gcode += "; Version: " + version + slicer.newline
+
+        if slicer.getMetadataTimestamp()
+
+            gcode += "; Timestamp: " + timestamp + slicer.newline
+
+        if slicer.getMetadataRepository()
+
+            gcode += "; Repository: https://github.com/jgphilpott/polyslice" + slicer.newline
+
+        if slicer.getMetadataPrinter() and slicer.printer # Add printer information if available.
 
             gcode += "; Printer: " + slicer.printer.model + slicer.newline
 
-        if slicer.filament # Add filament information if available.
+        if slicer.getMetadataFilament() and slicer.filament # Add filament information if available.
 
             gcode += "; Filament: " + slicer.filament.name + " (" + slicer.filament.type + ")" + slicer.newline
 
         # Add key print settings.
-        gcode += "; Nozzle Temp: " + slicer.nozzleTemperature + "°C" + slicer.newline
-        gcode += "; Bed Temp: " + slicer.bedTemperature + "°C" + slicer.newline
-        gcode += "; Layer Height: " + slicer.getLayerHeight() + "mm" + slicer.newline
+        if slicer.getMetadataNozzleTemp()
+
+            gcode += "; Nozzle Temp: " + slicer.nozzleTemperature + "°C" + slicer.newline
+
+        if slicer.getMetadataBedTemp()
+
+            gcode += "; Bed Temp: " + slicer.bedTemperature + "°C" + slicer.newline
+
+        if slicer.getMetadataLayerHeight()
+
+            gcode += "; Layer Height: " + slicer.getLayerHeight() + "mm" + slicer.newline
 
         gcode += slicer.newline
 

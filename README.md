@@ -88,6 +88,7 @@ Polyslice provides a comprehensive set of features for the 3D printing workflow:
 | 🚀 **Direct three.js integration** | Work directly with three.js meshes and scenes | [Examples](docs/examples/EXAMPLES.md) |
 | 📁 **File format support** | STL, OBJ, 3MF, AMF, PLY, GLTF/GLB, Collada | [Loaders](docs/loaders/LOADERS.md) |
 | 📝 **G-code generation** | Full set of G-code commands with configurable precision | [G-code](docs/slicer/gcode/GCODE.md) |
+| 📊 **Print statistics** | Automatic calculation of filament usage, material weight, and print time | [G-code](docs/slicer/gcode/GCODE.md) |
 | ⚙️ **Printer profiles** | 44 pre-configured printer profiles | [Printer Config](docs/config/PRINTER.md) |
 | 🧵 **Filament profiles** | 35 pre-configured filament profiles | [Filament Config](docs/config/FILAMENT.md) |
 | 🔲 **Infill patterns** | Grid, triangles and hexagons patterns (more coming) | [Infill](docs/slicer/infill/INFILL.md) |

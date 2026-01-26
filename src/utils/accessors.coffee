@@ -194,6 +194,58 @@ module.exports =
 
         return slicer.verbose
 
+    getMetadataVersion: (slicer) ->
+
+        return slicer.metadataVersion
+
+    getMetadataTimestamp: (slicer) ->
+
+        return slicer.metadataTimestamp
+
+    getMetadataRepository: (slicer) ->
+
+        return slicer.metadataRepository
+
+    getMetadataPrinter: (slicer) ->
+
+        return slicer.metadataPrinter
+
+    getMetadataFilament: (slicer) ->
+
+        return slicer.metadataFilament
+
+    getMetadataNozzleTemp: (slicer) ->
+
+        return slicer.metadataNozzleTemp
+
+    getMetadataBedTemp: (slicer) ->
+
+        return slicer.metadataBedTemp
+
+    getMetadataLayerHeight: (slicer) ->
+
+        return slicer.metadataLayerHeight
+
+    getMetadataTotalLayers: (slicer) ->
+
+        return slicer.metadataTotalLayers
+
+    getMetadataFilamentLength: (slicer) ->
+
+        return slicer.metadataFilamentLength
+
+    getMetadataMaterialVolume: (slicer) ->
+
+        return slicer.metadataMaterialVolume
+
+    getMetadataMaterialWeight: (slicer) ->
+
+        return slicer.metadataMaterialWeight
+
+    getMetadataPrintTime: (slicer) ->
+
+        return slicer.metadataPrintTime
+
     getCoordinatePrecision: (slicer) ->
 
         return slicer.coordinatePrecision
@@ -623,6 +675,84 @@ module.exports =
     setVerbose: (slicer, verbose = true) ->
 
         slicer.verbose = Boolean verbose
+
+        return slicer
+
+    setMetadataVersion: (slicer, enabled = true) ->
+
+        slicer.metadataVersion = Boolean enabled
+
+        return slicer
+
+    setMetadataTimestamp: (slicer, enabled = true) ->
+
+        slicer.metadataTimestamp = Boolean enabled
+
+        return slicer
+
+    setMetadataRepository: (slicer, enabled = true) ->
+
+        slicer.metadataRepository = Boolean enabled
+
+        return slicer
+
+    setMetadataPrinter: (slicer, enabled = true) ->
+
+        slicer.metadataPrinter = Boolean enabled
+
+        return slicer
+
+    setMetadataFilament: (slicer, enabled = true) ->
+
+        slicer.metadataFilament = Boolean enabled
+
+        return slicer
+
+    setMetadataNozzleTemp: (slicer, enabled = true) ->
+
+        slicer.metadataNozzleTemp = Boolean enabled
+
+        return slicer
+
+    setMetadataBedTemp: (slicer, enabled = true) ->
+
+        slicer.metadataBedTemp = Boolean enabled
+
+        return slicer
+
+    setMetadataLayerHeight: (slicer, enabled = true) ->
+
+        slicer.metadataLayerHeight = Boolean enabled
+
+        return slicer
+
+    setMetadataTotalLayers: (slicer, enabled = true) ->
+
+        slicer.metadataTotalLayers = Boolean enabled
+
+        return slicer
+
+    setMetadataFilamentLength: (slicer, enabled = true) ->
+
+        slicer.metadataFilamentLength = Boolean enabled
+
+        return slicer
+
+    setMetadataMaterialVolume: (slicer, enabled = true) ->
+
+        slicer.metadataMaterialVolume = Boolean enabled
+
+        return slicer
+
+    setMetadataMaterialWeight: (slicer, enabled = true) ->
+
+        slicer.metadataMaterialWeight = Boolean enabled
+
+        return slicer
+
+    setMetadataPrintTime: (slicer, enabled = true) ->
+
+        slicer.metadataPrintTime = Boolean enabled
 
         return slicer
 
