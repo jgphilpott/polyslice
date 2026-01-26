@@ -69,8 +69,7 @@ describe 'Polyslice', ->
             # Test test strip setting
             expect(slicer.getTestStrip()).toBe(false)
 
-            # Test metadata field settings (all should default to true)
-            expect(slicer.getMetadataTitle()).toBe(true)
+            # Test metadata field settings (all should default to true, except title which is always on)
             expect(slicer.getMetadataVersion()).toBe(true)
             expect(slicer.getMetadataTimestamp()).toBe(true)
             expect(slicer.getMetadataRepository()).toBe(true)

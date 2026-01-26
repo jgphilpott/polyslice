@@ -493,7 +493,6 @@ describe 'Accessors (Getters and Setters)', ->
         test 'should set and get metadata field settings', ->
 
             # Test all metadata field settings with defaults.
-            expect(slicer.getMetadataTitle()).toBe(true)
             expect(slicer.getMetadataVersion()).toBe(true)
             expect(slicer.getMetadataTimestamp()).toBe(true)
             expect(slicer.getMetadataRepository()).toBe(true)
@@ -509,7 +508,6 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getMetadataPrintTime()).toBe(true)
 
             # Test setting to false.
-            slicer.setMetadataTitle(false)
             slicer.setMetadataVersion(false)
             slicer.setMetadataTimestamp(false)
             slicer.setMetadataRepository(false)
@@ -524,7 +522,6 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setMetadataMaterialWeight(false)
             slicer.setMetadataPrintTime(false)
 
-            expect(slicer.getMetadataTitle()).toBe(false)
             expect(slicer.getMetadataVersion()).toBe(false)
             expect(slicer.getMetadataTimestamp()).toBe(false)
             expect(slicer.getMetadataRepository()).toBe(false)
@@ -540,7 +537,6 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getMetadataPrintTime()).toBe(false)
 
             # Test setting back to true.
-            slicer.setMetadataTitle(true)
             slicer.setMetadataVersion(true)
             slicer.setMetadataTimestamp(true)
             slicer.setMetadataRepository(true)
@@ -555,7 +551,6 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setMetadataMaterialWeight(true)
             slicer.setMetadataPrintTime(true)
 
-            expect(slicer.getMetadataTitle()).toBe(true)
             expect(slicer.getMetadataVersion()).toBe(true)
             expect(slicer.getMetadataTimestamp()).toBe(true)
             expect(slicer.getMetadataRepository()).toBe(true)
@@ -573,7 +568,6 @@ describe 'Accessors (Getters and Setters)', ->
         test 'should support method chaining for metadata field setters', ->
 
             result = slicer
-                .setMetadataTitle(false)
                 .setMetadataVersion(false)
                 .setMetadataTimestamp(false)
                 .setMetadataRepository(false)
@@ -589,7 +583,6 @@ describe 'Accessors (Getters and Setters)', ->
                 .setMetadataPrintTime(false)
 
             expect(result).toBe(slicer)
-            expect(slicer.getMetadataTitle()).toBe(false)
             expect(slicer.getMetadataVersion()).toBe(false)
             expect(slicer.getMetadataTimestamp()).toBe(false)
             expect(slicer.getMetadataRepository()).toBe(false)

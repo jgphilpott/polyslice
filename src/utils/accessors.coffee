@@ -194,10 +194,6 @@ module.exports =
 
         return slicer.verbose
 
-    getMetadataTitle: (slicer) ->
-
-        return slicer.metadataTitle
-
     getMetadataVersion: (slicer) ->
 
         return slicer.metadataVersion
@@ -679,12 +675,6 @@ module.exports =
     setVerbose: (slicer, verbose = true) ->
 
         slicer.verbose = Boolean verbose
-
-        return slicer
-
-    setMetadataTitle: (slicer, enabled = true) ->
-
-        slicer.metadataTitle = Boolean enabled
 
         return slicer
 

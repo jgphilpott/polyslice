@@ -60,7 +60,6 @@ module.exports =
 
         # Initialize print statistics tracking.
         slicer.totalFilamentLength = 0 # Total filament extruded (mm).
-        slicer.totalPrintTime = 0 # Total print time (seconds).
         slicer.totalLayers = 0 # Number of layers printed.
 
         # Get mesh bounding box for slicing.
