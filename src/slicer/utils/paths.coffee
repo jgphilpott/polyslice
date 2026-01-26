@@ -244,9 +244,52 @@ module.exports =
         # If simplification resulted in too few points, use original path.
         if simplifiedPath.length < MIN_SIMPLIFIED_CORNERS then simplifiedPath = path
 
+        # Additional pass: Remove any remaining duplicate consecutive points.
+        # This prevents issues where duplicate points can cause degenerate edges
+        # in the offset calculation, leading to extreme intersection coordinates.
+        dedupedPath = []
+        epsilon = 0.01  # 0.01mm threshold to remove near-duplicate points
+
+        for i in [0...simplifiedPath.length]
+
+            currentPoint = simplifiedPath[i]
+            nextIdx = if i is simplifiedPath.length - 1 then 0 else i + 1
+            nextPoint = simplifiedPath[nextIdx]
+
+            # Check if current point is different from next point.
+            dx = nextPoint.x - currentPoint.x
+            dy = nextPoint.y - currentPoint.y
+            distSq = dx * dx + dy * dy
+
+            # Only add point if it's not a duplicate of the next point.
+            if distSq >= epsilon * epsilon
+                dedupedPath.push(currentPoint)
+
+        # Use deduplicated path if it has enough points.
+        if dedupedPath.length >= 3
+            simplifiedPath = dedupedPath
+        else
+            return []  # Path is too degenerate after deduplication.
+
         # Step 2: Create inset using the simplified path.
         insetPath = []
         n = simplifiedPath.length
+
+        # Calculate bounding box for validation (done early for intersection checks).
+        originalMinX = Infinity
+        originalMaxX = -Infinity
+        originalMinY = Infinity
+        originalMaxY = -Infinity
+
+        for point in simplifiedPath
+
+            originalMinX = Math.min(originalMinX, point.x)
+            originalMaxX = Math.max(originalMaxX, point.x)
+            originalMinY = Math.min(originalMinY, point.y)
+            originalMaxY = Math.max(originalMaxY, point.y)
+
+        originalWidth = originalMaxX - originalMinX
+        originalHeight = originalMaxY - originalMinY
 
         # Calculate signed area to determine winding order.
         signedArea = 0
@@ -343,6 +386,18 @@ module.exports =
             origVertex = simplifiedPath[line2.originalIdx]
 
             if intersection
+
+                # Validate intersection is reasonable (not too far from original path).
+                # Use a threshold based on the original path size to detect degenerate intersections.
+                # If intersection is more than 10x the path size from centroid, it's likely an error.
+                distFromCentroid = Math.sqrt((intersection.x - centroidX) ** 2 + (intersection.y - centroidY) ** 2)
+                pathSize = Math.max(originalWidth, originalHeight)
+                maxAllowedDist = Math.max(100, pathSize * 10)
+
+                if distFromCentroid > maxAllowedDist
+
+                    # Extreme intersection detected - path is degenerate.
+                    return []
 
                 insetPath.push({ x: intersection.x, y: intersection.y, z: origVertex.z })
 
