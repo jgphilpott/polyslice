@@ -401,6 +401,9 @@ module.exports =
             currentPath = pathsUtils.createInsetPath(path, outerWallOffset, isHole)
 
             return null if currentPath.length < 3
+            
+            # Track inset distance for thin walls - start with full nozzle diameter
+            nextInsetDistance = nozzleDiameter
 
             # Generate walls from outer to inner.
             for wallIndex in [0...wallCount]
@@ -417,11 +420,30 @@ module.exports =
 
                     if pathsWithInsufficientSpacingForInnerWalls[pathIndex] then break
 
+                    # For thin walls, try progressively smaller insets to allow inner walls even in tight spaces.
                     testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
-
+                    nextInsetDistance = nozzleDiameter
+                    
                     if testInsetPath.length < 3
-
-                        break
+                        # Try with half nozzle diameter
+                        testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter / 2, isHole)
+                        nextInsetDistance = nozzleDiameter / 2
+                        
+                        if testInsetPath.length < 3
+                            # Try with quarter nozzle diameter as last resort
+                            testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter / 4, isHole)
+                            nextInsetDistance = nozzleDiameter / 4
+                            
+                            if testInsetPath.length < 3
+                                # Try with minimal offset (0.05mm)
+                                testInsetPath = pathsUtils.createInsetPath(currentPath, 0.05, isHole)
+                                nextInsetDistance = 0.05
+                                
+                                if testInsetPath.length < 3
+                                    # Even minimal inset fails - use current path as inner wall
+                                    # This provides structural reinforcement even for extremely thin walls
+                                    testInsetPath = currentPath
+                                    nextInsetDistance = 0
 
                 combingStartPoint = lastPathEndPoint
 
@@ -449,7 +471,33 @@ module.exports =
 
                 if wallIndex < wallCount - 1
 
-                    insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
+                    # Use the inset distance that was determined to work during testing
+                    if nextInsetDistance is 0
+                        # For extremely thin walls, use the same path (no offset)
+                        insetPath = currentPath
+                    else
+                        insetPath = pathsUtils.createInsetPath(currentPath, nextInsetDistance, isHole)
+
+                        # Fallback: if the determined distance fails, try progressively smaller
+                        if insetPath.length < 3
+                            # Try with half nozzle diameter
+                            insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter / 2, isHole)
+                            nextInsetDistance = nozzleDiameter / 2
+                            
+                            if insetPath.length < 3
+                                # Try with quarter nozzle diameter
+                                insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter / 4, isHole)
+                                nextInsetDistance = nozzleDiameter / 4
+                                
+                                if insetPath.length < 3
+                                    # Try minimal offset
+                                    insetPath = pathsUtils.createInsetPath(currentPath, 0.05, isHole)
+                                    nextInsetDistance = 0.05
+                                    
+                                    if insetPath.length < 3
+                                        # Last resort: use same path
+                                        insetPath = currentPath
+                                        nextInsetDistance = 0
 
                     break if insetPath.length < 3
 
