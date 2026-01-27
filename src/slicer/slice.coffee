@@ -1079,7 +1079,7 @@ module.exports =
             else
 
                 # No skin needed - generate sparse infill only.
-                if infillDensity > 0 and infillBoundary.length >= 3
+                if infillDensity > 0 and infillBoundary.length >= 3 and not skinSuppressedDueToSpacing
 
                     infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls)
 

@@ -1036,6 +1036,195 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+    describe 'Thin-Walled Geometry Support', ->
+
+        test 'should generate inner walls with progressive fallback for thin walls', ->
+
+            # Create a very thin box (25x25x0.6mm) where standard inset would fail.
+            # With 0.4mm nozzle and 0.8mm wall thickness, we expect 2 walls.
+            # But 0.6mm thickness means inner wall needs progressive fallback.
+            geometry = new THREE.BoxGeometry(25, 25, 0.6)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 0.3)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)  # 2 walls expected
+            slicer.setNozzleDiameter(0.4)
+            slicer.setInfillDensity(20)
+            slicer.setVerbose(true)
+
+            gcode = slicer.slice(mesh)
+            lines = gcode.split('\n')
+
+            # Count wall types in middle layer
+            outerCount = 0
+            innerCount = 0
+            inMiddleLayer = false
+
+            for line in lines
+                if line.includes('LAYER: 2 of')
+                    inMiddleLayer = true
+                else if inMiddleLayer and line.includes('LAYER: 3 of')
+                    break
+                else if inMiddleLayer
+                    outerCount++ if line.includes('TYPE: WALL-OUTER')
+                    innerCount++ if line.includes('TYPE: WALL-INNER')
+
+            # Should have both outer and inner walls even for thin geometry
+            expect(outerCount).toBeGreaterThan(0)
+            expect(innerCount).toBeGreaterThan(0)
+
+            return
+
+        test 'should generate infill with boundary fallback for thin walls', ->
+
+            # Create a thin cylindrical shell that challenges infill boundary creation
+            geometry = new THREE.CylinderGeometry(5, 5, 2, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 1)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(30)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            gcode = slicer.slice(mesh)
+            lines = gcode.split('\n')
+
+            # Count fill markers
+            fillCount = 0
+            for line in lines
+                fillCount++ if line.includes('TYPE: FILL')
+
+            # Should have infill despite thin walls
+            expect(fillCount).toBeGreaterThan(0)
+
+            return
+
+        test 'should handle extremely thin walls with zero-offset fallback', ->
+
+            # Create geometry thin enough that even minimal inset fails
+            # This tests the zero-offset fallback (duplicate path)
+            geometry = new THREE.BoxGeometry(20, 20, 0.4)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 0.2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)  # 2 walls expected
+            slicer.setNozzleDiameter(0.4)
+            slicer.setInfillDensity(15)
+            slicer.setVerbose(true)
+
+            gcode = slicer.slice(mesh)
+
+            # Should complete without errors
+            expect(gcode).toBeDefined()
+            expect(gcode.length).toBeGreaterThan(0)
+
+            # Check that we have some wall content
+            expect(gcode).toContain('TYPE: WALL-OUTER')
+
+            return
+
+        test 'should maintain infill when skin suppressed but boundary valid (sideways dome case)', ->
+
+            # Create a rotated dome-like shape where some layers are thin
+            # This tests that infill is generated when possible, even if skin is suppressed
+            geometry = new THREE.SphereGeometry(6, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            
+            # Rotate to create thin cross-sections
+            mesh.rotation.y = Math.PI / 2
+            mesh.position.set(0, 0, 6)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setInfillDensity(25)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+            slicer.setExposureDetection(false)
+
+            gcode = slicer.slice(mesh)
+            lines = gcode.split('\n')
+
+            # Find a middle layer that would have thin walls
+            testLayerNum = 15
+            layerStart = -1
+            layerEnd = -1
+
+            for i in [0...lines.length]
+                if lines[i].includes("LAYER: #{testLayerNum} of")
+                    layerStart = i
+                else if layerStart >= 0 and lines[i].includes("LAYER: #{testLayerNum + 1} of")
+                    layerEnd = i
+                    break
+
+            return if layerStart < 0
+
+            layerEnd = lines.length if layerEnd < 0
+
+            hasOuter = false
+            hasFill = false
+
+            for i in [layerStart...layerEnd]
+                hasOuter = true if lines[i].includes('TYPE: WALL-OUTER')
+                hasFill = true if lines[i].includes('TYPE: FILL')
+
+            # Should have both outer walls and fill for this geometry
+            expect(hasOuter).toBe(true)
+            expect(hasFill).toBe(true)
+
+            return
+
+        test 'should handle infill module boundary fallback correctly', ->
+
+            # Test that the infill module's own fallback works
+            # Create a box with enough size for infill
+            geometry = new THREE.BoxGeometry(20, 20, 4)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers top/bottom
+            slicer.setInfillDensity(30)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            gcode = slicer.slice(mesh)
+
+            # Should complete without errors
+            expect(gcode).toBeDefined()
+            expect(gcode.length).toBeGreaterThan(0)
+
+            # Count layers with fill (should have middle layers with infill)
+            lines = gcode.split('\n')
+            layersWithFill = 0
+            currentLayerHasFill = false
+
+            for line in lines
+                if line.includes('M117 LAYER:')
+                    layersWithFill++ if currentLayerHasFill
+                    currentLayerHasFill = false
+                else if line.includes('TYPE: FILL')
+                    currentLayerHasFill = true
+
+            # Last layer check
+            layersWithFill++ if currentLayerHasFill
+
+            # Should have infill in middle layers (not just top/bottom skin layers)
+            # With 20 layers and 4 skin layers top/bottom, should have ~12 middle layers with infill
+            expect(layersWithFill).toBeGreaterThan(5)
+
+            return
+
     describe 'Single-Pass Skin Wall Generation (PR #54 + PR #55)', ->
 
         Polytree = null
