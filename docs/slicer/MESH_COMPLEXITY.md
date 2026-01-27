@@ -1,6 +1,6 @@
 # Mesh Complexity
 
-Polyslice uses a path connection algorithm with O(n³) complexity, which means slicing time grows exponentially with mesh detail. Very detailed meshes may take several minutes to slice or appear to hang.
+Polyslice uses a path connection algorithm with O(n³) complexity, which means slicing time grows cubically with mesh detail and can increase very rapidly for highly detailed meshes. Very detailed meshes may take several minutes to slice or appear to hang.
 
 ## Performance Guidelines
 
