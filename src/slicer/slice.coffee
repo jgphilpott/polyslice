@@ -18,6 +18,28 @@ preprocessingModule = require('./preprocessing/preprocessing')
 
 module.exports =
 
+    # Helper function to call progress callback if it exists.
+    reportProgress: (slicer, stage, percentComplete, currentLayer = null, totalLayers = null, message = null) ->
+
+        if slicer.onProgress and typeof slicer.onProgress is "function"
+
+            progressInfo = {
+                stage: stage                    # String: current stage of slicing
+                percent: percentComplete        # Number: percentage complete (0-100)
+                currentLayer: currentLayer      # Number or null: current layer being processed
+                totalLayers: totalLayers        # Number or null: total number of layers
+                message: message                # String or null: optional status message
+            }
+
+            try
+
+                slicer.onProgress(progressInfo)
+
+            catch error
+
+                # Silently ignore errors in user callback to avoid disrupting slicing.
+                console.error("Error in onProgress callback:", error)
+
     # Main slicing method that generates G-code from a scene.
     slice: (slicer, scene = {}) ->
 
@@ -40,6 +62,9 @@ module.exports =
 
             return slicer.gcode
 
+        # Report starting progress.
+        @reportProgress(slicer, "initializing", 0, null, null, "Preparing mesh...")
+
         # Initialize THREE.js if not already available.
         THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
 
@@ -50,6 +75,9 @@ module.exports =
         mesh = originalMesh.clone(true)
         mesh.geometry = originalMesh.geometry.clone()
         mesh.updateMatrixWorld()
+
+        # Report pre-print progress.
+        @reportProgress(slicer, "pre-print", 5, null, null, "Generating pre-print sequence...")
 
         # Generate pre-print sequence (metadata, heating, autohome, test strip if enabled).
         slicer.gcode += coders.codePrePrint(slicer)
@@ -153,6 +181,11 @@ module.exports =
 
         verbose = slicer.getVerbose()
 
+        # Report adhesion progress if enabled.
+        if slicer.getAdhesionEnabled()
+
+            @reportProgress(slicer, "adhesion", 10, null, null, "Generating adhesion structures...")
+
         # Generate adhesion structures (skirt, brim, or raft) if enabled.
         if slicer.getAdhesionEnabled()
 
@@ -194,10 +227,17 @@ module.exports =
         # Track last position across layers for combing between layers.
         slicer.lastLayerEndPoint = null
 
+        # Report start of layer processing.
+        @reportProgress(slicer, "slicing", 15, 0, totalLayers, "Processing layers...")
+
         for layerIndex in [0...totalLayers]
 
             layerSegments = allLayers[layerIndex]
             currentZ = adjustedMinZ + layerIndex * layerHeight + raftZOffset
+
+            # Report progress for this layer (15% to 85% range for layer processing).
+            layerPercent = 15 + Math.floor((layerIndex / totalLayers) * 70)
+            @reportProgress(slicer, "slicing", layerPercent, layerIndex + 1, totalLayers, "Layer #{layerIndex + 1}/#{totalLayers}")
 
             # Convert Polytree line segments to closed paths.
             layerPaths = pathsUtils.connectSegmentsToPaths(layerSegments)
@@ -220,12 +260,18 @@ module.exports =
         slicer.totalFilamentLength = slicer.cumulativeE # Final extrusion value equals total filament used (mm).
         slicer.totalLayers = totalLayers
 
+        # Report post-print progress.
+        @reportProgress(slicer, "post-print", 90, null, null, "Generating post-print sequence...")
+
         slicer.gcode += slicer.newline # Add blank line before post-print for readability.
         # Generate post-print sequence (retract, home, cool down, buzzer if enabled).
         slicer.gcode += coders.codePostPrint(slicer)
 
         # Update metadata with print statistics after all G-code is generated.
         coders.updateMetadataWithStats(slicer)
+
+        # Report completion.
+        @reportProgress(slicer, "complete", 100, null, null, "G-code generation complete")
 
         return slicer.gcode
 

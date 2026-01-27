@@ -149,6 +149,9 @@ class Polyslice
         @positioningMode = options.positioningMode ?= "absolute" # String ['absolute', 'relative'].
         @extruderMode = options.extruderMode ?= "absolute" # String ['absolute', 'relative'].
 
+        # Progress callback for slicing feedback.
+        @onProgress = options.onProgress ?= null # Function (progressInfo) or null.
+
     # Getter method delegates:
 
     getAutohome: ->
@@ -357,6 +360,9 @@ class Polyslice
 
     getExtruderMode: ->
         accessors.getExtruderMode(this)
+
+    getOnProgress: ->
+        accessors.getOnProgress(this)
 
     getPrinter: ->
         accessors.getPrinter(this)
@@ -572,6 +578,9 @@ class Polyslice
 
     setExtruderMode: (mode = "absolute") ->
         accessors.setExtruderMode(this, mode)
+
+    setOnProgress: (callback = null) ->
+        accessors.setOnProgress(this, callback)
 
     setPrinter: (printer) ->
         accessors.setPrinter(this, printer)
