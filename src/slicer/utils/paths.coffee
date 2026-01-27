@@ -247,6 +247,9 @@ module.exports =
         # Additional pass: Remove any remaining duplicate consecutive points.
         # This prevents issues where duplicate points can cause degenerate edges
         # in the offset calculation, leading to extreme intersection coordinates.
+        # Note: This uses a larger epsilon (0.01mm) than edge simplification (0.0001mm)
+        # because we need to remove near-duplicates that passed initial simplification
+        # but would still create problematic near-parallel edges in offset calculation.
         dedupedPath = []
         epsilon = 0.01  # 0.01mm threshold to remove near-duplicate points
 
@@ -392,7 +395,7 @@ module.exports =
                 # If intersection is more than 10x the path size from centroid, it's likely an error.
                 distFromCentroid = Math.sqrt((intersection.x - centroidX) ** 2 + (intersection.y - centroidY) ** 2)
                 pathSize = Math.max(originalWidth, originalHeight)
-                maxAllowedDist = Math.max(100, pathSize * 10)
+                maxAllowedDist = Math.max(20, pathSize * 10)  # Minimum 20mm to maintain stricter validation for small paths
 
                 if distFromCentroid > maxAllowedDist
 

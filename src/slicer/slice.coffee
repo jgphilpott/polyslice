@@ -85,8 +85,10 @@ module.exports =
         adjustedMinZ = minZ + SLICE_EPSILON
 
         # Check mesh complexity and warn about potential performance issues.
-        # The path connection algorithm has O(n³) complexity which can cause
-        # very long processing times or apparent hangs for highly detailed meshes.
+        # The path connection algorithm (connectSegmentsToPaths) has O(n³) complexity
+        # where n is the number of segments per layer. This complexity metric is an
+        # approximation based on triangles × layers; actual performance may vary based
+        # on geometric complexity per layer (e.g., flat objects with many small features).
         geometry = mesh.geometry
         if geometry and geometry.attributes and geometry.attributes.position
 
@@ -94,7 +96,7 @@ module.exports =
             triangleCount = if geometry.index then Math.floor(geometry.index.count / 3) else Math.floor(positionCount / 3)
             estimatedLayers = Math.ceil((maxZ - minZ) / layerHeight)
 
-            # Complexity metric: triangles * layers
+            # Complexity metric: triangles * layers (approximation)
             # Based on testing:
             # - Under 500k: Fast (< 10s)
             # - 500k - 1M: Moderate (10s - 30s)
