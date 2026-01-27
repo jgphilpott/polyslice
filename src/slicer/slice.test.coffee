@@ -1164,9 +1164,9 @@ describe 'Slicing', ->
                 else if line.includes('TYPE:')
                     inOuterWall = false
                     inInnerWall = false
-                
+
                 # Count extrusion moves (G1 with E parameter)
-                if line.match(/^G1.*E\d+/) 
+                if line.match(/^G1.*E\d+/)
                     outerWallMoves++ if inOuterWall
                     innerWallMoves++ if inInnerWall
 
@@ -1196,7 +1196,7 @@ describe 'Slicing', ->
             # This tests that infill is generated when possible, even if skin is suppressed
             geometry = new THREE.SphereGeometry(6, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2)
             mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
-            
+
             # Rotate to create thin cross-sections
             mesh.rotation.y = Math.PI / 2
             mesh.position.set(0, 0, 6)

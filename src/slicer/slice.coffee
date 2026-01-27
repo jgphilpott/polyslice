@@ -438,7 +438,7 @@ module.exports =
             currentPath = pathsUtils.createInsetPath(path, outerWallOffset, isHole)
 
             return null if currentPath.length < 3
-            
+
             # Track inset distance for thin walls - start with full nozzle diameter
             nextInsetDistance = nozzleDiameter
 
@@ -460,22 +460,22 @@ module.exports =
                     # For thin walls, try progressively smaller insets to allow inner walls even in tight spaces.
                     testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
                     nextInsetDistance = nozzleDiameter
-                    
+
                     if testInsetPath.length < 3
                         # Try with half nozzle diameter
                         testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter / 2, isHole)
                         nextInsetDistance = nozzleDiameter / 2
-                        
+
                         if testInsetPath.length < 3
                             # Try with quarter nozzle diameter as last resort
                             testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter / 4, isHole)
                             nextInsetDistance = nozzleDiameter / 4
-                            
+
                             if testInsetPath.length < 3
                                 # Try with minimal offset (0.05mm)
                                 testInsetPath = pathsUtils.createInsetPath(currentPath, 0.05, isHole)
                                 nextInsetDistance = 0.05
-                                
+
                                 if testInsetPath.length < 3
                                     # Even minimal inset fails - use current path as inner wall
                                     # This provides structural reinforcement even for extremely thin walls
@@ -520,17 +520,17 @@ module.exports =
                             # Try with half nozzle diameter
                             insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter / 2, isHole)
                             nextInsetDistance = nozzleDiameter / 2
-                            
+
                             if insetPath.length < 3
                                 # Try with quarter nozzle diameter
                                 insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter / 4, isHole)
                                 nextInsetDistance = nozzleDiameter / 4
-                                
+
                                 if insetPath.length < 3
                                     # Try minimal offset
                                     insetPath = pathsUtils.createInsetPath(currentPath, 0.05, isHole)
                                     nextInsetDistance = 0.05
-                                    
+
                                     if insetPath.length < 3
                                         # Last resort: use same path
                                         insetPath = currentPath
@@ -712,7 +712,7 @@ module.exports =
 
                 # Sequential object completion: generate skin/infill immediately after walls.
                 currentPath = innermostWall
-                
+
                 # For thin walls (only outer wall fits), skip the inset for infill boundary.
                 # When only one wall was generated, attempting to inset further often results in degenerate paths.
                 # Instead, use the innermost wall path directly, accepting that infill will be close to the wall.
