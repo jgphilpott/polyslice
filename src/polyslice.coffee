@@ -364,6 +364,9 @@ class Polyslice
     getFilament: ->
         accessors.getFilament(this)
 
+    getGcodeMetadata: (gcode = null) ->
+        accessors.getGcodeMetadata(this, gcode)
+
     # Setter method delegates:
 
     setAutohome: (autohome = true) ->
