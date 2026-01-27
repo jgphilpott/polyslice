@@ -206,6 +206,82 @@ console.log(mesh.geometry.boundingBox); // Still null if not computed before
 // Print will be centered on build plate in G-code
 ```
 
+### `getGcodeMetadata(gcode = null)`
+
+Extract metadata from G-code and return it as a JSON object.
+
+```javascript
+// Extract from slicer.gcode
+const metadata = slicer.getGcodeMetadata();
+
+// Or extract from custom G-code string
+const customGcode = '...';
+const metadata = slicer.getGcodeMetadata(customGcode);
+```
+
+**Parameters:**
+- `gcode` (String, optional): G-code string to extract metadata from. If omitted, uses `slicer.gcode`.
+
+**Returns:** Object - JSON object containing extracted metadata fields
+
+**Metadata Fields:**
+- `generatedBy` (String): Always "Polyslice"
+- `version` (String): Version number
+- `timestamp` (String): ISO 8601 timestamp
+- `repository` (String): Repository URL
+- `printer` (String): Printer model name
+- `filament` (String): Filament name and type
+- `nozzleTemp` (Object): `{value: Number, unit: String}` - Nozzle temperature
+- `bedTemp` (Object): `{value: Number, unit: String}` - Bed temperature
+- `layerHeight` (Object): `{value: Number, unit: String}` - Layer height
+- `totalLayers` (Number): Total layer count
+- `filamentLength` (Object): `{value: Number, unit: String}` - Filament used
+- `materialVolume` (Object): `{value: Number, unit: String}` - Material volume
+- `materialWeight` (Object): `{value: Number, unit: String}` - Material weight
+- `estimatedPrintTime` (String): Human-readable print time estimate
+
+**Key Conversions:**
+- Keys are converted to camelCase (e.g., "Nozzle Temp" → "nozzleTemp")
+- Plain integers: `"50"` → `50`
+- Plain floats: `"0.2"` → `0.2`
+- Values with units: `"200°C"` → `{value: 200, unit: "°C"}`
+- Complex strings preserved: version numbers, timestamps, URLs
+
+**Example:**
+```javascript
+const THREE = require('three');
+const { Polyslice, Printer, Filament } = require('@jgphilpott/polyslice');
+
+const printer = new Printer('Ender3');
+const filament = new Filament('GenericPLA');
+
+const slicer = new Polyslice({
+  printer: printer,
+  filament: filament,
+  metadata: true
+});
+
+const geometry = new THREE.BoxGeometry(10, 10, 10);
+const mesh = new THREE.Mesh(geometry);
+const gcode = slicer.slice(mesh);
+
+// Extract metadata
+const metadata = slicer.getGcodeMetadata();
+
+console.log(metadata.printer);              // "Ender3"
+console.log(metadata.nozzleTemp.value);     // 200
+console.log(metadata.nozzleTemp.unit);      // "°C"
+console.log(metadata.totalLayers);          // 50 (depends on model)
+```
+
+**Handling Missing Metadata:**
+```javascript
+// Returns empty object {} if no metadata present
+const gcodeWithoutMetadata = 'G28\nG0 X10 Y10';
+const result = slicer.getGcodeMetadata(gcodeWithoutMetadata);
+console.log(result); // {}
+```
+
 ## G-code Generation Methods
 
 See [GCODE.md](../slicer/gcode/GCODE.md) for the complete G-code generation reference.
