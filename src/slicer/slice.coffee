@@ -112,7 +112,7 @@ module.exports =
                 console.warn("   Complexity score: #{Math.floor(complexityScore / 1000)}k")
                 console.warn("   Slicing may take several minutes or appear to hang.")
                 console.warn("   Consider reducing mesh detail or increasing layer height.")
-                console.warn("   See: https://github.com/jgphilpott/polyslice#mesh-complexity\n")
+                console.warn("   See: https://github.com/jgphilpott/polyslice/blob/main/docs/slicer/MESH_COMPLEXITY.md\n")
 
             else if complexityScore > COMPLEXITY_WARNING_THRESHOLD
 
