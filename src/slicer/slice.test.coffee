@@ -1125,8 +1125,68 @@ describe 'Slicing', ->
             expect(gcode).toBeDefined()
             expect(gcode.length).toBeGreaterThan(0)
 
-            # Check that we have some wall content
-            expect(gcode).toContain('TYPE: WALL-OUTER')
+            lines = gcode.split('\n')
+
+            # Analyze the single layer (0.4mm height = 2 layers)
+            layerStart = -1
+            layerEnd = -1
+
+            for i in [0...lines.length]
+                if lines[i].includes('LAYER: 1 of')
+                    layerStart = i
+                else if layerStart >= 0 and lines[i].includes('LAYER: 2 of')
+                    layerEnd = i
+                    break
+
+            return if layerStart < 0
+
+            layerEnd = lines.length if layerEnd < 0
+
+            # Count wall types and extrusion moves
+            outerWallCount = 0
+            innerWallCount = 0
+            outerWallMoves = 0
+            innerWallMoves = 0
+            inOuterWall = false
+            inInnerWall = false
+
+            for i in [layerStart...layerEnd]
+                line = lines[i]
+
+                if line.includes('TYPE: WALL-OUTER')
+                    outerWallCount++
+                    inOuterWall = true
+                    inInnerWall = false
+                else if line.includes('TYPE: WALL-INNER')
+                    innerWallCount++
+                    inOuterWall = false
+                    inInnerWall = true
+                else if line.includes('TYPE:')
+                    inOuterWall = false
+                    inInnerWall = false
+                
+                # Count extrusion moves (G1 with E parameter)
+                if line.match(/^G1.*E\d+/) 
+                    outerWallMoves++ if inOuterWall
+                    innerWallMoves++ if inInnerWall
+
+            # Verify both wall types are present
+            expect(outerWallCount).toBeGreaterThan(0)
+            expect(innerWallCount).toBeGreaterThan(0)
+
+            # Verify both walls have extrusion moves
+            expect(outerWallMoves).toBeGreaterThan(0)
+            expect(innerWallMoves).toBeGreaterThan(0)
+
+            # Note: When zero-offset fallback is used, inner and outer walls
+            # will have similar move counts since they follow the same path.
+            # This causes intentional over-extrusion for structural reinforcement
+            # of extremely thin walls where no spatial separation is possible.
+            # The move counts should be close but may differ slightly due to
+            # starting point optimization.
+            moveCountRatio = innerWallMoves / outerWallMoves
+            expect(moveCountRatio).toBeGreaterThan(0.8)  # Similar move counts
+            expect(moveCountRatio).toBeLessThan(1.2)     # Within 20% of each other
 
             return
 
