@@ -25,6 +25,7 @@ const slicer = new Polyslice(options);
 | `wipeNozzle` | boolean | `true` | Perform wipe move during post-print |
 | `smartWipeNozzle` | boolean | `true` | Use smart wipe (avoids mesh) vs simple X+5, Y+5 |
 | `buzzer` | boolean | `true` | Sound buzzer at end of print |
+| `onProgress` | function | `null` | Callback for slicing progress updates |
 | `printer` | Printer | `null` | Printer instance for automatic configuration |
 | `filament` | Filament | `null` | Filament instance for automatic configuration |
 
@@ -205,6 +206,98 @@ console.log(mesh.geometry.boundingBox); // Still null if not computed before
 
 // Print will be centered on build plate in G-code
 ```
+
+## Progress Feedback
+
+### `onProgress` Callback
+
+Get real-time feedback during the slicing process with the `onProgress` callback. This is especially useful for long slices that may take several minutes.
+
+**Callback Signature:**
+
+```javascript
+function onProgress(progressInfo) {
+  // progressInfo object contains:
+  // - stage: string - Current stage ('initializing', 'pre-print', 'adhesion', 'slicing', 'post-print', 'complete')
+  // - percent: number - Overall progress percentage (0-100)
+  // - currentLayer: number|null - Current layer being processed (1-based)
+  // - totalLayers: number|null - Total number of layers
+  // - message: string|null - Optional status message
+}
+```
+
+**Example with Simple Console Output:**
+
+```javascript
+const slicer = new Polyslice({
+  onProgress: (info) => {
+    console.log(`${info.stage}: ${info.percent}% - ${info.message || ''}`);
+    if (info.currentLayer) {
+      console.log(`  Layer ${info.currentLayer}/${info.totalLayers}`);
+    }
+  }
+});
+
+const gcode = slicer.slice(mesh);
+```
+
+**Example with Progress Bar:**
+
+```javascript
+// Simple text-based progress bar
+function createProgressBar(current, total, barLength = 40) {
+  const percent = Math.floor((current / total) * 100);
+  const filled = Math.floor((current / total) * barLength);
+  const empty = barLength - filled;
+  const bar = '█'.repeat(filled) + '░'.repeat(empty);
+  return `[${bar}] ${percent}%`;
+}
+
+const slicer = new Polyslice({
+  onProgress: (info) => {
+    if (info.stage === 'slicing' && info.currentLayer) {
+      const bar = createProgressBar(info.currentLayer, info.totalLayers);
+      process.stdout.write(`\r${info.stage.toUpperCase()}: ${bar} - Layer ${info.currentLayer}/${info.totalLayers}`);
+    } else {
+      const bar = createProgressBar(info.percent, 100);
+      process.stdout.write(`\r${info.stage.toUpperCase()}: ${bar} - ${info.message || ''}`);
+    }
+  }
+});
+```
+
+**Progress Stages:**
+
+| Stage | Description | Percent Range |
+|-------|-------------|---------------|
+| `initializing` | Preparing mesh and setup | 0% |
+| `pre-print` | Generating pre-print sequence (heating, homing) | 5% |
+| `adhesion` | Generating adhesion structures (if enabled) | 10% |
+| `slicing` | Processing layers (walls, infill, skin) | 15-85% |
+| `post-print` | Generating post-print sequence (cooling, homing) | 90% |
+| `complete` | G-code generation complete | 100% |
+
+**Getter and Setter:**
+
+```javascript
+// Get current callback
+const callback = slicer.getOnProgress();
+
+// Set or update callback
+slicer.setOnProgress((info) => {
+  console.log(`Progress: ${info.percent}%`);
+});
+
+// Clear callback
+slicer.setOnProgress(null);
+```
+
+**Error Handling:**
+
+The slicer automatically catches and logs any errors thrown by the progress callback to prevent disrupting the slicing process. If your callback throws an error, slicing will continue normally.
+
+**See Also:**
+- [Progress Example Script](../../examples/scripts/progress-example.js) - Complete working example with progress bar
 
 ## G-code Generation Methods
 
