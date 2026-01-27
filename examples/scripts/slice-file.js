@@ -77,13 +77,13 @@ function applyRotation(mesh, rotationArg) {
 
   switch (axis) {
     case 'x':
-      mesh.rotation.x = radians;
+      mesh.rotateX(radians);
       break;
     case 'y':
-      mesh.rotation.y = radians;
+      mesh.rotateY(radians);
       break;
     case 'z':
-      mesh.rotation.z = radians;
+      mesh.rotateZ(radians);
       break;
   }
 
