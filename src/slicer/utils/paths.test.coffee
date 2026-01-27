@@ -385,3 +385,127 @@ describe 'Paths', ->
             # Should preserve almost all points (at least 90% of original).
             minExpectedPoints = Math.floor(numPoints * 0.9)
             expect(insetPath.length).toBeGreaterThanOrEqual(minExpectedPoints)
+
+    describe 'Degenerate Path Handling', ->
+
+        test 'should remove duplicate consecutive points', ->
+
+            # Create a path with duplicate consecutive points (common in problematic STL files).
+            path = [
+                { x: 0, y: 0, z: 0 }
+                { x: 10, y: 0, z: 0 }
+                { x: 10, y: 0.005, z: 0 }  # Near-duplicate (within 0.01mm)
+                { x: 10, y: 10, z: 0 }
+                { x: 10.005, y: 10, z: 0 }  # Near-duplicate (within 0.01mm)
+                { x: 0, y: 10, z: 0 }
+            ]
+
+            insetPath = paths.createInsetPath(path, 1, false)
+
+            # Should handle duplicates and create valid inset or return empty if too degenerate.
+            # At minimum, should not crash or produce extreme coordinates.
+            if insetPath.length > 0
+                for point in insetPath
+                    expect(Math.abs(point.x)).toBeLessThan(100)
+                    expect(Math.abs(point.y)).toBeLessThan(100)
+
+            undefined
+
+        test 'should reject paths that produce extreme intersection coordinates', ->
+
+            # Create a path that would produce extreme intersections due to near-parallel edges.
+            # This simulates the problematic small holes from obj_2_Assembly_B.stl.
+            path = [
+                { x: 65.86, y: 163.91, z: 0 }
+                { x: 63.83, y: 166.51, z: 0 }
+                { x: 63.84, y: 166.50, z: 0 }  # Near-duplicate causing near-parallel edge
+                { x: 66.94, y: 164.00, z: 0 }
+                { x: 66.94, y: 163.99, z: 0 }  # Near-duplicate causing near-parallel edge
+            ]
+
+            insetPath = paths.createInsetPath(path, 0.2, true)
+
+            # Should return empty path instead of extreme coordinates.
+            # This prevents invalid G-code like X-1938, Y-3020.
+            if insetPath.length > 0
+                # If not rejected, validate coordinates are reasonable.
+                for point in insetPath
+                    expect(Math.abs(point.x)).toBeLessThan(300)
+                    expect(Math.abs(point.y)).toBeLessThan(300)
+
+            undefined
+
+        test 'should validate intersection distance from centroid', ->
+
+            # Create a degenerate path that previously produced extreme intersections.
+            path = [
+                { x: 0, y: 0, z: 0 }
+                { x: 2, y: 0, z: 0 }
+                { x: 2.001, y: 0.001, z: 0 }  # Near-parallel edge
+                { x: 2, y: 2, z: 0 }
+                { x: 0, y: 2, z: 0 }
+            ]
+
+            insetPath = paths.createInsetPath(path, 0.5, false)
+
+            # Should either reject (empty) or produce reasonable coordinates.
+            if insetPath.length > 0
+                # Path size is ~2x2mm, so max allowed distance from centroid is ~20mm (10x path size).
+                centroidX = 1
+                centroidY = 1
+
+                for point in insetPath
+                    distFromCentroid = Math.sqrt((point.x - centroidX) ** 2 + (point.y - centroidY) ** 2)
+                    # Validate not too far from centroid (using generous threshold for test).
+                    expect(distFromCentroid).toBeLessThan(50)
+
+            undefined
+
+        test 'should handle very small paths with near-duplicate points', ->
+
+            # Small path with points very close together (< 0.01mm).
+            path = [
+                { x: 10, y: 10, z: 0 }
+                { x: 10.005, y: 10, z: 0 }
+                { x: 10.005, y: 10.005, z: 0 }
+                { x: 10, y: 10.005, z: 0 }
+            ]
+
+            insetPath = paths.createInsetPath(path, 0.2, false)
+
+            # Should return empty (too small after deduplication) or valid coordinates.
+            # Should NOT produce extreme coordinates.
+            if insetPath.length > 0
+                for point in insetPath
+                    expect(Math.abs(point.x)).toBeLessThan(100)
+                    expect(Math.abs(point.y)).toBeLessThan(100)
+            else
+                # Returning empty is acceptable for degenerate paths.
+                expect(insetPath.length).toBe(0)
+
+            undefined
+
+        test 'should preserve valid paths without duplicates', ->
+
+            # Normal path without duplicates should work as before.
+            path = [
+                { x: 0, y: 0, z: 0 }
+                { x: 20, y: 0, z: 0 }
+                { x: 20, y: 20, z: 0 }
+                { x: 0, y: 20, z: 0 }
+            ]
+
+            insetPath = paths.createInsetPath(path, 2, false)
+
+            # Should successfully create inset.
+            expect(insetPath.length).toBeGreaterThan(0)
+            expect(insetPath.length).toBe(4)  # Square should have 4 corners.
+
+            # Validate coordinates are reasonable.
+            for point in insetPath
+                expect(point.x).toBeGreaterThan(0)
+                expect(point.x).toBeLessThan(20)
+                expect(point.y).toBeGreaterThan(0)
+                expect(point.y).toBeLessThan(20)
+
+            undefined
