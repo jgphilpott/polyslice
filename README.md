@@ -108,6 +108,7 @@ For detailed documentation, see the [docs folder](docs/README.md):
 - [Examples](docs/examples/EXAMPLES.md) - Practical usage examples
 - [Development Guide](docs/development/DEVELOPMENT.md) - Contributing and development
 - [Tools](docs/tools/TOOLS.md) - G-code visualizer and sender
+- [Mesh Complexity](docs/slicer/MESH_COMPLEXITY.md) - Performance guidelines for complex meshes
 
 ## Contributing
 

@@ -2524,3 +2524,70 @@ describe 'Slicing', ->
                 expect(result.length).toBeGreaterThan(1000)
 
                 return # Explicitly return undefined for Jest.
+
+    describe 'Mesh Complexity Warnings', ->
+
+        # Suppress console.warn during tests to avoid cluttering test output
+        originalWarn = null
+
+        beforeEach ->
+            originalWarn = console.warn
+            console.warn = jest.fn()
+
+        afterEach ->
+            console.warn = originalWarn
+
+        test 'should NOT warn for simple meshes', ->
+
+            # Create a simple cube
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+
+            result = slicer.slice(mesh)
+
+            # Should not have called console.warn
+            expect(console.warn).not.toHaveBeenCalled()
+            expect(result.length).toBeGreaterThan(0)
+
+        test 'should warn for medium complexity meshes', (done) ->
+
+            # Create a medium complexity sphere (score > 1M)
+            # Sphere(15, 64, 64) = 1.2M complexity score
+            geometry = new THREE.SphereGeometry(15, 64, 64)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+
+            # Configure for faster slicing
+            slicer.setInfillDensity(0)  # No infill to speed up
+            slicer.setExposureDetection(false)  # Disable exposure detection
+
+            result = slicer.slice(mesh)
+
+            # Should have warned about high complexity
+            expect(console.warn).toHaveBeenCalled()
+            expect(console.warn.mock.calls[0][0]).toContain('High mesh complexity detected')
+            expect(result.length).toBeGreaterThan(0)
+            done()
+
+        , 30000  # 30 second timeout
+
+        test 'should show critical warning for very complex meshes', (done) ->
+
+            # Create a high complexity sphere (score > 5M)
+            # Sphere(30, 96, 96) = 5.5M complexity score
+            geometry = new THREE.SphereGeometry(30, 96, 96)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+
+            # Configure for faster slicing
+            slicer.setInfillDensity(0)  # No infill to speed up
+            slicer.setExposureDetection(false)  # Disable exposure detection
+
+            result = slicer.slice(mesh)
+
+            # Should have warned about very high complexity
+            expect(console.warn).toHaveBeenCalled()
+            warningText = console.warn.mock.calls[0][0]
+            expect(warningText).toContain('Very high mesh complexity detected')
+            expect(result.length).toBeGreaterThan(0)
+            done()
+
+        , 90000  # 90 second timeout (this mesh takes ~20s to slice)

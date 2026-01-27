@@ -88,6 +88,43 @@ module.exports =
         SLICE_EPSILON = 0.001
         adjustedMinZ = minZ + SLICE_EPSILON
 
+        # Check mesh complexity and warn about potential performance issues.
+        # The path connection algorithm (connectSegmentsToPaths) has O(n³) complexity
+        # where n is the number of segments per layer. This complexity metric is an
+        # approximation based on triangles × layers; actual performance may vary based
+        # on geometric complexity per layer (e.g., flat objects with many small features).
+        geometry = mesh.geometry
+        if geometry and geometry.attributes and geometry.attributes.position
+
+            positionCount = geometry.attributes.position.count
+            triangleCount = if geometry.index then Math.floor(geometry.index.count / 3) else Math.floor(positionCount / 3)
+            estimatedLayers = Math.ceil((maxZ - minZ) / layerHeight)
+
+            # Complexity metric: triangles * layers (approximation)
+            # Based on testing:
+            # - Under 500k: Fast (< 10s)
+            # - 500k - 1M: Moderate (10s - 30s)
+            # - 1M - 5M: Slow (30s - 2min)
+            # - Over 5M: Very slow or may appear to hang (>2min)
+            complexityScore = triangleCount * estimatedLayers
+
+            COMPLEXITY_WARNING_THRESHOLD = 1000000  # 1M
+            COMPLEXITY_CRITICAL_THRESHOLD = 5000000  # 5M
+
+            if complexityScore > COMPLEXITY_CRITICAL_THRESHOLD
+
+                console.warn("\n⚠️  WARNING: Very high mesh complexity detected!")
+                console.warn("   Triangles: #{triangleCount}, Estimated layers: #{estimatedLayers}")
+                console.warn("   Complexity score: #{Math.floor(complexityScore / 1000)}k")
+                console.warn("   Slicing may take several minutes or appear to hang.")
+                console.warn("   Consider reducing mesh detail or increasing layer height.")
+                console.warn("   See: https://github.com/jgphilpott/polyslice/blob/main/docs/slicer/MESH_COMPLEXITY.md\n")
+
+            else if complexityScore > COMPLEXITY_WARNING_THRESHOLD
+
+                console.warn("\n⚠️  High mesh complexity detected. Slicing may take 30-60 seconds.")
+                console.warn("   Triangles: #{triangleCount}, Layers: #{estimatedLayers}, Score: #{Math.floor(complexityScore / 1000)}k\n")
+
         # Apply mesh preprocessing (Loop subdivision) if enabled.
         if slicer.getMeshPreprocessing and slicer.getMeshPreprocessing()
 
