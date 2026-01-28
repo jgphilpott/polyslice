@@ -144,17 +144,17 @@ module.exports =
 
             if complexityScore > COMPLEXITY_CRITICAL_THRESHOLD
 
-                console.warn("\n⚠️  WARNING: Very high mesh complexity detected!")
-                console.warn("   Triangles: #{triangleCount}, Estimated layers: #{estimatedLayers}")
-                console.warn("   Complexity score: #{Math.floor(complexityScore / 1000)}k")
-                console.warn("   Slicing may take several minutes or appear to hang.")
-                console.warn("   Consider reducing mesh detail or increasing layer height.")
-                console.warn("   See: https://github.com/jgphilpott/polyslice/blob/main/docs/slicer/MESH_COMPLEXITY.md\n")
+                console.warn("    WARNING: Very high mesh complexity detected!")
+                console.warn("    Triangles: #{triangleCount}, Estimated layers: #{estimatedLayers}")
+                console.warn("    Complexity score: #{Math.floor(complexityScore / 1000)}k")
+                console.warn("    Slicing may take several minutes or appear to hang.")
+                console.warn("    Consider reducing mesh detail or increasing layer height.")
+                console.warn("    See: https://github.com/jgphilpott/polyslice/blob/main/docs/slicer/MESH_COMPLEXITY.md\n")
 
             else if complexityScore > COMPLEXITY_WARNING_THRESHOLD
 
-                console.warn("\n⚠️  High mesh complexity detected. Slicing may take 30-60 seconds.")
-                console.warn("   Triangles: #{triangleCount}, Layers: #{estimatedLayers}, Score: #{Math.floor(complexityScore / 1000)}k\n")
+                console.warn("    High mesh complexity detected. Slicing may take 30-60 seconds.")
+                console.warn("    Triangles: #{triangleCount}, Layers: #{estimatedLayers}, Score: #{Math.floor(complexityScore / 1000)}k\n")
 
         # Apply mesh preprocessing (Loop subdivision) if enabled.
         if slicer.getMeshPreprocessing and slicer.getMeshPreprocessing()

@@ -152,16 +152,19 @@ class Polyslice
         # Progress callback for slicing feedback.
         # Default lightweight progress bar function (works in Node.js and browsers).
         defaultProgressCallback = do ->
+
             lastStage = null
             isNode = typeof process isnt 'undefined' and process?.stdout?.write
-            
+
             return (info) ->
+
                 # Add newline when stage changes
                 if lastStage and lastStage isnt info.stage
+
                     console.log() if not isNode
-                
+
                 lastStage = info.stage
-                
+
                 # Create simple progress bar
                 if info.currentLayer and info.totalLayers
                     percent = Math.floor((info.currentLayer / info.totalLayers) * 100)
@@ -169,16 +172,16 @@ class Polyslice
                 else
                     percent = info.percent
                     filled = Math.floor((info.percent / 100) * 20)
-                
+
                 empty = 20 - filled
                 bar = '█'.repeat(filled) + '░'.repeat(empty)
-                
+
                 # Format message
                 if info.currentLayer and info.totalLayers
                     message = "#{info.stage.toUpperCase()}: [#{bar}] #{percent}% - Layer #{info.currentLayer}/#{info.totalLayers}"
                 else
                     message = "#{info.stage.toUpperCase()}: [#{bar}] #{percent}% - #{info.message or ''}"
-                
+
                 # Use process.stdout.write for in-place updates in Node.js, console.log for browsers
                 if isNode
                     process.stdout.write("\r#{message}")

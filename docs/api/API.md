@@ -221,7 +221,7 @@ By default, Polyslice provides a lightweight progress bar that shows real-time u
 // Default callback (automatically included)
 // In Node.js: Uses process.stdout.write for in-place updates
 // In browsers: Uses console.log for each update
-// 
+//
 // Example output:
 // INITIALIZING: [░░░░░░░░░░░░░░░░░░░░] 0% - Starting...
 // SLICING: [████████░░░░░░░░░░░░] 40% - Layer 20/50
