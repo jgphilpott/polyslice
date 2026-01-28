@@ -239,7 +239,7 @@ module.exports =
             currentZ = adjustedMinZ + layerIndex * layerHeight + raftZOffset
 
             # Report progress for this layer (15% to 85% range for layer processing).
-            layerPercent = 15 + Math.floor((layerIndex / totalLayers) * 70)
+            layerPercent = 15 + Math.floor(((layerIndex + 1) / totalLayers) * 70)
             @reportProgress(slicer, "slicing", layerPercent, layerIndex + 1, totalLayers, "Layer #{layerIndex + 1}/#{totalLayers}")
 
             # Convert Polytree line segments to closed paths.
