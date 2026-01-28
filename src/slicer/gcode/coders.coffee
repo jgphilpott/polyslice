@@ -968,8 +968,13 @@ module.exports =
             maxX = module.exports.formatPrecision(slicer.meshBounds.maxX, 2)
             maxY = module.exports.formatPrecision(slicer.meshBounds.maxY, 2)
             maxZ = module.exports.formatPrecision(slicer.meshBounds.maxZ, 2)
-            gcode += "; Bounding Box Min: " + minX + ", " + minY + ", " + minZ + slicer.newline
-            gcode += "; Bounding Box Max: " + maxX + ", " + maxY + ", " + maxZ + slicer.newline
+            # Emit Cura-style per-axis bounding box metadata for consistent parsing.
+            gcode += "; MINX: " + minX + slicer.newline
+            gcode += "; MAXX: " + maxX + slicer.newline
+            gcode += "; MINY: " + minY + slicer.newline
+            gcode += "; MAXY: " + maxY + slicer.newline
+            gcode += "; MINZ: " + minZ + slicer.newline
+            gcode += "; MAXZ: " + maxZ + slicer.newline
 
         gcode += slicer.newline
 
