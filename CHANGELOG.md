@@ -7,6 +7,21 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.1.2] - 2026-01-28
+
+### Added
+- G-code metadata extraction with `getGcodeMetadata()` method
+  - Multi-slicer support for Polyslice, Cura, and PrusaSlicer formats
+  - Automatic slicer detection based on G-code comments
+  - Configurable metadata fields with units (temperature, length, volume, weight)
+  - Parses common fields: printer, filament, layer height, print time, etc.
+  - Returns empty object when no metadata is present
+  - Supports both `slicer.gcode` and custom G-code strings
+
+### Changed
+- Enhanced metadata header generation with comprehensive print information
+- Improved metadata parsing to handle multiple G-code flavors
+
 ## [26.1.1] - 2026-01-23
 
 ### Added
@@ -43,6 +58,7 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 Initial release for January 2026. See GitHub releases and commit history for details on previous versions.
 
-[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.1.1...HEAD
+[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.1.2...HEAD
+[26.1.2]: https://github.com/jgphilpott/polyslice/compare/v26.1.1...v26.1.2
 [26.1.1]: https://github.com/jgphilpott/polyslice/compare/v26.1.0...v26.1.1
 [26.1.0]: https://github.com/jgphilpott/polyslice/releases/tag/v26.1.0
