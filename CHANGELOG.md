@@ -7,6 +7,33 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.1.2] - 2026-01-28
+
+### Added
+- G-code metadata extraction with `getGcodeMetadata()` method
+  - Multi-slicer support for Polyslice, Cura, and PrusaSlicer formats
+  - Automatic slicer detection based on G-code comments
+  - Parses common fields: printer, filament, layer height, print time, etc.
+  - Returns empty object when no metadata is present
+  - Supports both `slicer.gcode` and custom G-code strings
+- Configurable metadata fields (individual control over each metadata field)
+  - 20+ metadata field options (version, timestamp, repository, printer, filament, temperatures, etc.)
+  - Metadata fields output with proper units (temperature in °C, length in mm, etc.)
+  - Bounding box coordinates tracking for prints
+- Progress callback system for real-time slicing feedback
+  - Default lightweight progress bar (works in Node.js and browsers)
+  - Progress stages: initializing, pre-print, adhesion, slicing, post-print, complete
+  - Layer-by-layer progress reporting
+  - Customizable progress callback function
+- Print time calculation from G-code
+  - Analyzes G-code commands to estimate total print time
+  - Accounts for movement distances, feedrates, and positioning modes
+  - Supports arc movements (G2/G3) and relative positioning
+- Enhanced metadata header generation in G-code output
+  - Comprehensive print information in G-code comments
+  - Configurable metadata fields for custom G-code headers
+  - Improved metadata parsing to handle multiple G-code flavors
+
 ## [26.1.1] - 2026-01-23
 
 ### Added
@@ -43,6 +70,7 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 Initial release for January 2026. See GitHub releases and commit history for details on previous versions.
 
-[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.1.1...HEAD
+[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.1.2...HEAD
+[26.1.2]: https://github.com/jgphilpott/polyslice/compare/v26.1.1...v26.1.2
 [26.1.1]: https://github.com/jgphilpott/polyslice/compare/v26.1.0...v26.1.1
 [26.1.0]: https://github.com/jgphilpott/polyslice/releases/tag/v26.1.0
