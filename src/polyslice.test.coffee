@@ -1,6 +1,7 @@
 # Tests for the Polyslice class:
 
 Polyslice = require('./index')
+THREE = require('three')
 
 describe 'Polyslice', ->
 
@@ -385,3 +386,173 @@ describe 'Polyslice', ->
 
             # Filament diameter should come from filament, not printer
             expect(slicerUltimaker.getFilamentDiameter()).toBe(2.85)
+
+    describe 'Progress Callback', ->
+
+        progressEvents = null
+
+        beforeEach ->
+
+            progressEvents = []
+
+        test 'should accept progressCallback in constructor', ->
+
+            customSlicer = new Polyslice({
+                progressCallback: (info) -> progressEvents.push(info)
+            })
+
+            expect(customSlicer.getProgressCallback()).toBeInstanceOf(Function)
+
+        test 'should have default progress callback', ->
+
+            defaultSlicer = new Polyslice()
+
+            expect(defaultSlicer.getProgressCallback()).toBeInstanceOf(Function)
+
+        test 'should allow setting callback via setter', ->
+
+            callback = (info) -> console.log(info)
+
+            slicer.setProgressCallback(callback)
+
+            expect(slicer.getProgressCallback()).toBe(callback)
+
+        test 'should allow disabling callback by setting to null', ->
+
+            slicer.setProgressCallback(null)
+
+            expect(slicer.getProgressCallback()).toBe(null)
+
+        test 'should reject non-function values', ->
+
+            originalCallback = slicer.getProgressCallback()
+
+            slicer.setProgressCallback("not a function")
+
+            expect(slicer.getProgressCallback()).toBe(originalCallback) # Should keep original callback
+
+        test 'should provide correct progress info structure', ->
+
+            testSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    progressEvents.push(progressInfo)
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            testSlicer.slice(cube)
+
+            expect(progressEvents.length).toBeGreaterThan(0)
+
+            # Check first event structure
+            firstEvent = progressEvents[0]
+
+            expect(firstEvent).toHaveProperty('stage')
+            expect(firstEvent).toHaveProperty('percent')
+            expect(firstEvent).toHaveProperty('currentLayer')
+            expect(firstEvent).toHaveProperty('totalLayers')
+            expect(firstEvent).toHaveProperty('message')
+
+        test 'should have valid stage names', ->
+
+            testSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    progressEvents.push(progressInfo)
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            testSlicer.slice(cube)
+
+            validStages = ['initializing', 'pre-print', 'adhesion', 'slicing', 'post-print', 'complete']
+            stages = progressEvents.map((e) -> e.stage)
+
+            for stage in stages
+                expect(validStages).toContain(stage)
+
+            return
+
+        test 'should report slicing stage with layer information', ->
+
+            testSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    progressEvents.push(progressInfo)
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            testSlicer.slice(cube)
+
+            slicingEvents = progressEvents.filter((e) -> e.stage is 'slicing')
+
+            expect(slicingEvents.length).toBeGreaterThan(0)
+
+            # Check that layer information is provided
+            # Filter for events that have actual layer numbers (not the initial "Processing layers..." message)
+            layerEvents = slicingEvents.filter((e) -> e.currentLayer? and e.totalLayers? and e.currentLayer > 0)
+
+            expect(layerEvents.length).toBeGreaterThan(0)
+
+            # Verify layer numbers are valid
+            for event in layerEvents
+                expect(event.currentLayer).toBeGreaterThan(0)
+                expect(event.currentLayer).toBeLessThanOrEqual(event.totalLayers)
+
+            return
+
+        test 'should report complete stage at 100%', ->
+
+            testSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    progressEvents.push(progressInfo)
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            testSlicer.slice(cube)
+
+            completeEvents = progressEvents.filter((e) -> e.stage is 'complete')
+
+            expect(completeEvents.length).toBeGreaterThan(0)
+            expect(completeEvents[0].percent).toBe(100)
+
+        test 'should handle callback errors gracefully', ->
+
+            errorSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    throw new Error("Test error in callback")
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            # Should not throw error despite callback error
+            expect(() ->
+                errorSlicer.slice(cube)
+            ).not.toThrow()
+
+        test 'should continue slicing after callback error', ->
+
+            errorSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    throw new Error("Test error in callback")
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            gcode = errorSlicer.slice(cube)
+
+            # Should still generate G-code
+            expect(gcode).toBeTruthy()
+            expect(gcode.length).toBeGreaterThan(0)

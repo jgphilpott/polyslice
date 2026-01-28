@@ -150,7 +150,14 @@ class Polyslice
         @extruderMode = options.extruderMode ?= "absolute" # String ['absolute', 'relative'].
 
         # Progress callback for slicing feedback.
-        @onProgress = options.onProgress ?= null # Function (progressInfo) or null.
+        # Default lightweight progress reporting function.
+        defaultProgressCallback = (info) ->
+            if info.currentLayer
+                console.log("Slicing layer #{info.currentLayer}/#{info.totalLayers} (#{info.percent}%)")
+            else if info.stage is 'complete'
+                console.log("Slicing complete!")
+
+        @progressCallback = options.progressCallback ?= defaultProgressCallback # Function (progressInfo).
 
     # Getter method delegates:
 
@@ -361,8 +368,8 @@ class Polyslice
     getExtruderMode: ->
         accessors.getExtruderMode(this)
 
-    getOnProgress: ->
-        accessors.getOnProgress(this)
+    getProgressCallback: ->
+        accessors.getProgressCallback(this)
 
     getPrinter: ->
         accessors.getPrinter(this)
@@ -579,8 +586,8 @@ class Polyslice
     setExtruderMode: (mode = "absolute") ->
         accessors.setExtruderMode(this, mode)
 
-    setOnProgress: (callback = null) ->
-        accessors.setOnProgress(this, callback)
+    setProgressCallback: (callback = null) ->
+        accessors.setProgressCallback(this, callback)
 
     setPrinter: (printer) ->
         accessors.setPrinter(this, printer)

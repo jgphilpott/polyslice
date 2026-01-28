@@ -1,7 +1,7 @@
 /**
  * Example: Demonstrate progress callback functionality during slicing.
  *
- * This example shows how to use the onProgress callback to provide
+ * This example shows how to use the progressCallback option to provide
  * real-time feedback during the slicing process. This is especially
  * useful for long slices that might take several minutes.
  *
@@ -41,7 +41,7 @@ function main() {
   const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
   const cube = new THREE.Mesh(geometry, material);
 
-  console.log("Creating slicer with progress callback...\n");
+  console.log("Creating slicer with custom progress callback...\n");
 
   const slicer = new Polyslice({
     printer: printer,
@@ -51,7 +51,7 @@ function main() {
     infillDensity: 20,
     testStrip: false,
     verbose: true,
-    onProgress: (progressInfo) => {
+    progressCallback: (progressInfo) => {
       // Add newline when stage changes
       if (lastStage && lastStage !== progressInfo.stage) {
         console.log();

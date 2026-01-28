@@ -21,7 +21,7 @@ module.exports =
     # Helper function to call progress callback if it exists.
     reportProgress: (slicer, stage, percentComplete, currentLayer = null, totalLayers = null, message = null) ->
 
-        if slicer.onProgress and typeof slicer.onProgress is "function"
+        if slicer.progressCallback and typeof slicer.progressCallback is "function"
 
             progressInfo = {
                 stage: stage                    # String: current stage of slicing
@@ -33,12 +33,12 @@ module.exports =
 
             try
 
-                slicer.onProgress(progressInfo)
+                slicer.progressCallback(progressInfo)
 
             catch error
 
                 # Silently ignore errors in user callback to avoid disrupting slicing.
-                console.error("Error in onProgress callback:", error)
+                console.error("Error in progressCallback:", error)
 
     # Main slicing method that generates G-code from a scene.
     slice: (slicer, scene = {}) ->

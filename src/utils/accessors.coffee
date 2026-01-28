@@ -282,9 +282,9 @@ module.exports =
 
         return slicer.extruderMode
 
-    getOnProgress: (slicer) ->
+    getProgressCallback: (slicer) ->
 
-        return slicer.onProgress
+        return slicer.progressCallback
 
     getPrinter: (slicer) ->
 
@@ -824,11 +824,11 @@ module.exports =
 
         return slicer
 
-    setOnProgress: (slicer, callback = null) ->
+    setProgressCallback: (slicer, callback = null) ->
 
         if typeof callback is "function" or callback is null
 
-            slicer.onProgress = callback
+            slicer.progressCallback = callback
 
         return slicer
 

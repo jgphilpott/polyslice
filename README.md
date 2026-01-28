@@ -60,8 +60,8 @@ const slicer = new Polyslice({
   infillDensity: 30,
   testStrip: true,
   verbose: true,
-  // Optional: Add progress callback for real-time feedback
-  onProgress: (info) => {
+  // Optional: Custom progress callback (default logs to console)
+  progressCallback: (info) => {
     console.log(`${info.stage}: ${info.percent}%`);
   }
 });
