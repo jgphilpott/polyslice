@@ -228,7 +228,6 @@ progressCallback: Function
 // Extract metadata from G-code
 slicer.getGcodeMetadata(gcode?: string): Object
 ```
-5. **Print Statistics** - Collect statistics on material usage and print times
 
 ## Installation
 
