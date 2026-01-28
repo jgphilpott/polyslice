@@ -59,11 +59,7 @@ const slicer = new Polyslice({
   infillPattern: "triangles",
   infillDensity: 30,
   testStrip: true,
-  verbose: true,
-  // Optional: Custom progress callback (default shows progress bar)
-  progressCallback: (info) => {
-    console.log(`${info.stage}: ${info.percent}%`);
-  }
+  verbose: true
 });
 
 // Create a 1cm cube (10mm x 10mm x 10mm)
