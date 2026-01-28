@@ -11,10 +11,11 @@
 
 ## 🎯 What's New
 
-### Main Feature: G-code Metadata Extraction
+### Main Features: Metadata & Progress Tracking
 
-The `getGcodeMetadata()` method has been added to extract and analyze print parameters from G-code files:
+Comprehensive metadata and progress tracking capabilities have been added:
 
+**1. G-code Metadata Extraction (`getGcodeMetadata()`)**
 ```javascript
 // Extract metadata from generated G-code
 const metadata = slicer.getGcodeMetadata();
@@ -29,10 +30,20 @@ console.log(metadata.totalLayers);       // 50
 console.log(metadata.filamentLength);    // { value: 1234.5, unit: "mm" }
 ```
 
+**2. Configurable Metadata Fields** - 20+ metadata field options with individual control
+
+**3. Progress Callback System** - Real-time slicing progress with customizable callbacks
+
+**4. Print Time Calculation** - Accurate time estimation from G-code analysis
+
+**5. Enhanced Metadata Headers** - Comprehensive print information in G-code comments
+
 **Key Features:**
 - ✅ Multi-slicer support (Polyslice, Cura, PrusaSlicer)
 - ✅ Automatic slicer detection
 - ✅ Structured metadata with proper units
+- ✅ Progress tracking with default progress bars
+- ✅ Configurable metadata output
 - ✅ Backward compatible (no breaking changes)
 
 ---
