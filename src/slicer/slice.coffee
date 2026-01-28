@@ -151,6 +151,16 @@ module.exports =
         slicer.centerOffsetX = centerOffsetX
         slicer.centerOffsetY = centerOffsetY
 
+        # Store bounding box for metadata (convert to build plate coordinates)
+        slicer.meshBounds = {
+            minX: boundingBox.min.x + centerOffsetX
+            maxX: boundingBox.max.x + centerOffsetX
+            minY: boundingBox.min.y + centerOffsetY
+            maxY: boundingBox.max.y + centerOffsetY
+            minZ: boundingBox.min.z
+            maxZ: boundingBox.max.z
+        }
+
         verbose = slicer.getVerbose()
 
         # Generate adhesion structures (skirt, brim, or raft) if enabled.

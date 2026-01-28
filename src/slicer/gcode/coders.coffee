@@ -915,6 +915,9 @@ module.exports =
 
             gcode += "; Repository: https://github.com/jgphilpott/polyslice" + slicer.newline
 
+        # G-code flavor/firmware compatibility
+        gcode += "; Flavor: Marlin" + slicer.newline
+
         if slicer.getMetadataPrinter() and slicer.printer # Add printer information if available.
 
             gcode += "; Printer: " + slicer.printer.model + slicer.newline
@@ -935,6 +938,38 @@ module.exports =
         if slicer.getMetadataLayerHeight()
 
             gcode += "; Layer Height: " + slicer.getLayerHeight() + "mm" + slicer.newline
+
+        # Add additional critical print parameters
+        gcode += "; Infill Density: " + slicer.infillDensity + "%" + slicer.newline
+        gcode += "; Infill Pattern: " + slicer.infillPattern + slicer.newline
+
+        # Calculate wall count
+        wallCount = Math.max(1, Math.floor((slicer.shellWallThickness / slicer.nozzleDiameter) + 0.0001))
+        gcode += "; Wall Count: " + wallCount + slicer.newline
+
+        # Support and adhesion information
+        gcode += "; Support: " + (if slicer.supportEnabled then "Yes" else "No") + slicer.newline
+
+        if slicer.adhesionEnabled
+            gcode += "; Adhesion: " + slicer.adhesionType + slicer.newline
+        else
+            gcode += "; Adhesion: None" + slicer.newline
+
+        # Print speed settings
+        gcode += "; Perimeter Speed: " + slicer.getPerimeterSpeed() + "mm/s" + slicer.newline
+        gcode += "; Infill Speed: " + slicer.getInfillSpeed() + "mm/s" + slicer.newline
+        gcode += "; Travel Speed: " + slicer.getTravelSpeed() + "mm/s" + slicer.newline
+
+        # Bounding box (will be filled in after slicing if available)
+        if slicer.meshBounds?
+            minX = module.exports.formatPrecision(slicer.meshBounds.minX, 2)
+            minY = module.exports.formatPrecision(slicer.meshBounds.minY, 2)
+            minZ = module.exports.formatPrecision(slicer.meshBounds.minZ, 2)
+            maxX = module.exports.formatPrecision(slicer.meshBounds.maxX, 2)
+            maxY = module.exports.formatPrecision(slicer.meshBounds.maxY, 2)
+            maxZ = module.exports.formatPrecision(slicer.meshBounds.maxZ, 2)
+            gcode += "; Bounding Box Min: " + minX + ", " + minY + ", " + minZ + slicer.newline
+            gcode += "; Bounding Box Max: " + maxX + ", " + maxY + ", " + maxZ + slicer.newline
 
         gcode += slicer.newline
 
