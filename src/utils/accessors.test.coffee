@@ -508,6 +508,14 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getMetadataMaterialVolume()).toBe(true)
             expect(slicer.getMetadataMaterialWeight()).toBe(true)
             expect(slicer.getMetadataPrintTime()).toBe(true)
+            expect(slicer.getMetadataFlavor()).toBe(true)
+            expect(slicer.getMetadataInfillDensity()).toBe(true)
+            expect(slicer.getMetadataInfillPattern()).toBe(true)
+            expect(slicer.getMetadataWallCount()).toBe(true)
+            expect(slicer.getMetadataSupport()).toBe(true)
+            expect(slicer.getMetadataAdhesion()).toBe(true)
+            expect(slicer.getMetadataSpeeds()).toBe(true)
+            expect(slicer.getMetadataBoundingBox()).toBe(true)
 
             # Test setting to false.
             slicer.setMetadataVersion(false)
@@ -523,6 +531,14 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setMetadataMaterialVolume(false)
             slicer.setMetadataMaterialWeight(false)
             slicer.setMetadataPrintTime(false)
+            slicer.setMetadataFlavor(false)
+            slicer.setMetadataInfillDensity(false)
+            slicer.setMetadataInfillPattern(false)
+            slicer.setMetadataWallCount(false)
+            slicer.setMetadataSupport(false)
+            slicer.setMetadataAdhesion(false)
+            slicer.setMetadataSpeeds(false)
+            slicer.setMetadataBoundingBox(false)
 
             expect(slicer.getMetadataVersion()).toBe(false)
             expect(slicer.getMetadataTimestamp()).toBe(false)
@@ -537,6 +553,14 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getMetadataMaterialVolume()).toBe(false)
             expect(slicer.getMetadataMaterialWeight()).toBe(false)
             expect(slicer.getMetadataPrintTime()).toBe(false)
+            expect(slicer.getMetadataFlavor()).toBe(false)
+            expect(slicer.getMetadataInfillDensity()).toBe(false)
+            expect(slicer.getMetadataInfillPattern()).toBe(false)
+            expect(slicer.getMetadataWallCount()).toBe(false)
+            expect(slicer.getMetadataSupport()).toBe(false)
+            expect(slicer.getMetadataAdhesion()).toBe(false)
+            expect(slicer.getMetadataSpeeds()).toBe(false)
+            expect(slicer.getMetadataBoundingBox()).toBe(false)
 
             # Test setting back to true.
             slicer.setMetadataVersion(true)
@@ -552,6 +576,14 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setMetadataMaterialVolume(true)
             slicer.setMetadataMaterialWeight(true)
             slicer.setMetadataPrintTime(true)
+            slicer.setMetadataFlavor(true)
+            slicer.setMetadataInfillDensity(true)
+            slicer.setMetadataInfillPattern(true)
+            slicer.setMetadataWallCount(true)
+            slicer.setMetadataSupport(true)
+            slicer.setMetadataAdhesion(true)
+            slicer.setMetadataSpeeds(true)
+            slicer.setMetadataBoundingBox(true)
 
             expect(slicer.getMetadataVersion()).toBe(true)
             expect(slicer.getMetadataTimestamp()).toBe(true)
@@ -566,6 +598,14 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getMetadataMaterialVolume()).toBe(true)
             expect(slicer.getMetadataMaterialWeight()).toBe(true)
             expect(slicer.getMetadataPrintTime()).toBe(true)
+            expect(slicer.getMetadataFlavor()).toBe(true)
+            expect(slicer.getMetadataInfillDensity()).toBe(true)
+            expect(slicer.getMetadataInfillPattern()).toBe(true)
+            expect(slicer.getMetadataWallCount()).toBe(true)
+            expect(slicer.getMetadataSupport()).toBe(true)
+            expect(slicer.getMetadataAdhesion()).toBe(true)
+            expect(slicer.getMetadataSpeeds()).toBe(true)
+            expect(slicer.getMetadataBoundingBox()).toBe(true)
 
         test 'should support method chaining for metadata field setters', ->
 
@@ -583,6 +623,14 @@ describe 'Accessors (Getters and Setters)', ->
                 .setMetadataMaterialVolume(false)
                 .setMetadataMaterialWeight(false)
                 .setMetadataPrintTime(false)
+                .setMetadataFlavor(false)
+                .setMetadataInfillDensity(false)
+                .setMetadataInfillPattern(false)
+                .setMetadataWallCount(false)
+                .setMetadataSupport(false)
+                .setMetadataAdhesion(false)
+                .setMetadataSpeeds(false)
+                .setMetadataBoundingBox(false)
 
             expect(result).toBe(slicer)
             expect(slicer.getMetadataVersion()).toBe(false)
@@ -598,6 +646,14 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getMetadataMaterialVolume()).toBe(false)
             expect(slicer.getMetadataMaterialWeight()).toBe(false)
             expect(slicer.getMetadataPrintTime()).toBe(false)
+            expect(slicer.getMetadataFlavor()).toBe(false)
+            expect(slicer.getMetadataInfillDensity()).toBe(false)
+            expect(slicer.getMetadataInfillPattern()).toBe(false)
+            expect(slicer.getMetadataWallCount()).toBe(false)
+            expect(slicer.getMetadataSupport()).toBe(false)
+            expect(slicer.getMetadataAdhesion()).toBe(false)
+            expect(slicer.getMetadataSpeeds()).toBe(false)
+            expect(slicer.getMetadataBoundingBox()).toBe(false)
             expect(slicer.getVerbose()).toBe(true)
 
         test 'should set and get coordinate precision', ->
@@ -733,3 +789,338 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getFilament()).toBe(filament)
             expect(slicer.getNozzleTemperature()).toBe(200)
             expect(slicer.getBedTemperature()).toBe(60)
+
+    describe 'G-code Metadata Extraction', ->
+
+        test 'should extract metadata from slicer.gcode when no argument provided', ->
+
+            Printer = require('../config/printer/printer')
+            Filament = require('../config/filament/filament')
+
+            printer = new Printer('Ender3')
+            filament = new Filament('GenericPLA')
+
+            testSlicer = new Polyslice({
+                progressCallback: null
+                printer: printer
+                filament: filament
+                metadata: true
+                verbose: false
+            })
+
+            # Generate G-code with metadata
+            testSlicer.gcode = testSlicer.codePrePrint()
+
+            # Extract metadata without argument (should use slicer.gcode)
+            metadata = testSlicer.getGcodeMetadata()
+
+            # Verify basic metadata fields
+            expect(metadata.generatedBy).toBe('Polyslice')
+            expect(metadata.version).toBeDefined()
+            expect(metadata.timestamp).toBeDefined()
+            expect(metadata.repository).toBe('https://github.com/jgphilpott/polyslice')
+            expect(metadata.printer).toBe('Ender3')
+            expect(metadata.filament).toBe('Generic PLA (pla)')
+
+            # Verify temperature fields with units
+            expect(metadata.nozzleTemp).toBeDefined()
+            expect(metadata.nozzleTemp.value).toBe(200)
+            expect(metadata.nozzleTemp.unit).toBe('°C')
+
+            expect(metadata.bedTemp).toBeDefined()
+            expect(metadata.bedTemp.value).toBe(60)
+            expect(metadata.bedTemp.unit).toBe('°C')
+
+            # Verify layer height with unit
+            expect(metadata.layerHeight).toBeDefined()
+            expect(metadata.layerHeight.value).toBe(0.2)
+            expect(metadata.layerHeight.unit).toBe('mm')
+
+        test 'should extract metadata from provided gcode string', ->
+
+            customGcode = """
+            ; Generated by Polyslice
+            ; Version: 1.0.0
+            ; Timestamp: 2024-01-01T12:00:00.000Z
+            ; Repository: https://github.com/jgphilpott/polyslice
+            ; Printer: CustomPrinter
+            ; Filament: Test Filament (abs)
+            ; Nozzle Temp: 230°C
+            ; Bed Temp: 80°C
+            ; Layer Height: 0.3mm
+
+            G28
+            """
+
+            metadata = slicer.getGcodeMetadata(customGcode)
+
+            expect(metadata.generatedBy).toBe('Polyslice')
+            expect(metadata.version).toBe('1.0.0')
+            expect(metadata.timestamp).toBe('2024-01-01T12:00:00.000Z')
+            expect(metadata.repository).toBe('https://github.com/jgphilpott/polyslice')
+            expect(metadata.printer).toBe('CustomPrinter')
+            expect(metadata.filament).toBe('Test Filament (abs)')
+            expect(metadata.nozzleTemp.value).toBe(230)
+            expect(metadata.nozzleTemp.unit).toBe('°C')
+            expect(metadata.bedTemp.value).toBe(80)
+            expect(metadata.bedTemp.unit).toBe('°C')
+            expect(metadata.layerHeight.value).toBe(0.3)
+            expect(metadata.layerHeight.unit).toBe('mm')
+
+        test 'should extract print statistics from complete gcode', ->
+
+            THREE = require('three')
+            Printer = require('../config/printer/printer')
+            Filament = require('../config/filament/filament')
+
+            # Create a simple test cube
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            mesh = new THREE.Mesh(geometry, material)
+
+            printer = new Printer('Ender3')
+            filament = new Filament('GenericPLA')
+
+            slicerWithStats = new Polyslice({
+                progressCallback: null
+                printer: printer
+                filament: filament
+                metadata: true
+                verbose: false
+            })
+
+            # Slice the mesh to generate complete G-code with statistics
+            gcode = slicerWithStats.slice(mesh)
+
+            # Extract metadata
+            metadata = slicerWithStats.getGcodeMetadata()
+
+            # Verify print statistics are included
+            expect(metadata.totalLayers).toBeDefined()
+            expect(metadata.totalLayers).toBeGreaterThan(0)
+
+            expect(metadata.filamentLength).toBeDefined()
+            expect(metadata.filamentLength.value).toBeGreaterThan(0)
+
+            expect(metadata.materialVolume).toBeDefined()
+            expect(metadata.materialVolume.value).toBeGreaterThan(0)
+
+            expect(metadata.materialWeight).toBeDefined()
+            expect(metadata.materialWeight.value).toBeGreaterThanOrEqual(0)
+
+            expect(metadata.estimatedPrintTime).toBeDefined()
+
+        test 'should return Unknown for gcode without recognizable metadata format', ->
+
+            gcodeWithoutMetadata = """
+            G28
+            G0 X10 Y10 Z0.2
+            G1 X20 Y10 E0.1 F1500
+            """
+
+            metadata = slicer.getGcodeMetadata(gcodeWithoutMetadata)
+
+            # Generic fallback will return { generatedBy: "Unknown" }
+            expect(metadata.generatedBy).toBe('Unknown')
+
+        test 'should return empty object for empty gcode', ->
+
+            metadata = slicer.getGcodeMetadata("")
+
+            expect(metadata).toEqual({})
+
+        test 'should return empty object when no gcode available', ->
+
+            emptySlicer = new Polyslice()
+
+            metadata = emptySlicer.getGcodeMetadata()
+
+            expect(metadata).toEqual({})
+
+        test 'should handle metadata with missing fields gracefully', ->
+
+            partialGcode = """
+            ; Generated by Polyslice
+            ; Version: 2.0.0
+            ; Nozzle Temp: 200°C
+
+            G28
+            """
+
+            metadata = slicer.getGcodeMetadata(partialGcode)
+
+            expect(metadata.generatedBy).toBe('Polyslice')
+            expect(metadata.version).toBe('2.0.0')
+            expect(metadata.nozzleTemp.value).toBe(200)
+            expect(metadata.timestamp).toBeUndefined()
+            expect(metadata.printer).toBeUndefined()
+
+        test 'should parse values without units as plain numbers', ->
+
+            gcodeWithPlainNumbers = """
+            ; Generated by Polyslice
+            ; Total Layers: 50
+            ; Infill Density: 20
+
+            G28
+            """
+
+            metadata = slicer.getGcodeMetadata(gcodeWithPlainNumbers)
+
+            expect(metadata.totalLayers).toBe(50)
+            expect(metadata.infillDensity).toBe(20)
+
+        test 'should convert metadata keys to camelCase', ->
+
+            gcodeWithSpacedKeys = """
+            ; Generated by Polyslice
+            ; Nozzle Temp: 200°C
+            ; Bed Temp: 60°C
+            ; Layer Height: 0.2mm
+            ; Total Layers: 100
+            ; Filament Length: 1500mm
+            ; Material Volume: 500mm³
+            ; Material Weight: 0.62g
+            ; Estimated Print Time: 30m 45s
+
+            G28
+            """
+
+            metadata = slicer.getGcodeMetadata(gcodeWithSpacedKeys)
+
+            # Verify camelCase conversion
+            expect(metadata.nozzleTemp).toBeDefined()
+            expect(metadata.bedTemp).toBeDefined()
+            expect(metadata.layerHeight).toBeDefined()
+            expect(metadata.totalLayers).toBeDefined()
+            expect(metadata.filamentLength).toBeDefined()
+            expect(metadata.materialVolume).toBeDefined()
+            expect(metadata.materialWeight).toBeDefined()
+            expect(metadata.estimatedPrintTime).toBeDefined()
+
+        test 'should preserve string values that are not numeric', ->
+
+            gcodeWithStrings = """
+            ; Generated by Polyslice
+            ; Printer: Ender 3 Pro
+            ; Filament: Super Special PLA (pla)
+            ; Repository: https://github.com/jgphilpott/polyslice
+            ; Estimated Print Time: 1h 23m 45s
+
+            G28
+            """
+
+            metadata = slicer.getGcodeMetadata(gcodeWithStrings)
+
+            expect(metadata.printer).toBe('Ender 3 Pro')
+            expect(metadata.filament).toBe('Super Special PLA (pla)')
+            expect(metadata.repository).toBe('https://github.com/jgphilpott/polyslice')
+            expect(metadata.estimatedPrintTime).toBe('1h 23m 45s')
+
+    describe 'Multi-Slicer Metadata Extraction', ->
+
+        test 'should extract metadata from Cura G-code', ->
+
+            curaGcode = """
+            ;FLAVOR:Marlin
+            ;TIME:618
+            ;Filament used: 0.24553m
+            ;Layer height: 0.2
+            ;MINX:94
+            ;MINY:94
+            ;MINZ:0.2
+            ;MAXX:126
+            ;MAXY:126
+            ;MAXZ:10
+            ;TARGET_MACHINE.NAME:Creality Ender-5
+            ;Generated with Cura_SteamEngine 5.8.1
+            ;LAYER_COUNT:50
+
+            M104 S200
+            G28
+            """
+
+            metadata = slicer.getGcodeMetadata(curaGcode)
+
+            expect(metadata.generatedBy).toBe('Cura')
+            expect(metadata.version).toBe('5.8.1')
+            expect(metadata.printer).toBe('Creality Ender-5')
+            expect(metadata.layerHeight).toEqual({ value: 0.2, unit: 'mm' })
+            expect(metadata.totalLayers).toBe(50)
+            expect(metadata.filamentLength).toEqual({ value: 245.53, unit: 'mm' })
+            expect(metadata.estimatedPrintTime).toBe('10m 18s')
+            expect(metadata.flavor).toBe('Marlin')
+            expect(metadata.boundingBox).toBeDefined()
+            expect(metadata.boundingBox.minx).toBe(94)
+            expect(metadata.boundingBox.maxx).toBe(126)
+
+        test 'should extract metadata from PrusaSlicer G-code', ->
+
+            prusaGcode = """
+            ; generated by PrusaSlicer 2.8.1+linux-x64-GTK3 on 2026-01-28 at 06:32:21 UTC
+
+            ; layer_height = 0.3
+            ; filament used [mm] = 427.39
+            ; filament used [cm3] = 1.03
+            ; total filament used [g] = 1.28
+            ; estimated printing time (normal mode) = 8m 48s
+
+            M104 S200
+            G28
+            """
+
+            metadata = slicer.getGcodeMetadata(prusaGcode)
+
+            expect(metadata.generatedBy).toBe('PrusaSlicer')
+            expect(metadata.version).toBe('2.8.1+linux-x64-GTK3')
+            expect(metadata.timestamp).toBe('2026-01-28T06:32:21.000Z')
+            expect(metadata.layerHeight).toEqual({ value: 0.3, unit: 'mm' })
+            expect(metadata.filamentLength).toEqual({ value: 427.39, unit: 'mm' })
+            expect(metadata.materialVolume).toEqual({ value: 1.03, unit: 'cm³' })
+            expect(metadata.materialWeight).toEqual({ value: 1.28, unit: 'g' })
+            expect(metadata.estimatedPrintTime).toBe('8m 48s')
+
+        test 'should extract new Polyslice metadata fields', ->
+
+            THREE = require('three')
+            Printer = require('../config/printer/printer')
+            Filament = require('../config/filament/filament')
+
+            printer = new Printer('Ender3')
+            filament = new Filament('GenericPLA')
+
+            testSlicer = new Polyslice({
+                progressCallback: null
+                printer: printer
+                filament: filament
+                metadata: true
+                infillDensity: 30
+                infillPattern: 'triangles'
+                supportEnabled: true
+                adhesionEnabled: true
+                adhesionType: 'brim'
+            })
+
+            # Create a simple cube
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            mesh = new THREE.Mesh(geometry, material)
+
+            # Slice the mesh
+            gcode = testSlicer.slice(mesh)
+
+            # Extract metadata
+            metadata = testSlicer.getGcodeMetadata()
+
+            # Verify new fields
+            expect(metadata.generatedBy).toBe('Polyslice')
+            expect(metadata.flavor).toBe('Marlin')
+            expect(metadata.infillDensity).toBe('30%')
+            expect(metadata.infillPattern).toBe('triangles')
+            expect(metadata.wallCount).toBe(2)
+            expect(metadata.support).toBe('Yes')
+            expect(metadata.adhesion).toBe('brim')
+            expect(metadata.perimeterSpeed).toEqual({ value: 30, unit: 'mm/s' })
+            expect(metadata.infillSpeed).toEqual({ value: 60, unit: 'mm/s' })
+            expect(metadata.travelSpeed).toEqual({ value: 120, unit: 'mm/s' })
+            # Note: Bounding box is not in pre-print metadata, only available after slicing

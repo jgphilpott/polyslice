@@ -915,6 +915,11 @@ module.exports =
 
             gcode += "; Repository: https://github.com/jgphilpott/polyslice" + slicer.newline
 
+        # G-code flavor/firmware compatibility
+        if slicer.getMetadataFlavor()
+
+            gcode += "; Flavor: Marlin" + slicer.newline
+
         if slicer.getMetadataPrinter() and slicer.printer # Add printer information if available.
 
             gcode += "; Printer: " + slicer.printer.model + slicer.newline
@@ -935,6 +940,56 @@ module.exports =
         if slicer.getMetadataLayerHeight()
 
             gcode += "; Layer Height: " + slicer.getLayerHeight() + "mm" + slicer.newline
+
+        # Add additional critical print parameters
+        if slicer.getMetadataInfillDensity()
+
+            gcode += "; Infill Density: " + slicer.infillDensity + "%" + slicer.newline
+
+        if slicer.getMetadataInfillPattern()
+
+            gcode += "; Infill Pattern: " + slicer.infillPattern + slicer.newline
+
+        # Calculate wall count
+        if slicer.getMetadataWallCount()
+
+            wallCount = Math.max(1, Math.floor((slicer.shellWallThickness / slicer.nozzleDiameter) + 0.0001))
+            gcode += "; Wall Count: " + wallCount + slicer.newline
+
+        # Support and adhesion information
+        if slicer.getMetadataSupport()
+
+            gcode += "; Support: " + (if slicer.supportEnabled then "Yes" else "No") + slicer.newline
+
+        if slicer.getMetadataAdhesion()
+
+            if slicer.adhesionEnabled
+                gcode += "; Adhesion: " + slicer.adhesionType + slicer.newline
+            else
+                gcode += "; Adhesion: None" + slicer.newline
+
+        # Print speed settings
+        if slicer.getMetadataSpeeds()
+
+            gcode += "; Perimeter Speed: " + slicer.getPerimeterSpeed() + "mm/s" + slicer.newline
+            gcode += "; Infill Speed: " + slicer.getInfillSpeed() + "mm/s" + slicer.newline
+            gcode += "; Travel Speed: " + slicer.getTravelSpeed() + "mm/s" + slicer.newline
+
+        # Bounding box (will be filled in after slicing if available)
+        if slicer.getMetadataBoundingBox() and slicer.meshBounds?
+            minX = module.exports.formatPrecision(slicer.meshBounds.minX, 2)
+            minY = module.exports.formatPrecision(slicer.meshBounds.minY, 2)
+            minZ = module.exports.formatPrecision(slicer.meshBounds.minZ, 2)
+            maxX = module.exports.formatPrecision(slicer.meshBounds.maxX, 2)
+            maxY = module.exports.formatPrecision(slicer.meshBounds.maxY, 2)
+            maxZ = module.exports.formatPrecision(slicer.meshBounds.maxZ, 2)
+            # Emit Cura-style per-axis bounding box metadata for consistent parsing.
+            gcode += "; MINX: " + minX + slicer.newline
+            gcode += "; MAXX: " + maxX + slicer.newline
+            gcode += "; MINY: " + minY + slicer.newline
+            gcode += "; MAXY: " + maxY + slicer.newline
+            gcode += "; MINZ: " + minZ + slicer.newline
+            gcode += "; MAXZ: " + maxZ + slicer.newline
 
         gcode += slicer.newline
 
