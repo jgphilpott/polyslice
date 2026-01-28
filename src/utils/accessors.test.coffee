@@ -1013,7 +1013,7 @@ describe 'Accessors (Getters and Setters)', ->
 
             expect(metadata.generatedBy).toBe('PrusaSlicer')
             expect(metadata.version).toBe('2.8.1+linux-x64-GTK3')
-            expect(metadata.timestamp).toBe('2026-01-28T06:32:21:00.000Z')
+            expect(metadata.timestamp).toBe('2026-01-28T06:32:21.000Z')
             expect(metadata.layerHeight).toEqual({ value: 0.3, unit: 'mm' })
             expect(metadata.filamentLength).toEqual({ value: 427.39, unit: 'mm' })
             expect(metadata.materialVolume).toEqual({ value: 1.03, unit: 'cm³' })
