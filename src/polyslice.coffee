@@ -151,47 +151,52 @@ class Polyslice
 
         # Progress callback for slicing feedback.
         # Default lightweight progress bar function (works in Node.js and browsers).
-        defaultProgressCallback = do ->
+        # Each instance gets its own lastStage tracker to avoid shared state issues.
+        defaultProgressCallback = (info) ->
 
-            lastStage = null
             isNode = typeof process isnt 'undefined' and process?.stdout?.write
 
-            return (info) ->
+            # Use instance-specific lastStage tracking (stored on the slicer instance)
+            if not @_lastProgressStage?
+                @_lastProgressStage = null
 
-                # Add newline when stage changes
-                if lastStage and lastStage isnt info.stage
+            # Add newline when stage changes
+            if @_lastProgressStage and @_lastProgressStage isnt info.stage
+                console.log() # Add newline for stage change (both Node.js and browser)
 
-                    console.log() if not isNode
+            @_lastProgressStage = info.stage
 
-                lastStage = info.stage
+            # Create simple progress bar
+            if info.currentLayer and info.totalLayers
+                percent = Math.floor((info.currentLayer / info.totalLayers) * 100)
+                filled = Math.floor((info.currentLayer / info.totalLayers) * 20)
+            else
+                percent = info.percent
+                filled = Math.floor((info.percent / 100) * 20)
 
-                # Create simple progress bar
-                if info.currentLayer and info.totalLayers
-                    percent = Math.floor((info.currentLayer / info.totalLayers) * 100)
-                    filled = Math.floor((info.currentLayer / info.totalLayers) * 20)
-                else
-                    percent = info.percent
-                    filled = Math.floor((info.percent / 100) * 20)
+            empty = 20 - filled
+            bar = '█'.repeat(filled) + '░'.repeat(empty)
 
-                empty = 20 - filled
-                bar = '█'.repeat(filled) + '░'.repeat(empty)
+            # Format message
+            if info.currentLayer and info.totalLayers
+                message = "#{info.stage.toUpperCase()}: [#{bar}] #{percent}% - Layer #{info.currentLayer}/#{info.totalLayers}"
+            else
+                message = "#{info.stage.toUpperCase()}: [#{bar}] #{percent}% - #{info.message or ''}"
 
-                # Format message
-                if info.currentLayer and info.totalLayers
-                    message = "#{info.stage.toUpperCase()}: [#{bar}] #{percent}% - Layer #{info.currentLayer}/#{info.totalLayers}"
-                else
-                    message = "#{info.stage.toUpperCase()}: [#{bar}] #{percent}% - #{info.message or ''}"
+            # Use process.stdout.write for in-place updates in Node.js, console.log for browsers
+            if isNode
+                process.stdout.write("\r#{message}")
+                if info.percent is 100
+                    console.log() # Add newline at completion
+            else
+                # In browser, just log (can't do in-place updates reliably)
+                console.log(message)
 
-                # Use process.stdout.write for in-place updates in Node.js, console.log for browsers
-                if isNode
-                    process.stdout.write("\r#{message}")
-                    if info.percent is 100
-                        console.log() # Add newline at completion
-                else
-                    # In browser, just log (can't do in-place updates reliably)
-                    console.log(message)
-
-        @progressCallback = options.progressCallback ?= defaultProgressCallback # Function (progressInfo).
+        # Bind the default callback to this instance so it can track state per-instance
+        @progressCallback = if options.progressCallback?
+            options.progressCallback
+        else
+            defaultProgressCallback.bind(this) # Bind to slicer instance
 
     # Getter method delegates:
 
