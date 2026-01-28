@@ -175,8 +175,6 @@ G-code files now include comprehensive metadata headers:
 
 ## Improvements
 
-## Improvements
-
 - **Improved Metadata Parsing** - Better handling of multiple G-code flavors
 - **Enhanced G-code Headers** - Comprehensive metadata in G-code comments
 - **Better Metadata Organization** - Structured data with proper units
