@@ -101,7 +101,7 @@ const metadata3 = slicer.getGcodeMetadata(gcodeWithoutMetadata);
 
 console.log('Metadata extracted:');
 console.log(JSON.stringify(metadata3, null, 2));
-console.log('(Empty object returned when no metadata is present)');
+console.log("(Returns {generatedBy: 'Unknown'} for unrecognized format)");
 
 console.log('');
 console.log('✓ Example completed successfully!');
