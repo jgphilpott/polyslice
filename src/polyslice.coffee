@@ -131,6 +131,14 @@ class Polyslice
         @metadataMaterialVolume = options.metadataMaterialVolume ?= true # Boolean - include material volume.
         @metadataMaterialWeight = options.metadataMaterialWeight ?= true # Boolean - include material weight.
         @metadataPrintTime = options.metadataPrintTime ?= true # Boolean - include estimated print time.
+        @metadataFlavor = options.metadataFlavor ?= true # Boolean - include G-code flavor/firmware.
+        @metadataInfillDensity = options.metadataInfillDensity ?= true # Boolean - include infill density.
+        @metadataInfillPattern = options.metadataInfillPattern ?= true # Boolean - include infill pattern.
+        @metadataWallCount = options.metadataWallCount ?= true # Boolean - include wall count.
+        @metadataSupport = options.metadataSupport ?= true # Boolean - include support enabled status.
+        @metadataAdhesion = options.metadataAdhesion ?= true # Boolean - include adhesion type.
+        @metadataSpeeds = options.metadataSpeeds ?= true # Boolean - include print speeds (perimeter/infill/travel).
+        @metadataBoundingBox = options.metadataBoundingBox ?= true # Boolean - include bounding box coordinates.
 
         # G-code precision settings for output formatting (number of decimal places).
         @coordinatePrecision = options.coordinatePrecision ?= 3 # Number - decimal places for X, Y, Z coordinates (0.001mm resolution).
@@ -377,6 +385,30 @@ class Polyslice
     getMetadataPrintTime: ->
         accessors.getMetadataPrintTime(this)
 
+    getMetadataFlavor: ->
+        accessors.getMetadataFlavor(this)
+
+    getMetadataInfillDensity: ->
+        accessors.getMetadataInfillDensity(this)
+
+    getMetadataInfillPattern: ->
+        accessors.getMetadataInfillPattern(this)
+
+    getMetadataWallCount: ->
+        accessors.getMetadataWallCount(this)
+
+    getMetadataSupport: ->
+        accessors.getMetadataSupport(this)
+
+    getMetadataAdhesion: ->
+        accessors.getMetadataAdhesion(this)
+
+    getMetadataSpeeds: ->
+        accessors.getMetadataSpeeds(this)
+
+    getMetadataBoundingBox: ->
+        accessors.getMetadataBoundingBox(this)
+
     getCoordinatePrecision: ->
         accessors.getCoordinatePrecision(this)
 
@@ -597,6 +629,30 @@ class Polyslice
 
     setMetadataPrintTime: (enabled = true) ->
         accessors.setMetadataPrintTime(this, enabled)
+
+    setMetadataFlavor: (enabled = true) ->
+        accessors.setMetadataFlavor(this, enabled)
+
+    setMetadataInfillDensity: (enabled = true) ->
+        accessors.setMetadataInfillDensity(this, enabled)
+
+    setMetadataInfillPattern: (enabled = true) ->
+        accessors.setMetadataInfillPattern(this, enabled)
+
+    setMetadataWallCount: (enabled = true) ->
+        accessors.setMetadataWallCount(this, enabled)
+
+    setMetadataSupport: (enabled = true) ->
+        accessors.setMetadataSupport(this, enabled)
+
+    setMetadataAdhesion: (enabled = true) ->
+        accessors.setMetadataAdhesion(this, enabled)
+
+    setMetadataSpeeds: (enabled = true) ->
+        accessors.setMetadataSpeeds(this, enabled)
+
+    setMetadataBoundingBox: (enabled = true) ->
+        accessors.setMetadataBoundingBox(this, enabled)
 
     setCoordinatePrecision: (precision = 3) ->
         accessors.setCoordinatePrecision(this, precision)

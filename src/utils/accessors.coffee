@@ -246,6 +246,38 @@ module.exports =
 
         return slicer.metadataPrintTime
 
+    getMetadataFlavor: (slicer) ->
+
+        return slicer.metadataFlavor
+
+    getMetadataInfillDensity: (slicer) ->
+
+        return slicer.metadataInfillDensity
+
+    getMetadataInfillPattern: (slicer) ->
+
+        return slicer.metadataInfillPattern
+
+    getMetadataWallCount: (slicer) ->
+
+        return slicer.metadataWallCount
+
+    getMetadataSupport: (slicer) ->
+
+        return slicer.metadataSupport
+
+    getMetadataAdhesion: (slicer) ->
+
+        return slicer.metadataAdhesion
+
+    getMetadataSpeeds: (slicer) ->
+
+        return slicer.metadataSpeeds
+
+    getMetadataBoundingBox: (slicer) ->
+
+        return slicer.metadataBoundingBox
+
     getCoordinatePrecision: (slicer) ->
 
         return slicer.coordinatePrecision
@@ -757,6 +789,54 @@ module.exports =
     setMetadataPrintTime: (slicer, enabled = true) ->
 
         slicer.metadataPrintTime = Boolean enabled
+
+        return slicer
+
+    setMetadataFlavor: (slicer, enabled = true) ->
+
+        slicer.metadataFlavor = Boolean enabled
+
+        return slicer
+
+    setMetadataInfillDensity: (slicer, enabled = true) ->
+
+        slicer.metadataInfillDensity = Boolean enabled
+
+        return slicer
+
+    setMetadataInfillPattern: (slicer, enabled = true) ->
+
+        slicer.metadataInfillPattern = Boolean enabled
+
+        return slicer
+
+    setMetadataWallCount: (slicer, enabled = true) ->
+
+        slicer.metadataWallCount = Boolean enabled
+
+        return slicer
+
+    setMetadataSupport: (slicer, enabled = true) ->
+
+        slicer.metadataSupport = Boolean enabled
+
+        return slicer
+
+    setMetadataAdhesion: (slicer, enabled = true) ->
+
+        slicer.metadataAdhesion = Boolean enabled
+
+        return slicer
+
+    setMetadataSpeeds: (slicer, enabled = true) ->
+
+        slicer.metadataSpeeds = Boolean enabled
+
+        return slicer
+
+    setMetadataBoundingBox: (slicer, enabled = true) ->
+
+        slicer.metadataBoundingBox = Boolean enabled
 
         return slicer
 

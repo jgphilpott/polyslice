@@ -916,7 +916,9 @@ module.exports =
             gcode += "; Repository: https://github.com/jgphilpott/polyslice" + slicer.newline
 
         # G-code flavor/firmware compatibility
-        gcode += "; Flavor: Marlin" + slicer.newline
+        if slicer.getMetadataFlavor()
+
+            gcode += "; Flavor: Marlin" + slicer.newline
 
         if slicer.getMetadataPrinter() and slicer.printer # Add printer information if available.
 
@@ -940,28 +942,41 @@ module.exports =
             gcode += "; Layer Height: " + slicer.getLayerHeight() + "mm" + slicer.newline
 
         # Add additional critical print parameters
-        gcode += "; Infill Density: " + slicer.infillDensity + "%" + slicer.newline
-        gcode += "; Infill Pattern: " + slicer.infillPattern + slicer.newline
+        if slicer.getMetadataInfillDensity()
+
+            gcode += "; Infill Density: " + slicer.infillDensity + "%" + slicer.newline
+
+        if slicer.getMetadataInfillPattern()
+
+            gcode += "; Infill Pattern: " + slicer.infillPattern + slicer.newline
 
         # Calculate wall count
-        wallCount = Math.max(1, Math.floor((slicer.shellWallThickness / slicer.nozzleDiameter) + 0.0001))
-        gcode += "; Wall Count: " + wallCount + slicer.newline
+        if slicer.getMetadataWallCount()
+
+            wallCount = Math.max(1, Math.floor((slicer.shellWallThickness / slicer.nozzleDiameter) + 0.0001))
+            gcode += "; Wall Count: " + wallCount + slicer.newline
 
         # Support and adhesion information
-        gcode += "; Support: " + (if slicer.supportEnabled then "Yes" else "No") + slicer.newline
+        if slicer.getMetadataSupport()
 
-        if slicer.adhesionEnabled
-            gcode += "; Adhesion: " + slicer.adhesionType + slicer.newline
-        else
-            gcode += "; Adhesion: None" + slicer.newline
+            gcode += "; Support: " + (if slicer.supportEnabled then "Yes" else "No") + slicer.newline
+
+        if slicer.getMetadataAdhesion()
+
+            if slicer.adhesionEnabled
+                gcode += "; Adhesion: " + slicer.adhesionType + slicer.newline
+            else
+                gcode += "; Adhesion: None" + slicer.newline
 
         # Print speed settings
-        gcode += "; Perimeter Speed: " + slicer.getPerimeterSpeed() + "mm/s" + slicer.newline
-        gcode += "; Infill Speed: " + slicer.getInfillSpeed() + "mm/s" + slicer.newline
-        gcode += "; Travel Speed: " + slicer.getTravelSpeed() + "mm/s" + slicer.newline
+        if slicer.getMetadataSpeeds()
+
+            gcode += "; Perimeter Speed: " + slicer.getPerimeterSpeed() + "mm/s" + slicer.newline
+            gcode += "; Infill Speed: " + slicer.getInfillSpeed() + "mm/s" + slicer.newline
+            gcode += "; Travel Speed: " + slicer.getTravelSpeed() + "mm/s" + slicer.newline
 
         # Bounding box (will be filled in after slicing if available)
-        if slicer.meshBounds?
+        if slicer.getMetadataBoundingBox() and slicer.meshBounds?
             minX = module.exports.formatPrecision(slicer.meshBounds.minX, 2)
             minY = module.exports.formatPrecision(slicer.meshBounds.minY, 2)
             minZ = module.exports.formatPrecision(slicer.meshBounds.minZ, 2)
