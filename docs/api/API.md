@@ -225,20 +225,43 @@ const metadata = slicer.getGcodeMetadata(customGcode);
 **Returns:** Object - JSON object containing extracted metadata fields
 
 **Metadata Fields:**
+
+**Common Fields (all slicers):**
 - `generatedBy` (String): Slicer name (e.g., "Polyslice", "Cura", "PrusaSlicer", or "Unknown")
-- `version` (String): Version number
-- `timestamp` (String): ISO 8601 timestamp
-- `repository` (String): Repository URL
+- `version` (String): Slicer version number
 - `printer` (String): Printer model name
-- `filament` (String): Filament name and type
-- `nozzleTemp` (Object): `{value: Number, unit: String}` - Nozzle temperature
-- `bedTemp` (Object): `{value: Number, unit: String}` - Bed temperature
 - `layerHeight` (Object): `{value: Number, unit: String}` - Layer height
 - `totalLayers` (Number): Total layer count
 - `filamentLength` (Object): `{value: Number, unit: String}` - Filament used
+- `estimatedPrintTime` (String): Human-readable print time estimate
+
+**Polyslice-specific fields:**
+- `timestamp` (String): ISO 8601 timestamp
+- `repository` (String): Repository URL
+- `filament` (String): Filament name and type
+- `nozzleTemp` (Object): `{value: Number, unit: String}` - Nozzle temperature
+- `bedTemp` (Object): `{value: Number, unit: String}` - Bed temperature
 - `materialVolume` (Object): `{value: Number, unit: String}` - Material volume
 - `materialWeight` (Object): `{value: Number, unit: String}` - Material weight
-- `estimatedPrintTime` (String): Human-readable print time estimate
+- `flavor` (String): G-code flavor/firmware (e.g., "Marlin")
+- `infillDensity` (String): Infill density with percentage (e.g., "30%")
+- `infillPattern` (String): Infill pattern type (e.g., "triangles", "hexagons")
+- `wallCount` (Number): Number of wall/perimeter lines
+- `support` (String): Support enabled status ("Yes" or "No")
+- `adhesion` (String): Adhesion type (e.g., "brim", "skirt", "raft", "None")
+- `perimeterSpeed` (Object): `{value: Number, unit: String}` - Perimeter print speed
+- `infillSpeed` (Object): `{value: Number, unit: String}` - Infill print speed
+- `travelSpeed` (Object): `{value: Number, unit: String}` - Travel speed
+- `boundingBox` (Object): Bounding box coordinates `{minx, maxx, miny, maxy, minz, maxz}`
+
+**Cura-specific fields:**
+- `flavor` (String): G-code flavor (e.g., "Marlin")
+- `boundingBox` (Object): Bounding box coordinates `{minx, maxx, miny, maxy, minz, maxz}`
+
+**PrusaSlicer-specific fields:**
+- `timestamp` (String): ISO 8601 timestamp
+- `materialVolume` (Object): `{value: Number, unit: String}` - Material volume
+- `materialWeight` (Object): `{value: Number, unit: String}` - Material weight
 
 **Key Conversions:**
 - Keys are converted to camelCase (e.g., "Nozzle Temp" → "nozzleTemp")

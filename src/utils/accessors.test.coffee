@@ -850,7 +850,7 @@ describe 'Accessors (Getters and Setters)', ->
 
             expect(metadata.estimatedPrintTime).toBeDefined()
 
-        test 'should return empty object for gcode without metadata', ->
+        test 'should return Unknown for gcode without recognizable metadata format', ->
 
             gcodeWithoutMetadata = """
             G28
