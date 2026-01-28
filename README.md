@@ -96,6 +96,7 @@ Polyslice provides a comprehensive set of features for the 3D printing workflow:
 | 🎨 **Skin layers** | Top/bottom solid layers with exposure detection | [Skin](docs/slicer/skin/SKIN.md) |
 | 🏗️ **Support structures** | Automatic support generation | [Support](docs/slicer/support/SUPPORT.md) |
 | 🔗 **Build plate adhesion** | Skirt, brim, and raft support for first-layer stability | [Adhesion](docs/slicer/adhesion/ADHESION.md) |
+| 📊 **Progress feedback** | Real-time progress callbacks for long slicing operations | [API](docs/api/API.md#progress-feedback) |
 | 🔌 **Serial streaming** | Send G-code directly to printers | [Exporters](docs/exporters/EXPORTERS.md) |
 | 📏 **Precision control** | Optimize file size with configurable precision (20-30% reduction) | [G-code](docs/slicer/gcode/GCODE.md) |
 | 🌐 **Universal** | Works in Node.js and browsers | [API](docs/api/API.md) |

@@ -282,6 +282,10 @@ module.exports =
 
         return slicer.extruderMode
 
+    getProgressCallback: (slicer) ->
+
+        return slicer.progressCallback
+
     getPrinter: (slicer) ->
 
         return slicer.printer
@@ -817,6 +821,14 @@ module.exports =
         if ["absolute", "relative"].includes mode
 
             slicer.extruderMode = String mode
+
+        return slicer
+
+    setProgressCallback: (slicer, callback = null) ->
+
+        if typeof callback is "function" or callback is null
+
+            slicer.progressCallback = callback
 
         return slicer
 

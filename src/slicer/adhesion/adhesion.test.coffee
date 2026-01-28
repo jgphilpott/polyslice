@@ -10,7 +10,7 @@ describe 'Adhesion Module Integration', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Configuration', ->
 
@@ -231,4 +231,4 @@ describe 'Adhesion Module Integration', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})

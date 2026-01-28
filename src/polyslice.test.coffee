@@ -1,6 +1,7 @@
 # Tests for the Polyslice class:
 
 Polyslice = require('./index')
+THREE = require('three')
 
 describe 'Polyslice', ->
 
@@ -8,7 +9,9 @@ describe 'Polyslice', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({
+            progressCallback: null # Disable progress output during tests
+        })
 
     describe 'Constructor and Default Values', ->
 
@@ -93,6 +96,7 @@ describe 'Polyslice', ->
 
             customSlicer = new Polyslice({
 
+                progressCallback: null # Disable progress output during tests
                 autohome: false
                 workspacePlane: 'XZ'
                 timeUnit: 'seconds'
@@ -174,7 +178,7 @@ describe 'Polyslice', ->
         test 'should accept Printer instance in constructor', ->
 
             printer = new Printer('Ender3')
-            slicerWithPrinter = new Polyslice({ printer: printer })
+            slicerWithPrinter = new Polyslice({ printer: printer, progressCallback: null })
 
             expect(slicerWithPrinter.getPrinter()).toBe(printer)
             expect(slicerWithPrinter.getBuildPlateWidth()).toBe(220)
@@ -185,7 +189,7 @@ describe 'Polyslice', ->
         test 'should accept Filament instance in constructor', ->
 
             filament = new Filament('GenericPLA')
-            slicerWithFilament = new Polyslice({ filament: filament })
+            slicerWithFilament = new Polyslice({ filament: filament, progressCallback: null })
 
             expect(slicerWithFilament.getFilament()).toBe(filament)
             expect(slicerWithFilament.getNozzleTemperature()).toBe(200)
@@ -198,7 +202,7 @@ describe 'Polyslice', ->
 
             printer = new Printer('PrusaI3MK3S')
             filament = new Filament('PrusamentPLA')
-            slicerWithBoth = new Polyslice({ printer: printer, filament: filament })
+            slicerWithBoth = new Polyslice({ printer: printer, filament: filament, progressCallback: null })
 
             expect(slicerWithBoth.getPrinter()).toBe(printer)
             expect(slicerWithBoth.getFilament()).toBe(filament)
@@ -223,6 +227,7 @@ describe 'Polyslice', ->
                 printer: printer
                 buildPlateWidth: 250
                 nozzleDiameter: 0.6
+                progressCallback: null
             })
 
             # Custom values override printer values
@@ -240,6 +245,7 @@ describe 'Polyslice', ->
                 nozzleTemperature: 210
                 bedTemperature: 0
                 fanSpeed: 80
+                progressCallback: null
             })
 
             # Custom values override filament values
@@ -259,6 +265,7 @@ describe 'Polyslice', ->
                 filament: filament
                 buildPlateWidth: 200
                 nozzleTemperature: 250
+                progressCallback: null
             })
 
             # Custom values override
@@ -296,7 +303,7 @@ describe 'Polyslice', ->
 
             # Start with Ender3
             printer1 = new Printer('Ender3')
-            slicerTest = new Polyslice({ printer: printer1 })
+            slicerTest = new Polyslice({ printer: printer1, progressCallback: null })
             expect(slicerTest.getBuildPlateWidth()).toBe(220)
 
             # Switch to larger printer
@@ -309,7 +316,7 @@ describe 'Polyslice', ->
 
             # Start with PLA
             filament1 = new Filament('GenericPLA')
-            slicerTest = new Polyslice({ filament: filament1 })
+            slicerTest = new Polyslice({ filament: filament1, progressCallback: null })
             expect(slicerTest.getNozzleTemperature()).toBe(200)
 
             # Switch to PETG
@@ -321,7 +328,7 @@ describe 'Polyslice', ->
         test 'should allow setting printer to null', ->
 
             printer = new Printer('Ender3')
-            slicerTest = new Polyslice({ printer: printer })
+            slicerTest = new Polyslice({ printer: printer, progressCallback: null })
             expect(slicerTest.getPrinter()).toBe(printer)
 
             slicerTest.setPrinter(null)
@@ -330,7 +337,7 @@ describe 'Polyslice', ->
         test 'should allow setting filament to null', ->
 
             filament = new Filament('GenericPLA')
-            slicerTest = new Polyslice({ filament: filament })
+            slicerTest = new Polyslice({ filament: filament, progressCallback: null })
             expect(slicerTest.getFilament()).toBe(filament)
 
             slicerTest.setFilament(null)
@@ -352,13 +359,13 @@ describe 'Polyslice', ->
 
             # Test with compact printer
             compact = new Printer('PrusaMini')
-            slicerCompact = new Polyslice({ printer: compact })
+            slicerCompact = new Polyslice({ printer: compact, progressCallback: null })
             expect(slicerCompact.getBuildPlateWidth()).toBe(180)
             expect(slicerCompact.getBuildPlateLength()).toBe(180)
 
             # Test with large printer
             large = new Printer('CR10S5')
-            slicerLarge = new Polyslice({ printer: large })
+            slicerLarge = new Polyslice({ printer: large, progressCallback: null })
             expect(slicerLarge.getBuildPlateWidth()).toBe(500)
             expect(slicerLarge.getBuildPlateLength()).toBe(500)
 
@@ -366,13 +373,13 @@ describe 'Polyslice', ->
 
             # Test with TPU (flexible)
             tpu = new Filament('GenericTPU')
-            slicerTPU = new Polyslice({ filament: tpu })
+            slicerTPU = new Polyslice({ filament: tpu, progressCallback: null })
             expect(slicerTPU.getNozzleTemperature()).toBe(220)
             expect(slicerTPU.getRetractionDistance()).toBe(2) # TPU uses minimal retraction
 
             # Test with Nylon
             nylon = new Filament('GenericNylon')
-            slicerNylon = new Polyslice({ filament: nylon })
+            slicerNylon = new Polyslice({ filament: nylon, progressCallback: null })
             expect(slicerNylon.getNozzleTemperature()).toBe(250)
             expect(slicerNylon.getBedTemperature()).toBe(80)
 
@@ -381,7 +388,195 @@ describe 'Polyslice', ->
             # Ultimaker printer with 2.85mm filament
             printer = new Printer('UltimakerS5')
             filament = new Filament('UltimakerPLA')
-            slicerUltimaker = new Polyslice({ printer: printer, filament: filament })
+            slicerUltimaker = new Polyslice({ printer: printer, filament: filament, progressCallback: null })
 
             # Filament diameter should come from filament, not printer
             expect(slicerUltimaker.getFilamentDiameter()).toBe(2.85)
+
+    describe 'Progress Callback', ->
+
+        progressEvents = null
+
+        beforeEach ->
+
+            progressEvents = []
+
+        test 'should accept progressCallback in constructor', ->
+
+            customSlicer = new Polyslice({
+                progressCallback: (info) -> progressEvents.push(info)
+            })
+
+            expect(customSlicer.getProgressCallback()).toBeInstanceOf(Function)
+
+        test 'should have default progress callback', ->
+
+            defaultSlicer = new Polyslice()
+
+            expect(defaultSlicer.getProgressCallback()).toBeInstanceOf(Function)
+
+        test 'should allow setting callback via setter', ->
+
+            callback = (info) -> console.log(info)
+
+            slicer.setProgressCallback(callback)
+
+            expect(slicer.getProgressCallback()).toBe(callback)
+
+        test 'should allow disabling callback by setting to null', ->
+
+            slicer.setProgressCallback(null)
+
+            expect(slicer.getProgressCallback()).toBe(null)
+
+        test 'should reject non-function values', ->
+
+            originalCallback = slicer.getProgressCallback()
+
+            slicer.setProgressCallback("not a function")
+
+            expect(slicer.getProgressCallback()).toBe(originalCallback) # Should keep original callback
+
+        test 'should provide correct progress info structure', ->
+
+            testSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    progressEvents.push(progressInfo)
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            testSlicer.slice(cube)
+
+            expect(progressEvents.length).toBeGreaterThan(0)
+
+            # Check first event structure
+            firstEvent = progressEvents[0]
+
+            expect(firstEvent).toHaveProperty('stage')
+            expect(firstEvent).toHaveProperty('percent')
+            expect(firstEvent).toHaveProperty('currentLayer')
+            expect(firstEvent).toHaveProperty('totalLayers')
+            expect(firstEvent).toHaveProperty('message')
+
+        test 'should have valid stage names', ->
+
+            testSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    progressEvents.push(progressInfo)
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            testSlicer.slice(cube)
+
+            validStages = ['initializing', 'pre-print', 'adhesion', 'slicing', 'post-print', 'complete']
+            stages = progressEvents.map((e) -> e.stage)
+
+            for stage in stages
+                expect(validStages).toContain(stage)
+
+            return
+
+        test 'should report slicing stage with layer information', ->
+
+            testSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    progressEvents.push(progressInfo)
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            testSlicer.slice(cube)
+
+            slicingEvents = progressEvents.filter((e) -> e.stage is 'slicing')
+
+            expect(slicingEvents.length).toBeGreaterThan(0)
+
+            # Check that layer information is provided
+            # Filter for events that have actual layer numbers (not the initial "Processing layers..." message)
+            layerEvents = slicingEvents.filter((e) -> e.currentLayer? and e.totalLayers? and e.currentLayer > 0)
+
+            expect(layerEvents.length).toBeGreaterThan(0)
+
+            # Verify layer numbers are valid
+            for event in layerEvents
+                expect(event.currentLayer).toBeGreaterThan(0)
+                expect(event.currentLayer).toBeLessThanOrEqual(event.totalLayers)
+
+            return
+
+        test 'should report complete stage at 100%', ->
+
+            testSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    progressEvents.push(progressInfo)
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            testSlicer.slice(cube)
+
+            completeEvents = progressEvents.filter((e) -> e.stage is 'complete')
+
+            expect(completeEvents.length).toBeGreaterThan(0)
+            expect(completeEvents[0].percent).toBe(100)
+
+        test 'should handle callback errors gracefully', ->
+
+            # Suppress expected error messages.
+            originalError = console.error
+            console.error = jest.fn()
+
+            errorSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    throw new Error("Test error in callback")
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            # Should not throw error despite callback error
+            expect(() ->
+                errorSlicer.slice(cube)
+            ).not.toThrow()
+
+            # Restore console.error.
+            console.error = originalError
+
+            return
+
+        test 'should continue slicing after callback error', ->
+
+            # Suppress expected error messages.
+            originalError = console.error
+            console.error = jest.fn()
+
+            errorSlicer = new Polyslice({
+                progressCallback: (progressInfo) ->
+                    throw new Error("Test error in callback")
+            })
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            cube = new THREE.Mesh(geometry, material)
+
+            gcode = errorSlicer.slice(cube)
+
+            # Should still generate G-code
+            expect(gcode).toBeTruthy()
+            expect(gcode.length).toBeGreaterThan(0)
+
+            # Restore console.error.
+            console.error = originalError
+
+            return

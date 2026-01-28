@@ -12,7 +12,7 @@ describe 'Mesh Preprocessing', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Configuration', ->
 

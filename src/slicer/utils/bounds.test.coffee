@@ -11,7 +11,7 @@ describe 'Bounds', ->
 
         beforeEach ->
 
-            slicer = new Polyslice()
+            slicer = new Polyslice({progressCallback: null})
 
         test 'should check build plate bounds', ->
 

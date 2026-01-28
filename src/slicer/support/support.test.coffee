@@ -12,7 +12,9 @@ describe 'Support Module', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({
+            progressCallback: null # Disable progress output during tests
+        })
 
     describe 'Configuration', ->
 

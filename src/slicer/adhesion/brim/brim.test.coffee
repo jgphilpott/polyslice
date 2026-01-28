@@ -10,7 +10,7 @@ describe 'Brim Module', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Brim Generation', ->
 

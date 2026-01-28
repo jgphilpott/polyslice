@@ -10,7 +10,7 @@ describe 'Grid Infill Generation', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Grid Infill Generation', ->
 

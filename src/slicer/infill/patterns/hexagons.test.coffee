@@ -10,7 +10,7 @@ describe 'Hexagons Infill Generation', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Hexagons Infill Generation', ->
 

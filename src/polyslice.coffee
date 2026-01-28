@@ -149,6 +149,52 @@ class Polyslice
         @positioningMode = options.positioningMode ?= "absolute" # String ['absolute', 'relative'].
         @extruderMode = options.extruderMode ?= "absolute" # String ['absolute', 'relative'].
 
+        # Progress callback for slicing feedback.
+        # Default lightweight progress bar function (works in Node.js and browsers).
+        # Each instance gets its own lastStage tracker to avoid shared state issues.
+        defaultProgressCallback = (info) ->
+
+            isNode = typeof process isnt 'undefined' and process?.stdout?.write
+
+            # Use instance-specific lastStage tracking (stored on the slicer instance)
+            if not @_lastProgressStage?
+                @_lastProgressStage = null
+
+            @_lastProgressStage = info.stage
+
+            # Create simple progress bar
+            if info.currentLayer and info.totalLayers
+                percent = Math.floor((info.currentLayer / info.totalLayers) * 100)
+                filled = Math.floor((info.currentLayer / info.totalLayers) * 20)
+            else
+                percent = info.percent
+                filled = Math.floor((info.percent / 100) * 20)
+
+            empty = 20 - filled
+            bar = '█'.repeat(filled) + '░'.repeat(empty)
+
+            # Format message
+            if info.currentLayer and info.totalLayers
+                message = "#{info.stage.toUpperCase()}: [#{bar}] #{percent}% - Layer #{info.currentLayer}/#{info.totalLayers}"
+            else
+                message = "#{info.stage.toUpperCase()}: [#{bar}] #{percent}% - #{info.message or ''}"
+
+            # Use process.stdout.write for in-place updates in Node.js, console.log for browsers
+            if isNode
+                process.stdout.write("\r#{message}")
+                if info.percent is 100
+                    console.log() # Add newline at completion
+            else
+                # In browser, just log (can't do in-place updates reliably)
+                console.log(message)
+
+        # Bind the default callback to this instance so it can track state per-instance
+        # Check if progressCallback was explicitly provided (even if null)
+        @progressCallback = if options.hasOwnProperty('progressCallback')
+            options.progressCallback
+        else
+            defaultProgressCallback.bind(this) # Bind to slicer instance
+
     # Getter method delegates:
 
     getAutohome: ->
@@ -357,6 +403,9 @@ class Polyslice
 
     getExtruderMode: ->
         accessors.getExtruderMode(this)
+
+    getProgressCallback: ->
+        accessors.getProgressCallback(this)
 
     getPrinter: ->
         accessors.getPrinter(this)
@@ -572,6 +621,9 @@ class Polyslice
 
     setExtruderMode: (mode = "absolute") ->
         accessors.setExtruderMode(this, mode)
+
+    setProgressCallback: (callback = null) ->
+        accessors.setProgressCallback(this, callback)
 
     setPrinter: (printer) ->
         accessors.setPrinter(this, printer)

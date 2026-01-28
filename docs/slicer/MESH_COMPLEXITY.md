@@ -24,12 +24,12 @@ If you encounter performance issues:
 ## Example Warning Output
 
 ```
-⚠️  WARNING: Very high mesh complexity detected!
-   Triangles: 32512, Estimated layers: 500
-   Complexity score: 16256k
-   Slicing may take several minutes or appear to hang.
-   Consider reducing mesh detail or increasing layer height.
-   See: https://github.com/jgphilpott/polyslice/blob/main/docs/slicer/MESH_COMPLEXITY.md
+    WARNING: Very high mesh complexity detected!
+    Triangles: 32512, Estimated layers: 500
+    Complexity score: 16256k
+    Slicing may take several minutes or appear to hang.
+    Consider reducing mesh detail or increasing layer height.
+    See: https://github.com/jgphilpott/polyslice/blob/main/docs/slicer/MESH_COMPLEXITY.md
 ```
 
 ## Understanding Complexity
