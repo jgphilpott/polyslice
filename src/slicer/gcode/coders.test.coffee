@@ -8,7 +8,9 @@ describe 'G-code Generation (Coders)', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({
+            progressCallback: null # Disable progress output during tests
+        })
 
     describe 'Movement Commands', ->
 
@@ -370,6 +372,7 @@ describe 'G-code Generation (Coders)', ->
             filament = new Filament('GenericPLA')
 
             metadataSlicer = new Polyslice({
+                progressCallback: null
                 printer: printer
                 filament: filament
                 metadata: true
@@ -416,6 +419,7 @@ describe 'G-code Generation (Coders)', ->
             filament = new Filament('GenericPLA')
 
             slicerWithStats = new Polyslice({
+                progressCallback: null
                 printer: printer
                 filament: filament
                 metadata: true
@@ -446,6 +450,7 @@ describe 'G-code Generation (Coders)', ->
             mesh = new THREE.Mesh(geometry, material)
 
             timeTestSlicer = new Polyslice({
+                progressCallback: null
                 metadata: true
                 verbose: false
                 layerHeight: 0.2
@@ -493,7 +498,7 @@ describe 'G-code Generation (Coders)', ->
             Polyslice = require('../../polyslice')
 
             # Create a slicer with test G-code containing arc movements
-            testSlicer = new Polyslice()
+            testSlicer = new Polyslice({progressCallback: null})
 
             # Simulate G-code with arc movements
             # G2/G3 with I/J parameters (center format)
@@ -532,7 +537,7 @@ G3 X10 Y30 I-10 J0 E4 F1800
             Polyslice = require('../../polyslice')
 
             # Create a slicer with test G-code using relative positioning
-            testSlicer = new Polyslice()
+            testSlicer = new Polyslice({progressCallback: null})
 
             # Test G-code with mixed absolute and relative positioning
             testSlicer.gcode = """
@@ -587,6 +592,7 @@ G1 X0 Y0 E4 F1800
             filament = new Filament('GenericPLA')
 
             materialTestSlicer = new Polyslice({
+                progressCallback: null
                 filament: filament
                 metadata: true
                 verbose: false
@@ -642,6 +648,7 @@ G1 X0 Y0 E4 F1800
             # Create slicer with all metadata fields disabled except a few.
             # Note: metadataTitle is always enabled when metadata is true.
             customMetadataSlicer = new Polyslice({
+                progressCallback: null
                 printer: printer
                 filament: filament
                 metadata: true

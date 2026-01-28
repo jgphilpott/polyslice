@@ -10,7 +10,7 @@ describe 'Infill Orchestration', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Infill Pattern Selection', ->
 

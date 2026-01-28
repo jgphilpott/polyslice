@@ -10,7 +10,7 @@ describe 'Exposure Detection Algorithm', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Exposure Detection Parameter', ->
 
@@ -20,7 +20,7 @@ describe 'Exposure Detection Algorithm', ->
 
         test 'should be configurable via constructor', ->
 
-            customSlicer = new Polyslice({ exposureDetection: false })
+            customSlicer = new Polyslice({ exposureDetection: false, progressCallback: null })
 
             expect(customSlicer.getExposureDetection()).toBe(false)
 
@@ -42,7 +42,7 @@ describe 'Exposure Detection Algorithm', ->
 
         test 'should be configurable via constructor', ->
 
-            customSlicer = new Polyslice({ exposureDetectionResolution: 400 })
+            customSlicer = new Polyslice({ exposureDetectionResolution: 400, progressCallback: null })
 
             expect(customSlicer.getExposureDetectionResolution()).toBe(400)
 
@@ -616,6 +616,7 @@ describe 'Exposure Detection Algorithm', ->
             # Configure slicer with exposure detection and infill enabled.
             customSlicer = new Polyslice({
                 exposureDetection: true
+                progressCallback: null
                 infillDensity: 20
                 infillPattern: 'grid'
                 shellSkinThickness: 0.8  # 2 layers of skin

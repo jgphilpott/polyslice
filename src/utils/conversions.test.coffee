@@ -9,12 +9,12 @@ describe 'Unit Conversions', ->
         test 'should convert temperature units correctly', ->
 
             # Test Fahrenheit conversions.
-            fahrenheitSlicer = new Polyslice({temperatureUnit: 'fahrenheit'})
+            fahrenheitSlicer = new Polyslice({temperatureUnit: 'fahrenheit', progressCallback: null})
             fahrenheitSlicer.setNozzleTemperature(392) # 200°C in Fahrenheit.
             expect(fahrenheitSlicer.getNozzleTemperature()).toBeCloseTo(392, 1)
 
             # Test Kelvin conversions.
-            kelvinSlicer = new Polyslice({temperatureUnit: 'kelvin'})
+            kelvinSlicer = new Polyslice({temperatureUnit: 'kelvin', progressCallback: null})
             kelvinSlicer.setNozzleTemperature(473.15) # 200°C in Kelvin.
             expect(kelvinSlicer.getNozzleTemperature()).toBeCloseTo(473.15, 1)
 
@@ -23,7 +23,7 @@ describe 'Unit Conversions', ->
         test 'should convert length units correctly', ->
 
             # Test inch conversions.
-            inchSlicer = new Polyslice({lengthUnit: 'inches'})
+            inchSlicer = new Polyslice({lengthUnit: 'inches', progressCallback: null})
             inchSlicer.setLayerHeight(0.008) # ~0.2mm in inches.
             expect(inchSlicer.getLayerHeight()).toBeCloseTo(0.008, 3)
 
@@ -35,17 +35,17 @@ describe 'Unit Conversions', ->
         test 'should convert speed units correctly', ->
 
             # Test inch/second conversions.
-            inchSpeedSlicer = new Polyslice({speedUnit: 'inchSecond'})
+            inchSpeedSlicer = new Polyslice({speedUnit: 'inchSecond', progressCallback: null})
             inchSpeedSlicer.setPerimeterSpeed(1.18) # ~30mm/s in inches/s.
             expect(inchSpeedSlicer.getPerimeterSpeed()).toBeCloseTo(1.18, 2)
 
             # Test meter/second conversions.
-            meterSpeedSlicer = new Polyslice({speedUnit: 'meterSecond'})
+            meterSpeedSlicer = new Polyslice({speedUnit: 'meterSecond', progressCallback: null})
             meterSpeedSlicer.setTravelSpeed(0.12) # ~120mm/s in meters/s.
             expect(meterSpeedSlicer.getTravelSpeed()).toBeCloseTo(0.12, 2)
 
             # Test default millimeter/second.
-            defaultSlicer = new Polyslice()
+            defaultSlicer = new Polyslice({progressCallback: null})
             defaultSlicer.setInfillSpeed(60)
             expect(defaultSlicer.getInfillSpeed()).toBe(60)
 
@@ -57,6 +57,7 @@ describe 'Unit Conversions', ->
             customSlicer = new Polyslice({
                 temperatureUnit: 'fahrenheit'
                 lengthUnit: 'inches'
+                progressCallback: null
             })
 
             # Set values in user units.

@@ -12,7 +12,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Dome Cavity Detection', ->
 
