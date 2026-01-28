@@ -10,7 +10,9 @@ describe 'Slicing', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({
+            progressCallback: null # Disable progress output during tests
+        })
 
     describe 'Basic Slicing', ->
 

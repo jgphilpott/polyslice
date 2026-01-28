@@ -9,7 +9,9 @@ describe 'Polyslice', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({
+            progressCallback: null # Disable progress output during tests
+        })
 
     describe 'Constructor and Default Values', ->
 
@@ -94,6 +96,7 @@ describe 'Polyslice', ->
 
             customSlicer = new Polyslice({
 
+                progressCallback: null # Disable progress output during tests
                 autohome: false
                 workspacePlane: 'XZ'
                 timeUnit: 'seconds'
@@ -175,7 +178,7 @@ describe 'Polyslice', ->
         test 'should accept Printer instance in constructor', ->
 
             printer = new Printer('Ender3')
-            slicerWithPrinter = new Polyslice({ printer: printer })
+            slicerWithPrinter = new Polyslice({ printer: printer, progressCallback: null })
 
             expect(slicerWithPrinter.getPrinter()).toBe(printer)
             expect(slicerWithPrinter.getBuildPlateWidth()).toBe(220)
@@ -186,7 +189,7 @@ describe 'Polyslice', ->
         test 'should accept Filament instance in constructor', ->
 
             filament = new Filament('GenericPLA')
-            slicerWithFilament = new Polyslice({ filament: filament })
+            slicerWithFilament = new Polyslice({ filament: filament, progressCallback: null })
 
             expect(slicerWithFilament.getFilament()).toBe(filament)
             expect(slicerWithFilament.getNozzleTemperature()).toBe(200)
@@ -199,7 +202,7 @@ describe 'Polyslice', ->
 
             printer = new Printer('PrusaI3MK3S')
             filament = new Filament('PrusamentPLA')
-            slicerWithBoth = new Polyslice({ printer: printer, filament: filament })
+            slicerWithBoth = new Polyslice({ printer: printer, filament: filament, progressCallback: null })
 
             expect(slicerWithBoth.getPrinter()).toBe(printer)
             expect(slicerWithBoth.getFilament()).toBe(filament)
@@ -224,6 +227,7 @@ describe 'Polyslice', ->
                 printer: printer
                 buildPlateWidth: 250
                 nozzleDiameter: 0.6
+                progressCallback: null
             })
 
             # Custom values override printer values
@@ -241,6 +245,7 @@ describe 'Polyslice', ->
                 nozzleTemperature: 210
                 bedTemperature: 0
                 fanSpeed: 80
+                progressCallback: null
             })
 
             # Custom values override filament values
@@ -260,6 +265,7 @@ describe 'Polyslice', ->
                 filament: filament
                 buildPlateWidth: 200
                 nozzleTemperature: 250
+                progressCallback: null
             })
 
             # Custom values override
@@ -297,7 +303,7 @@ describe 'Polyslice', ->
 
             # Start with Ender3
             printer1 = new Printer('Ender3')
-            slicerTest = new Polyslice({ printer: printer1 })
+            slicerTest = new Polyslice({ printer: printer1, progressCallback: null })
             expect(slicerTest.getBuildPlateWidth()).toBe(220)
 
             # Switch to larger printer
@@ -310,7 +316,7 @@ describe 'Polyslice', ->
 
             # Start with PLA
             filament1 = new Filament('GenericPLA')
-            slicerTest = new Polyslice({ filament: filament1 })
+            slicerTest = new Polyslice({ filament: filament1, progressCallback: null })
             expect(slicerTest.getNozzleTemperature()).toBe(200)
 
             # Switch to PETG
@@ -322,7 +328,7 @@ describe 'Polyslice', ->
         test 'should allow setting printer to null', ->
 
             printer = new Printer('Ender3')
-            slicerTest = new Polyslice({ printer: printer })
+            slicerTest = new Polyslice({ printer: printer, progressCallback: null })
             expect(slicerTest.getPrinter()).toBe(printer)
 
             slicerTest.setPrinter(null)
@@ -331,7 +337,7 @@ describe 'Polyslice', ->
         test 'should allow setting filament to null', ->
 
             filament = new Filament('GenericPLA')
-            slicerTest = new Polyslice({ filament: filament })
+            slicerTest = new Polyslice({ filament: filament, progressCallback: null })
             expect(slicerTest.getFilament()).toBe(filament)
 
             slicerTest.setFilament(null)
@@ -353,13 +359,13 @@ describe 'Polyslice', ->
 
             # Test with compact printer
             compact = new Printer('PrusaMini')
-            slicerCompact = new Polyslice({ printer: compact })
+            slicerCompact = new Polyslice({ printer: compact, progressCallback: null })
             expect(slicerCompact.getBuildPlateWidth()).toBe(180)
             expect(slicerCompact.getBuildPlateLength()).toBe(180)
 
             # Test with large printer
             large = new Printer('CR10S5')
-            slicerLarge = new Polyslice({ printer: large })
+            slicerLarge = new Polyslice({ printer: large, progressCallback: null })
             expect(slicerLarge.getBuildPlateWidth()).toBe(500)
             expect(slicerLarge.getBuildPlateLength()).toBe(500)
 
@@ -367,13 +373,13 @@ describe 'Polyslice', ->
 
             # Test with TPU (flexible)
             tpu = new Filament('GenericTPU')
-            slicerTPU = new Polyslice({ filament: tpu })
+            slicerTPU = new Polyslice({ filament: tpu, progressCallback: null })
             expect(slicerTPU.getNozzleTemperature()).toBe(220)
             expect(slicerTPU.getRetractionDistance()).toBe(2) # TPU uses minimal retraction
 
             # Test with Nylon
             nylon = new Filament('GenericNylon')
-            slicerNylon = new Polyslice({ filament: nylon })
+            slicerNylon = new Polyslice({ filament: nylon, progressCallback: null })
             expect(slicerNylon.getNozzleTemperature()).toBe(250)
             expect(slicerNylon.getBedTemperature()).toBe(80)
 
@@ -382,7 +388,7 @@ describe 'Polyslice', ->
             # Ultimaker printer with 2.85mm filament
             printer = new Printer('UltimakerS5')
             filament = new Filament('UltimakerPLA')
-            slicerUltimaker = new Polyslice({ printer: printer, filament: filament })
+            slicerUltimaker = new Polyslice({ printer: printer, filament: filament, progressCallback: null })
 
             # Filament diameter should come from filament, not printer
             expect(slicerUltimaker.getFilamentDiameter()).toBe(2.85)

@@ -8,7 +8,9 @@ describe 'Accessors (Getters and Setters)', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({
+            progressCallback: null # Disable progress output during tests
+        })
 
     describe 'Basic Settings Accessors', ->
 
@@ -220,7 +222,7 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getShellWallThickness()).toBe(1.0)
 
             # Test with inches.
-            inchSlicer = new Polyslice({lengthUnit: 'inches'})
+            inchSlicer = new Polyslice({lengthUnit: 'inches', progressCallback: null})
             inchSlicer.setShellSkinThickness(0.047) # ~1.2mm.
             expect(inchSlicer.getShellSkinThickness()).toBeCloseTo(0.047, 3)
 
@@ -284,7 +286,7 @@ describe 'Accessors (Getters and Setters)', ->
             expect(slicer.getSupportThreshold()).toBe(30) # unchanged.
 
             # Test with radians.
-            radianSlicer = new Polyslice({angleUnit: 'radian'})
+            radianSlicer = new Polyslice({angleUnit: 'radian', progressCallback: null})
             radianSlicer.setSupportThreshold(Math.PI / 4) # 45 degrees.
             expect(radianSlicer.getSupportThreshold()).toBeCloseTo(Math.PI / 4, 3)
 

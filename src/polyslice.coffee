@@ -189,7 +189,8 @@ class Polyslice
                 console.log(message)
 
         # Bind the default callback to this instance so it can track state per-instance
-        @progressCallback = if options.progressCallback?
+        # Check if progressCallback was explicitly provided (even if null)
+        @progressCallback = if options.hasOwnProperty('progressCallback')
             options.progressCallback
         else
             defaultProgressCallback.bind(this) # Bind to slicer instance
