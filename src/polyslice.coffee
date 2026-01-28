@@ -160,10 +160,6 @@ class Polyslice
             if not @_lastProgressStage?
                 @_lastProgressStage = null
 
-            # Add newline when stage changes
-            if @_lastProgressStage and @_lastProgressStage isnt info.stage
-                console.log() # Add newline for stage change (both Node.js and browser)
-
             @_lastProgressStage = info.stage
 
             # Create simple progress bar
