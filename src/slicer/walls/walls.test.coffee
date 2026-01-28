@@ -10,7 +10,9 @@ describe 'Wall Generation', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({
+            progressCallback: null # Disable progress output during tests
+        })
 
     describe 'Multiple Wall Generation', ->
 

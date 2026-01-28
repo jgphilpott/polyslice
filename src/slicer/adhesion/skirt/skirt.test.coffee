@@ -10,7 +10,7 @@ describe 'Skirt Module', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Circular Skirt Generation', ->
 

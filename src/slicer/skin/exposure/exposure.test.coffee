@@ -10,7 +10,7 @@ describe 'Exposure Detection Algorithm', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Exposure Detection Parameter', ->
 

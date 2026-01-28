@@ -9,7 +9,7 @@ describe 'Extrusion', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'calculateExtrusion', ->
 

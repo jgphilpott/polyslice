@@ -10,7 +10,7 @@ describe 'Skin Generation', ->
 
     beforeEach ->
 
-        slicer = new Polyslice()
+        slicer = new Polyslice({progressCallback: null})
 
     describe 'Skin Generation', ->
 
