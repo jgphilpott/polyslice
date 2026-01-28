@@ -32,10 +32,7 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 - Enhanced metadata header generation in G-code output
   - Comprehensive print information in G-code comments
   - Configurable metadata fields for custom G-code headers
-
-### Changed
-- Improved metadata parsing to handle multiple G-code flavors
-- G-code generation now includes detailed metadata headers when enabled
+  - Improved metadata parsing to handle multiple G-code flavors
 
 ## [26.1.1] - 2026-01-23
 

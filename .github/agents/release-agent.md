@@ -409,6 +409,7 @@ After publishing:
 - Polyslice uses a scoped package name: `@jgphilpott/polyslice`.
 - The `prepublishOnly` script automatically builds and minifies.
 - Browser bundles are created for CDN usage (unpkg).
+- **For browser CDN usage, use the ESM build** (`index.browser.esm.js`) which is best for modern browsers with ES module support.
 - Distribution files are in the `dist/` directory.
 - Only `dist/`, `src/`, `README.md`, and `LICENSE` are published to npm.
 - The repository uses GitHub Actions for CI (tests run on push).

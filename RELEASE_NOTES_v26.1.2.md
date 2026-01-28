@@ -244,7 +244,9 @@ npm update @jgphilpott/polyslice
 ## CDN (Browser)
 
 ```html
-<script src="https://unpkg.com/@jgphilpott/polyslice@26.1.2/dist/index.browser.min.js"></script>
+<script type="module">
+  import Polyslice from 'https://unpkg.com/@jgphilpott/polyslice@26.1.2/dist/index.browser.esm.js';
+</script>
 ```
 
 ## Documentation
