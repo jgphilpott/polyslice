@@ -532,6 +532,10 @@ describe 'Polyslice', ->
 
         test 'should handle callback errors gracefully', ->
 
+            # Suppress expected error messages.
+            originalError = console.error
+            console.error = jest.fn()
+
             errorSlicer = new Polyslice({
                 progressCallback: (progressInfo) ->
                     throw new Error("Test error in callback")
@@ -546,7 +550,16 @@ describe 'Polyslice', ->
                 errorSlicer.slice(cube)
             ).not.toThrow()
 
+            # Restore console.error.
+            console.error = originalError
+
+            return
+
         test 'should continue slicing after callback error', ->
+
+            # Suppress expected error messages.
+            originalError = console.error
+            console.error = jest.fn()
 
             errorSlicer = new Polyslice({
                 progressCallback: (progressInfo) ->
@@ -562,3 +575,8 @@ describe 'Polyslice', ->
             # Should still generate G-code
             expect(gcode).toBeTruthy()
             expect(gcode.length).toBeGreaterThan(0)
+
+            # Restore console.error.
+            console.error = originalError
+
+            return
