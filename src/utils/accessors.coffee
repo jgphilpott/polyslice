@@ -984,17 +984,17 @@ module.exports =
 
         # Parse based on detected slicer type
         if slicerType is "Polyslice"
-            return @_parsePolysliceMetadata(lines)
+            return @parsePolysliceMetadata(lines)
         else if slicerType is "Cura"
-            return @_parseCuraMetadata(lines)
+            return @parseCuraMetadata(lines)
         else if slicerType is "PrusaSlicer"
-            return @_parsePrusaSlicerMetadata(lines)
+            return @parsePrusaSlicerMetadata(lines)
         else
             # Try generic parsing
-            return @_parseGenericMetadata(lines)
+            return @parseGenericMetadata(lines)
 
     # Parse Polyslice format: "; Key: Value"
-    _parsePolysliceMetadata: (lines) ->
+    parsePolysliceMetadata: (lines) ->
 
         metadata = { generatedBy: "Polyslice" }
         metadataStarted = false
@@ -1023,13 +1023,13 @@ module.exports =
             value = content.substring(colonIndex + 2).trim()
 
             # Convert to camelCase and parse value
-            camelKey = @_toCamelCase(key)
-            metadata[camelKey] = @_parseValue(value)
+            camelKey = @toCamelCase(key)
+            metadata[camelKey] = @parseValue(value)
 
         return metadata
 
     # Parse Cura format: ";KEY:VALUE" or ";Key name: value"
-    _parseCuraMetadata: (lines) ->
+    parseCuraMetadata: (lines) ->
 
         metadata = { generatedBy: "Cura" }
 
@@ -1052,7 +1052,7 @@ module.exports =
                     when "TIME"
                         # Convert seconds to time string
                         seconds = parseInt(value, 10)
-                        metadata.estimatedPrintTime = @_formatSeconds(seconds)
+                        metadata.estimatedPrintTime = @formatSeconds(seconds)
                     when "Filament used"
                         # Parse "0.24553m" format
                         if fMatch = value.match(/^([\d.]+)m$/)
@@ -1067,12 +1067,12 @@ module.exports =
                         metadata.flavor = value
                     when "MINX", "MINY", "MINZ", "MAXX", "MAXY", "MAXZ"
                         metadata.boundingBox ?= {}
-                        metadata.boundingBox[@_toCamelCase(key)] = parseFloat(value)
+                        metadata.boundingBox[@toCamelCase(key)] = parseFloat(value)
 
         return metadata
 
     # Parse PrusaSlicer format: "; key = value"
-    _parsePrusaSlicerMetadata: (lines) ->
+    parsePrusaSlicerMetadata: (lines) ->
 
         metadata = { generatedBy: "PrusaSlicer" }
 
@@ -1107,7 +1107,7 @@ module.exports =
         return metadata
 
     # Generic fallback parser
-    _parseGenericMetadata: (lines) ->
+    parseGenericMetadata: (lines) ->
 
         metadata = { generatedBy: "Unknown" }
 
@@ -1122,13 +1122,13 @@ module.exports =
                 if colonIndex > 0
                     key = content.substring(0, colonIndex).trim()
                     value = content.substring(colonIndex + 2).trim()
-                    camelKey = @_toCamelCase(key)
-                    metadata[camelKey] = @_parseValue(value)
+                    camelKey = @toCamelCase(key)
+                    metadata[camelKey] = @parseValue(value)
 
         return metadata
 
     # Helper: Convert string to camelCase
-    _toCamelCase: (str) ->
+    toCamelCase: (str) ->
         str.split(/[\s_]+/).map((word, index) ->
             if index is 0
                 word.toLowerCase()
@@ -1137,7 +1137,7 @@ module.exports =
         ).join('')
 
     # Helper: Parse value with intelligent type detection
-    _parseValue: (value) ->
+    parseValue: (value) ->
 
         # Version numbers, timestamps, complex time formats
         isVersionNumber = /^\d+\.\d+\.\d+/.test(value)
@@ -1163,7 +1163,7 @@ module.exports =
         return value
 
     # Helper: Format seconds to readable time string
-    _formatSeconds: (seconds) ->
+    formatSeconds: (seconds) ->
         hours = Math.floor(seconds / 3600)
         minutes = Math.floor((seconds % 3600) / 60)
         secs = seconds % 60

@@ -801,6 +801,7 @@ describe 'Accessors (Getters and Setters)', ->
             filament = new Filament('GenericPLA')
 
             testSlicer = new Polyslice({
+                progressCallback: null
                 printer: printer
                 filament: filament
                 metadata: true
@@ -881,6 +882,7 @@ describe 'Accessors (Getters and Setters)', ->
             filament = new Filament('GenericPLA')
 
             slicerWithStats = new Polyslice({
+                progressCallback: null
                 printer: printer
                 filament: filament
                 metadata: true
@@ -1088,6 +1090,7 @@ describe 'Accessors (Getters and Setters)', ->
             filament = new Filament('GenericPLA')
 
             testSlicer = new Polyslice({
+                progressCallback: null
                 printer: printer
                 filament: filament
                 metadata: true
