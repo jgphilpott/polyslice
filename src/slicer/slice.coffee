@@ -43,6 +43,9 @@ module.exports =
     # Main slicing method that generates G-code from a scene.
     slice: (slicer, scene = {}) ->
 
+        # Report starting progress immediately.
+        @reportProgress(slicer, "initializing", 0, null, null, "Starting...")
+
         # Reset G-code output.
         slicer.gcode = ""
 
@@ -62,8 +65,8 @@ module.exports =
 
             return slicer.gcode
 
-        # Report starting progress.
-        @reportProgress(slicer, "initializing", 0, null, null, "Preparing mesh...")
+        # Update progress - mesh extracted.
+        @reportProgress(slicer, "initializing", 2, null, null, "Preparing mesh...")
 
         # Initialize THREE.js if not already available.
         THREE = if typeof window isnt 'undefined' then window.THREE else require('three')

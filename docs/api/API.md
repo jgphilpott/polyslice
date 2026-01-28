@@ -25,7 +25,7 @@ const slicer = new Polyslice(options);
 | `wipeNozzle` | boolean | `true` | Perform wipe move during post-print |
 | `smartWipeNozzle` | boolean | `true` | Use smart wipe (avoids mesh) vs simple X+5, Y+5 |
 | `buzzer` | boolean | `true` | Sound buzzer at end of print |
-| `progressCallback` | function | Default function | Callback for slicing progress updates (default logs to console) |
+| `progressCallback` | function | Default progress bar | Callback for slicing progress updates (default shows progress bar with in-place updates) |
 | `printer` | Printer | `null` | Printer instance for automatic configuration |
 | `filament` | Filament | `null` | Filament instance for automatic configuration |
 
@@ -215,17 +215,17 @@ Get real-time feedback during the slicing process with the `progressCallback` op
 
 **Default Behavior:**
 
-By default, Polyslice provides a lightweight progress reporting function that logs to console:
+By default, Polyslice provides a lightweight progress bar that shows real-time updates:
 
 ```javascript
 // Default callback (automatically included)
-(info) => {
-  if (info.currentLayer) {
-    console.log(`Slicing layer ${info.currentLayer}/${info.totalLayers} (${info.percent}%)`);
-  } else if (info.stage === 'complete') {
-    console.log('Slicing complete!');
-  }
-}
+// In Node.js: Uses process.stdout.write for in-place updates
+// In browsers: Uses console.log for each update
+// 
+// Example output:
+// INITIALIZING: [░░░░░░░░░░░░░░░░░░░░] 0% - Starting...
+// SLICING: [████████░░░░░░░░░░░░] 40% - Layer 20/50
+// COMPLETE: [████████████████████] 100% - G-code generation complete
 ```
 
 **Callback Signature:**
