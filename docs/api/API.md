@@ -225,7 +225,7 @@ const metadata = slicer.getGcodeMetadata(customGcode);
 **Returns:** Object - JSON object containing extracted metadata fields
 
 **Metadata Fields:**
-- `generatedBy` (String): Always "Polyslice"
+- `generatedBy` (String): Slicer name (e.g., "Polyslice", "Cura", "PrusaSlicer", or "Unknown")
 - `version` (String): Version number
 - `timestamp` (String): ISO 8601 timestamp
 - `repository` (String): Repository URL
