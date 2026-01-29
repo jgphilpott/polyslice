@@ -42,5 +42,3 @@ describe 'Layer Orchestrator', ->
 
             # Verify no errors occur with empty paths
             expect(slicer.gcode).toBe('')
-
-

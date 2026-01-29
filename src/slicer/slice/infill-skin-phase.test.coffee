@@ -76,5 +76,3 @@ describe 'Infill-Skin Phase', ->
 
             # Should return the lastPathEndPoint unchanged (path < 3 points)
             expect(result).toEqual(lastPathEndPoint)
-
-
