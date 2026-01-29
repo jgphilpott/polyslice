@@ -27,9 +27,9 @@ describe 'Layer Orchestrator', ->
             # Should not throw error and gcode should remain empty
             expect(slicer.gcode).toBe('')
 
-        test 'should initialize cumulative extrusion for non-empty slicer', ->
+        test 'should handle empty slicer state correctly', ->
 
-            # Minimal mock slicer
+            # Minimal mock slicer without cumulativeE
             slicer = {
                 gcode: ''
             }
@@ -37,12 +37,10 @@ describe 'Layer Orchestrator', ->
             z = 0.2
             layerIndex = 0
 
+            # Function returns early for empty paths
             layerOrchestrator.generateLayerGCode(slicer, paths, z, layerIndex, 0, 0, 10, [], [])
 
-            # Function should set cumulativeE even for empty paths after checking
-            # (The actual setting happens at line ~299: if not slicer.cumulativeE? then slicer.cumulativeE = 0)
-            # But it returns early for empty paths, so it won't be set
-            # This is expected behavior
-            expect(true).toBe(true)
+            # Verify no errors occur with empty paths
+            expect(slicer.gcode).toBe('')
 
 

@@ -47,7 +47,7 @@ describe 'Wall Phase', ->
             expect(result).toBeDefined()
             expect(result.length).toBeGreaterThan(0)
 
-        test 'should return null for path with insufficient spacing', ->
+        test 'should handle path with insufficient spacing', ->
 
             path = [
                 { x: 0, y: 0 }
@@ -63,7 +63,7 @@ describe 'Wall Phase', ->
 
             result = wallPhase.calculateInnermostWall(path, pathIndex, isHole, wallCount, nozzleDiameter, pathsWithInsufficientSpacing)
 
-            # Should return early due to insufficient spacing
+            # Should return early and produce some result (may be null or the path)
             expect(result).toBeDefined()
 
     describe 'calculateAllInnermostWalls', ->
