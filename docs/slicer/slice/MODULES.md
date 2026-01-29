@@ -95,4 +95,4 @@ The refactoring preserves functionality:
 - **Separation of Concerns**: Each module handles one aspect of slicing
 - **Two-Phase Processing**: Wall generation (Phase 1) before infill/skin (Phase 2)
 - **Dependency Injection**: Functions receive `slicer` object instead of accessing globals
-- **Functional Programming**: Most functions are pure, returning values instead of modifying state
+- **Functional Style Where Practical**: Functions are small and focused, often returning values and using explicit parameters, while still performing necessary stateful operations (e.g., updating paths and emitting G-code via the `slicer` object)
