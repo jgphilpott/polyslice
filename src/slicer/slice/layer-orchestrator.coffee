@@ -13,8 +13,6 @@ module.exports =
 
         return if paths.length is 0
 
-        verbose = slicer.getVerbose()
-
         # Initialize cumulative extrusion tracker if not exists.
         if not slicer.cumulativeE? then slicer.cumulativeE = 0
 
