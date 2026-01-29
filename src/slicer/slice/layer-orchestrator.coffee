@@ -95,21 +95,36 @@ module.exports =
         pathsWithInsufficientSpacingForInnerWalls = {}
         pathsWithInsufficientSpacingForSkinWalls = {}
 
-        # Pre-calculate all innermost walls (needed for spacing checks).
+        # Pre-calculate spacing for inner walls based on outer walls only.
+        # This establishes which paths cannot support inner walls before we
+        # generate innermost walls that depend on that information.
+        preliminarySpacingResult = wallPhase.checkPathSpacing(paths, allOuterWalls, {}, nozzleDiameter)
+        pathsWithInsufficientSpacingForInnerWalls = preliminarySpacingResult.pathsWithInsufficientSpacingForInnerWalls or {}
+
+        # Pre-calculate all innermost walls (needed for final spacing checks),
+        # now using the correct inner-wall spacing constraints.
         allInnermostWalls = {}
 
         for path, pathIndex in paths
 
-            innermostWall = wallPhase.calculateInnermostWall(path, pathIndex, pathIsHole[pathIndex], wallCount, nozzleDiameter, {})
+            innermostWall = wallPhase.calculateInnermostWall(
+                path,
+                pathIndex,
+                pathIsHole[pathIndex],
+                wallCount,
+                nozzleDiameter,
+                pathsWithInsufficientSpacingForInnerWalls
+            )
 
             if innermostWall and innermostWall.length >= 3
 
                 allInnermostWalls[pathIndex] = innermostWall
 
-        # Check spacing between paths.
+        # Final spacing check between paths, including skin-wall spacing that
+        # depends on accurate innermost-wall positions.
         spacingResult = wallPhase.checkPathSpacing(paths, allOuterWalls, allInnermostWalls, nozzleDiameter)
-        pathsWithInsufficientSpacingForInnerWalls = spacingResult.pathsWithInsufficientSpacingForInnerWalls
-        pathsWithInsufficientSpacingForSkinWalls = spacingResult.pathsWithInsufficientSpacingForSkinWalls
+        pathsWithInsufficientSpacingForInnerWalls = spacingResult.pathsWithInsufficientSpacingForInnerWalls or {}
+        pathsWithInsufficientSpacingForSkinWalls = spacingResult.pathsWithInsufficientSpacingForSkinWalls or {}
 
         innermostWalls = new Array(paths.length)
 
