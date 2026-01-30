@@ -23,21 +23,48 @@ An AI powered [slicer](https://en.wikipedia.org/wiki/Slicer_(3D_printing)) desig
 
 ## Installation
 
-### Node
+### Node.js
+
+#### Install
 
 ```bash
 npm install @jgphilpott/polyslice
 ```
 
+#### Import
+
+```javascript
+// CommonJS
+const THREE = require("three");
+const { Polyslice, Printer, Filament, Loader, Exporter } = require("@jgphilpott/polyslice");
+
+// ES module
+import * as THREE from "three";
+import polyslice from "@jgphilpott/polyslice";
+const { Polyslice, Printer, Filament, Loader, Exporter } = polyslice;
+```
+
 ### Browser
 
-```html
-<!-- Include three.js first -->
-<script src="https://unpkg.com/three@0.180.0/build/three.min.js"></script>
+For browser usage, use the ES module-compatible bundle:
 
-<!-- Include Polyslice next -->
-<script src="https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.min.js"></script>
+```html
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.183.0/build/three.module.min.js",
+        "@jgphilpott/polyslice": "https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.esm.js"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { Polyslice, Printer, Filament, Loader, Exporter } from "@jgphilpott/polyslice";
+</script>
 ```
+
+The ESM browser bundle (`index.browser.esm.js`) is designed for browser `import`/`importmap` usage, while the script-tag bundles (`index.browser.js` and `index.browser.min.js`) are legacy IIFE builds that expose a global `Polyslice` (along with `Printer`, `Filament`, `Loader` and `Exporter`) for direct `<script>` usage.
 
 ## Quick Start
 
