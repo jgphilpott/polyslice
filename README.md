@@ -34,8 +34,14 @@ npm install @jgphilpott/polyslice
 #### Import
 
 ```javascript
-import * as THREE from 'three';
-import { Polyslice, Printer, Filament, Loader } from '@jgphilpott/polyslice';
+// CommonJS
+const THREE = require("three");
+const { Polyslice, Printer, Filament, Loader } = require("@jgphilpott/polyslice");
+
+// ES module
+import * as THREE from "three";
+import polyslice from "@jgphilpott/polyslice";
+const { Polyslice, Printer, Filament, Loader } = polyslice;
 ```
 
 ### Browser
@@ -46,19 +52,19 @@ For browser usage, use the ES module-compatible bundle:
 <script type="importmap">
 {
     "imports": {
-        "three": "./path/to/three.module.min.js",
-        "polyslice": "./path/to/index.browser.esm.js"
+        "three": "https://unpkg.com/three@0.180.0/build/three.module.min.js",
+        "@jgphilpott/polyslice": "https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.esm.js"
     }
 }
 </script>
 
 <script type="module">
-import * as THREE from 'three';
-import { Polyslice, Printer, Filament, Loader } from 'polyslice';
+import * as THREE from "three";
+import { Polyslice, Printer, Filament, Loader } from "@jgphilpott/polyslice";
 </script>
 ```
 
-The ESM browser bundle (`index.browser.esm.js`) is designed for browser `import`/`importmap` usage, while the main bundle (`index.browser.js`) is for legacy script tag usage.
+The ESM browser bundle (`index.browser.esm.js`) is designed for browser `import`/`importmap` usage, while the script-tag bundles (`index.browser.js` and `index.browser.min.js`) are legacy IIFE builds that expose a global `Polyslice` (along with `Printer`, `Filament`, and `Loader`) for direct `<script>` usage.
 
 ## Quick Start
 
