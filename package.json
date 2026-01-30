@@ -88,7 +88,7 @@
     "jest": "^30.2.0",
     "prettier": "^3.8.1",
     "three-bvh-csg": "^0.0.17",
-    "three-mesh-bvh": "^0.9.7",
+    "three-mesh-bvh": "^0.9.8",
     "uglify-js": "^3.19.3"
   },
   "jest": {
