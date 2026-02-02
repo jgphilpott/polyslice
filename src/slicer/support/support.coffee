@@ -210,10 +210,11 @@ module.exports =
 
         else if supportPlacement is 'everywhere'
 
-            # For 'everywhere' mode, we need to find the highest solid surface below this point.
-            # Support can be generated from that surface upward.
+            # For 'everywhere' mode, support should only be generated above solid surfaces.
+            # We need to find if there's solid geometry at this XY position below the current layer.
 
-            highestSolidZ = minZ # Start at build plate.
+            highestSolidZ = minZ # Start at build plate (no solid surface found yet).
+            hasBlockingGeometry = false
 
             # Check all layers below current layer.
             for layerData in layerSolidRegions
@@ -226,13 +227,38 @@ module.exports =
                         if @isPointInsideSolidRegion(point, path)
 
                             # Found solid geometry at this layer.
+                            hasBlockingGeometry = true
+
                             # Update highest solid surface.
                             if layerData.z > highestSolidZ
 
                                 highestSolidZ = layerData.z
 
-            # Support can be generated if current layer is above the highest solid surface.
-            # Add a small gap (1 layer height) to ensure support doesn't start inside solid geometry.
+            # If there's no blocking geometry below, support can go all the way to build plate.
+            if not hasBlockingGeometry
+
+                return true
+
+            # If there is blocking geometry, only generate support ABOVE the highest solid surface.
+            # We need to find the TOP of the solid geometry, not just the highest layer we found.
+            # Check if solid geometry continues at the current layer - if so, no support yet.
+            
+            # Check if there's solid geometry at layers just below current layer.
+            # If the previous layer (or nearby layers) have solid geometry, support shouldn't start yet.
+            layersToCheck = Math.min(3, currentLayerIndex) # Check up to 3 layers back
+            
+            for i in [1..layersToCheck]
+                checkLayerIndex = currentLayerIndex - i
+                if checkLayerIndex >= 0 and checkLayerIndex < layerSolidRegions.length
+                    layerData = layerSolidRegions[checkLayerIndex]
+                    for path in layerData.paths
+                        if @isPointInsideSolidRegion(point, path)
+                            # Solid geometry found in recent layers below - don't generate support yet.
+                            # The solid surface hasn't ended yet.
+                            return false
+
+            # Solid geometry has ended - we can generate support now.
+            # Add a gap (1 layer height) above the highest solid surface.
             minimumSupportZ = highestSolidZ + layerHeight
 
             return currentZ >= minimumSupportZ
