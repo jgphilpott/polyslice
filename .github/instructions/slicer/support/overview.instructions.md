@@ -29,10 +29,21 @@ Planned for future:
 
 ## Support Placement
 
-| Placement | Description |
-|-----------|-------------|
-| `'buildPlate'` | Supports only from build plate |
-| `'everywhere'` | Supports from any surface (planned) |
+Support placement determines where supports can originate and how they interact with solid geometry.
+
+| Placement | Description | Collision Detection |
+|-----------|-------------|---------------------|
+| `'buildPlate'` | Supports only from build plate | Blocks supports when solid geometry is between build plate and overhang |
+| `'everywhere'` | Supports from any surface | Allows supports to start from any solid surface below overhang |
+
+### Collision Detection
+
+The support generation system uses layer-by-layer collision detection to prevent supports from going through solid parts:
+
+- **buildPlate mode**: For each overhang region, checks all layers below for solid geometry. If any layer contains solid material at that XY position, support generation is blocked.
+- **everywhere mode**: Finds the highest solid surface below each overhang region and generates support from that surface upward.
+
+This ensures physically feasible support structures that respect the model's solid geometry.
 
 ## Configuration Parameters
 
@@ -144,24 +155,84 @@ if region.z > (z + interfaceGap)
     @generateSupportColumn(...)
 ```
 
+## Collision Detection Implementation
+
+### Layer Solid Regions Cache
+
+During slicing, solid regions for each layer are cached for collision detection:
+
+```coffeescript
+buildLayerSolidRegions: (allLayers, layerHeight, minZ) ->
+    layerSolidRegions = []
+    
+    for layerIndex in [0...allLayers.length]
+        layerSegments = allLayers[layerIndex]
+        layerPaths = pathsUtils.connectSegmentsToPaths(layerSegments)
+        
+        layerSolidRegions.push({
+            z: layerZ
+            paths: layerPaths
+            layerIndex: layerIndex
+        })
+    
+    return layerSolidRegions
+```
+
+### Collision Check
+
+For each support position, check if solid geometry blocks the path:
+
+```coffeescript
+canGenerateSupportAt: (region, currentZ, currentLayerIndex, layerSolidRegions, supportPlacement) ->
+    point = { x: region.x, y: region.y }
+    
+    if supportPlacement is 'buildPlate'
+        # Check all layers below for blocking geometry
+        for layerData in layerSolidRegions
+            if layerData.layerIndex < currentLayerIndex
+                for path in layerData.paths
+                    if @isPointInsideSolidRegion(point, path)
+                        return false  # Blocked by solid geometry
+        return true  # Path clear to build plate
+    
+    else if supportPlacement is 'everywhere'
+        # Find highest solid surface below overhang
+        highestSolidZ = minZ
+        for layerData in layerSolidRegions
+            if layerData.layerIndex < currentLayerIndex
+                for path in layerData.paths
+                    if @isPointInsideSolidRegion(point, path)
+                        highestSolidZ = max(highestSolidZ, layerData.z)
+        
+        return currentZ >= highestSolidZ + layerHeight
+```
+
 ## G-code Generation Flow
 
 1. **Check if enabled**: `return unless slicer.getSupportEnabled()`
 2. **Validate settings**: Check `supportType` and `supportPlacement`
-3. **Detect overhangs**: Run once, cache in `slicer._overhangRegions`
-4. **Generate per layer**: For each overhang region above current Z + gap
-5. **Add type annotation**: `"; TYPE: SUPPORT"` when verbose
+3. **Build layer cache**: Cache solid regions for all layers (first layer only)
+4. **Detect overhangs**: Run once, cache in `slicer._overhangRegions`
+5. **Generate per layer**: For each overhang region above current Z + gap
+   - Check collision with `canGenerateSupportAt()`
+   - Only generate if path is valid for placement mode
+6. **Add type annotation**: `"; TYPE: SUPPORT"` when verbose
 
 ## Caching
 
-Overhang detection runs once and results are cached:
+Two caches are maintained during slicing:
 
 ```coffeescript
+# Overhang regions (detected once per mesh)
 if not slicer._overhangRegions?
     slicer._overhangRegions = @detectOverhangs(mesh, supportThreshold, minZ)
 
-overhangRegions = slicer._overhangRegions
+# Layer solid regions (built once per mesh)
+if not slicer._layerSolidRegions?
+    slicer._layerSolidRegions = @buildLayerSolidRegions(allLayers, layerHeight, minZ)
 ```
+
+Both caches are cleared at the start of each slice operation.
 
 ## Usage
 
@@ -169,7 +240,7 @@ overhangRegions = slicer._overhangRegions
 slicer = new Polyslice({
     supportEnabled: true
     supportType: 'normal'
-    supportPlacement: 'buildPlate'
+    supportPlacement: 'buildPlate'  # or 'everywhere'
     supportThreshold: 45  # degrees
 })
 
@@ -183,3 +254,19 @@ gcode = slicer.slice(mesh)
 3. **Line width**: 0.8× nozzle diameter for easier breakaway
 4. **Speed**: 50% of perimeter speed for better adhesion
 5. **Cross pattern**: Simple X pattern for each support point
+6. **Collision detection**: Uses point-in-polygon test with 0.001mm epsilon tolerance
+7. **Placement modes**: 
+   - `'buildPlate'`: Supports blocked by any solid geometry below overhang
+   - `'everywhere'`: Supports can start from any solid surface below overhang
+8. **Cache management**: Both overhang regions and layer solid regions caches are cleared between slice operations
+
+## Example Results
+
+Testing with sideways arch geometry (from `examples/scripts/slice-supports.js`):
+
+| Mode | Support Type Lines | Description |
+|------|-------------------|-------------|
+| `'buildPlate'` | 25 | Only supports where path is clear to build plate |
+| `'everywhere'` | 4,025 | Supports can build on solid surfaces to reach overhangs |
+
+This dramatic difference demonstrates proper collision detection and placement mode behavior.
