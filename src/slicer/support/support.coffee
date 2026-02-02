@@ -157,6 +157,7 @@ module.exports =
 
     # Build a cache of solid regions for each layer.
     # This allows us to quickly check if a point is inside solid geometry.
+    # Properly handles holes - a point inside a hole is NOT considered solid.
     buildLayerSolidRegions: (allLayers, layerHeight, minZ) ->
 
         layerSolidRegions = []
@@ -171,10 +172,34 @@ module.exports =
             # Convert segments to closed paths.
             layerPaths = pathsUtils.connectSegmentsToPaths(layerSegments)
 
-            # Store paths for this layer.
+            # Calculate nesting levels to identify holes.
+            # Paths at odd nesting levels (1, 3, 5, ...) are holes.
+            # Paths at even nesting levels (0, 2, 4, ...) are structures.
+            pathIsHole = []
+
+            for i in [0...layerPaths.length]
+
+                nestingLevel = 0
+
+                # Count how many other paths contain this path.
+                for j in [0...layerPaths.length]
+
+                    continue if i is j
+
+                    if layerPaths[i].length > 0 and primitives.pointInPolygon(layerPaths[i][0], layerPaths[j])
+
+                        nestingLevel++
+
+                # Odd nesting levels represent holes, even levels represent structures.
+                isHole = nestingLevel % 2 is 1
+
+                pathIsHole.push(isHole)
+
+            # Store paths and hole information for this layer.
             layerSolidRegions.push({
                 z: layerZ
                 paths: layerPaths
+                pathIsHole: pathIsHole
                 layerIndex: layerIndex
             })
 
@@ -197,13 +222,11 @@ module.exports =
                 # Only check layers below current layer.
                 if layerData.layerIndex < currentLayerIndex
 
-                    # Check if point is inside any path on this layer.
-                    for path in layerData.paths
+                    # Check if point is inside solid geometry (accounting for holes).
+                    if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
 
-                        if @isPointInsideSolidRegion(point, path)
-
-                            # Point is blocked by solid geometry.
-                            return false
+                        # Point is blocked by solid geometry.
+                        return false
 
             # Path is clear to build plate.
             return true
@@ -221,18 +244,16 @@ module.exports =
 
                 if layerData.layerIndex < currentLayerIndex
 
-                    # Check if point is inside any path on this layer.
-                    for path in layerData.paths
+                    # Check if point is inside solid geometry (accounting for holes).
+                    if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
 
-                        if @isPointInsideSolidRegion(point, path)
+                        # Found solid geometry at this layer.
+                        hasBlockingGeometry = true
 
-                            # Found solid geometry at this layer.
-                            hasBlockingGeometry = true
+                        # Update highest solid surface.
+                        if layerData.z > highestSolidZ
 
-                            # Update highest solid surface.
-                            if layerData.z > highestSolidZ
-
-                                highestSolidZ = layerData.z
+                            highestSolidZ = layerData.z
 
             # If there's no blocking geometry below, support can go all the way to build plate.
             if not hasBlockingGeometry
@@ -251,11 +272,10 @@ module.exports =
                 checkLayerIndex = currentLayerIndex - i
                 if checkLayerIndex >= 0 and checkLayerIndex < layerSolidRegions.length
                     layerData = layerSolidRegions[checkLayerIndex]
-                    for path in layerData.paths
-                        if @isPointInsideSolidRegion(point, path)
-                            # Solid geometry found in recent layers below - don't generate support yet.
-                            # The solid surface hasn't ended yet.
-                            return false
+                    if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
+                        # Solid geometry found in recent layers below - don't generate support yet.
+                        # The solid surface hasn't ended yet.
+                        return false
 
             # Solid geometry has ended - we can generate support now.
             # Add a gap (1 layer height) above the highest solid surface.
@@ -264,6 +284,37 @@ module.exports =
             return currentZ >= minimumSupportZ
 
         return false
+
+    # Check if a point is inside solid geometry (accounting for holes).
+    # A point is inside solid geometry if:
+    # - It's inside at least one outer boundary (even nesting level)
+    # - AND it's not inside any hole (odd nesting level)
+    # We use nesting level logic: count how many paths contain the point.
+    # If the count is odd, the point is in a hole (empty space).
+    # If the count is even (including 0), the point is outside or in solid.
+    isPointInsideSolidGeometry: (point, paths, pathIsHole) ->
+
+        return false if not paths or paths.length is 0
+
+        epsilon = 0.001
+        containmentCount = 0
+
+        # Count how many paths contain this point.
+        for i in [0...paths.length]
+
+            path = paths[i]
+
+            if path.length >= 3 and primitives.pointInPolygon(point, path, epsilon)
+
+                containmentCount++
+
+        # Standard even-odd winding rule for nested boundaries:
+        # - Count 0: outside everything (not solid)
+        # - Count 1: inside one boundary (the outer structure - solid)
+        # - Count 2: inside two boundaries (outer + hole - NOT solid, it's empty space)
+        # - Count 3: inside three boundaries (solid again - structure inside hole)
+        # Rule: ODD count = solid, EVEN count = not solid
+        return containmentCount > 0 and containmentCount % 2 is 1
 
     # Check if a point is inside a solid region (path).
     # A point is inside if it's within the outer boundary and not in any holes.
