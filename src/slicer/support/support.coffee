@@ -1,6 +1,8 @@
 # Support generation module for Polyslice.
 
 coders = require('../gcode/coders')
+pathsUtils = require('../utils/paths')
+primitives = require('../utils/primitives')
 
 module.exports =
 
@@ -18,11 +20,17 @@ module.exports =
         # Support 'buildPlate' and 'everywhere' placements.
         return unless supportPlacement in ['buildPlate', 'everywhere']
 
+        # Initialize layer solid regions cache on first layer.
+        if not slicer._layerSolidRegions?
+
+            slicer._layerSolidRegions = @buildLayerSolidRegions(allLayers, layerHeight, minZ)
+
         if not slicer._overhangRegions?
 
             slicer._overhangRegions = @detectOverhangs(mesh, supportThreshold, minZ, supportPlacement)
 
         overhangRegions = slicer._overhangRegions
+        layerSolidRegions = slicer._layerSolidRegions
 
         return unless overhangRegions.length > 0
 
@@ -37,8 +45,21 @@ module.exports =
 
             if region.z > (z + interfaceGap)
 
-                @generateSupportColumn(slicer, region, z, centerOffsetX, centerOffsetY, nozzleDiameter)
-                supportsGenerated++
+                # Check if support can be generated at this position based on placement mode.
+                canGenerateSupport = @canGenerateSupportAt(
+                    region,
+                    z,
+                    layerIndex,
+                    layerSolidRegions,
+                    supportPlacement,
+                    minZ,
+                    layerHeight
+                )
+
+                if canGenerateSupport
+
+                    @generateSupportColumn(slicer, region, z, centerOffsetX, centerOffsetY, nozzleDiameter)
+                    supportsGenerated++
 
         if verbose and supportsGenerated > 0 and layerIndex is 0
 
@@ -133,6 +154,102 @@ module.exports =
                         processedFaces.add(faceIndex)
 
         return overhangRegions
+
+    # Build a cache of solid regions for each layer.
+    # This allows us to quickly check if a point is inside solid geometry.
+    buildLayerSolidRegions: (allLayers, layerHeight, minZ) ->
+
+        layerSolidRegions = []
+
+        SLICE_EPSILON = 0.001
+
+        for layerIndex in [0...allLayers.length]
+
+            layerSegments = allLayers[layerIndex]
+            layerZ = minZ + SLICE_EPSILON + layerIndex * layerHeight
+
+            # Convert segments to closed paths.
+            layerPaths = pathsUtils.connectSegmentsToPaths(layerSegments)
+
+            # Store paths for this layer.
+            layerSolidRegions.push({
+                z: layerZ
+                paths: layerPaths
+                layerIndex: layerIndex
+            })
+
+        return layerSolidRegions
+
+    # Check if support can be generated at a given position.
+    # For 'buildPlate' mode: path must be clear from build plate to support position.
+    # For 'everywhere' mode: support can start from any solid surface below the overhang.
+    canGenerateSupportAt: (region, currentZ, currentLayerIndex, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
+
+        # Point to check (support column position).
+        point = { x: region.x, y: region.y }
+
+        if supportPlacement is 'buildPlate'
+
+            # Check all layers below current layer for collisions.
+            # If any solid region contains this point, support cannot be generated.
+            for layerData in layerSolidRegions
+
+                # Only check layers below current layer.
+                if layerData.layerIndex < currentLayerIndex
+
+                    # Check if point is inside any path on this layer.
+                    for path in layerData.paths
+
+                        if @isPointInsideSolidRegion(point, path)
+
+                            # Point is blocked by solid geometry.
+                            return false
+
+            # Path is clear to build plate.
+            return true
+
+        else if supportPlacement is 'everywhere'
+
+            # For 'everywhere' mode, we need to find the highest solid surface below this point.
+            # Support can be generated from that surface upward.
+
+            highestSolidZ = minZ # Start at build plate.
+
+            # Check all layers below current layer.
+            for layerData in layerSolidRegions
+
+                if layerData.layerIndex < currentLayerIndex
+
+                    # Check if point is inside any path on this layer.
+                    for path in layerData.paths
+
+                        if @isPointInsideSolidRegion(point, path)
+
+                            # Found solid geometry at this layer.
+                            # Update highest solid surface.
+                            if layerData.z > highestSolidZ
+
+                                highestSolidZ = layerData.z
+
+            # Support can be generated if current layer is above the highest solid surface.
+            # Add a small gap (1 layer height) to ensure support doesn't start inside solid geometry.
+            minimumSupportZ = highestSolidZ + layerHeight
+
+            return currentZ >= minimumSupportZ
+
+        return false
+
+    # Check if a point is inside a solid region (path).
+    # A point is inside if it's within the outer boundary and not in any holes.
+    isPointInsideSolidRegion: (point, path) ->
+
+        return false if not path or path.length < 3
+
+        # Use point-in-polygon test.
+        # Use a small epsilon to handle boundary cases.
+        epsilon = 0.001
+
+        return primitives.pointInPolygon(point, path, epsilon)
 
     # Generate a support column from build plate to overhang region.
     generateSupportColumn: (slicer, region, currentZ, centerOffsetX, centerOffsetY, nozzleDiameter) ->
