@@ -220,7 +220,7 @@ async function main() {
             variant.rotation.y += o.rotY;
             variant.updateMatrixWorld(true);
 
-            const placementSuffix = (placement === "everywhere") ? "-everywhere" : "";
+            const placementSuffix = (placement === "everywhere") ? "-everywhere" : "-buildPlate";
             console.log(`Slicing arch (${o.name}${placementSuffix})...`);
             console.log(`  Support placement: ${placement}`);
 
@@ -264,7 +264,7 @@ async function main() {
             variant.rotation.y += o.rotY;
             variant.updateMatrixWorld(true);
 
-            const placementSuffix = (placement === "everywhere") ? "-everywhere" : "";
+            const placementSuffix = (placement === "everywhere") ? "-everywhere" : "-buildPlate";
             console.log(`Slicing dome (${o.name}${placementSuffix})...`);
             console.log(`  Support placement: ${placement}`);
 

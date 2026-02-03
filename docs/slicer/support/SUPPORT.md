@@ -55,19 +55,29 @@ const type = slicer.getSupportType(); // "normal"
 
 ### `supportPlacement`
 
-Type: String | Default: `"buildPlate"` | Options: `"buildPlate"`
+Type: String | Default: `"buildPlate"` | Options: `"buildPlate"`, `"everywhere"`
 
-Where support structures can originate from.
+Where support structures can originate from and how they interact with solid geometry.
 
-- **buildPlate** - Supports only grow from the build plate (currently implemented)
+- **buildPlate** - Supports only from build plate. Blocks support generation if ANY solid geometry exists in the vertical path from build plate to overhang. Allows supports through open cavities/holes that are accessible from the build plate.
 
-Future options may include:
-- **everywhere** - Supports can also grow from the model surface
+- **everywhere** - Supports can start from any solid surface below the overhang. Supports stop at solid surfaces and resume above them, creating gaps where solid geometry exists. Useful for complex geometries with internal structures.
 
 ```javascript
-slicer.setSupportPlacement("buildPlate");
+slicer.setSupportPlacement("buildPlate");  // Default
 const placement = slicer.getSupportPlacement(); // "buildPlate"
+
+slicer.setSupportPlacement("everywhere");  // Allow supports from any surface
 ```
+
+#### Mode Comparison
+
+| Aspect | buildPlate | everywhere |
+|--------|-----------|------------|
+| Origin | Build plate only | Build plate OR solid surfaces |
+| Blocking | Any solid below blocks | Stops at solid, resumes above |
+| Cavities | Supports through open cavities | Supports through open cavities |
+| Use case | Simple overhangs | Complex multi-level overhangs |
 
 ### `supportThreshold`
 
@@ -130,12 +140,51 @@ overhangRegion = {
 
 ### Support Columns
 
-For each overhang region, a support column is generated from the build plate up to just below the overhang:
+For each overhang region, a support column is generated from the build plate (or solid surface in 'everywhere' mode) up to just below the overhang:
 
 1. **Interface gap** - Leave 1.5× layer height gap between support and model
 2. **Cross pattern** - Generate a small cross pattern for stability
 3. **Thinner lines** - Support uses 80% of normal line width for easier removal
 4. **Slower speed** - Support prints at 50% of perimeter speed
+
+### Collision Detection
+
+The support system uses intelligent collision detection to prevent supports from going through solid geometry:
+
+#### Layer Caching
+- Solid regions for each layer are cached with hole/cavity information
+- Nesting levels calculated to distinguish solid structures from empty cavities
+- Cache built once per mesh, cleared between slices
+
+#### Even-Odd Winding Rule
+For any point, counts how many path boundaries contain it:
+- **Odd count (1, 3, 5...)** = inside solid geometry (support blocked)
+- **Even count (0, 2, 4...)** = outside or inside hole/cavity (support allowed if accessible)
+
+#### BuildPlate Mode Behavior
+- Checks ALL layers below overhang for solid geometry at the XY position
+- Blocks support if solid found at ANY layer (even if not continuous)
+- Allows supports through open cavities accessible from build plate
+
+#### Everywhere Mode Behavior
+- Finds highest solid surface below overhang
+- Checks recent layers (up to 3) to see if solid continues
+- Only generates support ABOVE solid surfaces, creating gaps where solid exists
+- Allows multi-level support structures
+
+### Example Scenarios
+
+**Sideways Arch** (cylindrical tunnel):
+- buildPlate: 25 supports (only near tunnel edges)
+- everywhere: 3,401 supports (stops at solid bottom Z=0.2-7.4mm, resumes above)
+
+**Upright Dome** (hemisphere cavity on top):
+- buildPlate: 16,644 supports (fills cavity from build plate)
+- everywhere: 16,644 supports (same, no blocking geometry)
+
+**Sideways Dome** (hemisphere opens to side):
+- buildPlate: 16,368 supports (through side opening)
+- everywhere: 19,061 supports (includes supports on solid surfaces)
 
 ## G-code Output
 
@@ -159,6 +208,9 @@ G1 X10.50 Y27.30 Z5.00 E0.30 F900 ; Draw second line
 | `generateSupportGCode(...)` | Main support generation function |
 | `detectOverhangs(mesh, threshold, minZ)` | Detect overhang regions |
 | `generateSupportColumn(...)` | Generate a single support column |
+| `buildLayerSolidRegions(...)` | Build cache of solid regions with hole info |
+| `canGenerateSupportAt(...)` | Check if support can be generated (collision detection) |
+| `isPointInsideSolidGeometry(...)` | Check if point is in solid using even-odd winding rule |
 
 ### Slicer Methods
 
@@ -183,11 +235,17 @@ src/slicer/support/
 
 ## Limitations
 
-Current implementation has some limitations:
+Current implementation limitations:
 
-1. **Normal type only** - Only columnar supports are implemented
-2. **Build plate only** - Supports only originate from build plate
-3. **Basic cross pattern** - Simple cross pattern, not optimized paths
+1. **Normal type only** - Only columnar supports are implemented (tree and organic are planned)
+2. **Basic cross pattern** - Simple cross pattern, not optimized for minimal material
+3. **Fixed parameters** - Support line width and speed are calculated from base parameters
+
+Future enhancements planned:
+- Tree-like supports for reduced material usage
+- Organic supports for minimal scarring
+- Optimized support patterns
+- Customizable support parameters
 4. **No support interfaces** - No dense interface layers
 5. **No support roofs** - No smooth top surface on supports
 
