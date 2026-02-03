@@ -316,18 +316,6 @@ module.exports =
         # Rule: ODD count = solid, EVEN count = not solid
         return containmentCount > 0 and containmentCount % 2 is 1
 
-    # Check if a point is inside a solid region (path).
-    # A point is inside if it's within the outer boundary and not in any holes.
-    isPointInsideSolidRegion: (point, path) ->
-
-        return false if not path or path.length < 3
-
-        # Use point-in-polygon test.
-        # Use a small epsilon to handle boundary cases.
-        epsilon = 0.001
-
-        return primitives.pointInPolygon(point, path, epsilon)
-
     # Generate a support column from build plate to overhang region.
     generateSupportColumn: (slicer, region, currentZ, centerOffsetX, centerOffsetY, nozzleDiameter) ->
 
