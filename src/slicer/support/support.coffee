@@ -215,11 +215,13 @@ module.exports =
 
         if supportPlacement is 'buildPlate'
 
-            # Check all layers below current layer for collisions.
-            # If any solid region contains this point, support cannot be generated.
+            # For 'buildPlate' mode, check if there's ANY solid geometry at this XY position
+            # in any layer below the current layer. If there is, the support cannot reach
+            # from the build plate because it would have to go through solid geometry.
+            
             for layerData in layerSolidRegions
 
-                # Only check layers below current layer.
+                # Check ALL layers below current layer.
                 if layerData.layerIndex < currentLayerIndex
 
                     # Check if point is inside solid geometry (accounting for holes).
@@ -228,7 +230,9 @@ module.exports =
                         # Point is blocked by solid geometry.
                         return false
 
-            # Path is clear to build plate.
+            # Path is clear to build plate - no solid geometry found at this XY position.
+            # Note: This allows supports through cavities/holes, which is correct for buildPlate mode.
+            # Cavities that open to the build plate are accessible for support placement.
             return true
 
         else if supportPlacement is 'everywhere'
