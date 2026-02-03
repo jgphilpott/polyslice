@@ -367,7 +367,7 @@ describe 'Support Module', ->
             # Check that pathIsHole information is stored.
             expect(slicer._layerSolidRegions).toBeDefined()
             expect(slicer._layerSolidRegions.length).toBeGreaterThan(0)
-            
+
             # Each layer should have pathIsHole array.
             firstLayer = slicer._layerSolidRegions[0]
             expect(firstLayer.pathIsHole).toBeDefined()

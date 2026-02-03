@@ -215,13 +215,11 @@ module.exports =
 
         if supportPlacement is 'buildPlate'
 
-            # For 'buildPlate' mode, check if there's ANY solid geometry at this XY position
-            # in any layer below the current layer. If there is, the support cannot reach
-            # from the build plate because it would have to go through solid geometry.
-            
+            # Check all layers below current layer for collisions.
+            # If any solid region contains this point, support cannot be generated.
             for layerData in layerSolidRegions
 
-                # Check ALL layers below current layer.
+                # Only check layers below current layer.
                 if layerData.layerIndex < currentLayerIndex
 
                     # Check if point is inside solid geometry (accounting for holes).
@@ -230,9 +228,7 @@ module.exports =
                         # Point is blocked by solid geometry.
                         return false
 
-            # Path is clear to build plate - no solid geometry found at this XY position.
-            # Note: This allows supports through cavities/holes, which is correct for buildPlate mode.
-            # Cavities that open to the build plate are accessible for support placement.
+            # Path is clear to build plate.
             return true
 
         else if supportPlacement is 'everywhere'
@@ -267,11 +263,11 @@ module.exports =
             # If there is blocking geometry, only generate support ABOVE the highest solid surface.
             # We need to find the TOP of the solid geometry, not just the highest layer we found.
             # Check if solid geometry continues at the current layer - if so, no support yet.
-            
+
             # Check if there's solid geometry at layers just below current layer.
             # If the previous layer (or nearby layers) have solid geometry, support shouldn't start yet.
             layersToCheck = Math.min(3, currentLayerIndex) # Check up to 3 layers back
-            
+
             for i in [1..layersToCheck]
                 checkLayerIndex = currentLayerIndex - i
                 if checkLayerIndex >= 0 and checkLayerIndex < layerSolidRegions.length

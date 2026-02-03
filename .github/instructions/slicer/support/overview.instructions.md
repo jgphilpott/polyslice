@@ -185,11 +185,11 @@ During slicing, solid regions for each layer are cached with hole/cavity informa
 ```coffeescript
 buildLayerSolidRegions: (allLayers, layerHeight, minZ) ->
     layerSolidRegions = []
-    
+
     for layerIndex in [0...allLayers.length]
         layerSegments = allLayers[layerIndex]
         layerPaths = pathsUtils.connectSegmentsToPaths(layerSegments)
-        
+
         # Calculate nesting levels to identify holes
         pathIsHole = []
         for i in [0...layerPaths.length]
@@ -198,17 +198,17 @@ buildLayerSolidRegions: (allLayers, layerHeight, minZ) ->
                 continue if i is j
                 if primitives.pointInPolygon(layerPaths[i][0], layerPaths[j])
                     nestingLevel++
-            
+
             # Odd nesting = hole, even = structure
             pathIsHole.push(nestingLevel % 2 is 1)
-        
+
         layerSolidRegions.push({
             z: layerZ
             paths: layerPaths
             pathIsHole: pathIsHole
             layerIndex: layerIndex
         })
-    
+
     return layerSolidRegions
 ```
 
@@ -217,12 +217,12 @@ buildLayerSolidRegions: (allLayers, layerHeight, minZ) ->
 ```coffeescript
 isPointInsideSolidGeometry: (point, paths, pathIsHole) ->
     containmentCount = 0
-    
+
     # Count how many paths contain this point
     for i in [0...paths.length]
         if primitives.pointInPolygon(point, paths[i])
             containmentCount++
-    
+
     # Even-odd winding rule:
     # Odd count (1, 3, 5...) = inside solid geometry
     # Even count (0, 2, 4...) = outside or inside hole (empty space)
@@ -238,7 +238,7 @@ if supportPlacement is 'buildPlate'
         if layerData.layerIndex < currentLayerIndex
             if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
                 return false  # Blocked by solid geometry
-    
+
     # Path clear - no solid geometry found at this XY position
     # Cavities/holes are correctly identified as empty space
     return true
@@ -251,16 +251,16 @@ if supportPlacement is 'everywhere'
     # Find highest solid surface and check if it continues below current layer
     highestSolidZ = minZ
     hasBlockingGeometry = false
-    
+
     for layerData in layerSolidRegions
         if layerData.layerIndex < currentLayerIndex
             if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
                 hasBlockingGeometry = true
                 highestSolidZ = max(highestSolidZ, layerData.z)
-    
+
     if not hasBlockingGeometry
         return true  # Clear path from build plate
-    
+
     # Check recent layers (up to 3) to see if solid surface continues
     layersToCheck = min(3, currentLayerIndex)
     for i in [1..layersToCheck]
@@ -268,7 +268,7 @@ if supportPlacement is 'everywhere'
         layerData = layerSolidRegions[checkLayerIndex]
         if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
             return false  # Solid surface hasn't ended yet
-    
+
     # Solid geometry has ended - generate support above it
     minimumSupportZ = highestSolidZ + layerHeight
     return currentZ >= minimumSupportZ
@@ -323,7 +323,7 @@ gcode = slicer.slice(mesh)
 5. **Cross pattern**: Simple X pattern for each support point
 6. **Collision detection**: Uses even-odd winding rule with point-in-polygon test (0.001mm epsilon)
 7. **Hole detection**: Nesting levels calculated to distinguish solid structures from cavities
-8. **Placement modes**: 
+8. **Placement modes**:
    - `'buildPlate'`: Blocks support if ANY solid geometry at this XY in layers below (allows through cavities)
    - `'everywhere'`: Stops support at solid surfaces, resumes above them
 9. **Cache management**: Both overhang regions and layer solid regions (with hole info) cleared between slices
