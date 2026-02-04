@@ -51,37 +51,33 @@ The slicing process is orchestrated by `src/slicer/slice.coffee`, which:
 
 ### Layer Processing Pipeline
 
-The slicer uses a two-phase approach for complex geometries or a simplified single-phase approach for independent objects:
+The slicer uses sequential completion with depth-first processing for optimal travel paths:
 
-**Two-Phase Processing (used when exposure detection is enabled OR holes are present):**
+**Sequential Completion (used for all geometries):**
 
 ```
 Mesh → Polytree.sliceIntoLayers() → Line Segments → Closed Paths
                                                          ↓
                                         Hole Detection (point-in-polygon)
                                                          ↓
-                                        Phase 1: Wall Generation (outer → inner)
-                                        - Collect hole boundaries for Phase 2
-                                                         ↓
-                                        Phase 2: Skin & Infill Generation
-                                        - Use collected boundaries for coverage
-                                        - Generate skin for exposed areas
-                                        - Generate infill with hole exclusion
-```
-
-**Single-Phase Processing (optimization for independent objects):**
-
-```
-Independent Objects (no holes, exposure detection disabled)
-                                                         ↓
                                         Nearest-Neighbor Sorting
                                         (starting from home position)
                                                          ↓
-                                        For Each Object:
+                                        For Each Top-Level Structure:
                                         - Walls (outer → inner)
-                                        - Skin/Infill (immediate completion)
-                                        - Move to next nearest object
+                                        - Skin/Infill (if applicable)
+                                        - Process Direct Child Holes:
+                                          * Walls (outer → inner)
+                                          * Skin (if applicable)
+                                          * Recursively Process Nested Structures
+                                                         ↓
+                                        Phase 2 (Fallback for Non-Top-Level):
+                                        - Process any remaining structures
 ```
+
+**Two-Phase Processing (legacy fallback):**
+
+Only used for structures that weren't completed during sequential processing (rare edge cases).
 
 ### Coordinate System
 
@@ -98,36 +94,42 @@ Independent Objects (no holes, exposure detection disabled)
 - **Holes**: Paths contained within other paths (detected via point-in-polygon)
 - **Innermost Walls**: The final wall before infill area
 - **Independent Objects**: Separate outer boundaries with no holes (optimized for sequential completion)
+- **Nested Objects**: Structures inside holes (matryoshka pattern - processed depth-first)
 
 ### Travel Path Optimization
 
 Polyslice uses intelligent travel path optimization to minimize print time:
 
-#### Independent Objects
+#### Sequential Completion (All Geometries)
 
-When slicing multiple separate objects (outer boundaries with no holes):
+1. **Home Position Start**: On the first layer, starts from printer home position (0, 0)
+2. **Nearest-Neighbor Sorting**: Top-level structures sorted by proximity to last position
+3. **Depth-First Processing**:
+   - Complete structure (walls → skin → infill)
+   - Process direct child holes (walls → skin if needed)
+   - Recursively complete nested structures inside holes
+   - Move to next top-level structure
 
-1. **Home Position Start**: On the first layer, the sorting algorithm starts from the printer's home position (0, 0), converting to mesh coordinates using center offsets
-2. **Nearest-Neighbor Sorting**: Objects are processed in order of proximity to the last completed position
-3. **Sequential Completion** (when `exposureDetection = false`):
-   - Each object is fully completed (walls → skin → infill) before moving to the next
-   - Minimizes travel distance between objects
-   - Prevents zigzag patterns across the build plate
-   - More efficient for simple multi-object prints
+#### Benefits
 
-#### Complex Geometries
+- **Independent Objects** (no holes):
+  - Each object fully completed before moving to next
+  - Minimizes travel distance between objects
+  - Prevents zigzag patterns across build plate
 
-When slicing parts with holes or when exposure detection is enabled:
+- **Nested Objects** (with holes):
+  - Parent structure completed before processing children
+  - Short, efficient travels between parent and child structures
+  - Intuitive depth-first print order (like matryoshka dolls)
+  - Reduces stringing and oozing
 
-1. **Two-Phase Processing**:
-   - Phase 1: Generate all walls and collect hole boundaries
-   - Phase 2: Generate skin and infill using collected boundaries
-2. **Hole Avoidance**: Travel paths use combing algorithm to avoid crossing holes
-3. **Nesting-Aware**: Properly filters holes by nesting level (only direct children affect each structure)
+#### Nesting-Aware Features
 
-The optimization strategy is automatically selected based on:
-- Presence of holes on the layer
-- `exposureDetection` configuration setting
+- **Hole Filtering**: Only direct children (nesting level + 1) affect each structure
+- **Travel Optimization**: Combing paths avoid crossing holes
+- **Recursive Processing**: Nested structures processed depth-first for efficiency
+
+The optimization is automatic - no configuration needed.
 
 ### Wall Count Calculation
 
