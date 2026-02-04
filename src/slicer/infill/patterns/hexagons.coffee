@@ -7,7 +7,7 @@ combing = require('../../geometry/combing')
 module.exports =
 
     # Generate hexagons pattern infill (honeycomb tessellation).
-    generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
+    generateHexagonsInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -52,9 +52,15 @@ module.exports =
 
                 return "#{rx2},#{ry2}-#{rx1},#{ry1}"
 
-        # Center the hexagon pattern on the infill boundary center.
-        patternCenterX = (minX + maxX) / 2
-        patternCenterY = (minY + maxY) / 2
+        # Determine pattern center based on infillPatternCentering setting.
+        if infillPatternCentering is 'global'
+            # Global centering: use build plate center (0, 0 in local coordinates).
+            patternCenterX = 0
+            patternCenterY = 0
+        else
+            # Object centering: use infill boundary center (current/default behavior).
+            patternCenterX = (minX + maxX) / 2
+            patternCenterY = (minY + maxY) / 2
 
         numRows = Math.ceil(height / verticalSpacing) + 2
         numCols = Math.ceil(width / horizontalSpacing) + 2

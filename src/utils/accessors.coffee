@@ -98,6 +98,10 @@ module.exports =
 
         return slicer.infillPattern
 
+    getInfillPatternCentering: (slicer) ->
+
+        return slicer.infillPatternCentering
+
     getShellSkinThickness: (slicer) ->
 
         return conversions.lengthFromInternal(slicer.shellSkinThickness, slicer.lengthUnit)
@@ -519,6 +523,16 @@ module.exports =
         if ["grid", "lines", "triangles", "cubic", "gyroid", "hexagons", "honeycomb"].includes pattern
 
             slicer.infillPattern = String pattern
+
+        return slicer
+
+    setInfillPatternCentering: (slicer, centering = "object") ->
+
+        centering = centering.toLowerCase().trim()
+
+        if ["object", "global"].includes centering
+
+            slicer.infillPatternCentering = String centering
 
         return slicer
 

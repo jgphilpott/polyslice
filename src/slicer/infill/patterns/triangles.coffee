@@ -8,7 +8,7 @@ combing = require('../../geometry/combing')
 module.exports =
 
     # Generate triangles pattern infill (tessellation at 45°, 105°, -15°).
-    generateTrianglesInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
+    generateTrianglesInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -35,8 +35,15 @@ module.exports =
 
         allInfillLines = []
 
-        centerX = (minX + maxX) / 2
-        centerY = (minY + maxY) / 2
+        # Determine pattern center based on infillPatternCentering setting.
+        if infillPatternCentering is 'global'
+            # Global centering: use build plate center (0, 0 in local coordinates).
+            centerX = 0
+            centerY = 0
+        else
+            # Object centering: use infill boundary center (current/default behavior).
+            centerX = (minX + maxX) / 2
+            centerY = (minY + maxY) / 2
 
         # Generate 45° baseline.
         centerOffset = centerY - centerX
