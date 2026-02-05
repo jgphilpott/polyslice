@@ -59,11 +59,12 @@ Located in `src/slicer/infill/patterns/grid.coffee`.
 ### Algorithm
 
 1. Calculate bounding box diagonal span
-2. Generate +45° lines (y = x + offset), centered at origin
-3. Generate -45° lines (y = -x + offset), centered at origin
-4. Clip lines to infill boundary
-5. Exclude hole areas via clipping
-6. Render lines in nearest-neighbor order with combing
+2. Determine pattern center based on `infillPatternCentering` setting (object boundary or global origin)
+3. Generate +45° lines (y = x + offset), centered at determined point
+4. Generate -45° lines (y = -x + offset), centered at determined point
+5. Clip lines to infill boundary
+6. Exclude hole areas via clipping
+7. Render lines in nearest-neighbor order with combing
 
 ### Line Generation
 
@@ -93,9 +94,10 @@ Located in `src/slicer/infill/patterns/triangles.coffee`.
 ### Algorithm
 
 Generates equilateral triangles using three line directions:
-1. **45° baseline** (same as grid +45°)
-2. **105°** (45° + 60°) with slope ≈ -3.732
-3. **-15°** (45° - 60°) with slope ≈ -0.268
+1. Determine pattern center based on `infillPatternCentering` setting
+2. **45° baseline** (same as grid +45°), centered at determined point
+3. **105°** (45° + 60°) with slope ≈ -3.732, centered at determined point
+4. **-15°** (45° - 60°) with slope ≈ -0.268, centered at determined point
 
 ### Angle Calculations
 
@@ -119,9 +121,10 @@ Located in `src/slicer/infill/patterns/hexagons.coffee`.
 
 Creates honeycomb tessellation with flat-top orientation:
 1. Calculate hexagon geometry (side length, spacing)
-2. Generate hexagon centers in honeycomb grid
-3. Create vertices for each hexagon (6 vertices at 30°, 90°, 150°, 210°, 270°, 330°)
-4. Deduplicate shared edges between adjacent hexagons
+2. Determine pattern center based on `infillPatternCentering` setting
+3. Generate hexagon centers in honeycomb grid relative to pattern center
+4. Create vertices for each hexagon (6 vertices at 30°, 90°, 150°, 210°, 270°, 330°)
+5. Deduplicate shared edges between adjacent hexagons
 5. Build connectivity graph for continuous paths
 6. Render edges in chains to minimize travel
 
@@ -224,7 +227,7 @@ if distance > 0.001  # Skip negligible moves
 
 ## Important Conventions
 
-1. **Pattern centering**: All patterns center at origin (0,0), which maps to build plate center
+1. **Pattern centering**: Patterns can center on object boundaries (`infillPatternCentering='object'`, default) or build plate center (`infillPatternCentering='global'`). Object centering uses `(minX + maxX) / 2` and `(minY + maxY) / 2`. Global centering uses origin (0,0) in local coordinates, which maps to build plate center.
 2. **Gap consistency**: Use `nozzleDiameter / 2` gap between infill and walls
 3. **Line validation**: Skip segments shorter than 0.001mm
 4. **Travel speeds**: Use `getTravelSpeed() * 60` for mm/min conversion

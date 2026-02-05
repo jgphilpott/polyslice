@@ -49,6 +49,7 @@ describe 'Polyslice', ->
             # Test new infill settings
             expect(slicer.getInfillDensity()).toBe(20)
             expect(slicer.getInfillPattern()).toBe('hexagons')
+            expect(slicer.getInfillPatternCentering()).toBe('object')
             expect(slicer.getShellSkinThickness()).toBe(0.8)
             expect(slicer.getShellWallThickness()).toBe(0.8)
 
