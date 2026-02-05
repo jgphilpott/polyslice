@@ -160,6 +160,7 @@ async function main() {
         shellWallThickness: 0.8,
         lengthUnit: "millimeters",
         timeUnit: "seconds",
+        infillPatternCentering: "global",
         infillPattern: "grid",
         infillDensity: 20,
         bedTemperature: 0,
@@ -314,6 +315,10 @@ async function main() {
 
         // Reset support placement to buildPlate for threshold tests
         slicer.setSupportPlacement("buildPlate");
+
+        // Switch to object-centered infill for threshold tests
+        slicer.setInfillPatternCentering("object");
+        console.log("Switched infill centering to 'object' mode for threshold tests\n");
 
         // Generate G-code for threshold values from 0 to 100, step 10
         for (let threshold = 0; threshold <= 100; threshold += 10) {
