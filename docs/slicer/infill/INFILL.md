@@ -38,6 +38,10 @@ const slicer = new Polyslice({
     // Options: "grid", "triangles", "hexagons"
     infillPattern: "grid",
 
+    // Pattern centering mode
+    // Options: "object" (center on object boundary) or "global" (center on build plate)
+    infillPatternCentering: "object",
+
     // Infill speed in mm/s
     infillSpeed: 60,
 
@@ -45,6 +49,40 @@ const slicer = new Polyslice({
     nozzleDiameter: 0.4
 });
 ```
+
+### Pattern Centering Modes
+
+Polyslice provides two modes for centering infill patterns:
+
+**Object Centering** (default, `"object"`):
+- Each object has its own pattern center
+- Patterns are centered on each object's boundary
+- Good for ensuring consistent infill within each part
+- Best for most prints
+
+**Global Centering** (`"global"`):
+- All objects share the same pattern grid
+- Pattern is centered on the build plate center
+- Good for multi-object prints where pattern alignment across parts matters
+- May result in incomplete pattern coverage at object edges depending on position
+
+```javascript
+// Object centering (default)
+slicer.setInfillPatternCentering("object");
+
+// Global centering
+slicer.setInfillPatternCentering("global");
+```
+
+**When to use object centering:**
+- Single object prints
+- Multi-object prints where each part should have complete pattern coverage
+- When you want consistent infill regardless of object position
+
+**When to use global centering:**
+- Multi-object prints where pattern alignment across parts is important
+- When printing parts that will be assembled and you want matching infill phases
+- When you want a consistent grid across the entire build plate
 
 ## Available Patterns
 
@@ -226,6 +264,10 @@ const density = slicer.getInfillDensity();
 slicer.setInfillPattern("hexagons");
 const pattern = slicer.getInfillPattern();
 
+// Get/set pattern centering mode
+slicer.setInfillPatternCentering("object"); // or "global"
+const centering = slicer.getInfillPatternCentering();
+
 // Get/set infill speed (mm/s)
 slicer.setInfillSpeed(60);
 const speed = slicer.getInfillSpeed();
@@ -238,6 +280,14 @@ const speed = slicer.getInfillSpeed();
 "grid"       // Crosshatch at ±45°
 "triangles"  // Equilateral triangle tessellation
 "hexagons"   // Honeycomb pattern
+```
+
+### Centering Values
+
+```javascript
+// Valid centering values
+"object"     // Center pattern on each object's boundary (default)
+"global"     // Center pattern on build plate center
 ```
 
 ## Future Patterns

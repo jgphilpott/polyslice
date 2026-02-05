@@ -19,6 +19,7 @@ module.exports =
         nozzleDiameter = slicer.getNozzleDiameter()
         infillDensity = slicer.getInfillDensity()
         infillPattern = slicer.getInfillPattern()
+        infillPatternCentering = slicer.getInfillPatternCentering()
 
         return if infillDensity <= 0
 
@@ -68,16 +69,16 @@ module.exports =
 
                 lineSpacing = baseSpacing * 2.0
 
-                gridPattern.generateGridInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+                gridPattern.generateGridInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
             else if infillPattern is 'triangles'
 
                 lineSpacing = baseSpacing * 3.0
 
-                trianglesPattern.generateTrianglesInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+                trianglesPattern.generateTrianglesInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
 
             else if infillPattern is 'hexagons'
 
                 lineSpacing = baseSpacing * 3.0
 
-                hexagonsPattern.generateHexagonsInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+                hexagonsPattern.generateHexagonsInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)

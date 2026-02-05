@@ -213,6 +213,27 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setInfillDensity(100)
             expect(slicer.getInfillDensity()).toBe(100)
 
+            # Test infill pattern centering.
+            expect(slicer.getInfillPatternCentering()).toBe('object') # Default.
+
+            slicer.setInfillPatternCentering('global')
+            expect(slicer.getInfillPatternCentering()).toBe('global')
+
+            slicer.setInfillPatternCentering('object')
+            expect(slicer.getInfillPatternCentering()).toBe('object')
+
+            # Test case-insensitive.
+            slicer.setInfillPatternCentering('GLOBAL')
+            expect(slicer.getInfillPatternCentering()).toBe('global')
+
+            # Test invalid centering (should not change).
+            slicer.setInfillPatternCentering('invalid')
+            expect(slicer.getInfillPatternCentering()).toBe('global')
+
+            # Test method chaining.
+            result = slicer.setInfillPatternCentering('object')
+            expect(result).toBe(slicer)
+
         test 'should set and get shell thickness settings', ->
 
             slicer.setShellSkinThickness(1.2)

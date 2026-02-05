@@ -8,7 +8,7 @@ combing = require('../../geometry/combing')
 module.exports =
 
     # Generate grid pattern infill (crosshatch at ±45°).
-    generateGridInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
+    generateGridInfill: (slicer, infillBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint = null, holeInnerWalls = [], holeOuterWalls = []) ->
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
@@ -33,12 +33,18 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Grid: both +45° and -45° lines on every layer, centered on the infill boundary.
+        # Grid: both +45° and -45° lines on every layer, centered on the infill boundary or global center.
         allInfillLines = []
 
-        # Calculate center of the infill boundary for proper line centering.
-        centerX = (minX + maxX) / 2
-        centerY = (minY + maxY) / 2
+        # Determine pattern center based on infillPatternCentering setting.
+        if infillPatternCentering is 'global'
+            # Global centering: use build plate center (0, 0 in local coordinates).
+            centerX = 0
+            centerY = 0
+        else
+            # Object centering: use infill boundary center (current/default behavior).
+            centerX = (minX + maxX) / 2
+            centerY = (minY + maxY) / 2
 
         # For +45° lines (y = x + offset), center offset is y - x at center point.
         centerOffset = centerY - centerX

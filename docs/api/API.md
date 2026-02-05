@@ -117,6 +117,8 @@ slicer.getInfillDensity();
 slicer.setInfillDensity(20);
 slicer.getInfillPattern();
 slicer.setInfillPattern('grid');
+slicer.getInfillPatternCentering();
+slicer.setInfillPatternCentering('object'); // 'object' or 'global'
 
 // Build Plate Adhesion
 slicer.getAdhesionEnabled();
@@ -247,6 +249,7 @@ const metadata = slicer.getGcodeMetadata(customGcode);
 - `flavor` (String): G-code flavor/firmware (e.g., "Marlin")
 - `infillDensity` (String): Infill density with percentage (e.g., "30%")
 - `infillPattern` (String): Infill pattern type (e.g., "triangles", "hexagons")
+- `infillPatternCentering` (String): Pattern centering mode - "object" (center on object boundary) or "global" (center on build plate)
 - `wallCount` (Number): Number of wall/perimeter lines
 - `support` (String): Support enabled status ("Yes" or "No")
 - `adhesion` (String): Adhesion type (e.g., "brim", "skirt", "raft", "None")

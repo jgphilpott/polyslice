@@ -27,6 +27,7 @@ const baseSlicerConfig = {
   shellSkinThickness: 0.8,
   infillDensity: 20,
   infillPattern: 'grid',
+  infillPatternCentering: 'object',
 
   // Print settings
   nozzleTemperature: 200,
