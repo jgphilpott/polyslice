@@ -12,7 +12,7 @@ describe 'Concentric Infill Generation', ->
 
         slicer = new Polyslice({progressCallback: null})
 
-    describe 'Concentric Infill Generation', ->
+    describe 'Pattern Generation Tests', ->
 
         test 'should generate infill for middle layers', ->
 
