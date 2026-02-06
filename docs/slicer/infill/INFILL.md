@@ -228,6 +228,9 @@ The concentric pattern works by repeatedly insetting (offsetting inward) the bou
 3. Inset by line spacing
 4. Repeat until the center is reached
 
+> Note: The `infillPatternCentering` setting does not affect the concentric pattern.
+> Concentric infill always follows the part's boundary contours rather than a fixed grid,
+> so it will conform to the model shape regardless of the configured centering mode.
 ## Density Guide
 
 | Density | Use Case |
