@@ -251,6 +251,7 @@ The gyroid pattern creates a wavy structure that approximates a triply periodic 
 - Better load distribution than grid
 - Comparable to hexagons for structural efficiency
 - Natural appearance with organic flowing lines
+- More G-code commands than straight-line patterns (due to wavy paths)
 
 **Best for:**
 - High-performance functional parts

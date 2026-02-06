@@ -71,7 +71,7 @@ module.exports =
                     continue
 
                 # Generate points along this wavy line.
-                segments = Math.ceil(width / (lineSpacing / 8))
+                segments = Math.ceil(width / (lineSpacing / 4))
                 points = []
 
                 for j in [0..segments]
@@ -123,7 +123,7 @@ module.exports =
                     continue
 
                 # Generate points along this wavy line.
-                segments = Math.ceil(height / (lineSpacing / 8))
+                segments = Math.ceil(height / (lineSpacing / 4))
                 points = []
 
                 for j in [0..segments]
