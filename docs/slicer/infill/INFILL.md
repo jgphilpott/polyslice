@@ -4,12 +4,13 @@ The infill module generates interior fill patterns for 3D printed parts. Infill 
 
 ## Overview
 
-Polyslice supports four infill patterns:
+Polyslice supports five infill patterns:
 
 - **Grid**: Crosshatch pattern at ±45° angles
 - **Triangles**: Tessellation of equilateral triangles
 - **Hexagons**: Honeycomb pattern for optimal strength-to-weight ratio
 - **Concentric**: Inward-spiraling contours following the part shape
+- **Gyroid**: Wavy TPMS structure for excellent strength and isotropy
 
 ## Usage
 
@@ -36,7 +37,7 @@ const slicer = new Polyslice({
     infillDensity: 20,
 
     // Infill pattern type
-    // Options: "grid", "triangles", "hexagons", "concentric"
+    // Options: "grid", "triangles", "hexagons", "concentric", "gyroid"
     infillPattern: "grid",
 
     // Pattern centering mode
@@ -231,6 +232,51 @@ The concentric pattern works by repeatedly insetting (offsetting inward) the bou
 > Note: The `infillPatternCentering` setting does not affect the concentric pattern.
 > Concentric infill always follows the part's boundary contours rather than a fixed grid,
 > so it will conform to the model shape regardless of the configured centering mode.
+
+### Gyroid Pattern
+
+The gyroid pattern creates a wavy structure that approximates a triply periodic minimal surface (TPMS). This results in excellent strength-to-weight ratio with isotropic properties.
+
+```
+    ~~~  ~~~  ~~~
+   ~  ~~  ~~  ~~
+  ~  ~  ~~  ~~  ~
+ ~~  ~~  ~~  ~~
+~~~  ~~~  ~~~
+```
+
+**Characteristics:**
+- Wavy lines create smooth 3D structure
+- Excellent strength in all directions (isotropic)
+- Better load distribution than grid
+- Comparable to hexagons for structural efficiency
+- Natural appearance with organic flowing lines
+- More G-code commands than straight-line patterns (due to wavy paths)
+
+**Best for:**
+- High-performance functional parts
+- Parts requiring uniform strength in all directions
+- Aerospace and engineering applications
+- Structural components with compression and tension loads
+- Parts where strength-to-weight ratio is critical
+
+**Line Spacing Formula:**
+```
+spacing = (nozzleDiameter / (density / 100)) * 1.5
+```
+
+For example, at 20% density with 0.4mm nozzle:
+- spacing = (0.4 / 0.2) * 1.5 = 3.0mm
+- Wave amplitude is 40% of line spacing
+- Alternates between X and Y directions across layers
+
+**Pattern Generation:**
+The gyroid pattern uses mathematical wave functions based on the gyroid minimal surface equation:
+1. Calculate phase offset based on Z height
+2. Generate wavy lines in X or Y direction (alternating by layer)
+3. Apply sine/cosine functions for wave displacement
+4. Create 3D interlocking structure across layers
+
 ## Density Guide
 
 | Density | Use Case |
@@ -245,14 +291,15 @@ The concentric pattern works by repeatedly insetting (offsetting inward) the bou
 
 ## Pattern Comparison
 
-| Feature | Grid | Triangles | Hexagons | Concentric |
-|---------|------|-----------|----------|------------|
-| Print Speed | ★★★★★ | ★★★★ | ★★★ | ★★★★ |
-| X/Y Strength | ★★★ | ★★★★ | ★★★★ | ★★★ |
-| Compression | ★★★ | ★★★★ | ★★★★★ | ★★★ |
-| Material Use | ★★★ | ★★★ | ★★★★ | ★★★★ |
-| Complexity | ★ | ★★ | ★★★ | ★ |
-| Curved Parts | ★★ | ★★ | ★★ | ★★★★★ |
+| Feature | Grid | Triangles | Hexagons | Concentric | Gyroid |
+|---------|------|-----------|----------|------------|--------|
+| Print Speed | ★★★★★ | ★★★★ | ★★★ | ★★★★ | ★★★ |
+| X/Y Strength | ★★★ | ★★★★ | ★★★★ | ★★★ | ★★★★★ |
+| Compression | ★★★ | ★★★★ | ★★★★★ | ★★★ | ★★★★★ |
+| Material Use | ★★★ | ★★★ | ★★★★ | ★★★★ | ★★★★ |
+| Complexity | ★ | ★★ | ★★★ | ★ | ★★ |
+| Curved Parts | ★★ | ★★ | ★★ | ★★★★★ | ★★★ |
+| Isotropy | ★★ | ★★★★ | ★★★★ | ★★ | ★★★★★ |
 
 ## Technical Details
 
@@ -299,7 +346,9 @@ src/slicer/infill/
     ├── hexagons.coffee      # Hexagons pattern implementation
     ├── hexagons.test.coffee
     ├── concentric.coffee    # Concentric pattern implementation
-    └── concentric.test.coffee
+    ├── concentric.test.coffee
+    ├── gyroid.coffee        # Gyroid pattern implementation
+    └── gyroid.test.coffee
 ```
 
 ## API Reference
@@ -332,6 +381,7 @@ const speed = slicer.getInfillSpeed();
 "triangles"  // Equilateral triangle tessellation
 "hexagons"   // Honeycomb pattern
 "concentric" // Inward-spiraling contours
+"gyroid"     // Wavy TPMS structure
 ```
 
 ### Centering Values
@@ -348,7 +398,6 @@ The following patterns may be added in future versions:
 
 - **Lines**: Single direction linear fill
 - **Cubic**: 3D interlocking cubes
-- **Gyroid**: TPMS (triply periodic minimal surface)
 - **Lightning**: Tree-like support structure
 
 ## Tips

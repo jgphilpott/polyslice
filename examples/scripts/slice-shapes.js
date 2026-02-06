@@ -23,7 +23,7 @@ console.log(`- Brand: ${filament.brand}\n`);
 
 // Configuration for batch slicing.
 const shapes = ['cube', 'cylinder', 'sphere', 'cone', 'torus'];
-const infillPatterns = ['grid', 'triangles', 'hexagons', 'concentric'];
+const infillPatterns = ['grid', 'triangles', 'hexagons', 'concentric', 'gyroid'];
 const densities = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
 // Base output directory.
