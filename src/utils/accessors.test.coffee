@@ -196,15 +196,15 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setInfillDensity(25)
             expect(slicer.getInfillDensity()).toBe(25)
 
-            slicer.setInfillPattern('gyroid')
-            expect(slicer.getInfillPattern()).toBe('gyroid')
+            slicer.setInfillPattern('triangles')
+            expect(slicer.getInfillPattern()).toBe('triangles')
 
-            slicer.setInfillPattern('honeycomb')
-            expect(slicer.getInfillPattern()).toBe('honeycomb')
+            slicer.setInfillPattern('concentric')
+            expect(slicer.getInfillPattern()).toBe('concentric')
 
             # Test invalid pattern (should not change).
             slicer.setInfillPattern('invalid')
-            expect(slicer.getInfillPattern()).toBe('honeycomb')
+            expect(slicer.getInfillPattern()).toBe('concentric')
 
             # Test density boundaries.
             slicer.setInfillDensity(0)
@@ -468,7 +468,7 @@ describe 'Accessors (Getters and Setters)', ->
 
         test 'should support all infill patterns', ->
 
-            patterns = ['grid', 'lines', 'triangles', 'cubic', 'gyroid', 'honeycomb']
+            patterns = ['grid', 'triangles', 'hexagons', 'concentric']
 
             for pattern in patterns
                 slicer.setInfillPattern(pattern)
