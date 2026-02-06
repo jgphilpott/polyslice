@@ -20,6 +20,7 @@ The infill module generates interior fill patterns for 3D printed parts. Located
 | `triangles` | 3 (45°, 105°, -15°) | Equilateral triangle tessellation |
 | `hexagons` | Honeycomb cells | Optimal strength-to-weight ratio |
 | `concentric` | Inward spiraling | Concentric loops from outside to inside |
+| `gyroid` | Wavy TPMS | Triply periodic minimal surface for optimal strength |
 
 ## Line Spacing Formula
 
@@ -34,6 +35,7 @@ gridSpacing = baseSpacing * 2.0        # 2 directions
 trianglesSpacing = baseSpacing * 3.0   # 3 directions
 hexagonsSpacing = baseSpacing * 3.0    # 3 directions
 concentricSpacing = baseSpacing * 1.0  # Single direction (loops)
+gyroidSpacing = baseSpacing * 1.5      # Wavy TPMS structure
 ```
 
 ### Example: 20% Infill Density
@@ -229,7 +231,7 @@ if distance > 0.001  # Skip negligible moves
 
 ## Important Conventions
 
-1. **Pattern centering**: Grid, triangles, and hexagons patterns can center on object boundaries (`infillPatternCentering='object'`, default) or build plate center (`infillPatternCentering='global'`). Object centering uses `(minX + maxX) / 2` and `(minY + maxY) / 2`. Global centering uses origin (0,0) in local coordinates, which maps to build plate center. Note: The concentric pattern inherently follows the boundary shape, so the `infillPatternCentering` setting does not apply to it.
+1. **Pattern centering**: Grid, triangles, hexagons, and gyroid patterns can center on object boundaries (`infillPatternCentering='object'`, default) or build plate center (`infillPatternCentering='global'`). Object centering uses `(minX + maxX) / 2` and `(minY + maxY) / 2`. Global centering uses origin (0,0) in local coordinates, which maps to build plate center. Note: The concentric pattern inherently follows the boundary shape, so the `infillPatternCentering` setting does not apply to it.
 2. **Gap consistency**: Use `nozzleDiameter / 2` gap between infill and walls
 3. **Line validation**: Skip segments shorter than 0.001mm
 4. **Travel speeds**: Use `getTravelSpeed() * 60` for mm/min conversion
@@ -286,3 +288,67 @@ if lastEndPoint?
 ```
 
 This minimizes travel distance between loops.
+
+## Gyroid Pattern
+
+Located in `src/slicer/infill/patterns/gyroid.coffee`.
+
+### Algorithm
+
+Creates a wavy infill pattern that approximates the gyroid triply periodic minimal surface (TPMS):
+
+1. Determine pattern center based on `infillPatternCentering` setting
+2. Calculate Z-phase based on current layer height
+3. Generate wavy lines alternating between X and Y directions based on layer
+4. Use sine/cosine functions to create the characteristic gyroid wave pattern
+5. Clip wavy line segments to infill boundary
+6. Render segments in nearest-neighbor order with combing
+
+### Gyroid Equation
+
+```coffeescript
+# Gyroid TPMS equation: sin(x)cos(y) + sin(y)cos(z) + sin(z)cos(x) = 0
+# For 2D slice at height z, approximate with:
+frequency = (2 * Math.PI) / lineSpacing
+zPhase = (z / lineSpacing) * 2 * Math.PI
+amplitude = lineSpacing * 0.4
+
+# X-direction waves
+yOffset = amplitude * Math.sin(frequency * (xPos - centerX) + zPhase)
+
+# Y-direction waves (with phase shift)
+xOffset = amplitude * Math.cos(frequency * (yPos - centerY) + zPhase + Math.PI / 2)
+```
+
+### Characteristics
+
+- **3D structure**: Wave pattern changes across layers creating interlocking structure
+- **Excellent strength**: Comparable to hexagons but with better isotropy
+- **Smooth paths**: Wavy lines create gradual transitions
+- **Alternating directions**: X-direction on even layers, Y-direction on odd layers
+
+### Wave Generation
+
+For each layer, generate wavy lines:
+
+```coffeescript
+# Determine direction based on layer
+useXDirection = (Math.floor(z / layerHeight) % 2) is 0
+
+if useXDirection
+    # Generate horizontal wavy lines with vertical offset
+    for each horizontal position
+        yOffset = amplitude * sin(frequency * x + zPhase)
+else
+    # Generate vertical wavy lines with horizontal offset
+    for each vertical position
+        xOffset = amplitude * cos(frequency * y + zPhase + π/2)
+```
+
+### Line Spacing Formula
+
+```coffeescript
+lineSpacing = baseSpacing * 1.5
+```
+
+The 1.5 multiplier accounts for the wavy nature and overlap between X and Y direction passes.
