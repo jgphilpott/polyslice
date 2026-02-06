@@ -76,7 +76,7 @@ class Polyslice
 
         # Infill settings for interior structure and strength.
         @infillDensity = options.infillDensity ?= 20 # Number 0-100 (percentage).
-        @infillPattern = options.infillPattern ?= "hexagons" # String ['grid', 'triangles', 'hexagons'].
+        @infillPattern = options.infillPattern ?= "hexagons" # String ['grid', 'triangles', 'hexagons', 'concentric'].
         @infillPatternCentering = options.infillPatternCentering ?= "object" # String ['object', 'global'] - center patterns on object boundaries or build plate center.
         @shellSkinThickness = conversions.lengthToInternal(options.shellSkinThickness ?= 0.8, this.lengthUnit) # Number (mm internal).
         @shellWallThickness = conversions.lengthToInternal(options.shellWallThickness ?= 0.8, this.lengthUnit) # Number (mm internal).

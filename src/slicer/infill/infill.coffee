@@ -7,6 +7,7 @@ paths = require('../utils/paths')
 gridPattern = require('./patterns/grid')
 trianglesPattern = require('./patterns/triangles')
 hexagonsPattern = require('./patterns/hexagons')
+concentricPattern = require('./patterns/concentric')
 
 module.exports =
 
@@ -23,7 +24,7 @@ module.exports =
 
         return if infillDensity <= 0
 
-        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons'
+        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons' and infillPattern isnt 'concentric'
 
         infillGap = nozzleDiameter / 2
         infillBoundary = paths.createInsetPath(boundaryPath, infillGap)
@@ -82,3 +83,9 @@ module.exports =
                 lineSpacing = baseSpacing * 3.0
 
                 hexagonsPattern.generateHexagonsInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+
+            else if infillPattern is 'concentric'
+
+                lineSpacing = baseSpacing
+
+                concentricPattern.generateConcentricInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
