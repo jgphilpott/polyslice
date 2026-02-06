@@ -62,6 +62,7 @@ describe 'Concentric Infill Generation', ->
             slicer.setShellSkinThickness(0.4)
             slicer.setLayerHeight(0.2)
             slicer.setInfillDensity(0) # No infill.
+            slicer.setInfillPattern('concentric')
             slicer.setVerbose(true)
 
             result = slicer.slice(mesh)
@@ -81,6 +82,7 @@ describe 'Concentric Infill Generation', ->
             slicer.setShellWallThickness(0.8)
             slicer.setShellSkinThickness(0.4)
             slicer.setLayerHeight(0.2)
+            slicer.setInfillPattern('concentric')
             slicer.setVerbose(true)
 
             # Test with 20% density.

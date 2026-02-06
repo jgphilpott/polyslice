@@ -229,7 +229,7 @@ if distance > 0.001  # Skip negligible moves
 
 ## Important Conventions
 
-1. **Pattern centering**: Patterns can center on object boundaries (`infillPatternCentering='object'`, default) or build plate center (`infillPatternCentering='global'`). Object centering uses `(minX + maxX) / 2` and `(minY + maxY) / 2`. Global centering uses origin (0,0) in local coordinates, which maps to build plate center.
+1. **Pattern centering**: Grid, triangles, and hexagons patterns can center on object boundaries (`infillPatternCentering='object'`, default) or build plate center (`infillPatternCentering='global'`). Object centering uses `(minX + maxX) / 2` and `(minY + maxY) / 2`. Global centering uses origin (0,0) in local coordinates, which maps to build plate center. Note: The concentric pattern inherently follows the boundary shape, so the `infillPatternCentering` setting does not apply to it.
 2. **Gap consistency**: Use `nozzleDiameter / 2` gap between infill and walls
 3. **Line validation**: Skip segments shorter than 0.001mm
 4. **Travel speeds**: Use `getTravelSpeed() * 60` for mm/min conversion
