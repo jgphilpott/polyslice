@@ -4,11 +4,12 @@ The infill module generates interior fill patterns for 3D printed parts. Infill 
 
 ## Overview
 
-Polyslice supports three infill patterns:
+Polyslice supports four infill patterns:
 
 - **Grid**: Crosshatch pattern at ±45° angles
 - **Triangles**: Tessellation of equilateral triangles
 - **Hexagons**: Honeycomb pattern for optimal strength-to-weight ratio
+- **Concentric**: Inward-spiraling contours following the part shape
 
 ## Usage
 
@@ -35,7 +36,7 @@ const slicer = new Polyslice({
     infillDensity: 20,
 
     // Infill pattern type
-    // Options: "grid", "triangles", "hexagons"
+    // Options: "grid", "triangles", "hexagons", "concentric"
     infillPattern: "grid",
 
     // Pattern centering mode
@@ -183,6 +184,50 @@ horizontalSpacing = hexagonSide * sqrt(3)
 verticalSpacing = hexagonSide * 1.5
 ```
 
+### Concentric Pattern
+
+The concentric pattern creates inward-spiraling contours that follow the natural shape of the part.
+
+```
+    __________
+   /          \
+  /  ________  \
+ / /          \ \
+| |  ______  | |
+| | |      | | |
+| | |______| | |
+ \ \________/ /
+  \__________/
+```
+
+**Characteristics:**
+- Follows the natural contour of the part
+- Each layer independently adapts to the shape
+- Continuous extrusion paths (minimal retractions)
+- Excellent for cylindrical or curved parts
+
+**Best for:**
+- Parts with circular or curved cross-sections
+- Cylinders, tubes, and rounded shapes
+- When you want the infill to follow the part geometry
+- Decorative patterns where concentric lines are desired
+
+**Line Spacing Formula:**
+```
+spacing = nozzleDiameter / (density / 100)
+```
+
+For example, at 20% density with 0.4mm nozzle:
+- spacing = 0.4 / 0.2 = 2.0mm between loops
+- Creates concentric loops at 2mm intervals
+
+**Pattern Generation:**
+The concentric pattern works by repeatedly insetting (offsetting inward) the boundary:
+1. Start at the infill boundary
+2. Generate a contour loop
+3. Inset by line spacing
+4. Repeat until the center is reached
+
 ## Density Guide
 
 | Density | Use Case |
@@ -197,13 +242,14 @@ verticalSpacing = hexagonSide * 1.5
 
 ## Pattern Comparison
 
-| Feature | Grid | Triangles | Hexagons |
-|---------|------|-----------|----------|
-| Print Speed | ★★★★★ | ★★★★ | ★★★ |
-| X/Y Strength | ★★★ | ★★★★ | ★★★★ |
-| Compression | ★★★ | ★★★★ | ★★★★★ |
-| Material Use | ★★★ | ★★★ | ★★★★ |
-| Complexity | ★ | ★★ | ★★★ |
+| Feature | Grid | Triangles | Hexagons | Concentric |
+|---------|------|-----------|----------|------------|
+| Print Speed | ★★★★★ | ★★★★ | ★★★ | ★★★★ |
+| X/Y Strength | ★★★ | ★★★★ | ★★★★ | ★★★ |
+| Compression | ★★★ | ★★★★ | ★★★★★ | ★★★ |
+| Material Use | ★★★ | ★★★ | ★★★★ | ★★★★ |
+| Complexity | ★ | ★★ | ★★★ | ★ |
+| Curved Parts | ★★ | ★★ | ★★ | ★★★★★ |
 
 ## Technical Details
 
@@ -240,15 +286,17 @@ See [EXPOSURE_DETECTION.md](../skin/EXPOSURE_DETECTION.md) for adaptive skin det
 
 ```
 src/slicer/infill/
-├── infill.coffee          # Main infill coordination
-├── infill.test.coffee     # Infill tests
+├── infill.coffee            # Main infill coordination
+├── infill.test.coffee       # Infill tests
 └── patterns/
-    ├── grid.coffee        # Grid pattern implementation
+    ├── grid.coffee          # Grid pattern implementation
     ├── grid.test.coffee
-    ├── triangles.coffee   # Triangles pattern implementation
+    ├── triangles.coffee     # Triangles pattern implementation
     ├── triangles.test.coffee
-    ├── hexagons.coffee    # Hexagons pattern implementation
-    └── hexagons.test.coffee
+    ├── hexagons.coffee      # Hexagons pattern implementation
+    ├── hexagons.test.coffee
+    ├── concentric.coffee    # Concentric pattern implementation
+    └── concentric.test.coffee
 ```
 
 ## API Reference
@@ -280,6 +328,7 @@ const speed = slicer.getInfillSpeed();
 "grid"       // Crosshatch at ±45°
 "triangles"  // Equilateral triangle tessellation
 "hexagons"   // Honeycomb pattern
+"concentric" // Inward-spiraling contours
 ```
 
 ### Centering Values
@@ -295,7 +344,6 @@ const speed = slicer.getInfillSpeed();
 The following patterns may be added in future versions:
 
 - **Lines**: Single direction linear fill
-- **Concentric**: Inward spiraling fill
 - **Cubic**: 3D interlocking cubes
 - **Gyroid**: TPMS (triply periodic minimal surface)
 - **Lightning**: Tree-like support structure

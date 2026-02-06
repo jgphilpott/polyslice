@@ -19,6 +19,7 @@ The infill module generates interior fill patterns for 3D printed parts. Located
 | `grid` | 2 (+45°, -45°) | Crosshatch pattern, good general-purpose |
 | `triangles` | 3 (45°, 105°, -15°) | Equilateral triangle tessellation |
 | `hexagons` | Honeycomb cells | Optimal strength-to-weight ratio |
+| `concentric` | Inward spiraling | Concentric loops from outside to inside |
 
 ## Line Spacing Formula
 
@@ -29,9 +30,10 @@ The line spacing calculation ensures the configured infill density is achieved:
 baseSpacing = nozzleDiameter / (infillDensity / 100.0)
 
 # Pattern-specific multipliers
-gridSpacing = baseSpacing * 2.0      # 2 directions
-trianglesSpacing = baseSpacing * 3.0  # 3 directions
-hexagonsSpacing = baseSpacing * 3.0   # 3 directions
+gridSpacing = baseSpacing * 2.0        # 2 directions
+trianglesSpacing = baseSpacing * 3.0   # 3 directions
+hexagonsSpacing = baseSpacing * 3.0    # 3 directions
+concentricSpacing = baseSpacing * 1.0  # Single direction (loops)
 ```
 
 ### Example: 20% Infill Density
@@ -232,3 +234,55 @@ if distance > 0.001  # Skip negligible moves
 3. **Line validation**: Skip segments shorter than 0.001mm
 4. **Travel speeds**: Use `getTravelSpeed() * 60` for mm/min conversion
 5. **Type annotation**: Add `; TYPE: FILL` comment when verbose mode enabled
+
+## Concentric Pattern
+
+Located in `src/slicer/infill/patterns/concentric.coffee`.
+
+### Algorithm
+
+Creates inward-spiraling contours by repeatedly insetting the boundary:
+
+1. Start with the infill boundary
+2. Generate a contour at the current boundary
+3. Create an inset path (offset inward by lineSpacing)
+4. Repeat until the path becomes too small (< 3 points)
+5. Render loops from outermost to innermost
+
+### Loop Generation
+
+```coffeescript
+# Generate concentric loops
+concentricLoops = []
+currentPath = infillBoundary
+
+while currentPath.length >= 3
+    concentricLoops.push(currentPath)
+    nextPath = paths.createInsetPath(currentPath, lineSpacing, false)
+    break if nextPath.length < 3
+    currentPath = nextPath
+```
+
+### Characteristics
+
+- **Natural for curved shapes**: Follows the natural contour of the part
+- **No pattern alignment**: Each layer independently follows the boundary shape
+- **Continuous paths**: Each loop is a continuous extrusion path
+- **Efficient for cylinders**: Minimal travel for circular cross-sections
+
+### Start Point Optimization
+
+For each loop, find the closest point to the last position:
+
+```coffeescript
+if lastEndPoint?
+    minDistSq = Infinity
+    for i in [0...currentLoop.length]
+        point = currentLoop[i]
+        distSq = (point.x - lastEndPoint.x) ** 2 + (point.y - lastEndPoint.y) ** 2
+        if distSq < minDistSq
+            minDistSq = distSq
+            startIndex = i
+```
+
+This minimizes travel distance between loops.
