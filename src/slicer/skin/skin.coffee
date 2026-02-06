@@ -267,8 +267,8 @@ module.exports =
             offset += lineSpacing * Math.sqrt(2)
 
         # Render lines in nearest-neighbor order.
-        # lastEndPoint: use skin wall if available, otherwise null.
-        lastEndPoint = if skinWallPath and skinWallPath.length >= 3 then { x: skinWallPath[0].x, y: skinWallPath[0].y, z: z } else null
+        # lastEndPoint: use skin wall if available, otherwise use lastWallPoint parameter.
+        lastEndPoint = if skinWallPath and skinWallPath.length >= 3 then { x: skinWallPath[0].x, y: skinWallPath[0].y, z: z } else lastWallPoint
 
         while allSkinLines.length > 0
 

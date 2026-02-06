@@ -1371,6 +1371,112 @@ describe 'Skin Generation', ->
             innerStructureInfillCount = Math.min(infillCounts[0], infillCounts[1])
             expect(innerStructureInfillCount).toBeGreaterThan(30)  # Should have many lines, not 0.
 
+        test 'should generate travel moves (G0) when transitioning between skin areas', ->
+
+            # This test validates that when generating skin for nested structures (holes),
+            # the code generates proper G0 travel moves instead of G1 extrusion moves when
+            # transitioning between different skin areas.
+            # This is the fix for the issue where `lastEndPoint` was set to null instead of
+            # using `lastWallPoint` when `generateWall=false`.
+
+            # Create a box with two cylindrical holes to simulate nested structures.
+            # Box dimensions: 40x40x8mm
+            boxGeometry = new THREE.BoxGeometry(40, 40, 8)
+            boxMesh = new THREE.Mesh(boxGeometry, new THREE.MeshBasicMaterial())
+            boxMesh.updateMatrixWorld()
+
+            # Create first cylindrical hole (4mm radius, 10mm tall to penetrate box).
+            hole1Geometry = new THREE.CylinderGeometry(4, 4, 10, 32)
+            hole1Mesh = new THREE.Mesh(hole1Geometry, new THREE.MeshBasicMaterial())
+            hole1Mesh.position.set(-10, 0, 0)
+            hole1Mesh.rotation.x = Math.PI / 2
+            hole1Mesh.updateMatrixWorld()
+
+            # Create second cylindrical hole.
+            hole2Geometry = new THREE.CylinderGeometry(4, 4, 10, 32)
+            hole2Mesh = new THREE.Mesh(hole2Geometry, new THREE.MeshBasicMaterial())
+            hole2Mesh.position.set(10, 0, 0)
+            hole2Mesh.rotation.x = Math.PI / 2
+            hole2Mesh.updateMatrixWorld()
+
+            # Perform CSG operations to create holes in the box.
+            boxWithHole1 = await Polytree.subtract(boxMesh, hole1Mesh)
+            boxWithHoles = await Polytree.subtract(boxWithHole1, hole2Mesh)
+
+            # Create mesh from the result.
+            mesh = new THREE.Mesh(boxWithHoles.geometry, boxWithHoles.material)
+            mesh.position.set(0, 0, 4)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Parse the G-code to check for proper travel moves.
+            lines = result.split('\n')
+
+            # Track the pattern: when we see "; TYPE: SKIN" followed by a move,
+            # it should be a G0 (travel) command, not G1 (extrusion).
+            hasProperTravelMoves = false
+            hasImproperExtrusionMoves = false
+
+            for line, idx in lines
+
+                if line.includes('; TYPE: SKIN')
+
+                    # Check the next non-comment line after TYPE: SKIN.
+                    for j in [(idx + 1)...Math.min(idx + 5, lines.length)]
+
+                        nextLine = lines[j].trim()
+
+                        # Skip empty lines and comments.
+                        continue if nextLine.length is 0 or nextLine.startsWith(';')
+
+                        # The first movement command after TYPE: SKIN should be checked.
+                        if nextLine.startsWith('G0')
+                            hasProperTravelMoves = true
+                            break
+                        else if nextLine.startsWith('G1') and nextLine.includes('E')
+                            # This is an extrusion move immediately after TYPE: SKIN.
+                            # Check if this is a long move (which would indicate a travel that should be G0).
+                            xMatch = nextLine.match(/X([\d.]+)/)
+                            yMatch = nextLine.match(/Y([\d.]+)/)
+
+                            if xMatch and yMatch
+                                # Get previous position.
+                                prevX = null
+                                prevY = null
+
+                                for k in [(idx - 1)..Math.max(0, idx - 10)]
+                                    prevLine = lines[k]
+                                    if prevLine.includes('G0') or prevLine.includes('G1')
+                                        prevXMatch = prevLine.match(/X([\d.]+)/)
+                                        prevYMatch = prevLine.match(/Y([\d.]+)/)
+                                        if prevXMatch and prevYMatch
+                                            prevX = parseFloat(prevXMatch[1])
+                                            prevY = parseFloat(prevYMatch[1])
+                                            break
+
+                                if prevX? and prevY?
+                                    currentX = parseFloat(xMatch[1])
+                                    currentY = parseFloat(yMatch[1])
+                                    distance = Math.sqrt((currentX - prevX) ** 2 + (currentY - prevY) ** 2)
+
+                                    # If the move is longer than 10mm, it should be a travel move.
+                                    if distance > 10
+                                        hasImproperExtrusionMoves = true
+                            break
+
+            # The fix ensures that we have proper G0 travel moves after TYPE: SKIN comments.
+            expect(hasProperTravelMoves).toBe(true)
+
+            # We should NOT have long extrusion moves immediately after TYPE: SKIN.
+            expect(hasImproperExtrusionMoves).toBe(false)
+
     describe 'generateWall Parameter', ->
 
         test 'should generate both wall and infill when generateWall=true', ->
