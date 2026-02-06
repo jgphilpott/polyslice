@@ -1,7 +1,6 @@
 # Gyroid infill pattern implementation for Polyslice.
 
 coders = require('../../gcode/coders')
-primitives = require('../../utils/primitives')
 clipping = require('../../utils/clipping')
 combing = require('../../geometry/combing')
 
@@ -59,19 +58,27 @@ module.exports =
         if useXDirection
 
             # Generate wavy lines in X direction (horizontal).
-            # Start from minY and go to maxY, creating wavy lines.
-            numLines = Math.ceil(height / lineSpacing) + 2
+            # Determine the range for line generation based on centering mode.
+            if infillPatternCentering is 'global'
+                # Global centering: lines are positioned relative to pattern center.
+                numLines = Math.ceil(height / lineSpacing) + 2
+                lineStart = centerY - (numLines / 2) * lineSpacing
+            else
+                # Object centering: lines span from minY to maxY.
+                numLines = Math.ceil(height / lineSpacing) + 2
+                lineStart = minY - lineSpacing
 
             for i in [0...numLines]
 
-                yBase = minY - lineSpacing + i * lineSpacing
+                yBase = lineStart + i * lineSpacing
 
                 # Skip if line is completely outside bounds.
                 if yBase < minY - lineSpacing or yBase > maxY + lineSpacing
                     continue
 
                 # Generate points along this wavy line.
-                segments = Math.ceil(width / (lineSpacing / 4))
+                # Guard against division by zero when width is 0 or very small.
+                segments = Math.max(1, Math.ceil(width / (lineSpacing / 4)))
                 points = []
 
                 for j in [0..segments]
@@ -111,19 +118,27 @@ module.exports =
         else
 
             # Generate wavy lines in Y direction (vertical).
-            # Start from minX and go to maxX, creating wavy lines.
-            numLines = Math.ceil(width / lineSpacing) + 2
+            # Determine the range for line generation based on centering mode.
+            if infillPatternCentering is 'global'
+                # Global centering: lines are positioned relative to pattern center.
+                numLines = Math.ceil(width / lineSpacing) + 2
+                lineStart = centerX - (numLines / 2) * lineSpacing
+            else
+                # Object centering: lines span from minX to maxX.
+                numLines = Math.ceil(width / lineSpacing) + 2
+                lineStart = minX - lineSpacing
 
             for i in [0...numLines]
 
-                xBase = minX - lineSpacing + i * lineSpacing
+                xBase = lineStart + i * lineSpacing
 
                 # Skip if line is completely outside bounds.
                 if xBase < minX - lineSpacing or xBase > maxX + lineSpacing
                     continue
 
                 # Generate points along this wavy line.
-                segments = Math.ceil(height / (lineSpacing / 4))
+                # Guard against division by zero when height is 0 or very small.
+                segments = Math.max(1, Math.ceil(height / (lineSpacing / 4)))
                 points = []
 
                 for j in [0..segments]
