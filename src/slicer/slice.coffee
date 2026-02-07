@@ -117,7 +117,9 @@ module.exports =
         layerHeight = slicer.getLayerHeight()
 
         # Small epsilon offset avoids slicing at exact geometric boundaries.
-        SLICE_EPSILON = 0.001
+        # Use layerHeight / 2 to ensure we're well into the model geometry,
+        # avoiding numerical precision issues at boundary surfaces.
+        SLICE_EPSILON = layerHeight / 2
         adjustedMinZ = minZ + SLICE_EPSILON
 
         # Check mesh complexity and warn about potential performance issues.
