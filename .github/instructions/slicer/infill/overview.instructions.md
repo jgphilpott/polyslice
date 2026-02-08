@@ -407,7 +407,7 @@ while theta <= maxTheta
     radius = spiralConstant * theta
     x = centerX + radius * Math.cos(theta)
     y = centerY + radius * Math.sin(theta)
-    
+
     spiralPoints.push({ x, y })
     theta += thetaStep
 ```
