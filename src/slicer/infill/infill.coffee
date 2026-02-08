@@ -9,6 +9,7 @@ trianglesPattern = require('./patterns/triangles')
 hexagonsPattern = require('./patterns/hexagons')
 concentricPattern = require('./patterns/concentric')
 gyroidPattern = require('./patterns/gyroid')
+spiralPattern = require('./patterns/spiral')
 
 module.exports =
 
@@ -25,7 +26,7 @@ module.exports =
 
         return if infillDensity <= 0
 
-        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons' and infillPattern isnt 'concentric' and infillPattern isnt 'gyroid'
+        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons' and infillPattern isnt 'concentric' and infillPattern isnt 'gyroid' and infillPattern isnt 'spiral'
 
         infillGap = nozzleDiameter / 2
         infillBoundary = paths.createInsetPath(boundaryPath, infillGap)
@@ -96,3 +97,9 @@ module.exports =
                 lineSpacing = baseSpacing * 1.5
 
                 gyroidPattern.generateGyroidInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+
+            else if infillPattern is 'spiral'
+
+                lineSpacing = baseSpacing
+
+                spiralPattern.generateSpiralInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)

@@ -4,13 +4,14 @@ The infill module generates interior fill patterns for 3D printed parts. Infill 
 
 ## Overview
 
-Polyslice supports five infill patterns:
+Polyslice supports six infill patterns:
 
 - **Grid**: Crosshatch pattern at ±45° angles
 - **Triangles**: Tessellation of equilateral triangles
 - **Hexagons**: Honeycomb pattern for optimal strength-to-weight ratio
 - **Concentric**: Inward-spiraling contours following the part shape
 - **Gyroid**: Wavy TPMS structure for excellent strength and isotropy
+- **Spiral**: Outward-spiraling Archimedean spiral from center
 
 ## Usage
 
@@ -37,7 +38,7 @@ const slicer = new Polyslice({
     infillDensity: 20,
 
     // Infill pattern type
-    // Options: "grid", "triangles", "hexagons", "concentric", "gyroid"
+    // Options: "grid", "triangles", "hexagons", "concentric", "gyroid", "spiral"
     infillPattern: "grid",
 
     // Pattern centering mode
@@ -277,6 +278,52 @@ The gyroid pattern uses mathematical wave functions based on the gyroid minimal 
 3. Apply sine/cosine functions for wave displacement
 4. Create 3D interlocking structure across layers
 
+### Spiral Pattern
+
+The spiral pattern creates a continuous Archimedean spiral from the center outward.
+
+```
+      ___---~~~
+    /          \
+   |    ____    |
+   |  /    \    |
+   | |  •   |   |
+   |  \____/    |
+    \          /
+     ~~~---___
+```
+
+**Characteristics:**
+- Continuous single path from center to edge
+- Smooth circular motion following spiral curve
+- Consistent spacing between turns
+- Natural fit for cylindrical or circular parts
+- Minimal travel moves (continuous extrusion)
+- Simple and predictable pattern
+
+**Best for:**
+- Cylindrical parts (tubes, bottles, cups)
+- Circular cross-sections
+- Parts where continuous extrusion is desired
+- Decorative pieces with spiral aesthetic
+- Fast printing with minimal retractions
+
+**Line Spacing Formula:**
+```
+spacing = nozzleDiameter / (density / 100)
+```
+
+For example, at 20% density with 0.4mm nozzle:
+- spacing = 0.4 / 0.2 = 2.0mm between spiral turns
+- Creates smooth Archimedean spiral with consistent spacing
+
+**Pattern Generation:**
+The spiral pattern uses parametric equations of an Archimedean spiral:
+1. Calculate maximum radius needed to cover boundary
+2. Generate spiral path: r = (spacing / 2π) × θ
+3. Convert to Cartesian coordinates: x = r × cos(θ), y = r × sin(θ)
+4. Clip spiral segments to infill boundary
+
 ## Density Guide
 
 | Density | Use Case |
@@ -291,15 +338,15 @@ The gyroid pattern uses mathematical wave functions based on the gyroid minimal 
 
 ## Pattern Comparison
 
-| Feature | Grid | Triangles | Hexagons | Concentric | Gyroid |
-|---------|------|-----------|----------|------------|--------|
-| Print Speed | ★★★★★ | ★★★★ | ★★★ | ★★★★ | ★★★ |
-| X/Y Strength | ★★★ | ★★★★ | ★★★★ | ★★★ | ★★★★★ |
-| Compression | ★★★ | ★★★★ | ★★★★★ | ★★★ | ★★★★★ |
-| Material Use | ★★★ | ★★★ | ★★★★ | ★★★★ | ★★★★ |
-| Complexity | ★ | ★★ | ★★★ | ★ | ★★ |
-| Curved Parts | ★★ | ★★ | ★★ | ★★★★★ | ★★★ |
-| Isotropy | ★★ | ★★★★ | ★★★★ | ★★ | ★★★★★ |
+| Feature | Grid | Triangles | Hexagons | Concentric | Gyroid | Spiral |
+|---------|------|-----------|----------|------------|--------|--------|
+| Print Speed | ★★★★★ | ★★★★ | ★★★ | ★★★★ | ★★★ | ★★★★★ |
+| X/Y Strength | ★★★ | ★★★★ | ★★★★ | ★★★ | ★★★★★ | ★★ |
+| Compression | ★★★ | ★★★★ | ★★★★★ | ★★★ | ★★★★★ | ★★ |
+| Material Use | ★★★ | ★★★ | ★★★★ | ★★★★ | ★★★★ | ★★★★ |
+| Complexity | ★ | ★★ | ★★★ | ★ | ★★ | ★ |
+| Curved Parts | ★★ | ★★ | ★★ | ★★★★★ | ★★★ | ★★★★★ |
+| Isotropy | ★★ | ★★★★ | ★★★★ | ★★ | ★★★★★ | ★ |
 
 ## Technical Details
 
@@ -348,7 +395,9 @@ src/slicer/infill/
     ├── concentric.coffee    # Concentric pattern implementation
     ├── concentric.test.coffee
     ├── gyroid.coffee        # Gyroid pattern implementation
-    └── gyroid.test.coffee
+    ├── gyroid.test.coffee
+    ├── spiral.coffee        # Spiral pattern implementation
+    └── spiral.test.coffee
 ```
 
 ## API Reference
@@ -382,6 +431,7 @@ const speed = slicer.getInfillSpeed();
 "hexagons"   // Honeycomb pattern
 "concentric" // Inward-spiraling contours
 "gyroid"     // Wavy TPMS structure
+"spiral"     // Outward-spiraling from center
 ```
 
 ### Centering Values

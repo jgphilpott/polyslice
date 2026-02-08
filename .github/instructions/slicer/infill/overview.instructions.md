@@ -21,6 +21,7 @@ The infill module generates interior fill patterns for 3D printed parts. Located
 | `hexagons` | Honeycomb cells | Optimal strength-to-weight ratio |
 | `concentric` | Inward spiraling | Concentric loops from outside to inside |
 | `gyroid` | Wavy TPMS | Triply periodic minimal surface for optimal strength |
+| `spiral` | Outward spiraling | Archimedean spiral from center outward |
 
 ## Line Spacing Formula
 
@@ -36,6 +37,7 @@ trianglesSpacing = baseSpacing * 3.0   # 3 directions
 hexagonsSpacing = baseSpacing * 3.0    # 3 directions
 concentricSpacing = baseSpacing * 1.0  # Single direction (loops)
 gyroidSpacing = baseSpacing * 1.5      # Wavy TPMS structure
+spiralSpacing = baseSpacing * 1.0      # Single direction (spiral)
 ```
 
 ### Example: 20% Infill Density
@@ -231,7 +233,7 @@ if distance > 0.001  # Skip negligible moves
 
 ## Important Conventions
 
-1. **Pattern centering**: Grid, triangles, hexagons, and gyroid patterns can center on object boundaries (`infillPatternCentering='object'`, default) or build plate center (`infillPatternCentering='global'`). Object centering uses `(minX + maxX) / 2` and `(minY + maxY) / 2`. Global centering uses origin (0,0) in local coordinates, which maps to build plate center. Note: The concentric pattern inherently follows the boundary shape, so the `infillPatternCentering` setting does not apply to it.
+1. **Pattern centering**: Grid, triangles, hexagons, gyroid, and spiral patterns can center on object boundaries (`infillPatternCentering='object'`, default) or build plate center (`infillPatternCentering='global'`). Object centering uses `(minX + maxX) / 2` and `(minY + maxY) / 2`. Global centering uses origin (0,0) in local coordinates, which maps to build plate center. Note: The concentric pattern inherently follows the boundary shape, so the `infillPatternCentering` setting does not apply to it.
 2. **Gap consistency**: Use `nozzleDiameter / 2` gap between infill and walls
 3. **Line validation**: Skip segments shorter than 0.001mm
 4. **Travel speeds**: Use `getTravelSpeed() * 60` for mm/min conversion
@@ -352,3 +354,68 @@ lineSpacing = baseSpacing * 1.5
 ```
 
 The 1.5 multiplier accounts for the wavy nature and overlap between X and Y direction passes.
+
+## Spiral Pattern
+
+Located in `src/slicer/infill/patterns/spiral.coffee`.
+
+### Algorithm
+
+Creates an Archimedean spiral from center outward:
+
+1. Determine pattern center based on `infillPatternCentering` setting
+2. Calculate maximum radius needed to cover entire boundary
+3. Generate spiral path using parametric equations
+4. Clip spiral segments to infill boundary
+5. Exclude hole areas via clipping
+6. Render segments in order (continuous spiral, no reordering)
+
+### Spiral Equation
+
+```coffeescript
+# Archimedean spiral: r = a * theta
+# For lineSpacing between successive turns: a = lineSpacing / (2 * PI)
+spiralConstant = lineSpacing / (2 * Math.PI)
+
+# Parametric equations
+radius = spiralConstant * theta
+x = centerX + radius * Math.cos(theta)
+y = centerY + radius * Math.sin(theta)
+
+# Angular step (approximately 10 degrees)
+thetaStep = 10 * Math.PI / 180
+```
+
+### Characteristics
+
+- **Continuous path**: Starts from center and spirals outward
+- **Smooth circular motion**: Follows natural spiral curve
+- **Single direction**: Each layer is one continuous spiral
+- **Pattern centering**: Supports both object and global centering modes
+- **Efficient for circular parts**: Natural fit for cylindrical geometries
+
+### Pattern Generation
+
+For each layer, generate spiral path:
+
+```coffeescript
+# Start from center
+theta = 0
+
+# Generate points along spiral until reaching boundary
+while theta <= maxTheta
+    radius = spiralConstant * theta
+    x = centerX + radius * Math.cos(theta)
+    y = centerY + radius * Math.sin(theta)
+
+    spiralPoints.push({ x, y })
+    theta += thetaStep
+```
+
+### Line Spacing Formula
+
+```coffeescript
+lineSpacing = baseSpacing
+```
+
+No multiplier needed since it's a single-direction continuous pattern.
