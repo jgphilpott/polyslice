@@ -215,8 +215,7 @@ module.exports =
 
         if supportPlacement is 'buildPlate'
 
-            # Check all layers below current layer for collisions.
-            # If any solid region contains this point, support cannot be generated.
+            # For buildPlate mode, check if there's blocking solid geometry below.
             for layerData in layerSolidRegions
 
                 # Only check layers below current layer.
@@ -226,6 +225,63 @@ module.exports =
                     if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
 
                         # Point is blocked by solid geometry.
+                        return false
+
+            # No blocking solid geometry below. Now check if this overhang is accessible
+            # from the build plate.
+            #
+            # For an overhang to be accessible from build plate, there must be some
+            # geometry structure (paths) at this XY position at layers below. If there's
+            # NO geometry at all at this XY position in any layer below, the overhang is:
+            # 1. Inside a cavity that doesn't reach the build plate, OR
+            # 2. Outside the part's vertical footprint entirely
+            #
+            # Either way, don't generate support.
+
+            epsilon = 0.001
+            hasAnyGeometryBelow = false
+
+            for layerData in layerSolidRegions
+
+                if layerData.layerIndex < currentLayerIndex
+
+                    # Check if point is inside ANY path at this layer.
+                    for path in layerData.paths
+
+                        if path.length >= 3 and primitives.pointInPolygon(point, path, epsilon)
+
+                            hasAnyGeometryBelow = true
+                            break
+
+                    break if hasAnyGeometryBelow
+
+            # If there's no geometry at all below, don't generate support.
+            if not hasAnyGeometryBelow
+                return false
+
+            # There is geometry below, but it's not blocking solid (it's in a hole/cavity).
+            # This could be a cavity opening from below (valid) or from the side (invalid).
+            # 
+            # Additional check: For cavities that open from the side, at some layers below,
+            # the point will have even containment count (inside a hole). Check for this.
+
+            for layerData in layerSolidRegions
+
+                if layerData.layerIndex < currentLayerIndex
+
+                    containmentCount = 0
+
+                    # Count how many paths contain this point.
+                    for path in layerData.paths
+
+                        if path.length >= 3 and primitives.pointInPolygon(point, path, epsilon)
+
+                            containmentCount++
+
+                    # If containment count is even and > 0, point is in a hole (cavity).
+                    # This indicates an internal cavity surface not accessible from build plate.
+                    if containmentCount > 0 and containmentCount % 2 is 0
+
                         return false
 
             # Path is clear to build plate.
