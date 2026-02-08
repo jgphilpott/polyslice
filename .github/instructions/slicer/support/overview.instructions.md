@@ -334,7 +334,7 @@ Testing with sideways arch geometry (from `examples/scripts/slice-supports.js`):
 
 | Mode | Support Type Lines | Behavior |
 |------|-------------------|----------|
-| `'buildPlate'` | 25 | Only where clear vertical path to build plate exists |
+| `'buildPlate'` | 0 | No supports - cavity surfaces not accessible from build plate |
 | `'everywhere'` | 3,401 | Stops at solid arch bottom (Z=0.2-7.4mm), resumes above (Z=7.6mm+) |
 
 Testing with upright dome geometry (hemispherical cavity on top):
@@ -348,10 +348,10 @@ Testing with sideways dome geometry (hemisphere opens to side):
 
 | Mode | Support Type Lines | Behavior |
 |------|-------------------|----------|
-| `'buildPlate'` | 16,368 | Generates through cavity opening (accessible from build plate) |
+| `'buildPlate'` | 0 | No supports - cavity surfaces not accessible from build plate |
 | `'everywhere'` | 19,061 | Allows supports from solid surfaces as well |
 
 These results demonstrate:
 - **Collision detection** working correctly (arch everywhere mode skips solid layers)
 - **Hole detection** working correctly (dome upright fills cavity, not blocked)
-- **Geometric dependency** (sideways dome cavity opens to side, creating accessibility)
+- **Cavity accessibility check** correctly distinguishes between cavities accessible from below vs. from the side
