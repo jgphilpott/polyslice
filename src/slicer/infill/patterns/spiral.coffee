@@ -1,7 +1,6 @@
 # Spiral infill pattern implementation for Polyslice.
 
 coders = require('../../gcode/coders')
-primitives = require('../../utils/primitives')
 clipping = require('../../utils/clipping')
 combing = require('../../geometry/combing')
 
@@ -140,5 +139,5 @@ module.exports =
 
                 slicer.gcode += coders.codeLinearMovement(slicer, offsetEndX, offsetEndY, z, slicer.cumulativeE, infillSpeedMmMin)
 
-            # Update last end point for next segment.
-            lastEndPoint = endPoint
+                # Update last end point only when movement actually occurs.
+                lastEndPoint = endPoint
