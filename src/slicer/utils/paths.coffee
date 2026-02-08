@@ -136,6 +136,7 @@ module.exports =
             while iterations < maxIterations
 
                 iterations++
+
                 firstPoint = currentPath[0]
                 secondPoint = currentPath[1]
 

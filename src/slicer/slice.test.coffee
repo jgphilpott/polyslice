@@ -1003,17 +1003,18 @@ describe 'Slicing', ->
 
                 return count
 
-            # Layer 1 (index 0): Should have only outer walls (no inner, skin, or infill).
-            # Spacing between paths is ~0.3mm < 0.4mm nozzle diameter.
+            # Layer 1 (index 0): With SLICE_EPSILON = layerHeight/2 (0.1mm),
+            # the torus cross-section is wide enough for both outer and inner walls.
+            # The spacing is now sufficient for inner walls.
             layer1Outer = countMarkersInLayer(1, 'TYPE: WALL-OUTER')
             layer1Inner = countMarkersInLayer(1, 'TYPE: WALL-INNER')
             layer1Skin = countMarkersInLayer(1, 'TYPE: SKIN')
             layer1Fill = countMarkersInLayer(1, 'TYPE: FILL')
 
             expect(layer1Outer).toBeGreaterThan(0)  # Should have outer walls.
-            expect(layer1Inner).toBe(0)  # No inner walls (insufficient spacing).
-            expect(layer1Skin).toBe(0)  # No skin (insufficient spacing).
-            expect(layer1Fill).toBe(0)  # No infill (suppressed with skin).
+            expect(layer1Inner).toBeGreaterThan(0)  # Should have inner walls (sufficient spacing at Z=0.1mm).
+            expect(layer1Skin).toBe(0)  # No skin (suppressed due to insufficient innermost wall spacing for skin).
+            expect(layer1Fill).toBe(0)  # No infill (suppressed together with skin due to spacing constraints).
 
             # Layer 2 (index 1): Should have outer + inner walls, but no skin or infill.
             # Spacing between innermost walls is ~0.495mm < 0.8mm (2× nozzle diameter).
@@ -1209,10 +1210,12 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
-        test 'should suppress inner and skin walls when spacing is insufficient (PR #55)', ->
+        test 'should allow inner walls with sufficient spacing at adjusted slice height (PR #55)', ->
 
-            # This test verifies PR #55: spacing validation should prevent
-            # inner and skin walls when paths are too close together.
+            # This test verifies that with SLICE_EPSILON = layerHeight/2 (0.1mm),
+            # the first layer has sufficient spacing for inner walls.
+            # The original PR #55 spacing validation logic still works but with
+            # the adjusted slice height, the torus cross-section is wider.
 
             # Create a torus with tight spacing on early layers.
             geometry = new THREE.TorusGeometry(5, 2, 16, 32)
@@ -1230,7 +1233,8 @@ describe 'Slicing', ->
 
             result = slicer.slice(mesh)
 
-            # Layer 1 (index 0): Spacing is very tight, should only have outer walls.
+            # Layer 1 (index 0): At Z=0.1mm (layerHeight/2), the torus cross-section
+            # has sufficient spacing for both outer and inner walls.
             parts = result.split('LAYER: 1 of')
             expect(parts.length).toBeGreaterThan(1)
             layer1 = parts[1].split('LAYER: 2 of')[0]
@@ -1242,9 +1246,10 @@ describe 'Slicing', ->
             # Should have outer walls.
             expect(outerMatches.length).toBeGreaterThan(0)
 
-            # Should NOT have inner or skin walls (insufficient spacing).
-            expect(innerMatches.length).toBe(0)
-            expect(skinMatches.length).toBe(0)
+            # With SLICE_EPSILON = layerHeight/2 (0.1mm), the torus cross-section
+            # at Z=0.1mm has sufficient spacing for inner walls.
+            expect(innerMatches.length).toBeGreaterThan(0)
+            expect(skinMatches.length).toBe(0)  # No skin (suppressed by spacing rules for innermost walls).
 
             return # Explicitly return undefined for Jest.
 
