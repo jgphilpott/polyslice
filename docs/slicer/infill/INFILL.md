@@ -4,7 +4,7 @@ The infill module generates interior fill patterns for 3D printed parts. Infill 
 
 ## Overview
 
-Polyslice supports six infill patterns:
+Polyslice supports seven infill patterns:
 
 - **Grid**: Crosshatch pattern at ±45° angles
 - **Triangles**: Tessellation of equilateral triangles
@@ -12,6 +12,7 @@ Polyslice supports six infill patterns:
 - **Concentric**: Inward-spiraling contours following the part shape
 - **Gyroid**: Wavy TPMS structure for excellent strength and isotropy
 - **Spiral**: Outward-spiraling Archimedean spiral from center
+- **Lightning**: Tree-like branching structure for fast, minimal material infill
 
 ## Usage
 
@@ -38,7 +39,7 @@ const slicer = new Polyslice({
     infillDensity: 20,
 
     // Infill pattern type
-    // Options: "grid", "triangles", "hexagons", "concentric", "gyroid", "spiral"
+    // Options: "grid", "triangles", "hexagons", "concentric", "gyroid", "spiral", "lightning"
     infillPattern: "grid",
 
     // Pattern centering mode
@@ -324,6 +325,52 @@ The spiral pattern uses parametric equations of an Archimedean spiral:
 3. Convert to Cartesian coordinates: x = r × cos(θ), y = r × sin(θ)
 4. Clip spiral segments to infill boundary
 
+### Lightning Pattern
+
+The lightning pattern creates a tree-like branching structure for fast printing with minimal material usage.
+
+```
+    \  |  /     \  |  /
+     \ | /       \ | /
+      \|/         \|/
+       |           |
+       |           |
+━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Characteristics:**
+- Tree-like branches extending from boundary inward
+- Each branch forks into sub-branches for support
+- Very fast printing (minimal material)
+- Adequate support for top layers
+- Natural, organic appearance
+- Branches directed toward center with angle variation
+
+**Best for:**
+- Prototypes where speed is critical
+- Non-structural decorative parts
+- Quick test prints
+- Models where minimal infill is acceptable
+- Parts where top surface quality is more important than strength
+
+**Line Spacing Formula:**
+```
+spacing = (nozzleDiameter / (density / 100)) * 2.0
+```
+
+For example, at 20% density with 0.4mm nozzle:
+- spacing = (0.4 / 0.2) * 2.0 = 4.0mm between branch starting points
+- Branches extend approximately 80% of the smaller dimension
+- Sub-branches fork at 40% of main branch length
+
+**Pattern Generation:**
+The lightning pattern algorithm:
+1. Calculate branch starting points along the boundary perimeter
+2. Direct main branches toward the center with angle variation
+3. Create forking sub-branches at midpoints (±45° from main direction)
+4. Clip all branches to stay within the infill boundary
+5. Avoid hole regions using clipping algorithm
+
 ## Density Guide
 
 | Density | Use Case |
@@ -338,15 +385,15 @@ The spiral pattern uses parametric equations of an Archimedean spiral:
 
 ## Pattern Comparison
 
-| Feature | Grid | Triangles | Hexagons | Concentric | Gyroid | Spiral |
-|---------|------|-----------|----------|------------|--------|--------|
-| Print Speed | ★★★★★ | ★★★★ | ★★★ | ★★★★ | ★★★ | ★★★★★ |
-| X/Y Strength | ★★★ | ★★★★ | ★★★★ | ★★★ | ★★★★★ | ★★ |
-| Compression | ★★★ | ★★★★ | ★★★★★ | ★★★ | ★★★★★ | ★★ |
-| Material Use | ★★★ | ★★★ | ★★★★ | ★★★★ | ★★★★ | ★★★★ |
-| Complexity | ★ | ★★ | ★★★ | ★ | ★★ | ★ |
-| Curved Parts | ★★ | ★★ | ★★ | ★★★★★ | ★★★ | ★★★★★ |
-| Isotropy | ★★ | ★★★★ | ★★★★ | ★★ | ★★★★★ | ★ |
+| Feature | Grid | Triangles | Hexagons | Concentric | Gyroid | Spiral | Lightning |
+|---------|------|-----------|----------|------------|--------|--------|-----------|
+| Print Speed | ★★★★★ | ★★★★ | ★★★ | ★★★★ | ★★★ | ★★★★★ | ★★★★★ |
+| X/Y Strength | ★★★ | ★★★★ | ★★★★ | ★★★ | ★★★★★ | ★★ | ★★ |
+| Compression | ★★★ | ★★★★ | ★★★★★ | ★★★ | ★★★★★ | ★★ | ★ |
+| Material Use | ★★★ | ★★★ | ★★★★ | ★★★★ | ★★★★ | ★★★★ | ★★★★★ |
+| Complexity | ★ | ★★ | ★★★ | ★ | ★★ | ★ | ★★ |
+| Curved Parts | ★★ | ★★ | ★★ | ★★★★★ | ★★★ | ★★★★★ | ★★★ |
+| Isotropy | ★★ | ★★★★ | ★★★★ | ★★ | ★★★★★ | ★ | ★ |
 
 ## Technical Details
 
@@ -397,7 +444,9 @@ src/slicer/infill/
     ├── gyroid.coffee        # Gyroid pattern implementation
     ├── gyroid.test.coffee
     ├── spiral.coffee        # Spiral pattern implementation
-    └── spiral.test.coffee
+    ├── spiral.test.coffee
+    ├── lightning.coffee     # Lightning pattern implementation
+    └── lightning.test.coffee
 ```
 
 ## API Reference
@@ -432,6 +481,7 @@ const speed = slicer.getInfillSpeed();
 "concentric" // Inward-spiraling contours
 "gyroid"     // Wavy TPMS structure
 "spiral"     // Outward-spiraling from center
+"lightning"  // Tree-like branching structure
 ```
 
 ### Centering Values
@@ -448,7 +498,6 @@ The following patterns may be added in future versions:
 
 - **Lines**: Single direction linear fill
 - **Cubic**: 3D interlocking cubes
-- **Lightning**: Tree-like support structure
 
 ## Tips
 
@@ -456,10 +505,12 @@ The following patterns may be added in future versions:
 
 2. **Use hexagons** for parts that need to be strong but lightweight
 
-3. **Increase density** for functional parts that will bear loads
+3. **Use lightning** for rapid prototyping and test prints where speed is critical
 
-4. **Consider print time**: Grid is fastest, hexagons is slowest
+4. **Increase density** for functional parts that will bear loads
 
-5. **Test your material**: Some materials (like TPU) may require higher infill for flexibility
+5. **Consider print time**: Grid and lightning are fastest, hexagons is slowest
+
+6. **Test your material**: Some materials (like TPU) may require higher infill for flexibility
 
 6. **Top/bottom layers**: Solid skin layers cover the infill pattern on visible surfaces
