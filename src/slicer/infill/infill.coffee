@@ -10,6 +10,7 @@ hexagonsPattern = require('./patterns/hexagons')
 concentricPattern = require('./patterns/concentric')
 gyroidPattern = require('./patterns/gyroid')
 spiralPattern = require('./patterns/spiral')
+lightningPattern = require('./patterns/lightning')
 
 module.exports =
 
@@ -26,7 +27,7 @@ module.exports =
 
         return if infillDensity <= 0
 
-        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons' and infillPattern isnt 'concentric' and infillPattern isnt 'gyroid' and infillPattern isnt 'spiral'
+        return if infillPattern isnt 'grid' and infillPattern isnt 'triangles' and infillPattern isnt 'hexagons' and infillPattern isnt 'concentric' and infillPattern isnt 'gyroid' and infillPattern isnt 'spiral' and infillPattern isnt 'lightning'
 
         infillGap = nozzleDiameter / 2
         infillBoundary = paths.createInsetPath(boundaryPath, infillGap)
@@ -103,3 +104,9 @@ module.exports =
                 lineSpacing = baseSpacing
 
                 spiralPattern.generateSpiralInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
+
+            else if infillPattern is 'lightning'
+
+                lineSpacing = baseSpacing * 2.0
+
+                lightningPattern.generateLightningInfill(slicer, currentBoundary, z, centerOffsetX, centerOffsetY, lineSpacing, infillPatternCentering, lastWallPoint, holeInnerWallsWithGap, holeOuterWalls)
