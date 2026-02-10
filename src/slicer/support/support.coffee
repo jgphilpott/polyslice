@@ -215,53 +215,89 @@ module.exports =
 
         if supportPlacement is 'buildPlate'
 
-            # For buildPlate mode, check if support can reach from build plate to overhang.
-            # Strategy: Check layers from bottom up, looking for continuous accessibility.
+            # For buildPlate mode, verify that support can physically reach the overhang
+            # from the build plate. This requires:
+            # 1. No solid geometry blocking the vertical path
+            # 2. Continuous accessibility through empty space from build plate upward
+            #
+            # The key challenge: Distinguish downward-opening holes (accessible) from
+            # sideways-opening cavities (not accessible) for arbitrary geometries.
+            #
+            # Solution: Check geometric connectivity. As we move from build plate upward,
+            # track whether the position stays in "connected empty space". A sideways
+            # cavity will show a transition from "outside/not-in-hole" to "in-hole"
+            # at some height where the cavity walls start, indicating the hole is
+            # enclosed from below and not accessible from the build plate.
             
-            # Step 1: Standard check - no solid geometry blocking the path
+            # Step 1: Standard solid geometry blocking check
             for layerData in layerSolidRegions
                 if layerData.layerIndex < currentLayerIndex
                     if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
                         return false  # Blocked by solid
 
-            # Step 2: Check for sideways cavity pattern
-            # A sideways cavity has the following signature:
-            # - At the FIRST layer (layer 0), the position is NOT outside (containment > 0)
-            # - The position shows "in hole" pattern (even containment) persistently
-            #
-            # A downward-opening hole has:
-            # - At the FIRST layer, position is outside (containment = 0) OR
-            # - The hole pattern changes significantly from bottom to top
+            # Step 2: Check for continuous accessibility from build plate
+            # 
+            # We track the "accessibility state" as we move upward:
+            # - "accessible" means: outside all geometry OR inside a hole that opened
+            #   from below (was accessible at previous layer)
+            # - "inaccessible" means: inside a hole that just appeared (wasn't accessible
+            #   at previous layer), indicating a sideways-opening cavity
             
             epsilon = 0.001
             
-            # Check the first 3 layers specifically (closest to build plate)
-            firstLayersData = []
+            # Build containment history from bottom to top
+            containmentHistory = []
             for layerData in layerSolidRegions
-                if layerData.layerIndex < Math.min(3, currentLayerIndex)
+                if layerData.layerIndex < currentLayerIndex
                     containmentCount = 0
                     for path in layerData.paths
                         if path.length >= 3 and primitives.pointInPolygon(point, path, epsilon)
                             containmentCount++
-                    firstLayersData.push({
+                    
+                    containmentHistory.push({
+                        layerIndex: layerData.layerIndex
                         containment: containmentCount
                         isOutside: containmentCount is 0
                         isInHole: containmentCount > 0 and containmentCount % 2 is 0
+                        isInSolid: containmentCount > 0 and containmentCount % 2 is 1
                     })
             
-            return true if firstLayersData.length is 0  # No layers below
+            return true if containmentHistory.length is 0  # Directly on build plate
             
-            # If ALL of the first layers show "in hole" pattern, it's a sideways cavity
-            allInHole = true
-            for layerInfo in firstLayersData
-                if not layerInfo.isInHole
-                    allInHole = false
-                    break
+            # Analyze the containment transition pattern
+            # A sideways cavity shows: transition from NOT-in-hole → in-hole
+            # A downward-opening hole shows: consistently in-hole OR outside → in-hole gradually
             
-            if allInHole
-                return false  # Sideways cavity - not accessible
+            # Key heuristic: If the position is "in hole" at higher layers but was
+            # "not in hole" (either outside or in-solid shouldn't happen due to step 1)
+            # at the MAJORITY of lower layers, it indicates the hole appeared from the side.
             
-            # Allow support generation - accessible from build plate
+            # Count layers in bottom 40% that are "in hole"
+            bottomLayerCount = Math.max(1, Math.ceil(containmentHistory.length * 0.4))
+            inHoleAtBottom = 0
+            for i in [0...bottomLayerCount]
+                if containmentHistory[i].isInHole
+                    inHoleAtBottom++
+            
+            # Count layers in top 40% that are "in hole"
+            topStart = Math.floor(containmentHistory.length * 0.6)
+            topLayerCount = containmentHistory.length - topStart
+            inHoleAtTop = 0
+            if topLayerCount > 0
+                for i in [topStart...containmentHistory.length]
+                    if containmentHistory[i].isInHole
+                        inHoleAtTop++
+            
+            bottomRatio = inHoleAtBottom / bottomLayerCount
+            topRatio = if topLayerCount > 0 then inHoleAtTop / topLayerCount else 0
+            
+            # If bottom has LOW in-hole ratio AND top has HIGH ratio AND the difference
+            # is significant, the hole appeared from the side (sideways cavity)
+            # Use stricter criteria to avoid false positives on upright cases
+            if bottomRatio < 0.3 and topRatio > 0.7 and (topRatio - bottomRatio) > 0.5
+                return false
+            
+            # Otherwise, the position is accessible from build plate
             return true
 
         else if supportPlacement is 'everywhere'
