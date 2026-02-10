@@ -479,14 +479,14 @@ for each starting point on perimeter
     # Calculate direction toward center
     dirX = centerX - startX
     dirY = centerY - startY
-    
+
     # Add angle variation
     angleOffset = sin(position) * branchAngleVariation
-    
+
     # Create main branch
     endX = startX + dirX * branchLength
     endY = startY + dirY * branchLength
-    
+
     # Create sub-branches at midpoint
     for side in [-1, 1]
         subBranchDir = mainDir + perpDir * side * 0.7
