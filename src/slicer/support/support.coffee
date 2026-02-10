@@ -215,20 +215,53 @@ module.exports =
 
         if supportPlacement is 'buildPlate'
 
-            # Check all layers below current layer for collisions.
-            # If any solid region contains this point, support cannot be generated.
+            # For buildPlate mode, check if support can reach from build plate to overhang.
+            # Strategy: Check layers from bottom up, looking for continuous accessibility.
+            
+            # Step 1: Standard check - no solid geometry blocking the path
             for layerData in layerSolidRegions
-
-                # Only check layers below current layer.
                 if layerData.layerIndex < currentLayerIndex
-
-                    # Check if point is inside solid geometry (accounting for holes).
                     if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
+                        return false  # Blocked by solid
 
-                        # Point is blocked by solid geometry.
-                        return false
-
-            # Path is clear to build plate.
+            # Step 2: Check for sideways cavity pattern
+            # A sideways cavity has the following signature:
+            # - At the FIRST layer (layer 0), the position is NOT outside (containment > 0)
+            # - The position shows "in hole" pattern (even containment) persistently
+            #
+            # A downward-opening hole has:
+            # - At the FIRST layer, position is outside (containment = 0) OR
+            # - The hole pattern changes significantly from bottom to top
+            
+            epsilon = 0.001
+            
+            # Check the first 3 layers specifically (closest to build plate)
+            firstLayersData = []
+            for layerData in layerSolidRegions
+                if layerData.layerIndex < Math.min(3, currentLayerIndex)
+                    containmentCount = 0
+                    for path in layerData.paths
+                        if path.length >= 3 and primitives.pointInPolygon(point, path, epsilon)
+                            containmentCount++
+                    firstLayersData.push({
+                        containment: containmentCount
+                        isOutside: containmentCount is 0
+                        isInHole: containmentCount > 0 and containmentCount % 2 is 0
+                    })
+            
+            return true if firstLayersData.length is 0  # No layers below
+            
+            # If ALL of the first layers show "in hole" pattern, it's a sideways cavity
+            allInHole = true
+            for layerInfo in firstLayersData
+                if not layerInfo.isInHole
+                    allInHole = false
+                    break
+            
+            if allInHole
+                return false  # Sideways cavity - not accessible
+            
+            # Allow support generation - accessible from build plate
             return true
 
         else if supportPlacement is 'everywhere'
