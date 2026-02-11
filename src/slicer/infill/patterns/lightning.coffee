@@ -72,6 +72,10 @@ module.exports =
             segmentDy = p2.y - p1.y
             segmentLength = Math.sqrt(segmentDx * segmentDx + segmentDy * segmentDy)
 
+            # Skip degenerate segments (duplicate points).
+            if segmentLength < 0.001
+                continue
+
             # Check if this segment contains branch starting points.
             while targetDistance <= currentDistance + segmentLength and targetDistance < totalPerimeter
 
@@ -101,58 +105,54 @@ module.exports =
                     endX = startX + rotatedDirX * branchLength
                     endY = startY + rotatedDirY * branchLength
 
-                    # Check if branch endpoint is inside boundary.
+                    # Clip the branch line to the boundary (clipper handles out-of-bounds endpoints).
+                    startPoint = { x: startX, y: startY }
                     endPoint = { x: endX, y: endY }
+                    clippedSegments = clipping.clipLineWithHoles(startPoint, endPoint, infillBoundary, holeInnerWalls)
 
-                    if primitives.pointInPolygon(endPoint, infillBoundary)
+                    for segment in clippedSegments
 
-                        # Clip the branch line to the boundary.
-                        startPoint = { x: startX, y: startY }
-                        clippedSegments = clipping.clipLineWithHoles(startPoint, endPoint, infillBoundary, holeInnerWalls)
+                        allInfillLines.push({
+                            start: segment.start
+                            end: segment.end
+                        })
 
-                        for segment in clippedSegments
+                        # Generate sub-branches (forking).
+                        branchMidX = (segment.start.x + segment.end.x) / 2
+                        branchMidY = (segment.start.y + segment.end.y) / 2
 
-                            allInfillLines.push({
-                                start: segment.start
-                                end: segment.end
-                            })
+                        # Create two sub-branches at 45 degrees from main direction.
+                        subBranchLength = branchLength * 0.4
+                        perpDirX = -rotatedDirY
+                        perpDirY = rotatedDirX
 
-                            # Generate sub-branches (forking).
-                            branchMidX = (segment.start.x + segment.end.x) / 2
-                            branchMidY = (segment.start.y + segment.end.y) / 2
+                        for side in [-1, 1]
 
-                            # Create two sub-branches at approximately 45 degrees.
-                            subBranchLength = branchLength * 0.4
-                            perpDirX = -rotatedDirY
-                            perpDirY = rotatedDirX
+                            # Use perpendicular blend to achieve 45° fork angle.
+                            # tan(45°) = 1, so equal blend of main and perpendicular directions.
+                            subBranchDirX = (rotatedDirX + perpDirX * side)
+                            subBranchDirY = (rotatedDirY + perpDirY * side)
+                            subBranchDirLength = Math.sqrt(subBranchDirX * subBranchDirX + subBranchDirY * subBranchDirY)
 
-                            for side in [-1, 1]
+                            if subBranchDirLength > 0.001
 
-                                subBranchDirX = (rotatedDirX + perpDirX * side * 0.7)
-                                subBranchDirY = (rotatedDirY + perpDirY * side * 0.7)
-                                subBranchDirLength = Math.sqrt(subBranchDirX * subBranchDirX + subBranchDirY * subBranchDirY)
+                                subBranchDirX /= subBranchDirLength
+                                subBranchDirY /= subBranchDirLength
 
-                                if subBranchDirLength > 0.001
+                                subEndX = branchMidX + subBranchDirX * subBranchLength
+                                subEndY = branchMidY + subBranchDirY * subBranchLength
 
-                                    subBranchDirX /= subBranchDirLength
-                                    subBranchDirY /= subBranchDirLength
+                                # Clip sub-branch (clipper handles out-of-bounds endpoints).
+                                subStartPoint = { x: branchMidX, y: branchMidY }
+                                subEndPoint = { x: subEndX, y: subEndY }
+                                subClippedSegments = clipping.clipLineWithHoles(subStartPoint, subEndPoint, infillBoundary, holeInnerWalls)
 
-                                    subEndX = branchMidX + subBranchDirX * subBranchLength
-                                    subEndY = branchMidY + subBranchDirY * subBranchLength
+                                for subSegment in subClippedSegments
 
-                                    subEndPoint = { x: subEndX, y: subEndY }
-
-                                    if primitives.pointInPolygon(subEndPoint, infillBoundary)
-
-                                        subStartPoint = { x: branchMidX, y: branchMidY }
-                                        subClippedSegments = clipping.clipLineWithHoles(subStartPoint, subEndPoint, infillBoundary, holeInnerWalls)
-
-                                        for subSegment in subClippedSegments
-
-                                            allInfillLines.push({
-                                                start: subSegment.start
-                                                end: subSegment.end
-                                            })
+                                    allInfillLines.push({
+                                        start: subSegment.start
+                                        end: subSegment.end
+                                    })
 
                 targetDistance += branchStepSize
 

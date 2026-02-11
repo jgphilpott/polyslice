@@ -359,15 +359,16 @@ spacing = (nozzleDiameter / (density / 100)) * 2.0
 ```
 
 For example, at 20% density with 0.4mm nozzle:
-- spacing = (0.4 / 0.2) * 2.0 = 4.0mm between branch starting points
+- `lineSpacing` = (0.4 / 0.2) * 2.0 = 4.0mm
+- `branchSpacing` = lineSpacing * 2.5 = 10.0mm between branch starting points
 - Branches extend approximately 80% of the smaller dimension
-- Sub-branches fork at 40% of main branch length
+- Sub-branches fork at 40% of main branch length at 45° angles
 
 **Pattern Generation:**
 The lightning pattern algorithm:
-1. Calculate branch starting points along the boundary perimeter
+1. Calculate branch starting points along the boundary perimeter (spaced by `lineSpacing * 2.5`)
 2. Direct main branches toward the center with angle variation
-3. Create forking sub-branches at midpoints (±45° from main direction)
+3. Create forking sub-branches at midpoints (45° from main direction)
 4. Clip all branches to stay within the infill boundary
 5. Avoid hole regions using clipping algorithm
 

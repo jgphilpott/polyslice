@@ -460,7 +460,7 @@ For each main branch:
 1. Start from boundary point
 2. Direct toward center with angle variation
 3. At midpoint, create two sub-branches
-4. Sub-branches fork at ±45° from main direction
+4. Sub-branches fork at 45° from main direction
 5. Sub-branch length is 40% of main branch
 
 ### Characteristics
@@ -489,7 +489,8 @@ for each starting point on perimeter
 
     # Create sub-branches at midpoint
     for side in [-1, 1]
-        subBranchDir = mainDir + perpDir * side * 0.7
+        # Equal blend of main and perpendicular for 45° fork angle
+        subBranchDir = mainDir + perpDir * side
         subEndX = midX + subBranchDir * subBranchLength
 ```
 
