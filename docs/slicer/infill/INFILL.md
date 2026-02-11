@@ -514,4 +514,4 @@ The following patterns may be added in future versions:
 
 6. **Test your material**: Some materials (like TPU) may require higher infill for flexibility
 
-6. **Top/bottom layers**: Solid skin layers cover the infill pattern on visible surfaces
+7. **Top/bottom layers**: Solid skin layers cover the infill pattern on visible surfaces
