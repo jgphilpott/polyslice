@@ -520,7 +520,7 @@ module.exports =
 
         pattern = pattern.toLowerCase().trim()
 
-        if ["grid", "triangles", "hexagons", "concentric", "gyroid", "spiral"].includes pattern
+        if ["grid", "triangles", "hexagons", "concentric", "gyroid", "spiral", "lightning"].includes pattern
 
             slicer.infillPattern = String pattern
 

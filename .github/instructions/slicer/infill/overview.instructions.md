@@ -22,6 +22,7 @@ The infill module generates interior fill patterns for 3D printed parts. Located
 | `concentric` | Inward spiraling | Concentric loops from outside to inside |
 | `gyroid` | Wavy TPMS | Triply periodic minimal surface for optimal strength |
 | `spiral` | Outward spiraling | Archimedean spiral from center outward |
+| `lightning` | Tree-like branching | Fast, minimal material tree structure |
 
 ## Line Spacing Formula
 
@@ -38,6 +39,7 @@ hexagonsSpacing = baseSpacing * 3.0    # 3 directions
 concentricSpacing = baseSpacing * 1.0  # Single direction (loops)
 gyroidSpacing = baseSpacing * 1.5      # Wavy TPMS structure
 spiralSpacing = baseSpacing * 1.0      # Single direction (spiral)
+lightningSpacing = baseSpacing * 2.0   # Tree branching structure
 ```
 
 ### Example: 20% Infill Density
@@ -419,3 +421,83 @@ lineSpacing = baseSpacing
 ```
 
 No multiplier needed since it's a single-direction continuous pattern.
+
+## Lightning Pattern
+
+Located in `src/slicer/infill/patterns/lightning.coffee`.
+
+### Algorithm
+
+Creates a tree-like branching structure from boundary inward:
+
+1. Determine pattern center based on `infillPatternCentering` setting
+2. Calculate branch starting points along the boundary perimeter
+3. Direct main branches toward center with angle variation
+4. Create forking sub-branches at midpoints
+5. Clip branches to infill boundary
+6. Exclude hole areas via clipping
+7. Render branches in nearest-neighbor order with combing
+
+### Branch Generation
+
+```coffeescript
+# Branch spacing along perimeter
+branchSpacing = lineSpacing * 2.5
+
+# Maximum branch length (80% of smaller dimension)
+branchLength = Math.min(width, height) * 0.8
+
+# Angle variation for natural look (±45°)
+branchAngleVariation = Math.PI / 4
+
+# Calculate number of branches based on perimeter
+numBranches = Math.max(3, Math.floor(totalPerimeter / branchSpacing))
+```
+
+### Branching Structure
+
+For each main branch:
+1. Start from boundary point
+2. Direct toward center with angle variation
+3. At midpoint, create two sub-branches
+4. Sub-branches fork at 45° from main direction
+5. Sub-branch length is 40% of main branch
+
+### Characteristics
+
+- **Fast printing**: Minimal material and continuous paths
+- **Tree-like appearance**: Natural organic branching structure
+- **Adequate support**: Branches provide support for top surfaces
+- **Efficient material use**: Uses less material than traditional patterns
+- **Pattern centering**: Supports both object and global centering modes
+
+### Pattern Generation
+
+```coffeescript
+# Generate branches from boundary
+for each starting point on perimeter
+    # Calculate direction toward center
+    dirX = centerX - startX
+    dirY = centerY - startY
+
+    # Add angle variation
+    angleOffset = sin(position) * branchAngleVariation
+
+    # Create main branch
+    endX = startX + dirX * branchLength
+    endY = startY + dirY * branchLength
+
+    # Create sub-branches at midpoint
+    for side in [-1, 1]
+        # Equal blend of main and perpendicular for 45° fork angle
+        subBranchDir = mainDir + perpDir * side
+        subEndX = midX + subBranchDir * subBranchLength
+```
+
+### Line Spacing Formula
+
+```coffeescript
+lineSpacing = baseSpacing * 2.0
+```
+
+The 2.0 multiplier accounts for the branching structure providing distributed support.
