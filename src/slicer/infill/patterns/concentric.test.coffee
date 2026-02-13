@@ -162,3 +162,81 @@ describe 'Concentric Infill Generation', ->
             # Should generate valid G-code.
             expect(result).toBeTruthy()
             expect(result).toContain('; TYPE: FILL')
+
+        test 'should respect holes in geometries (torus)', ->
+
+            # Create a torus (has a hole in the middle).
+            geometry = new THREE.TorusGeometry(5, 2, 16, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('concentric')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Should generate valid G-code with infill.
+            expect(result).toBeTruthy()
+            expect(result).toContain('; TYPE: FILL')
+
+            # Count FILL sections to ensure infill is generated.
+            lines = result.split('\n')
+            fillCount = 0
+
+            for line in lines
+
+                if line.includes('; TYPE: FILL')
+                    fillCount++
+
+            # Should have infill on multiple layers.
+            expect(fillCount).toBeGreaterThan(5)
+
+            # Verify that infill doesn't generate in the hole area.
+            # Extract coordinates from infill sections.
+            inFill = false
+            fillCoords = []
+
+            for line in lines
+
+                if line.includes('; TYPE: FILL')
+                    inFill = true
+                else if line.includes('; TYPE:') and not line.includes('; TYPE: FILL')
+                    inFill = false
+
+                if inFill and line.includes('G1') and line.includes('E')
+
+                    # Parse X and Y coordinates.
+                    xMatch = line.match(/X([\d.-]+)/)
+                    yMatch = line.match(/Y([\d.-]+)/)
+
+                    if xMatch and yMatch
+                        fillCoords.push({ x: parseFloat(xMatch[1]), y: parseFloat(yMatch[1]) })
+
+            # Check that no infill points are in the center hole area.
+            # For a torus with radius 5 and tube 2, centered at build plate center (110, 110),
+            # the hole is approximately at the center (110, 110) with radius ~3mm.
+            centerX = 110
+            centerY = 110
+            holeRadius = 3
+
+            # Count how many infill points are near the hole center.
+            pointsNearHole = 0
+
+            for coord in fillCoords
+
+                dx = coord.x - centerX
+                dy = coord.y - centerY
+                distToCenter = Math.sqrt(dx * dx + dy * dy)
+
+                if distToCenter < holeRadius
+                    pointsNearHole++
+
+            # Should have very few or no points in the hole area.
+            # Allow a small tolerance for edge cases.
+            expect(pointsNearHole).toBeLessThan(fillCoords.length * 0.05) # Less than 5% in hole area.

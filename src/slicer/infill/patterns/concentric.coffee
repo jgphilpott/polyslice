@@ -3,6 +3,7 @@
 coders = require('../../gcode/coders')
 paths = require('../../utils/paths')
 combing = require('../../geometry/combing')
+primitives = require('../../utils/primitives')
 
 module.exports =
 
@@ -15,9 +16,14 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
+        # Start with an initial inset to maintain gap from walls (similar to other patterns).
+        # This ensures consistent spacing from the inner walls.
+        currentPath = paths.createInsetPath(infillBoundary, lineSpacing, false)
+
+        return if currentPath.length < 3
+
         # Generate concentric loops by repeatedly insetting the boundary.
         concentricLoops = []
-        currentPath = infillBoundary
 
         # Generate loops until the path becomes too small.
         while currentPath.length >= 3
@@ -42,6 +48,39 @@ module.exports =
             currentLoop = concentricLoops[loopIndex]
 
             continue if currentLoop.length < 3
+
+            # Check if this loop should be skipped because it's inside a hole.
+            # Sample multiple points on the loop to ensure accurate detection.
+            skipLoop = false
+
+            if holeInnerWalls.length > 0
+
+                # Sample points evenly distributed around the loop.
+                sampleCount = Math.min(8, currentLoop.length)
+                sampleStep = Math.floor(currentLoop.length / sampleCount)
+                
+                pointsInHoles = 0
+
+                for sampleIdx in [0...sampleCount]
+
+                    pointIdx = sampleIdx * sampleStep
+                    testPoint = currentLoop[pointIdx]
+
+                    # Check if this point is inside any hole.
+                    for holeWall in holeInnerWalls
+
+                        if holeWall.length >= 3 and primitives.pointInPolygon(testPoint, holeWall)
+
+                            pointsInHoles++
+                            break
+
+                # Skip loop only if majority of sampled points are inside holes.
+                # This prevents skipping loops that merely pass near holes.
+                if pointsInHoles > sampleCount / 2
+
+                    skipLoop = true
+
+            continue if skipLoop
 
             # Find optimal start point on this loop if we have a last position.
             startIndex = 0
