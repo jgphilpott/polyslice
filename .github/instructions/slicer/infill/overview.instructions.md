@@ -303,7 +303,7 @@ Creates a wavy infill pattern that approximates the gyroid triply periodic minim
 
 1. Determine pattern center based on `infillPatternCentering` setting
 2. Calculate Z-phase based on current layer height
-3. Generate wavy lines alternating between X and Y directions based on layer
+3. Generate wavy lines with gradual direction transition over 8 layers
 4. Use sine/cosine functions to create the characteristic gyroid wave pattern
 5. Clip wavy line segments to infill boundary
 6. Render segments in nearest-neighbor order with combing
@@ -329,25 +329,41 @@ xOffset = amplitude * Math.cos(frequency * (yPos - centerY) + zPhase + Math.PI /
 - **3D structure**: Wave pattern changes across layers creating interlocking structure
 - **Excellent strength**: Comparable to hexagons but with better isotropy
 - **Smooth paths**: Wavy lines create gradual transitions
-- **Alternating directions**: X-direction on even layers, Y-direction on odd layers
+- **Gradual direction transition**: Direction gradually rotates over 8-layer cycles for smoother layer-to-layer adhesion
 
 ### Wave Generation
 
-For each layer, generate wavy lines:
+Direction transitions gradually over 8 layers:
 
 ```coffeescript
-# Determine direction based on layer
-useXDirection = (Math.floor(z / layerHeight) % 2) is 0
+# Calculate blend ratio for gradual transition
+transitionLayerCount = 8
+currentLayer = Math.floor(z / layerHeight)
+layerInCycle = currentLayer % transitionLayerCount
+blendRatio = layerInCycle / transitionLayerCount  # 0 to ~0.875
 
-if useXDirection
+# Generate X-direction lines when blend ratio < 1
+if blendRatio < 1.0
     # Generate horizontal wavy lines with vertical offset
     for each horizontal position
         yOffset = amplitude * sin(frequency * x + zPhase)
-else
+
+# Generate Y-direction lines when blend ratio > 0
+if blendRatio > 0.0
     # Generate vertical wavy lines with horizontal offset
     for each vertical position
         xOffset = amplitude * cos(frequency * y + zPhase + π/2)
 ```
+
+### Transition Pattern
+
+Over an 8-layer cycle:
+- **Layer 0** (blendRatio = 0.000): Pure X-direction (horizontal) - ~40 lines
+- **Layers 1-6** (blendRatio = 0.125-0.750): Both X and Y directions (blend) - ~80 lines
+- **Layer 7** (blendRatio = 0.875): Mostly Y-direction (vertical) - ~80 lines
+- **Layer 8** (blendRatio = 0.000): Pure X-direction (cycle repeats)
+
+Transition layers (1-7) generate lines in both directions simultaneously, creating a diagonal weave pattern that improves interlayer bonding.
 
 ### Line Spacing Formula
 

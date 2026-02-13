@@ -254,6 +254,7 @@ The gyroid pattern creates a wavy structure that approximates a triply periodic 
 - Comparable to hexagons for structural efficiency
 - Natural appearance with organic flowing lines
 - More G-code commands than straight-line patterns (due to wavy paths)
+- Gradual direction transition over 8-layer cycles for improved interlayer adhesion
 
 **Best for:**
 - High-performance functional parts
@@ -270,14 +271,24 @@ spacing = (nozzleDiameter / (density / 100)) * 1.5
 For example, at 20% density with 0.4mm nozzle:
 - spacing = (0.4 / 0.2) * 1.5 = 3.0mm
 - Wave amplitude is 40% of line spacing
-- Alternates between X and Y directions across layers
+- Direction gradually transitions over 8 layers
 
 **Pattern Generation:**
 The gyroid pattern uses mathematical wave functions based on the gyroid minimal surface equation:
 1. Calculate phase offset based on Z height
-2. Generate wavy lines in X or Y direction (alternating by layer)
-3. Apply sine/cosine functions for wave displacement
-4. Create 3D interlocking structure across layers
+2. Calculate blend ratio for gradual direction transition (8-layer cycle)
+3. Generate X-direction wavy lines when blend ratio < 1
+4. Generate Y-direction wavy lines when blend ratio > 0
+5. Apply sine/cosine functions for wave displacement
+6. Create 3D interlocking structure across layers
+
+**Transition Behavior:**
+- Layer 0 (ratio=0.000): Pure X-direction (horizontal wavy lines)
+- Layers 1-6 (ratio=0.125-0.750): Both X and Y directions (diagonal weave)
+- Layer 7 (ratio=0.875): Mostly Y-direction (vertical wavy lines)
+- Layer 8: Cycle repeats
+
+This gradual transition creates smoother layer-to-layer bonding compared to abrupt 90° alternation.
 
 ### Spiral Pattern
 
