@@ -31,7 +31,7 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Gyroid: wavy lines with gradual direction transition across layers.
+        # Gyroid: wavy lines alternating direction based on Z height.
         allInfillLines = []
 
         # Determine pattern center based on infillPatternCentering setting.
@@ -51,16 +51,20 @@ module.exports =
         # Gyroid has a natural frequency - use lineSpacing as the fundamental period.
         frequency = (2 * Math.PI) / lineSpacing
 
-        # Calculate gradual direction transition over 8 layers.
-        # This creates smoother layer-to-layer transitions compared to alternating.
+        # Calculate gradual direction rotation over 8 layers.
+        # Each layer has ONE set of wavy lines that rotate from 0° to 90°.
         transitionLayerCount = 8
         currentLayer = Math.floor(z / layerHeight)
         layerInCycle = currentLayer % transitionLayerCount
-        blendRatio = layerInCycle / transitionLayerCount  # 0 to ~0.875
-
-        # Generate X-direction lines (horizontal wavy lines) when blend ratio < 1.
-        if blendRatio < 1.0
-
+        
+        # Rotation angle: 0° (horizontal) to 90° (vertical) over 8 layers.
+        rotationAngle = (layerInCycle / transitionLayerCount) * (Math.PI / 2)
+        
+        # For angles close to 0° or 90°, use optimized X or Y direction code.
+        # For intermediate angles, generate lines with rotation.
+        if rotationAngle < 0.1  # Close to 0° (horizontal)
+            
+            # Generate wavy lines in X direction (horizontal).
             # Determine the range for line generation based on centering mode.
             if infillPatternCentering is 'global'
                 # Global centering: lines are positioned relative to pattern center.
@@ -117,10 +121,10 @@ module.exports =
                             start: segment.start
                             end: segment.end
                         })
+        
+        else if rotationAngle > (Math.PI / 2) - 0.1  # Close to 90° (vertical)
 
-        # Generate Y-direction lines (vertical wavy lines) when blend ratio > 0.
-        if blendRatio > 0.0
-
+            # Generate wavy lines in Y direction (vertical).
             # Determine the range for line generation based on centering mode.
             if infillPatternCentering is 'global'
                 # Global centering: lines are positioned relative to pattern center.
@@ -172,6 +176,95 @@ module.exports =
 
                     for segment in clippedSegments
 
+                        allInfillLines.push({
+                            start: segment.start
+                            end: segment.end
+                        })
+        
+        else
+            
+            # Intermediate angles: generate rotated wavy lines.
+            # Use rotation matrix to transform the coordinate system.
+            cosAngle = Math.cos(rotationAngle)
+            sinAngle = Math.sin(rotationAngle)
+            
+            # Calculate bounding box in rotated coordinates.
+            corners = [
+                { x: minX, y: minY }
+                { x: maxX, y: minY }
+                { x: minX, y: maxY }
+                { x: maxX, y: maxY }
+            ]
+            
+            rotMinX = Infinity
+            rotMaxX = -Infinity
+            rotMinY = Infinity
+            rotMaxY = -Infinity
+            
+            for corner in corners
+                # Rotate corner relative to center.
+                relX = corner.x - centerX
+                relY = corner.y - centerY
+                rotX = relX * cosAngle + relY * sinAngle
+                rotY = -relX * sinAngle + relY * cosAngle
+                
+                if rotX < rotMinX then rotMinX = rotX
+                if rotX > rotMaxX then rotMaxX = rotX
+                if rotY < rotMinY then rotMinY = rotY
+                if rotY > rotMaxY then rotMaxY = rotY
+            
+            rotWidth = rotMaxX - rotMinX
+            rotHeight = rotMaxY - rotMinY
+            
+            # Generate lines in rotated Y direction.
+            numLines = Math.ceil(rotWidth / lineSpacing) + 2
+            lineStart = rotMinX - lineSpacing
+            
+            for i in [0...numLines]
+                
+                rotXBase = lineStart + i * lineSpacing
+                
+                # Skip if line is completely outside bounds.
+                if rotXBase < rotMinX - lineSpacing or rotXBase > rotMaxX + lineSpacing
+                    continue
+                
+                # Generate points along this wavy line in rotated coordinates.
+                segments = Math.max(1, Math.ceil(rotHeight / (lineSpacing / 4)))
+                points = []
+                
+                for j in [0..segments]
+                    
+                    rotY = rotMinY + (j / segments) * rotHeight
+                    
+                    # Gyroid wave amplitude.
+                    amplitude = lineSpacing * 0.4
+                    
+                    # Calculate wave offset in rotated X direction.
+                    rotXOffset = amplitude * Math.sin(frequency * rotY + zPhase)
+                    
+                    rotX = rotXBase + rotXOffset
+                    
+                    # Transform back to original coordinates.
+                    xPos = centerX + rotX * cosAngle - rotY * sinAngle
+                    yPos = centerY + rotX * sinAngle + rotY * cosAngle
+                    
+                    # Check if point is roughly within bounds.
+                    if xPos >= minX - lineSpacing and xPos <= maxX + lineSpacing and 
+                       yPos >= minY - lineSpacing and yPos <= maxY + lineSpacing
+                        
+                        points.push({ x: xPos, y: yPos })
+                
+                # Create line segments from consecutive points.
+                for k in [0...points.length - 1]
+                    
+                    startPt = points[k]
+                    endPt = points[k + 1]
+                    
+                    # Clip each segment against the boundary and holes.
+                    clippedSegments = clipping.clipLineWithHoles(startPt, endPt, infillBoundary, holeInnerWalls)
+                    
+                    for segment in clippedSegments
+                        
                         allInfillLines.push({
                             start: segment.start
                             end: segment.end
