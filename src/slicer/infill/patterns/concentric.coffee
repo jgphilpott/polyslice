@@ -16,8 +16,9 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Start with an initial inset to maintain gap from walls (similar to other patterns).
-        # This ensures consistent spacing from the inner walls.
+        # Skip the outermost loop by insetting by lineSpacing.
+        # This creates a density-dependent gap (e.g., 20% density = ~2mm gap).
+        # The infillBoundary is already inset by nozzleDiameter/2 from the walls.
         currentPath = paths.createInsetPath(infillBoundary, lineSpacing, false)
 
         return if currentPath.length < 3
@@ -57,13 +58,13 @@ module.exports =
 
                 # Sample points evenly distributed around the loop.
                 sampleCount = Math.min(8, currentLoop.length)
-                sampleStep = Math.floor(currentLoop.length / sampleCount)
 
                 pointsInHoles = 0
 
                 for sampleIdx in [0...sampleCount]
 
-                    pointIdx = sampleIdx * sampleStep
+                    # Distribute samples evenly across the loop's length.
+                    pointIdx = Math.floor(sampleIdx * currentLoop.length / sampleCount)
                     testPoint = currentLoop[pointIdx]
 
                     # Check if this point is inside any hole.

@@ -220,10 +220,11 @@ describe 'Concentric Infill Generation', ->
                         fillCoords.push({ x: parseFloat(xMatch[1]), y: parseFloat(yMatch[1]) })
 
             # Check that no infill points are in the center hole area.
-            # For a torus with radius 5 and tube 2, centered at build plate center (110, 110),
-            # the hole is approximately at the center (110, 110) with radius ~3mm.
-            centerX = 110
-            centerY = 110
+            # Derive build plate center from slicer configuration to avoid hardcoding.
+            centerX = slicer.getBuildPlateWidth() / 2
+            centerY = slicer.getBuildPlateLength() / 2
+            
+            # For a torus with radius 5 and tube 2, the hole radius is approximately 3mm.
             holeRadius = 3
 
             # Count how many infill points are near the hole center.
