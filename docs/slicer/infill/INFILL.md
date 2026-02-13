@@ -276,19 +276,24 @@ For example, at 20% density with 0.4mm nozzle:
 **Pattern Generation:**
 The gyroid pattern uses mathematical wave functions based on the gyroid minimal surface equation:
 1. Calculate phase offset based on Z height
-2. Calculate blend ratio for gradual direction transition (8-layer cycle)
-3. Generate X-direction wavy lines when blend ratio < 1
-4. Generate Y-direction wavy lines when blend ratio > 0
-5. Apply sine/cosine functions for wave displacement
-6. Create 3D interlocking structure across layers
+2. Calculate rotation angle for current layer (0° to 90° over 8-layer cycle)
+3. Generate ONE set of wavy lines at the calculated rotation angle
+4. Apply sine/cosine functions for wave displacement
+5. Create 3D interlocking structure across layers
 
-**Transition Behavior:**
-- Layer 0 (ratio=0.000): Pure X-direction (horizontal wavy lines)
-- Layers 1-6 (ratio=0.125-0.750): Both X and Y directions (diagonal weave)
-- Layer 7 (ratio=0.875): Mostly Y-direction (vertical wavy lines)
-- Layer 8: Cycle repeats
+**Rotation Behavior:**
+Each layer has exactly ONE set of wavy lines that gradually rotates:
+- Layer 0 (0.0°): Horizontal wavy lines (~92 lines)
+- Layer 1 (11.25°): Slightly rotated (~84 lines)
+- Layer 2 (22.5°): More rotated (~95 lines)
+- Layer 3 (33.75°): Diagonal (~92 lines)
+- Layer 4 (45.0°): 45° diagonal (~98 lines)
+- Layer 5 (56.25°): More vertical (~100 lines)
+- Layer 6 (67.5°): Near vertical (~91 lines)
+- Layer 7 (78.75°): Almost vertical (~88 lines)
+- Layer 8: Cycle repeats (0° again)
 
-This gradual transition creates smoother layer-to-layer bonding compared to abrupt 90° alternation.
+This creates smooth layer-to-layer transitions with consistent material usage.
 
 ### Spiral Pattern
 

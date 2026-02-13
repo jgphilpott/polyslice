@@ -251,7 +251,7 @@ describe 'Gyroid Infill Generation', ->
             if currentLayer >= 0
                 layerInfillCounts.push(currentLayerCount)
 
-            # With gradual transition over 8 layers, pattern should repeat every 8 layers.
+            # With gradual rotation over 8 layers, each layer has ONE set of wavy lines.
             # Skip skin layers at bottom/top (first 2 and last 2).
             middleLayers = layerInfillCounts[2...layerInfillCounts.length - 2]
 
@@ -262,13 +262,11 @@ describe 'Gyroid Infill Generation', ->
             for count in middleLayers
                 expect(count).toBeGreaterThan(0)
 
-            # The pattern should have some variation across the 8-layer cycle.
-            # Check that not all layers have identical infill counts.
-            firstEightLayers = middleLayers[0...8]
-            uniqueCounts = new Set(firstEightLayers)
-            
-            # Should have at least 2 different counts (showing direction transition).
-            expect(uniqueCounts.size).toBeGreaterThan(1)
+            # Each layer should have roughly similar line counts (ONE set of lines).
+            # With 20% density and 0.4mm nozzle, expect ~40-100 lines per layer.
+            for count in middleLayers[0...16]  # Check first 16 middle layers
+                expect(count).toBeGreaterThan(30)  # Should have substantial infill
+                expect(count).toBeLessThan(120)    # But not doubled (no two directions)
 
             # Return undefined to satisfy Jest.
             return undefined
