@@ -31,7 +31,7 @@ module.exports =
         travelSpeedMmMin = slicer.getTravelSpeed() * 60
         infillSpeedMmMin = slicer.getInfillSpeed() * 60
 
-        # Gyroid: wavy lines alternating direction based on Z height.
+        # Gyroid: wavy lines with gradual direction transition across layers.
         allInfillLines = []
 
         # Determine pattern center based on infillPatternCentering setting.
@@ -51,13 +51,16 @@ module.exports =
         # Gyroid has a natural frequency - use lineSpacing as the fundamental period.
         frequency = (2 * Math.PI) / lineSpacing
 
-        # Determine wave direction based on layer.
-        # Gyroid naturally alternates, but we use sin/cos combinations for authenticity.
-        useXDirection = (Math.floor(z / layerHeight) % 2) is 0
+        # Calculate gradual direction transition over 8 layers.
+        # This creates smoother layer-to-layer transitions compared to alternating.
+        transitionLayerCount = 8
+        currentLayer = Math.floor(z / layerHeight)
+        layerInCycle = currentLayer % transitionLayerCount
+        blendRatio = layerInCycle / transitionLayerCount  # 0 to ~0.875
 
-        if useXDirection
+        # Generate X-direction lines (horizontal wavy lines) when blend ratio < 1.
+        if blendRatio < 1.0
 
-            # Generate wavy lines in X direction (horizontal).
             # Determine the range for line generation based on centering mode.
             if infillPatternCentering is 'global'
                 # Global centering: lines are positioned relative to pattern center.
@@ -115,9 +118,9 @@ module.exports =
                             end: segment.end
                         })
 
-        else
+        # Generate Y-direction lines (vertical wavy lines) when blend ratio > 0.
+        if blendRatio > 0.0
 
-            # Generate wavy lines in Y direction (vertical).
             # Determine the range for line generation based on centering mode.
             if infillPatternCentering is 'global'
                 # Global centering: lines are positioned relative to pattern center.

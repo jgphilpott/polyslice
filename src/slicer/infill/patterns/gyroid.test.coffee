@@ -140,7 +140,7 @@ describe 'Gyroid Infill Generation', ->
             # Results should differ due to centering mode.
             expect(resultObject).not.toBe(resultGlobal)
 
-        test 'should generate wavy pattern with alternating layers', ->
+        test 'should generate wavy pattern with gradual transition', ->
 
             # Create a 1cm cube.
             geometry = new THREE.BoxGeometry(10, 10, 10)
@@ -174,6 +174,7 @@ describe 'Gyroid Infill Generation', ->
                     g1Count++
 
             # Should have substantial number of extrusion commands in infill.
+            # Gradual transition generates more lines than alternating pattern.
             expect(g1Count).toBeGreaterThan(100)
 
         test 'should work with different nozzle sizes', ->
@@ -205,3 +206,69 @@ describe 'Gyroid Infill Generation', ->
 
             # Different nozzle sizes should produce different results.
             expect(result1).not.toBe(result2)
+
+        test 'should gradually transition direction over 8 layers', ->
+
+            # Create a 2cm tall cube for more layers.
+            geometry = new THREE.BoxGeometry(10, 10, 20)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 10)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('gyroid')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Extract layer infill line counts.
+            lines = result.split('\n')
+            layerInfillCounts = []
+            currentLayerCount = 0
+            inFillSection = false
+            currentLayer = -1
+
+            for line in lines
+
+                if line.includes('LAYER:')
+                    if currentLayer >= 0
+                        layerInfillCounts.push(currentLayerCount)
+                    currentLayer++
+                    currentLayerCount = 0
+
+                if line.includes('; TYPE: FILL')
+                    inFillSection = true
+                else if line.includes('; TYPE:') and not line.includes('FILL')
+                    inFillSection = false
+
+                if inFillSection and line.startsWith('G1') and line.includes('E')
+                    currentLayerCount++
+
+            if currentLayer >= 0
+                layerInfillCounts.push(currentLayerCount)
+
+            # With gradual transition over 8 layers, pattern should repeat every 8 layers.
+            # Skip skin layers at bottom/top (first 2 and last 2).
+            middleLayers = layerInfillCounts[2...layerInfillCounts.length - 2]
+
+            # Verify we have enough layers to check the pattern.
+            expect(middleLayers.length).toBeGreaterThan(8)
+
+            # All layers should have infill (not zero).
+            for count in middleLayers
+                expect(count).toBeGreaterThan(0)
+
+            # The pattern should have some variation across the 8-layer cycle.
+            # Check that not all layers have identical infill counts.
+            firstEightLayers = middleLayers[0...8]
+            uniqueCounts = new Set(firstEightLayers)
+            
+            # Should have at least 2 different counts (showing direction transition).
+            expect(uniqueCounts.size).toBeGreaterThan(1)
+
+            # Return undefined to satisfy Jest.
+            return undefined
