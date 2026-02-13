@@ -58,7 +58,7 @@ module.exports =
                 # Sample points evenly distributed around the loop.
                 sampleCount = Math.min(8, currentLoop.length)
                 sampleStep = Math.floor(currentLoop.length / sampleCount)
-                
+
                 pointsInHoles = 0
 
                 for sampleIdx in [0...sampleCount]
