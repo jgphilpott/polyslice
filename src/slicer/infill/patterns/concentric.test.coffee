@@ -211,7 +211,8 @@ describe 'Concentric Infill Generation', ->
 
                 if inFill and line.includes('G1') and line.includes('E')
 
-                    # Parse X and Y coordinates.
+                    # Parse X and Y coordinates from G-code.
+                    # Regex captures numeric value after X or Y (e.g., "X110.5" → match[1] = "110.5").
                     xMatch = line.match(/X([\d.-]+)/)
                     yMatch = line.match(/Y([\d.-]+)/)
 
@@ -237,6 +238,5 @@ describe 'Concentric Infill Generation', ->
                 if distToCenter < holeRadius
                     pointsNearHole++
 
-            # Should have very few or no points in the hole area.
-            # Allow a small tolerance for edge cases.
-            expect(pointsNearHole).toBeLessThan(fillCoords.length * 0.05) # Less than 5% in hole area.
+            # Should have no points in the hole area after the fix.
+            expect(pointsNearHole).toBe(0) # 100% elimination of hole violations.
