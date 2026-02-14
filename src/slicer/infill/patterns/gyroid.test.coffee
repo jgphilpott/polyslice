@@ -174,7 +174,7 @@ describe 'Gyroid Infill Generation', ->
                     g1Count++
 
             # Should have substantial number of extrusion commands in infill.
-            # Gradual transition generates more lines than alternating pattern.
+            # Single rotating direction generates consistent line counts per layer.
             expect(g1Count).toBeGreaterThan(100)
 
         test 'should work with different nozzle sizes', ->
