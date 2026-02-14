@@ -260,7 +260,7 @@ slicer.setInfillPatternCentering('global');
 
 **Since v26.1.2:**
 - 80+ commits merged
-- 4 major pull requests
+- 7 major pull requests (4 for new patterns, 3 for fixes)
 - 4 new infill patterns added
 - 46 new tests added
 - 200+ documentation updates
