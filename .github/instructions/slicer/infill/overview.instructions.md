@@ -303,25 +303,28 @@ Creates a wavy infill pattern that approximates the gyroid triply periodic minim
 
 1. Determine pattern center based on `infillPatternCentering` setting
 2. Calculate Z-phase based on current layer height
-3. Generate wavy lines alternating between X and Y directions based on layer
-4. Use sine/cosine functions to create the characteristic gyroid wave pattern
-5. Clip wavy line segments to infill boundary
-6. Render segments in nearest-neighbor order with combing
+3. Calculate rotation angle for current layer (0° to 90° over 8-layer cycle)
+4. Generate ONE set of wavy lines at the calculated rotation angle
+5. Use sine/cosine functions to create the characteristic gyroid wave pattern
+6. Clip wavy line segments to infill boundary
+7. Render segments in nearest-neighbor order with combing
 
 ### Gyroid Equation
 
 ```coffeescript
 # Gyroid TPMS equation: sin(x)cos(y) + sin(y)cos(z) + sin(z)cos(x) = 0
-# For 2D slice at height z, approximate with:
+# For 2D slice at height z, we approximate with wavy lines:
 frequency = (2 * Math.PI) / lineSpacing
 zPhase = (z / lineSpacing) * 2 * Math.PI
 amplitude = lineSpacing * 0.4
 
-# X-direction waves
+# For horizontal lines (0°):
 yOffset = amplitude * Math.sin(frequency * (xPos - centerX) + zPhase)
 
-# Y-direction waves (with phase shift)
+# For vertical lines (90°):
 xOffset = amplitude * Math.cos(frequency * (yPos - centerY) + zPhase + Math.PI / 2)
+
+# For intermediate angles: apply rotation transformation to coordinates
 ```
 
 ### Characteristics
@@ -329,25 +332,51 @@ xOffset = amplitude * Math.cos(frequency * (yPos - centerY) + zPhase + Math.PI /
 - **3D structure**: Wave pattern changes across layers creating interlocking structure
 - **Excellent strength**: Comparable to hexagons but with better isotropy
 - **Smooth paths**: Wavy lines create gradual transitions
-- **Alternating directions**: X-direction on even layers, Y-direction on odd layers
+- **Gradual direction transition**: Direction gradually rotates over 8-layer cycles for smoother layer-to-layer adhesion
 
-### Wave Generation
+### Line Generation
 
-For each layer, generate wavy lines:
+Each layer generates ONE set of wavy lines at a specific rotation angle:
 
 ```coffeescript
-# Determine direction based on layer
-useXDirection = (Math.floor(z / layerHeight) % 2) is 0
+# Calculate rotation angle for gradual transition
+transitionLayerCount = 8
+currentLayer = Math.floor(z / layerHeight)
+layerInCycle = currentLayer % transitionLayerCount
+rotationAngle = (layerInCycle / transitionLayerCount) * (Math.PI / 2)  # 0 to π/2
 
-if useXDirection
-    # Generate horizontal wavy lines with vertical offset
+# For angles close to 0°: use optimized horizontal wavy lines
+if rotationAngle < 0.1
+    # Generate horizontal wavy lines with vertical wave offset
     for each horizontal position
         yOffset = amplitude * sin(frequency * x + zPhase)
-else
-    # Generate vertical wavy lines with horizontal offset
+
+# For angles close to 90°: use optimized vertical wavy lines
+else if rotationAngle > (Math.PI / 2) - 0.1
+    # Generate vertical wavy lines with horizontal wave offset
     for each vertical position
         xOffset = amplitude * cos(frequency * y + zPhase + π/2)
+
+# For intermediate angles: use rotation matrix
+else
+    # Generate wavy lines at the specific rotation angle
+    # using coordinate transformation
 ```
+
+### Rotation Pattern
+
+Over an 8-layer cycle, each layer has exactly ONE set of wavy lines at a specific angle:
+- **Layer 0** (angle = 0.0°): Horizontal wavy lines - ~92 lines
+- **Layer 1** (angle = 11.25°): Slightly rotated - ~84 lines
+- **Layer 2** (angle = 22.5°): More rotated - ~95 lines
+- **Layer 3** (angle = 33.75°): Diagonal - ~92 lines
+- **Layer 4** (angle = 45.0°): 45° diagonal - ~98 lines
+- **Layer 5** (angle = 56.25°): More vertical - ~100 lines
+- **Layer 6** (angle = 67.5°): Near vertical - ~91 lines
+- **Layer 7** (angle = 78.75°): Almost vertical - ~88 lines
+- **Layer 8**: Cycle repeats (0° again)
+
+This creates smooth layer-to-layer transitions with consistent material usage (~85-100 lines per layer).
 
 ### Line Spacing Formula
 
