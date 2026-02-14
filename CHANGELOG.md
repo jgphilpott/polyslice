@@ -33,7 +33,7 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
   - Added proper gap (lineSpacing) between walls and first infill loop
   - Implemented hole detection using majority voting on 8 sample points
   - Fixed torus example from 33% to 0% erroneous points in holes
-- **Gyroid Infill** - Fixed to use single rotating direction per layer instead of alternating
+- **Gyroid Infill** - Fixed to use single rotating direction per layer instead of generating both X and Y directions simultaneously
   - Eliminates ~170 line generation per layer
   - Produces consistent ~85-100 lines per layer
   - Smoother transitions between layers
