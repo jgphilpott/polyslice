@@ -103,7 +103,6 @@ The gyroid pattern has been completely rewritten for better performance and qual
 
 **Before:**
 - Generated two sets of wavy lines per layer (X and Y directions)
-- Alternated direction every layer
 - ~170 lines per layer
 - Abrupt direction changes between layers
 
