@@ -7,6 +7,41 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.2.0] - 2026-02-14
+
+### Added
+- **New Infill Patterns** - Four new infill pattern options for different use cases:
+  - **Concentric** - Inward-spiraling contours that follow the boundary shape naturally, ideal for curved shapes and cylindrical cross-sections
+  - **Gyroid** - Triply periodic minimal surface (TPMS) with wavy pattern that creates 3D interlocking structure across layers, offering excellent strength-to-weight ratio with single rotating direction per layer
+  - **Spiral** - Archimedean spiral from center outward in a continuous path, perfect for smooth circular motion and cylindrical geometries
+  - **Lightning** - Tree-like branching pattern with fast printing and minimal material usage, featuring 45° fork angles for natural appearance
+- **Infill Pattern Centering** - New `infillPatternCentering` configuration option
+  - Choose between 'object' (default) or 'global' centering modes
+  - Affects grid, triangles, hexagons, gyroid, spiral, and lightning patterns
+  - Object mode centers patterns on individual object boundaries
+  - Global mode centers patterns on build plate center (0,0)
+
+### Changed
+- **Gyroid Pattern Algorithm** - Completely revised gyroid implementation
+  - Uses single rotating direction per layer instead of dual directions
+  - Gradual transition over 8-layer cycle (0° to 90° rotation)
+  - Better layer-to-layer adhesion and more consistent material usage (~85-100 lines per layer)
+  - Optimized segment count for better performance
+
+### Fixed
+- **Concentric Infill** - Fixed multiple issues with concentric pattern
+  - Added proper gap (lineSpacing) between walls and first infill loop
+  - Implemented hole detection using majority voting on 8 sample points
+  - Fixed torus example from 33% to 0% erroneous points in holes
+- **Gyroid Infill** - Fixed to use single rotating direction per layer instead of alternating
+  - Eliminates ~170 line generation per layer
+  - Produces consistent ~85-100 lines per layer
+  - Smoother transitions between layers
+- **Spiral Infill** - Fixed lastEndPoint tracking to update only when movement is generated
+- **Skin Generation** - Fixed travel moves for nested structures
+- **Cylinder Bottom Layer** - Fixed incomplete walls by adjusting SLICE_EPSILON to layerHeight/2
+- **CI Pipeline** - Resolved dependency conflicts by removing unused eslint-plugin-jest
+
 ## [26.1.2] - 2026-01-28
 
 ### Added
@@ -70,7 +105,8 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 Initial release for January 2026. See GitHub releases and commit history for details on previous versions.
 
-[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.1.2...HEAD
+[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.2.0...HEAD
+[26.2.0]: https://github.com/jgphilpott/polyslice/compare/v26.1.2...v26.2.0
 [26.1.2]: https://github.com/jgphilpott/polyslice/compare/v26.1.1...v26.1.2
 [26.1.1]: https://github.com/jgphilpott/polyslice/compare/v26.1.0...v26.1.1
 [26.1.0]: https://github.com/jgphilpott/polyslice/releases/tag/v26.1.0
