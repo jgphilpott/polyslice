@@ -448,7 +448,8 @@ module.exports =
         if verbose and layerIndex is 0
 
             slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
-            slicer.gcode += "; Support cluster: (#{cluster.minX.toFixed(2)}, #{cluster.minY.toFixed(2)}) to (#{cluster.maxX.toFixed(2)}, #{cluster.maxY.toFixed(2)}), maxZ=#{cluster.maxZ.toFixed(2)}" + slicer.newline
+            slicer.gcode += "; Support cluster: #{cluster.regions.length} overhang points" + slicer.newline
+            slicer.gcode += "; Coverage area: (#{minX.toFixed(2)}, #{minY.toFixed(2)}) to (#{maxX.toFixed(2)}, #{maxY.toFixed(2)}), maxZ=#{cluster.maxZ.toFixed(2)}" + slicer.newline
 
         travelSpeed = slicer.getTravelSpeed() * 60
         supportSpeed = slicer.getPerimeterSpeed() * 60 * 0.5
