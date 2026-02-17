@@ -29,7 +29,13 @@ module.exports =
 
             slicer._overhangRegions = @detectOverhangs(mesh, supportThreshold, minZ, supportPlacement)
 
+        # Cluster overhang points into unified regions on first layer.
+        if not slicer._supportClusters?
+
+            slicer._supportClusters = @clusterOverhangRegions(slicer._overhangRegions, nozzleDiameter)
+
         overhangRegions = slicer._overhangRegions
+        supportClusters = slicer._supportClusters
         layerSolidRegions = slicer._layerSolidRegions
 
         return unless overhangRegions.length > 0
@@ -39,31 +45,35 @@ module.exports =
 
         supportsGenerated = 0
 
-        for region in overhangRegions
+        # Generate coordinated support structures for each cluster.
+        for cluster in supportClusters
 
             interfaceGap = layerHeight * 1.5
 
-            if region.z > (z + interfaceGap)
+            # Check if this cluster needs support at current Z height.
+            # Use the cluster's maximum Z (highest point that needs support).
+            if cluster.maxZ > (z + interfaceGap)
 
-                # Check if support can be generated at this position based on placement mode.
-                canGenerateSupport = @canGenerateSupportAt(
-                    region,
+                # Generate grid pattern for this cluster.
+                @generateClusterSupportPattern(
+                    slicer,
+                    cluster,
                     z,
                     layerIndex,
+                    centerOffsetX,
+                    centerOffsetY,
+                    nozzleDiameter,
                     layerSolidRegions,
                     supportPlacement,
                     minZ,
                     layerHeight
                 )
 
-                if canGenerateSupport
-
-                    @generateSupportColumn(slicer, region, z, centerOffsetX, centerOffsetY, nozzleDiameter)
-                    supportsGenerated++
+                supportsGenerated++
 
         if verbose and supportsGenerated > 0 and layerIndex is 0
 
-            slicer.gcode += "; Support structures detected (#{overhangRegions.length} regions)" + slicer.newline
+            slicer.gcode += "; Support structures detected (#{overhangRegions.length} overhang points in #{supportClusters.length} clusters)" + slicer.newline
 
         return
 
@@ -154,6 +164,108 @@ module.exports =
                         processedFaces.add(faceIndex)
 
         return overhangRegions
+
+    # Cluster overhang regions into unified support areas.
+    # Uses grid-based spatial clustering to group nearby overhang points.
+    clusterOverhangRegions: (overhangRegions, nozzleDiameter) ->
+
+        return [] unless overhangRegions.length > 0
+
+        # Clustering distance: group points within 10× nozzle diameter.
+        # This creates larger unified support regions.
+        clusterDistance = nozzleDiameter * 10
+
+        clusters = []
+
+        # Sort regions by Z coordinate for efficient clustering.
+        sortedRegions = overhangRegions.slice().sort((a, b) -> a.z - b.z)
+
+        for region in sortedRegions
+
+            # Try to find an existing cluster for this region.
+            foundCluster = null
+
+            for cluster in clusters
+
+                # Check if region is within cluster distance in XY plane.
+                # Also check Z proximity (within 4× cluster distance).
+                dx = region.x - cluster.centerX
+                dy = region.y - cluster.centerY
+                dz = Math.abs(region.z - cluster.maxZ)
+                xyDist = Math.sqrt(dx * dx + dy * dy)
+
+                # Cluster if close in XY and Z.
+                if xyDist < clusterDistance and dz < (clusterDistance * 4)
+
+                    foundCluster = cluster
+                    break
+
+            if foundCluster
+
+                # Add to existing cluster.
+                foundCluster.regions.push(region)
+
+                # Update cluster bounds.
+                foundCluster.minX = Math.min(foundCluster.minX, region.x)
+                foundCluster.maxX = Math.max(foundCluster.maxX, region.x)
+                foundCluster.minY = Math.min(foundCluster.minY, region.y)
+                foundCluster.maxY = Math.max(foundCluster.maxY, region.y)
+                foundCluster.minZ = Math.min(foundCluster.minZ, region.z)
+                foundCluster.maxZ = Math.max(foundCluster.maxZ, region.z)
+
+                # Update center as average of all regions.
+                sumX = 0
+                sumY = 0
+
+                for r in foundCluster.regions
+
+                    sumX += r.x
+                    sumY += r.y
+
+                foundCluster.centerX = sumX / foundCluster.regions.length
+                foundCluster.centerY = sumY / foundCluster.regions.length
+
+            else
+
+                # Create new cluster.
+                newCluster = {
+                    regions: [region]
+                    minX: region.x
+                    maxX: region.x
+                    minY: region.y
+                    maxY: region.y
+                    minZ: region.z
+                    maxZ: region.z
+                    centerX: region.x
+                    centerY: region.y
+                }
+
+                clusters.push(newCluster)
+
+        # Post-process clusters to ensure minimum size for proper coverage.
+        # Even single-point clusters need area to generate support grid.
+        minClusterSize = nozzleDiameter * 3
+
+        for cluster in clusters
+
+            width = cluster.maxX - cluster.minX
+            height = cluster.maxY - cluster.minY
+
+            if width < minClusterSize
+
+                # Expand cluster in X direction.
+                expansion = (minClusterSize - width) / 2
+                cluster.minX -= expansion
+                cluster.maxX += expansion
+
+            if height < minClusterSize
+
+                # Expand cluster in Y direction.
+                expansion = (minClusterSize - height) / 2
+                cluster.minY -= expansion
+                cluster.maxY += expansion
+
+        return clusters
 
     # Build a cache of solid regions for each layer.
     # This allows us to quickly check if a point is inside solid geometry.
@@ -315,6 +427,198 @@ module.exports =
         # - Count 3: inside three boundaries (solid again - structure inside hole)
         # Rule: ODD count = solid, EVEN count = not solid
         return containmentCount > 0 and containmentCount % 2 is 1
+
+    # Generate coordinated support pattern for a cluster region.
+    generateClusterSupportPattern: (slicer, cluster, currentZ, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
+
+        verbose = slicer.getVerbose()
+
+        # Support line spacing (grid pattern).
+        # Use tighter spacing for better coverage.
+        supportSpacing = nozzleDiameter * 2.0
+
+        # Expand cluster bounds for better coverage.
+        # Add extra margin to ensure full overhang coverage.
+        margin = supportSpacing * 2
+        minX = cluster.minX - margin
+        maxX = cluster.maxX + margin
+        minY = cluster.minY - margin
+        maxY = cluster.maxY + margin
+
+        if verbose and layerIndex is 0
+
+            slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
+            slicer.gcode += "; Support cluster: (#{cluster.minX.toFixed(2)}, #{cluster.minY.toFixed(2)}) to (#{cluster.maxX.toFixed(2)}, #{cluster.maxY.toFixed(2)}), maxZ=#{cluster.maxZ.toFixed(2)}" + slicer.newline
+
+        travelSpeed = slicer.getTravelSpeed() * 60
+        supportSpeed = slicer.getPerimeterSpeed() * 60 * 0.5
+        supportLineWidth = nozzleDiameter * 0.8
+
+        # Generate grid pattern within cluster bounds.
+        # Alternate between X and Y direction lines each layer for strength.
+        useXDirection = layerIndex % 2 is 0
+
+        gridPoints = []
+
+        if useXDirection
+
+            # Generate horizontal (X-direction) lines.
+            y = minY
+
+            while y <= maxY
+
+                x = minX
+
+                while x <= maxX
+
+                    point = { x: x, y: y }
+
+                    # Check if this point can have support (collision detection).
+                    canGenerate = @canGenerateSupportAt(
+                        { x: x, y: y, z: cluster.maxZ },
+                        currentZ,
+                        layerIndex,
+                        layerSolidRegions,
+                        supportPlacement,
+                        minZ,
+                        layerHeight
+                    )
+
+                    if canGenerate
+
+                        gridPoints.push(point)
+
+                    x += supportSpacing
+
+                y += supportSpacing
+
+        else
+
+            # Generate vertical (Y-direction) lines.
+            x = minX
+
+            while x <= maxX
+
+                y = minY
+
+                while y <= maxY
+
+                    point = { x: x, y: y }
+
+                    # Check if this point can have support (collision detection).
+                    canGenerate = @canGenerateSupportAt(
+                        { x: x, y: y, z: cluster.maxZ },
+                        currentZ,
+                        layerIndex,
+                        layerSolidRegions,
+                        supportPlacement,
+                        minZ,
+                        layerHeight
+                    )
+
+                    if canGenerate
+
+                        gridPoints.push(point)
+
+                    y += supportSpacing
+
+                x += supportSpacing
+
+        # Generate support lines.
+        return unless gridPoints.length > 0
+
+        # Group consecutive points into continuous lines.
+        if useXDirection
+
+            # Group by Y coordinate (horizontal lines).
+            linesByY = {}
+
+            for point in gridPoints
+
+                yKey = Math.round(point.y * 100) / 100 # Round to avoid floating point issues.
+
+                linesByY[yKey] ?= []
+                linesByY[yKey].push(point)
+
+            # Generate continuous lines for each Y level.
+            for yKey, points of linesByY
+
+                # Sort points by X coordinate.
+                points.sort((a, b) -> a.x - b.x)
+
+                # Generate zig-zag line through all points.
+                for i in [0...points.length]
+
+                    point = points[i]
+                    offsetX = point.x + centerOffsetX
+                    offsetY = point.y + centerOffsetY
+
+                    if i is 0
+
+                        # Travel to start of line.
+                        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, currentZ, null, travelSpeed)
+
+                    else
+
+                        # Extrude to next point.
+                        prevPoint = points[i - 1]
+                        dx = point.x - prevPoint.x
+                        dy = point.y - prevPoint.y
+                        distance = Math.sqrt(dx * dx + dy * dy)
+
+                        if distance > 0.001
+
+                            extrusionDelta = slicer.calculateExtrusion(distance, supportLineWidth)
+                            slicer.cumulativeE += extrusionDelta
+
+                            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, currentZ, slicer.cumulativeE, supportSpeed)
+
+        else
+
+            # Group by X coordinate (vertical lines).
+            linesByX = {}
+
+            for point in gridPoints
+
+                xKey = Math.round(point.x * 100) / 100
+
+                linesByX[xKey] ?= []
+                linesByX[xKey].push(point)
+
+            # Generate continuous lines for each X level.
+            for xKey, points of linesByX
+
+                # Sort points by Y coordinate.
+                points.sort((a, b) -> a.y - b.y)
+
+                # Generate zig-zag line through all points.
+                for i in [0...points.length]
+
+                    point = points[i]
+                    offsetX = point.x + centerOffsetX
+                    offsetY = point.y + centerOffsetY
+
+                    if i is 0
+
+                        # Travel to start of line.
+                        slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, currentZ, null, travelSpeed)
+
+                    else
+
+                        # Extrude to next point.
+                        prevPoint = points[i - 1]
+                        dx = point.x - prevPoint.x
+                        dy = point.y - prevPoint.y
+                        distance = Math.sqrt(dx * dx + dy * dy)
+
+                        if distance > 0.001
+
+                            extrusionDelta = slicer.calculateExtrusion(distance, supportLineWidth)
+                            slicer.cumulativeE += extrusionDelta
+
+                            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, currentZ, slicer.cumulativeE, supportSpeed)
+
+        return
 
     # Generate a support column from build plate to overhang region.
     generateSupportColumn: (slicer, region, currentZ, centerOffsetX, centerOffsetY, nozzleDiameter) ->

@@ -53,6 +53,7 @@ module.exports =
         # This ensures supports are recalculated for each new mesh/orientation.
         slicer._overhangRegions = null
         slicer._layerSolidRegions = null
+        slicer._supportClusters = null
 
         # Extract mesh from scene if provided.
         originalMesh = preprocessingModule.extractMesh(scene)
