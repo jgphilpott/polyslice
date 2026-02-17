@@ -29,15 +29,16 @@ function createTorus(radius = 5, tube = 2) {
 const slicer = new Polyslice({
   printer: printer,
   filament: filament,
-  shellSkinThickness: 0.4,
+  shellSkinThickness: 1.0,  // 5 layers instead of 4
   shellWallThickness: 0.8,  // 2 walls
   lengthUnit: 'millimeters',
   timeUnit: 'seconds',
   infillPatternCentering: 'global',
   infillPattern: 'grid',
   infillDensity: 20,
-  bedTemperature: 60,  // Match original
+  bedTemperature: 0,  // Match original
   layerHeight: 0.2,
+  wipeNozzle: false,  // Match original
   testStrip: true,   // Match original
   metadata: false,   // Match original
   verbose: true
