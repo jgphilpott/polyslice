@@ -1032,9 +1032,10 @@ module.exports =
 
                         continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        # For nested structures with holes, Phase 1 already generated skin walls.
-                        # Pass generateWall=false if skin wall was already generated in Phase 1.
-                        structureAlreadyHasSkinWall = holeIndices.length > 0
+                        # For nested structures with holes on absolute top/bottom layers, Phase 1 already generated skin walls.
+                        # But for middle layers with exposure detection, Phase 1 does NOT generate structure skin walls.
+                        # So we need to check if this is an absolute top/bottom layer before skipping wall generation.
+                        structureAlreadyHasSkinWall = holeIndices.length > 0 and isAbsoluteTopOrBottom
                         shouldGenerateWall = not structureAlreadyHasSkinWall
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls, false, shouldGenerateWall)
