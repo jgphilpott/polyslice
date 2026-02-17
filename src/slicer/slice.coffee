@@ -1032,7 +1032,6 @@ module.exports =
 
                         continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
-                        # For nested structures with holes, Phase 1 already generated skin walls.
                         # For nested structures with holes on absolute top/bottom layers, Phase 1 already generated skin walls.
                         # But for middle layers with exposure detection, Phase 1 does NOT generate structure skin walls.
                         # So we need to check if this is an absolute top/bottom layer before skipping wall generation.
