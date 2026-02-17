@@ -412,6 +412,13 @@ module.exports =
                 outerWall2 = allOuterWalls[pathIndex2]
                 continue if not outerWall2 or outerWall2.length < 3
 
+                # Only check spacing between paths of the same type.
+                # Holes expand outward, structures expand inward, so they won't collide.
+                isHole1 = pathIsHole[pathIndex1]
+                isHole2 = pathIsHole[pathIndex2]
+
+                continue if isHole1 isnt isHole2
+
                 minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
 
                 if minDistance < nozzleDiameter
@@ -1040,8 +1047,10 @@ module.exports =
                         continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                         # For nested structures with holes, Phase 1 already generated skin walls.
-                        # Pass generateWall=false if skin wall was already generated in Phase 1.
-                        structureAlreadyHasSkinWall = holeIndices.length > 0
+                        # For nested structures with holes on absolute top/bottom layers, Phase 1 already generated skin walls.
+                        # But for middle layers with exposure detection, Phase 1 does NOT generate structure skin walls.
+                        # So we need to check if this is an absolute top/bottom layer before skipping wall generation.
+                        structureAlreadyHasSkinWall = holeIndices.length > 0 and isAbsoluteTopOrBottom
                         shouldGenerateWall = not structureAlreadyHasSkinWall
 
                         skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, allSkinWalls, holeOuterWalls, fullyCoveredSkinWalls, false, shouldGenerateWall)
