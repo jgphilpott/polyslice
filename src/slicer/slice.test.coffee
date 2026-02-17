@@ -1013,12 +1013,11 @@ describe 'Slicing', ->
 
             expect(layer1Outer).toBeGreaterThan(0)  # Should have outer walls.
             expect(layer1Inner).toBeGreaterThan(0)  # Should have inner walls (sufficient spacing at Z=0.1mm).
-            expect(layer1Skin).toBeGreaterThan(0)  # Should have skin walls (hole and structure don't interfere).
-            expect(layer1Fill).toBe(0)  # No infill on absolute skin layers (0.8mm thickness = 4 layers).
+            expect(layer1Skin).toBe(0)  # No skin (suppressed due to insufficient innermost wall spacing for skin).
+            expect(layer1Fill).toBe(0)  # No infill (suppressed together with skin due to spacing constraints).
 
-            # Layer 2 (index 1): Should have outer + inner walls + skin.
-            # With the fix, spacing check only compares same-type paths (structure-to-structure, hole-to-hole).
-            # Since there's only one structure and one hole, neither gets flagged for insufficient spacing.
+            # Layer 2 (index 1): Should have outer + inner walls, but no skin or infill.
+            # Spacing between innermost walls is ~0.495mm < 0.8mm (2× nozzle diameter).
             layer2Outer = countMarkersInLayer(2, 'TYPE: WALL-OUTER')
             layer2Inner = countMarkersInLayer(2, 'TYPE: WALL-INNER')
             layer2Skin = countMarkersInLayer(2, 'TYPE: SKIN')
@@ -1026,8 +1025,8 @@ describe 'Slicing', ->
 
             expect(layer2Outer).toBeGreaterThan(0)  # Should have outer walls.
             expect(layer2Inner).toBeGreaterThan(0)  # Should have inner walls (sufficient spacing).
-            expect(layer2Skin).toBeGreaterThan(0)  # Should have skin walls (hole and structure don't interfere).
-            expect(layer2Fill).toBe(0)  # No infill on absolute skin layers.
+            expect(layer2Skin).toBe(0)  # No skin (innermost wall spacing < 0.8mm).
+            expect(layer2Fill).toBe(0)  # No infill (suppressed with skin).
 
             # Layer 3+ (index 2+): Should have all features (sufficient spacing).
             layer3Outer = countMarkersInLayer(3, 'TYPE: WALL-OUTER')
@@ -1250,7 +1249,7 @@ describe 'Slicing', ->
             # With SLICE_EPSILON = layerHeight/2 (0.1mm), the torus cross-section
             # at Z=0.1mm has sufficient spacing for inner walls.
             expect(innerMatches.length).toBeGreaterThan(0)
-            expect(skinMatches.length).toBeGreaterThan(0)  # Should have skin (hole and structure don't interfere).
+            expect(skinMatches.length).toBe(0)  # No skin (suppressed by spacing rules for innermost walls).
 
             return # Explicitly return undefined for Jest.
 

@@ -412,13 +412,6 @@ module.exports =
                 outerWall2 = allOuterWalls[pathIndex2]
                 continue if not outerWall2 or outerWall2.length < 3
 
-                # Only check spacing between paths of the same type.
-                # Holes expand outward, structures expand inward, so they won't collide.
-                isHole1 = pathIsHole[pathIndex1]
-                isHole2 = pathIsHole[pathIndex2]
-
-                continue if isHole1 isnt isHole2
-
                 minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(outerWall1, outerWall2)
 
                 if minDistance < nozzleDiameter
@@ -487,13 +480,6 @@ module.exports =
 
                 innermostWall2 = allInnermostWalls[pathIndex2]
                 continue if not innermostWall2 or innermostWall2.length < 3
-
-                # Only check spacing between paths of the same type.
-                # Holes expand outward, structures expand inward, so they won't collide.
-                isHole1 = pathIsHole[pathIndex1]
-                isHole2 = pathIsHole[pathIndex2]
-
-                continue if isHole1 isnt isHole2
 
                 minDistance = pathsUtils.calculateMinimumDistanceBetweenPaths(innermostWall1, innermostWall2)
 
