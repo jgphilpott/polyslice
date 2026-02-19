@@ -551,17 +551,21 @@ module.exports =
         # Use tighter spacing for better coverage.
         supportSpacing = nozzleDiameter * 2.0
 
-        # Expand region bounds for better coverage.
-        # Add extra margin to ensure full overhang coverage.
-        margin = supportSpacing * 2
-        minX = region.minX - margin
-        maxX = region.maxX + margin
-        minY = region.minY - margin
-        maxY = region.maxY + margin
+        # Shrink region bounds to create gap between support and object.
+        # This ensures supports don't touch the printed part for easy removal.
+        supportGap = nozzleDiameter / 2
+        minX = region.minX + supportGap
+        maxX = region.maxX - supportGap
+        minY = region.minY + supportGap
+        maxY = region.maxY - supportGap
+
+        # Add TYPE comment on every layer (not just layer 0) for visualizer.
+        if verbose
+
+            slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
 
         if verbose and layerIndex is 0
 
-            slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
             slicer.gcode += "; Support region: #{region.faces.length} adjacent overhang faces" + slicer.newline
             slicer.gcode += "; Coverage area: (#{minX.toFixed(2)}, #{minY.toFixed(2)}) to (#{maxX.toFixed(2)}, #{maxY.toFixed(2)}), maxZ=#{region.maxZ.toFixed(2)}" + slicer.newline
 
