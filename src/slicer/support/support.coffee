@@ -51,8 +51,10 @@ module.exports =
             interfaceGap = layerHeight * 1.5
 
             # Check if this region needs support at current Z height.
-            # Use the region's maximum Z (highest point that needs support).
-            if region.maxZ > (z + interfaceGap)
+            # Support should only be generated BELOW the overhang surface, not through/above it.
+            # Use the region's minimum Z (lowest point of overhang) to determine when to stop.
+            # Only generate support if current layer is below the bottom of the overhang.
+            if z < (region.minZ - interfaceGap)
 
                 # Generate grid pattern for this region covering the entire area.
                 @generateRegionSupportPattern(
