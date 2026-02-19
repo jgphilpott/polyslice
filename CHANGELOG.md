@@ -7,6 +7,45 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.2.1] - 2026-02-19
+
+### Changed
+- **Support Generation Architecture** - Completely revamped support generation system
+  - Reorganized into sub-module architecture (normal/tree support types)
+  - Proper dispatcher pattern with clean separation of concerns
+  - Main module delegates to specialized sub-modules
+  - Normal support module: 499 lines of focused grid-based support logic
+  - Tree support module: Template for future implementation
+- **Support Algorithm** - Switched from point-based to face-based grouping
+  - Adjacent overhang faces sharing edges are pooled into unified regions
+  - Union-find algorithm groups connected faces efficiently
+  - Coordinated grid patterns cover entire grouped areas
+  - Collective bounding box calculated from all vertices in group
+
+### Fixed
+- **Support Extrusion** - Fixed over-extrusion in support structures
+  - Now uses `supportLineWidth` (0.8× nozzle diameter) instead of full nozzle diameter
+  - Eliminates 25% over-extrusion that made supports difficult to remove
+  - Correct material flow for easier support removal
+- **Support Coverage** - Improved coverage for complex geometries
+  - Arch geometry: Complete overhang coverage (grouped adjacent bottom faces)
+  - Dome geometry: Unified coordinated structure (no overlapping pillars)
+  - Face-based approach accounts for entire face area, not just centers
+- **Support Visualization** - Added TYPE comments on every layer
+  - Support segments properly labeled with `; TYPE: SUPPORT` comment
+  - Enables correct color coding in G-code visualizers
+  - Consistent with other feature type annotations
+- **Support Gap** - Proper clearance between support and printed part
+  - Uses `nozzleDiameter / 2` gap to prevent overlap
+  - Support region bounds shrunk inward (minX + gap, maxX - gap)
+  - Follows same gap convention as infill
+
+### Removed
+- **Dead Code Cleanup** - Removed unused support generation code
+  - Deleted 640 lines of duplicate code from main module
+  - Removed never-called `clusterOverhangRegions` method
+  - Cleaned up old point-based clustering implementation
+
 ## [26.2.0] - 2026-02-14
 
 ### Added
@@ -105,7 +144,8 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 Initial release for January 2026. See GitHub releases and commit history for details on previous versions.
 
-[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.2.0...HEAD
+[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.2.1...HEAD
+[26.2.1]: https://github.com/jgphilpott/polyslice/compare/v26.2.0...v26.2.1
 [26.2.0]: https://github.com/jgphilpott/polyslice/compare/v26.1.2...v26.2.0
 [26.1.2]: https://github.com/jgphilpott/polyslice/compare/v26.1.1...v26.1.2
 [26.1.1]: https://github.com/jgphilpott/polyslice/compare/v26.1.0...v26.1.1
