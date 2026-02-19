@@ -678,7 +678,7 @@ gcode = slicer.slice(mesh)
     - `'buildPlate'`: Blocks support if ANY solid geometry at this XY in layers below
     - `'everywhere'`: Stops support at solid surfaces, resumes above them
 15. **Cache management**: All three caches (_overhangFaces, _supportRegions, _layerSolidRegions) cleared between slices
-16. **Sub-module architecture**: 
+16. **Sub-module architecture**:
     - Main module dispatches based on `supportType` ('normal' or 'tree')
     - Normal support implementation in `normal/normal.coffee`
     - Tree support template in `tree/tree.coffee` (not yet implemented)

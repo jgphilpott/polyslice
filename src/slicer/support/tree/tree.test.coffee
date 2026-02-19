@@ -17,4 +17,3 @@ describe 'Tree Support Module', ->
     # - Support density control
     # - Collision detection
     # - Integration with main support system
-
