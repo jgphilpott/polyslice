@@ -26,6 +26,52 @@ The support generation uses a **face-based grouping approach** with coordinated 
 
 This approach ensures support structures account for the **entire area** of overhang faces, not just individual face centers.
 
+## Module Architecture
+
+The support generation system is organized into sub-modules for maintainability and extensibility:
+
+### Main Module (`support.coffee`)
+
+The main module acts as a dispatcher and contains shared utilities:
+
+- **`generateSupport()`**: Entry point that dispatches to appropriate sub-module based on `supportType`
+- **`buildLayerSolidRegions()`**: Shared utility that caches solid geometry for collision detection
+- Manages `_overhangFaces` and `_supportRegions` caches
+- Clears all support caches between slices
+
+### Normal Support Sub-Module (`normal/normal.coffee`)
+
+Implements grid-based support generation:
+
+- **`detectOverhangs()`**: Analyzes mesh faces to find overhanging surfaces
+- **`groupAdjacentFaces()`**: Pools adjacent faces using union-find algorithm
+- **`generateRegionSupportPattern()`**: Creates coordinated grid patterns
+- **`canGenerateSupportAt()`**: Collision detection for support placement
+- **`isPointInsideSolidGeometry()`**: Even-odd winding rule for solid detection
+- Tests: `normal.test.coffee` (5 tests)
+
+### Tree Support Sub-Module (`tree/tree.coffee`)
+
+Template for future tree support implementation:
+
+- **`generateTreeSupport()`**: Placeholder method (NOT YET IMPLEMENTED)
+- Will implement: branch generation, path optimization, converging structures
+- Tests: `tree.test.coffee` (2 basic tests)
+
+### File Structure
+
+```
+src/slicer/support/
+├── support.coffee          # Main dispatcher + shared utilities
+├── support.test.coffee     # Main support tests (19 tests)
+├── normal/
+│   ├── normal.coffee       # Normal support implementation
+│   └── normal.test.coffee  # Normal support tests (5 tests)
+└── tree/
+    ├── tree.coffee         # Tree support template
+    └── tree.test.coffee    # Tree support tests (2 tests)
+```
+
 ## Support Types
 
 Currently supported:
@@ -585,13 +631,13 @@ if cluster.maxZ > (z + interfaceGap)
 Three caches are maintained during slicing:
 
 ```coffeescript
-# Overhang regions (detected once per mesh)
-if not slicer._overhangRegions?
-    slicer._overhangRegions = @detectOverhangs(mesh, supportThreshold, minZ, supportPlacement)
+# Overhang faces (detected once per mesh)
+if not slicer._overhangFaces?
+    slicer._overhangFaces = normalSupportModule.detectOverhangs(mesh, supportThreshold, minZ, supportPlacement)
 
-# Support clusters (grouped once per mesh)
-if not slicer._supportClusters?
-    slicer._supportClusters = @clusterOverhangRegions(slicer._overhangRegions, nozzleDiameter)
+# Support regions (grouped once per mesh)
+if not slicer._supportRegions?
+    slicer._supportRegions = normalSupportModule.groupAdjacentFaces(slicer._overhangFaces)
 
 # Layer solid regions (built once per mesh)
 if not slicer._layerSolidRegions?
@@ -632,6 +678,11 @@ gcode = slicer.slice(mesh)
     - `'buildPlate'`: Blocks support if ANY solid geometry at this XY in layers below
     - `'everywhere'`: Stops support at solid surfaces, resumes above them
 15. **Cache management**: All three caches (_overhangFaces, _supportRegions, _layerSolidRegions) cleared between slices
+16. **Sub-module architecture**: 
+    - Main module dispatches based on `supportType` ('normal' or 'tree')
+    - Normal support implementation in `normal/normal.coffee`
+    - Tree support template in `tree/tree.coffee` (not yet implemented)
+    - Shared utilities in main `support.coffee` module
 
 ## Example Results
 
