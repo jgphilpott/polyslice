@@ -548,7 +548,7 @@ generateRegionSupportPattern:
 - Coverage: Full overhang region
 
 **Dome (upright):**
-- Overhang points: 376  
+- Overhang points: 376
 - Clusters: 376
 - Moves per cluster: ~20
 - Total support moves: 7,407
@@ -572,7 +572,7 @@ if cluster.maxZ > (z + interfaceGap)
 2. **Validate settings**: Check `supportType` and `supportPlacement`
 3. **Build layer cache**: Cache solid regions for all layers (first layer only)
 4. **Detect overhangs**: Run once, cache in `slicer._overhangRegions`
-5. **Cluster regions**: Group overhang points, cache in `slicer._supportClusters` 
+5. **Cluster regions**: Group overhang points, cache in `slicer._supportClusters`
 6. **Generate per layer**: For each cluster above current Z + gap
    - Generate grid pattern within cluster bounds
    - Alternate X/Y direction based on layer parity
@@ -652,7 +652,7 @@ Testing with dome geometry:
 
 **Old Algorithm (Point-Based):**
 - 376 overhang face centers
-- 376 isolated support structures  
+- 376 isolated support structures
 - Overlapping pillars
 
 **New Algorithm (Face-Based Grouping):**

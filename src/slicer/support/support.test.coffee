@@ -426,10 +426,10 @@ describe 'Support Module', ->
             # Verify layer cache was built.
             expect(slicer._layerSolidRegions).toBeDefined()
             expect(slicer._layerSolidRegions.length).toBeGreaterThan(0)
-            
+
             # Count support lines in G-code.
             supportLines = gcode.split('\n').filter((line) -> line.includes('TYPE: SUPPORT')).length
-            
+
             # A floating box should generate supports BELOW the box (in the gap),
             # but NOT inside the solid box itself. With collision detection,
             # supports should be present but limited to the gap region.
@@ -455,11 +455,11 @@ describe 'Support Module', ->
 
             # Verify placement mode is set correctly.
             expect(slicer.getSupportPlacement()).toBe('buildPlate')
-            
+
             # A simple box on build plate should not need supports (no overhangs).
             supportLines = gcode.split('\n').filter((line) -> line.includes('TYPE: SUPPORT')).length
             expect(supportLines).toBe(0)
-            
-            # Note: Cavity behavior (supports through holes) is thoroughly tested 
+
+            # Note: Cavity behavior (supports through holes) is thoroughly tested
             # with complex CSG geometries in examples (dome upright, sideways dome).
             expect(gcode).not.toContain('TYPE: SUPPORT')

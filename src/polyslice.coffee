@@ -86,7 +86,7 @@ class Polyslice
         # Support structure settings for overhangs and bridges.
         @supportEnabled = options.supportEnabled ?= false # Boolean.
         @supportType = options.supportType ?= "normal" # String ['normal', 'tree'].
-        @supportPlacement = options.supportPlacement ?= "buildPlate" # String ['everywhere', 'buildPlate'].
+        @supportPlacement = options.supportPlacement ?= "buildPlate" # String ['buildPlate', 'everywhere'].
         @supportThreshold = conversions.angleToInternal(options.supportThreshold ?= 55, this.angleUnit) # Number (degrees internal).
 
         # Build plate adhesion settings for first layer stability.
