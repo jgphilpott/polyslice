@@ -320,7 +320,7 @@ module.exports =
                 distance = Math.sqrt(dx * dx + dy * dy)
 
                 if distance > 0.001
-                    extrusionDelta = slicer.calculateExtrusion(distance, nozzleDiameter)
+                    extrusionDelta = slicer.calculateExtrusion(distance, supportLineWidth)
                     slicer.cumulativeE += extrusionDelta
 
                     offsetX = point.x + centerOffsetX
