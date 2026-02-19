@@ -414,22 +414,23 @@ for root, faces of groups
 
 ## Grid Pattern Generation
 
-The `generateClusterSupportPattern()` function creates coordinated support grids:
+The `generateRegionSupportPattern()` function creates coordinated support grids:
 
 ### Grid Parameters
 
 ```coffeescript
-supportSpacing = nozzleDiameter * 2.0  # Grid line spacing
-margin = supportSpacing * 2            # Extra coverage margin
+supportSpacing = nozzleDiameter * 2.0    # Grid line spacing
+supportGap = nozzleDiameter / 2          # Gap between support and object
 supportLineWidth = nozzleDiameter * 0.8  # Thinner for easier removal
 ```
 
 ### Pattern Generation
 
-1. **Expand bounds** with margin for full coverage:
+1. **Shrink bounds** with gap to prevent touching object:
    ```coffeescript
-   minX = cluster.minX - margin
-   maxX = cluster.maxX + margin
+   supportGap = nozzleDiameter / 2
+   minX = region.minX + supportGap  # Shrink inward
+   maxX = region.maxX - supportGap  # Shrink inward
    # Similar for Y
    ```
 
@@ -450,6 +451,7 @@ supportLineWidth = nozzleDiameter * 0.8  # Thinner for easier removal
    - Y-direction: group by X coordinate → vertical lines
 
 5. **Generate G-code**:
+   - Add `; TYPE: SUPPORT` comment on every layer for visualizer
    - Travel to start of each line
    - Extrude through all points in line
    - Proper extrusion calculation based on distance
@@ -458,9 +460,9 @@ supportLineWidth = nozzleDiameter * 0.8  # Thinner for easier removal
 
 Layer 0 (even - X-direction):
 ```
----o---o---o---   Y=maxY
+---o---o---o---   Y=maxY (shrunk by gap)
 ---o---o---o---   Y=...
----o---o---o---   Y=minY
+---o---o---o---   Y=minY (shrunk by gap)
 ```
 
 Layer 1 (odd - Y-direction):
@@ -468,6 +470,19 @@ Layer 1 (odd - Y-direction):
 | | | | | | |
 o o o o o o o
 ```
+
+### Gap Between Support and Object
+
+The support gap ensures supports don't touch the printed part:
+
+```coffeescript
+supportGap = nozzleDiameter / 2  # e.g., 0.2mm with 0.4mm nozzle
+```
+
+- Follows same convention as infill gap
+- Creates clearance for easy support removal
+- Prevents adhesion between support and object
+- Support region is SMALLER than overhang region by gap amount on all sides
 
 ## Comparison: Old vs New Algorithm
 
@@ -604,17 +619,19 @@ gcode = slicer.slice(mesh)
 2. **Interface gap**: 1.5× layer height gap for easy removal
 3. **Line width**: 0.8× nozzle diameter for easier breakaway
 4. **Grid spacing**: 2.0× nozzle diameter for proper density
-5. **Edge matching**: 0.001mm tolerance for shared edge detection
-6. **Face grouping**: Adjacent faces (sharing edges) pooled into single region
-7. **Area coverage**: Support grid covers entire bounding box of grouped faces
-8. **Speed**: 50% of perimeter speed for better adhesion
-9. **Pattern alternation**: X-direction on even layers, Y-direction on odd layers
-10. **Collision detection**: Uses even-odd winding rule with point-in-polygon test
-11. **Hole detection**: Nesting levels calculated to distinguish solid structures from cavities
-12. **Placement modes**:
+5. **Support gap**: 0.5× nozzle diameter gap from object (same as infill gap)
+6. **Edge matching**: 0.001mm tolerance for shared edge detection
+7. **Face grouping**: Adjacent faces (sharing edges) pooled into single region
+8. **Area coverage**: Support grid covers bounding box MINUS gap on all sides
+9. **Speed**: 50% of perimeter speed for better adhesion
+10. **Pattern alternation**: X-direction on even layers, Y-direction on odd layers
+11. **TYPE comments**: Added on every layer for visualizer compatibility
+12. **Collision detection**: Uses even-odd winding rule with point-in-polygon test
+13. **Hole detection**: Nesting levels calculated to distinguish solid structures from cavities
+14. **Placement modes**:
     - `'buildPlate'`: Blocks support if ANY solid geometry at this XY in layers below
     - `'everywhere'`: Stops support at solid surfaces, resumes above them
-13. **Cache management**: All three caches (_overhangFaces, _supportRegions, _layerSolidRegions) cleared between slices
+15. **Cache management**: All three caches (_overhangFaces, _supportRegions, _layerSolidRegions) cleared between slices
 
 ## Example Results
 
