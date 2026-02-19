@@ -64,10 +64,10 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "@jgphilpott/polyconvert": "^1.0.5",
-    "@jgphilpott/polytree": "^0.1.6",
+    "@jgphilpott/polyconvert": "^1.0.6",
+    "@jgphilpott/polytree": "^0.1.7",
     "polygon-clipping": "^0.15.7",
-    "three": "^0.182.0",
+    "three": "^0.183.0",
     "three-subdivide": "^1.1.5"
   },
   "peerDependencies": {
