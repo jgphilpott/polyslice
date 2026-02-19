@@ -25,39 +25,39 @@ module.exports =
 
             slicer._layerSolidRegions = @buildLayerSolidRegions(allLayers, layerHeight, minZ)
 
-        if not slicer._overhangRegions?
+        if not slicer._overhangFaces?
 
-            slicer._overhangRegions = @detectOverhangs(mesh, supportThreshold, minZ, supportPlacement)
+            slicer._overhangFaces = @detectOverhangs(mesh, supportThreshold, minZ, supportPlacement)
 
-        # Cluster overhang points into unified regions on first layer.
-        if not slicer._supportClusters?
+        # Group adjacent faces into unified support regions on first layer.
+        if not slicer._supportRegions?
 
-            slicer._supportClusters = @clusterOverhangRegions(slicer._overhangRegions, nozzleDiameter)
+            slicer._supportRegions = @groupAdjacentFaces(slicer._overhangFaces)
 
-        overhangRegions = slicer._overhangRegions
-        supportClusters = slicer._supportClusters
+        overhangFaces = slicer._overhangFaces
+        supportRegions = slicer._supportRegions
         layerSolidRegions = slicer._layerSolidRegions
 
-        return unless overhangRegions.length > 0
+        return unless overhangFaces.length > 0
 
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
 
         supportsGenerated = 0
 
-        # Generate coordinated support structures for each cluster.
-        for cluster in supportClusters
+        # Generate coordinated support structures for each region.
+        for region in supportRegions
 
             interfaceGap = layerHeight * 1.5
 
-            # Check if this cluster needs support at current Z height.
-            # Use the cluster's maximum Z (highest point that needs support).
-            if cluster.maxZ > (z + interfaceGap)
+            # Check if this region needs support at current Z height.
+            # Use the region's maximum Z (highest point that needs support).
+            if region.maxZ > (z + interfaceGap)
 
-                # Generate grid pattern for this cluster.
-                @generateClusterSupportPattern(
+                # Generate grid pattern for this region covering the entire area.
+                @generateRegionSupportPattern(
                     slicer,
-                    cluster,
+                    region,
                     z,
                     layerIndex,
                     centerOffsetX,
@@ -73,11 +73,12 @@ module.exports =
 
         if verbose and supportsGenerated > 0 and layerIndex is 0
 
-            slicer.gcode += "; Support structures detected (#{overhangRegions.length} overhang points in #{supportClusters.length} clusters)" + slicer.newline
+            slicer.gcode += "; Support structures detected (#{overhangFaces.length} overhang faces in #{supportRegions.length} regions)" + slicer.newline
 
         return
 
-    # Detect overhanging regions based on support threshold angle.
+    # Detect overhanging faces based on support threshold angle.
+    # Returns face data needed for grouping adjacent faces.
     detectOverhangs: (mesh, thresholdAngle, buildPlateZ = 0, supportPlacement = 'buildPlate') ->
 
         return [] unless mesh?.geometry
@@ -89,16 +90,13 @@ module.exports =
         positions = geometry.attributes?.position
         return [] unless positions
 
-        overhangRegions = []
-        processedFaces = new Set()
+        overhangFaces = []
 
         thresholdRad = thresholdAngle * Math.PI / 180
 
         faceCount = positions.count / 3
 
         for faceIndex in [0...faceCount]
-
-            continue if processedFaces.has(faceIndex)
 
             i0 = faceIndex * 3
             i1 = i0 + 1
@@ -154,16 +152,131 @@ module.exports =
 
                     if shouldGenerateSupport
 
-                        overhangRegions.push({
-                            x: centerX
-                            y: centerY
-                            z: centerZ
+                        # Store complete face information for grouping
+                        overhangFaces.push({
+                            faceIndex: faceIndex
+                            vertices: [
+                                { x: v0.x, y: v0.y, z: v0.z }
+                                { x: v1.x, y: v1.y, z: v1.z }
+                                { x: v2.x, y: v2.y, z: v2.z }
+                            ]
+                            centerX: centerX
+                            centerY: centerY
+                            centerZ: centerZ
                             angle: angleFromHorizontalDeg
                         })
 
-                        processedFaces.add(faceIndex)
+        return overhangFaces
 
-        return overhangRegions
+    # Group adjacent overhang faces that share edges.
+    # This creates unified support regions instead of individual face supports.
+    groupAdjacentFaces: (overhangFaces) ->
+
+        return [] unless overhangFaces.length > 0
+
+        # Helper function to check if two edges match (shared edge between faces)
+        edgesMatch = (v1a, v1b, v2a, v2b, tolerance = 0.001) ->
+            # Check if edge (v1a, v1b) matches edge (v2a, v2b) in either direction
+            d1 = Math.sqrt((v1a.x - v2a.x) ** 2 + (v1a.y - v2a.y) ** 2 + (v1a.z - v2a.z) ** 2)
+            d2 = Math.sqrt((v1b.x - v2b.x) ** 2 + (v1b.y - v2b.y) ** 2 + (v1b.z - v2b.z) ** 2)
+            match1 = d1 < tolerance and d2 < tolerance
+
+            d3 = Math.sqrt((v1a.x - v2b.x) ** 2 + (v1a.y - v2b.y) ** 2 + (v1a.z - v2b.z) ** 2)
+            d4 = Math.sqrt((v1b.x - v2a.x) ** 2 + (v1b.y - v2a.y) ** 2 + (v1b.z - v2a.z) ** 2)
+            match2 = d3 < tolerance and d4 < tolerance
+
+            return match1 or match2
+
+        # Helper function to check if two faces share an edge
+        facesAreAdjacent = (face1, face2) ->
+            v1 = face1.vertices
+            v2 = face2.vertices
+
+            # Check all three edges of face1 against all three edges of face2
+            for i in [0...3]
+                edge1Start = v1[i]
+                edge1End = v1[(i + 1) % 3]
+
+                for j in [0...3]
+                    edge2Start = v2[j]
+                    edge2End = v2[(j + 1) % 3]
+
+                    if edgesMatch(edge1Start, edge1End, edge2Start, edge2End)
+                        return true
+
+            return false
+
+        # Build adjacency graph using union-find
+        parent = {}
+        for i in [0...overhangFaces.length]
+            parent[i] = i
+
+        find = (x) ->
+            if parent[x] != x
+                parent[x] = find(parent[x])
+            return parent[x]
+
+        union = (x, y) ->
+            rootX = find(x)
+            rootY = find(y)
+            if rootX != rootY
+                parent[rootX] = rootY
+
+        # Find all adjacent face pairs and union them
+        for i in [0...overhangFaces.length]
+            for j in [i+1...overhangFaces.length]
+                if facesAreAdjacent(overhangFaces[i], overhangFaces[j])
+                    union(i, j)
+
+        # Group faces by their root parent
+        groups = {}
+        for i in [0...overhangFaces.length]
+            root = find(i)
+            groups[root] ?= []
+            groups[root].push(overhangFaces[i])
+
+        # Convert groups to support regions with collective bounds
+        supportRegions = []
+        for root, faces of groups
+
+            # Calculate collective bounding box and average Z
+            minX = Infinity
+            maxX = -Infinity
+            minY = Infinity
+            maxY = -Infinity
+            minZ = Infinity
+            maxZ = -Infinity
+
+            # Collect all unique vertices from all faces in group
+            allVertices = []
+            for face in faces
+                for vertex in face.vertices
+                    allVertices.push(vertex)
+                    minX = Math.min(minX, vertex.x)
+                    maxX = Math.max(maxX, vertex.x)
+                    minY = Math.min(minY, vertex.y)
+                    maxY = Math.max(maxY, vertex.y)
+                    minZ = Math.min(minZ, vertex.z)
+                    maxZ = Math.max(maxZ, vertex.z)
+
+            # Calculate center of bounding box
+            centerX = (minX + maxX) / 2
+            centerY = (minY + maxY) / 2
+
+            supportRegions.push({
+                faces: faces
+                vertices: allVertices
+                minX: minX
+                maxX: maxX
+                minY: minY
+                maxY: maxY
+                minZ: minZ
+                maxZ: maxZ
+                centerX: centerX
+                centerY: centerY
+            })
+
+        return supportRegions
 
     # Cluster overhang regions into unified support areas.
     # Uses grid-based spatial clustering to group nearby overhang points.
@@ -428,8 +541,9 @@ module.exports =
         # Rule: ODD count = solid, EVEN count = not solid
         return containmentCount > 0 and containmentCount % 2 is 1
 
-    # Generate coordinated support pattern for a cluster region.
-    generateClusterSupportPattern: (slicer, cluster, currentZ, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
+    # Generate coordinated support pattern for a grouped region.
+    # The region covers the collective area of all adjacent overhang faces.
+    generateRegionSupportPattern: (slicer, region, currentZ, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
 
         verbose = slicer.getVerbose()
 
@@ -437,25 +551,25 @@ module.exports =
         # Use tighter spacing for better coverage.
         supportSpacing = nozzleDiameter * 2.0
 
-        # Expand cluster bounds for better coverage.
+        # Expand region bounds for better coverage.
         # Add extra margin to ensure full overhang coverage.
         margin = supportSpacing * 2
-        minX = cluster.minX - margin
-        maxX = cluster.maxX + margin
-        minY = cluster.minY - margin
-        maxY = cluster.maxY + margin
+        minX = region.minX - margin
+        maxX = region.maxX + margin
+        minY = region.minY - margin
+        maxY = region.maxY + margin
 
         if verbose and layerIndex is 0
 
             slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
-            slicer.gcode += "; Support cluster: #{cluster.regions.length} overhang points" + slicer.newline
-            slicer.gcode += "; Coverage area: (#{minX.toFixed(2)}, #{minY.toFixed(2)}) to (#{maxX.toFixed(2)}, #{maxY.toFixed(2)}), maxZ=#{cluster.maxZ.toFixed(2)}" + slicer.newline
+            slicer.gcode += "; Support region: #{region.faces.length} adjacent overhang faces" + slicer.newline
+            slicer.gcode += "; Coverage area: (#{minX.toFixed(2)}, #{minY.toFixed(2)}) to (#{maxX.toFixed(2)}, #{maxY.toFixed(2)}), maxZ=#{region.maxZ.toFixed(2)}" + slicer.newline
 
         travelSpeed = slicer.getTravelSpeed() * 60
         supportSpeed = slicer.getPerimeterSpeed() * 60 * 0.5
         supportLineWidth = nozzleDiameter * 0.8
 
-        # Generate grid pattern within cluster bounds.
+        # Generate grid pattern within region bounds.
         # Alternate between X and Y direction lines each layer for strength.
         useXDirection = layerIndex % 2 is 0
 
@@ -476,7 +590,7 @@ module.exports =
 
                     # Check if this point can have support (collision detection).
                     canGenerate = @canGenerateSupportAt(
-                        { x: x, y: y, z: cluster.maxZ },
+                        { x: x, y: y, z: region.maxZ },
                         currentZ,
                         layerIndex,
                         layerSolidRegions,
@@ -508,7 +622,7 @@ module.exports =
 
                     # Check if this point can have support (collision detection).
                     canGenerate = @canGenerateSupportAt(
-                        { x: x, y: y, z: cluster.maxZ },
+                        { x: x, y: y, z: region.maxZ },
                         currentZ,
                         layerIndex,
                         layerSolidRegions,

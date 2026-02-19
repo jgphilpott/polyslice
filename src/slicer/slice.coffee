@@ -51,9 +51,9 @@ module.exports =
 
         # Reset cached overhang regions for support generation.
         # This ensures supports are recalculated for each new mesh/orientation.
-        slicer._overhangRegions = null
+        slicer._overhangFaces = null
         slicer._layerSolidRegions = null
-        slicer._supportClusters = null
+        slicer._supportRegions = null
 
         # Extract mesh from scene if provided.
         originalMesh = preprocessingModule.extractMesh(scene)

@@ -240,12 +240,12 @@ describe 'Support Module', ->
 
             # First call should detect and cache.
             supportModule.generateSupportGCode(slicer, mesh, [], 0, 0, 0, 0, 0, 0.2)
-            expect(slicer._overhangRegions).toBeDefined()
+            expect(slicer._overhangFaces).toBeDefined()
 
             # Second call should use cached data.
-            cachedRegions = slicer._overhangRegions
+            cachedFaces = slicer._overhangFaces
             supportModule.generateSupportGCode(slicer, mesh, [], 1, 0.2, 0, 0, 0, 0.2)
-            expect(slicer._overhangRegions).toBe(cachedRegions)
+            expect(slicer._overhangFaces).toBe(cachedFaces)
 
         test 'should recalculate overhangs for different mesh orientations', ->
 
@@ -261,7 +261,7 @@ describe 'Support Module', ->
 
             # Slice upright orientation - this would generate support regions.
             gcode1 = slicer.slice(mesh)
-            overhangRegions1 = slicer._overhangRegions
+            overhangFaces1 = slicer._overhangFaces
 
             # Rotate 180 degrees (flipped).
             mesh.rotation.y = Math.PI
@@ -269,14 +269,14 @@ describe 'Support Module', ->
 
             # Slice flipped orientation - support regions should be recalculated.
             gcode2 = slicer.slice(mesh)
-            overhangRegions2 = slicer._overhangRegions
+            overhangFaces2 = slicer._overhangFaces
 
-            # The overhang regions should have been recalculated (new array instance).
+            # The overhang faces should have been recalculated (new array instance).
             # Note: We can't easily compare content here without complex geometry, but we
             # ensure the cache was cleared and regenerated (not the same instance).
-            expect(overhangRegions1).toBeDefined()
-            expect(overhangRegions2).toBeDefined()
-            expect(overhangRegions2).not.toBe(overhangRegions1)
+            expect(overhangFaces1).toBeDefined()
+            expect(overhangFaces2).toBeDefined()
+            expect(overhangFaces2).not.toBe(overhangFaces1)
 
     describe 'Collision Detection', ->
 
