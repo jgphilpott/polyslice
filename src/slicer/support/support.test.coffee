@@ -5,6 +5,7 @@ Polyslice = require('../../index')
 THREE = require('three')
 
 supportModule = require('./support')
+normalSupportModule = require('./normal/normal')
 
 describe 'Support Module', ->
 
@@ -132,7 +133,7 @@ describe 'Support Module', ->
             mesh.updateMatrixWorld()
 
             # Detect overhangs.
-            overhangs = supportModule.detectOverhangs(mesh, 45, 0)
+            overhangs = normalSupportModule.detectOverhangs(mesh, 45, 0)
 
             # Should detect the bottom face of the box as an overhang.
             expect(overhangs.length).toBeGreaterThan(0)
@@ -150,7 +151,7 @@ describe 'Support Module', ->
             mesh.updateMatrixWorld()
 
             # Detect overhangs.
-            overhangs = supportModule.detectOverhangs(mesh, 45, 0)
+            overhangs = normalSupportModule.detectOverhangs(mesh, 45, 0)
 
             # Should not detect overhangs for a simple box on build plate.
             expect(overhangs.length).toBe(0)
@@ -167,11 +168,11 @@ describe 'Support Module', ->
             mesh.updateMatrixWorld()
 
             # With 0° threshold, all downward faces need support.
-            overhangs0 = supportModule.detectOverhangs(mesh, 0, 0)
+            overhangs0 = normalSupportModule.detectOverhangs(mesh, 0, 0)
             expect(overhangs0.length).toBeGreaterThan(0)
 
             # With 90° threshold, no faces need support (very permissive).
-            overhangs90 = supportModule.detectOverhangs(mesh, 90, 0)
+            overhangs90 = normalSupportModule.detectOverhangs(mesh, 90, 0)
             expect(overhangs90.length).toBe(0)
 
         test 'should detect different overhangs for buildPlate vs everywhere placement', ->
@@ -189,10 +190,10 @@ describe 'Support Module', ->
             mesh.updateMatrixWorld()
 
             # Detect with 'buildPlate' placement (default).
-            overhangsBuildPlate = supportModule.detectOverhangs(mesh, 45, 0, 'buildPlate')
+            overhangsBuildPlate = normalSupportModule.detectOverhangs(mesh, 45, 0, 'buildPlate')
 
             # Detect with 'everywhere' placement.
-            overhangsEverywhere = supportModule.detectOverhangs(mesh, 45, 0, 'everywhere')
+            overhangsEverywhere = normalSupportModule.detectOverhangs(mesh, 45, 0, 'everywhere')
 
             # 'buildPlate' should exclude the overhang (z=0.3mm < 0.5mm threshold).
             expect(overhangsBuildPlate.length).toBe(0)
@@ -392,17 +393,17 @@ describe 'Support Module', ->
 
             # Point outside: containment count = 0 (not solid)
             pointOutside = { x: -1, y: -1 }
-            resultOutside = supportModule.isPointInsideSolidGeometry(pointOutside, paths, pathIsHole)
+            resultOutside = normalSupportModule.isPointInsideSolidGeometry(pointOutside, paths, pathIsHole)
             expect(resultOutside).toBe(false)
 
             # Point in outer only: containment count = 1 (solid)
             pointInOuter = { x: 1, y: 1 }
-            resultInOuter = supportModule.isPointInsideSolidGeometry(pointInOuter, paths, pathIsHole)
+            resultInOuter = normalSupportModule.isPointInsideSolidGeometry(pointInOuter, paths, pathIsHole)
             expect(resultInOuter).toBe(true)
 
             # Point in hole: containment count = 2 (not solid - it's empty space)
             pointInHole = { x: 5, y: 5 }
-            resultInHole = supportModule.isPointInsideSolidGeometry(pointInHole, paths, pathIsHole)
+            resultInHole = normalSupportModule.isPointInsideSolidGeometry(pointInHole, paths, pathIsHole)
             expect(resultInHole).toBe(false)
 
     describe 'Everywhere Mode Behavior', ->
