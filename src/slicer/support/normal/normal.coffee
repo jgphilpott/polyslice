@@ -226,16 +226,6 @@ module.exports =
         minY = region.minY + supportGap
         maxY = region.maxY - supportGap
 
-        # Add TYPE comment on every layer (not just layer 0) for visualizer.
-        if verbose
-
-            slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
-
-        if verbose and layerIndex is 0
-
-            slicer.gcode += "; Support region: #{region.faces.length} adjacent overhang faces" + slicer.newline
-            slicer.gcode += "; Coverage area: (#{minX.toFixed(2)}, #{minY.toFixed(2)}) to (#{maxX.toFixed(2)}, #{maxY.toFixed(2)}), maxZ=#{region.maxZ.toFixed(2)}" + slicer.newline
-
         # Support line width and speed.
         supportLineWidth = nozzleDiameter * 0.8
         supportSpeed = slicer.getPerimeterSpeed() * 60 * 0.5  # Half speed for better adhesion
@@ -272,6 +262,16 @@ module.exports =
                 x += supportSpacing
 
         return if supportPoints.length is 0
+
+        # Add TYPE comment for visualizer only when support is actually generated.
+        if verbose
+
+            slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
+
+        if verbose and layerIndex is 0
+
+            slicer.gcode += "; Support region: #{region.faces.length} adjacent overhang faces" + slicer.newline
+            slicer.gcode += "; Coverage area: (#{minX.toFixed(2)}, #{minY.toFixed(2)}) to (#{maxX.toFixed(2)}, #{maxY.toFixed(2)}), maxZ=#{region.maxZ.toFixed(2)}" + slicer.newline
 
         # Group points into continuous lines.
         lines = []
@@ -336,21 +336,22 @@ module.exports =
 
         # Collision detection depends on placement mode
         if supportPlacement is 'buildPlate'
-            # For buildPlate mode, check if there's ANY solid geometry at this XY position in layers below
+            # For buildPlate mode, check if there's ANY solid geometry at this XY position
+            # in layers up to and including the current layer.
             for layerData in layerSolidRegions
-                if layerData.layerIndex < currentLayerIndex
+                if layerData.layerIndex <= currentLayerIndex
                     if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
                         return false  # Blocked by solid geometry
 
             return true  # Clear path from build plate
 
         else if supportPlacement is 'everywhere'
-            # For everywhere mode, find the highest solid surface below and check if it continues
+            # For everywhere mode, find the highest solid surface at or below current layer.
             highestSolidZ = minZ
             hasBlockingGeometry = false
 
             for layerData in layerSolidRegions
-                if layerData.layerIndex < currentLayerIndex
+                if layerData.layerIndex <= currentLayerIndex
                     if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
                         hasBlockingGeometry = true
                         highestSolidZ = Math.max(highestSolidZ, layerData.z)
@@ -358,13 +359,15 @@ module.exports =
             if not hasBlockingGeometry
                 return true  # Clear path from build plate
 
-            # Check if solid geometry has ended (look back a few layers)
+            # Check if solid geometry has ended (look back a few layers).
+            # Guard against CoffeeScript descending range [1..0] when layersToCheck = 0.
             layersToCheck = Math.min(3, currentLayerIndex)
-            for i in [1..layersToCheck]
-                checkLayerIndex = currentLayerIndex - i
-                layerData = layerSolidRegions[checkLayerIndex]
-                if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
-                    return false  # Still solid
+            if layersToCheck > 0
+                for i in [1..layersToCheck]
+                    checkLayerIndex = currentLayerIndex - i
+                    layerData = layerSolidRegions[checkLayerIndex]
+                    if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
+                        return false  # Still solid
 
             # Solid geometry has ended, start support above it
             minimumSupportZ = highestSolidZ + layerHeight

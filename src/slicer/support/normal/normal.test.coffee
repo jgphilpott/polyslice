@@ -147,3 +147,64 @@ describe 'Normal Support Module', ->
             pointInHole = { x: 5, y: 5 }
             resultInHole = normalSupport.isPointInsideSolidGeometry(pointInHole, paths, pathIsHole)
             expect(resultInHole).toBe(false)
+
+    describe 'canGenerateSupportAt', ->
+
+        # Solid layer data helper for tests.
+        solidLayerAt = (layerIndex, z, paths) ->
+            return {
+                layerIndex: layerIndex
+                z: z
+                paths: paths
+                pathIsHole: paths.map(-> false)
+            }
+
+        solidSquare = [
+            { x: 0, y: 0 }
+            { x: 10, y: 0 }
+            { x: 10, y: 10 }
+            { x: 0, y: 10 }
+        ]
+
+        test 'should block support on first layer (layer 0) when solid geometry exists there in buildPlate mode', ->
+
+            # Simulate layer 0 having solid geometry at the point.
+            layerSolidRegions = [
+                solidLayerAt(0, 0.1, [solidSquare])
+            ]
+
+            point = { x: 5, y: 5 }
+
+            # Should be blocked: solid geometry at layer 0 and we are at layer 0.
+            result = normalSupport.canGenerateSupportAt(null, point, 0.1, layerSolidRegions, 'buildPlate', 0, 0.2, 0)
+
+            expect(result).toBe(false)
+
+        test 'should allow support on first layer when no solid geometry exists in buildPlate mode', ->
+
+            # Simulate layer 0 having solid geometry but NOT at the test point.
+            layerSolidRegions = [
+                solidLayerAt(0, 0.1, [solidSquare])
+            ]
+
+            # Point outside the solid square.
+            point = { x: 20, y: 20 }
+
+            # Should be allowed: no solid geometry at this XY position.
+            result = normalSupport.canGenerateSupportAt(null, point, 0.1, layerSolidRegions, 'buildPlate', 0, 0.2, 0)
+
+            expect(result).toBe(true)
+
+        test 'should block support on first layer (layer 0) when solid geometry exists there in everywhere mode', ->
+
+            # Simulate layer 0 having solid geometry at the point.
+            layerSolidRegions = [
+                solidLayerAt(0, 0.1, [solidSquare])
+            ]
+
+            point = { x: 5, y: 5 }
+
+            # Should be blocked: solid geometry at layer 0, minimumSupportZ > currentZ.
+            result = normalSupport.canGenerateSupportAt(null, point, 0.1, layerSolidRegions, 'everywhere', 0, 0.2, 0)
+
+            expect(result).toBe(false)
