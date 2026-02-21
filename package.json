@@ -65,14 +65,14 @@
   },
   "dependencies": {
     "@jgphilpott/polyconvert": "^1.0.6",
-    "@jgphilpott/polytree": "^0.1.4",
+    "@jgphilpott/polytree": "^0.1.7",
     "polygon-clipping": "^0.15.7",
-    "three": "^0.180.0",
+    "three": "^0.183.1",
     "three-subdivide": "^1.1.5"
   },
   "peerDependencies": {
-    "@jgphilpott/polytree": "^0.1.4",
-    "three": "^0.180.0",
+    "@jgphilpott/polytree": "^0.1.7",
+    "three": "^0.183.1",
     "three-subdivide": "^1.1.5"
   },
   "optionalDependencies": {
