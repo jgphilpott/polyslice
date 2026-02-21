@@ -208,3 +208,96 @@ describe 'Normal Support Module', ->
             result = normalSupport.canGenerateSupportAt(null, point, 0.1, layerSolidRegions, 'everywhere', 0, 0.2, 0)
 
             expect(result).toBe(false)
+
+    describe 'isPointInSupportWedge', ->
+
+        # Helper: build a region face with given vertices.
+        makeFace = (v0, v1, v2) ->
+            return {
+                vertices: [
+                    { x: v0[0], y: v0[1], z: v0[2] }
+                    { x: v1[0], y: v1[1], z: v1[2] }
+                    { x: v2[0], y: v2[1], z: v2[2] }
+                ]
+            }
+
+        test 'should return true when point is below a horizontal overhang face', ->
+
+            # Horizontal face at Z=10, spanning X=0-10, Y=0-10.
+            face = makeFace([0, 0, 10], [10, 0, 10], [0, 10, 10])
+            faces = [face]
+            interfaceGap = 0.3
+
+            # Point at (5, 5) below the face (currentZ=5 → faceZ=10 > 5+0.3=5.3).
+            result = normalSupport.isPointInSupportWedge(5, 5, faces, 5, interfaceGap)
+
+            expect(result).toBe(true)
+
+        test 'should return false when point is above a horizontal overhang face', ->
+
+            # Horizontal face at Z=5, spanning X=0-10, Y=0-10.
+            face = makeFace([0, 0, 5], [10, 0, 5], [0, 10, 5])
+            faces = [face]
+            interfaceGap = 0.3
+
+            # Point at (5, 5) above the face (currentZ=8 → faceZ=5, 5 < 8+0.3=8.3).
+            result = normalSupport.isPointInSupportWedge(5, 5, faces, 8, interfaceGap)
+
+            expect(result).toBe(false)
+
+        test 'should return true for point below a slanted overhang face', ->
+
+            # Slanted face: Z=0 at Y=10, Z=10 at Y=0 (tilted 45-ish degrees).
+            # Triangle spanning X=0-10, Y=0-10, with Z varying with Y.
+            face = makeFace([0, 0, 10], [10, 0, 10], [0, 10, 0])
+            faces = [face, makeFace([10, 0, 10], [10, 10, 0], [0, 10, 0])]
+            interfaceGap = 0.3
+
+            # At (5, 5), the face Z ≈ 5 (midpoint of slant).
+            # currentZ=2 → faceZ≈5 > 2+0.3=2.3 → in wedge.
+            result = normalSupport.isPointInSupportWedge(5, 5, faces, 2, interfaceGap)
+
+            expect(result).toBe(true)
+
+        test 'should return false for point above a slanted overhang face', ->
+
+            # Slanted face: Z=0 at Y=10, Z=10 at Y=0.
+            face = makeFace([0, 0, 10], [10, 0, 10], [0, 10, 0])
+            faces = [face, makeFace([10, 0, 10], [10, 10, 0], [0, 10, 0])]
+            interfaceGap = 0.3
+
+            # At (5, 5), face Z ≈ 5.
+            # currentZ=8 → faceZ≈5, 5 < 8+0.3=8.3 → not in wedge.
+            result = normalSupport.isPointInSupportWedge(5, 5, faces, 8, interfaceGap)
+
+            expect(result).toBe(false)
+
+        test 'should return false for point outside any face 2D projection', ->
+
+            # Face at X=0-5, Y=0-5 only.
+            face = makeFace([0, 0, 10], [5, 0, 10], [0, 5, 10])
+            faces = [face]
+            interfaceGap = 0.3
+
+            # Point at (8, 8) is outside the face's 2D projection.
+            result = normalSupport.isPointInSupportWedge(8, 8, faces, 2, interfaceGap)
+
+            expect(result).toBe(false)
+
+        test 'should safely skip degenerate (zero-area) triangles', ->
+
+            # Degenerate face: all three vertices are collinear along X at Y=0, Z=10.
+            # A non-degenerate triangle covering this area would create a support wedge,
+            # but degenerate triangles should be ignored to avoid numerical issues.
+            degenerateFace = makeFace([0, 0, 10], [5, 0, 10], [10, 0, 10])
+            faces = [degenerateFace]
+            interfaceGap = 0.3
+
+            # Point at (5, 0) directly "under" where a valid face would be.
+            # Choose currentZ so that a valid, non-degenerate face at Z=10 would
+            # be within the support wedge (10 > 5 + 0.3).
+            result = normalSupport.isPointInSupportWedge(5, 0, faces, 5, interfaceGap)
+
+            # Degenerate triangles must be skipped, so the point should not be
+            # considered inside any support wedge, and the call must not throw.
+            expect(result).toBe(false)

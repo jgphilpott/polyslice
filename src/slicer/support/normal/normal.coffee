@@ -5,6 +5,10 @@ coders = require('../../gcode/coders')
 pathsUtils = require('../../utils/paths')
 primitives = require('../../utils/primitives')
 
+# Minimum 2D triangle area threshold for barycentric interpolation.
+# Triangles smaller than this are treated as degenerate and skipped.
+DEGENERATE_TRIANGLE_THRESHOLD = 0.0001
+
 module.exports =
 
     # Detect overhanging faces based on support threshold angle.
@@ -208,11 +212,56 @@ module.exports =
 
         return supportRegions
 
+    # Check if a support point is within the wedge area below an overhang face.
+    # For slanted faces the support should only fill the wedge-shaped region directly
+    # below the overhang, not extend above or through the slanted geometry.
+    # Uses barycentric interpolation to find the exact Z of each overhang face at (x, y).
+    isPointInSupportWedge: (x, y, faces, currentZ, interfaceGap) ->
+
+        for face in faces
+
+            v0 = face.vertices[0]
+            v1 = face.vertices[1]
+            v2 = face.vertices[2]
+
+            # Check if the 2D point lies inside this face's XY projection.
+            # Uses cross-product sign consistency (all same sign = inside).
+            d1 = (x - v1.x) * (v0.y - v1.y) - (v0.x - v1.x) * (y - v1.y)
+            d2 = (x - v2.x) * (v1.y - v2.y) - (v1.x - v2.x) * (y - v2.y)
+            d3 = (x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (y - v0.y)
+
+            hasNeg = d1 < 0 or d2 < 0 or d3 < 0
+            hasPos = d1 > 0 or d2 > 0 or d3 > 0
+
+            # Point is outside this triangle's 2D projection.
+            continue if hasNeg and hasPos
+
+            # Compute Z at (x, y) via barycentric interpolation.
+            denom = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y)
+
+            # Skip degenerate (zero-area) triangles.
+            continue if Math.abs(denom) < DEGENERATE_TRIANGLE_THRESHOLD
+
+            w0 = ((v1.y - v2.y) * (x - v2.x) + (v2.x - v1.x) * (y - v2.y)) / denom
+            w1 = ((v2.y - v0.y) * (x - v2.x) + (v0.x - v2.x) * (y - v2.y)) / denom
+            w2 = 1.0 - w0 - w1
+
+            faceZ = w0 * v0.z + w1 * v1.z + w2 * v2.z
+
+            # Support is valid if the overhang face is above the current layer
+            # by at least the interface gap.
+            return true if faceZ > currentZ + interfaceGap
+
+        return false
+
     # Generate coordinated grid pattern for a support region.
     # Covers the entire bounding box of grouped faces with support.
     generateRegionSupportPattern: (slicer, region, z, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
 
         verbose = slicer.getVerbose()
+
+        # Interface gap between top of support and bottom of overhang.
+        interfaceGap = layerHeight * 1.5
 
         # Support line spacing (grid pattern).
         # Use tighter spacing for better coverage.
@@ -243,8 +292,9 @@ module.exports =
                 x = minX
                 while x <= maxX
                     point = { x: x, y: y }
-                    # Check collision detection
-                    if @canGenerateSupportAt(slicer, point, z, layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex)
+                    # Only generate support within the wedge below the overhang face
+                    # AND where the path from the build plate is clear.
+                    if @isPointInSupportWedge(x, y, region.faces, z, interfaceGap) and @canGenerateSupportAt(slicer, point, z, layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex)
                         supportPoints.push(point)
                     x += supportSpacing
                 y += supportSpacing
@@ -255,8 +305,9 @@ module.exports =
                 y = minY
                 while y <= maxY
                     point = { x: x, y: y }
-                    # Check collision detection
-                    if @canGenerateSupportAt(slicer, point, z, layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex)
+                    # Only generate support within the wedge below the overhang face
+                    # AND where the path from the build plate is clear.
+                    if @isPointInSupportWedge(x, y, region.faces, z, interfaceGap) and @canGenerateSupportAt(slicer, point, z, layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex)
                         supportPoints.push(point)
                     y += supportSpacing
                 x += supportSpacing
