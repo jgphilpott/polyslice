@@ -1,7 +1,7 @@
 /**
  * Slice script for adhesion examples
  *
- * This script slices cube and cylinder geometries with different adhesion types
+ * This script slices cube, cylinder, torus, and arch geometries with different adhesion types
  * and saves the G-code to resources/gcode/adhesion subdirectories for version control.
  */
 
@@ -42,7 +42,9 @@ const baseSlicerConfig = {
 // Define the geometries to slice
 const geometries = [
   { name: 'Cube', file: 'cube/cube-1cm.stl' },
-  { name: 'Cylinder', file: 'cylinder/cylinder-1cm.stl' }
+  { name: 'Cylinder', file: 'cylinder/cylinder-1cm.stl' },
+  { name: 'Torus', file: 'torus/torus-1cm.stl' },
+  { name: 'Arch', file: 'arch/arch.stl' }
 ];
 
 // Define adhesion variants to generate

@@ -71,9 +71,9 @@
     "three-subdivide": "^1.1.5"
   },
   "peerDependencies": {
-    "three": "^0.180.0",
-    "three-subdivide": "^1.1.5",
-    "@jgphilpott/polytree": "^0.1.4"
+    "@jgphilpott/polytree": "^0.1.7",
+    "three": "^0.183.1",
+    "three-subdivide": "^1.1.5"
   },
   "optionalDependencies": {
     "serialport": "^13.0.0"
