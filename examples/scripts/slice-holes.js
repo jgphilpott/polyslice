@@ -23,15 +23,15 @@ console.log(`- Build Volume: ${printer.getSizeX()}x${printer.getSizeY()}x${print
 console.log(`- Filament: ${filament.name} (${filament.type.toUpperCase()})`);
 console.log(`- Brand: ${filament.brand}\n`);
 
-// Base output directory for STL previews (keep next to examples by default).
-const outputDir = path.join(__dirname, '../output');
+// STL output directory for generated meshes.
+const stlDir = path.join(__dirname, '../../resources/stl/holes');
 // Target directory for G-code artifacts (wayfinding tests/outputs).
 const gcodeDir = path.join(__dirname, '../../resources/gcode/wayfinding/holes');
 
 // Ensure output directories exist.
-if (!fs.existsSync(outputDir)) {
-  fs.mkdirSync(outputDir, { recursive: true });
-  console.log(`Created output directory: ${outputDir}\n`);
+if (!fs.existsSync(stlDir)) {
+  fs.mkdirSync(stlDir, { recursive: true });
+  console.log(`Created STL directory: ${stlDir}\n`);
 }
 
 if (!fs.existsSync(gcodeDir)) {
@@ -39,9 +39,9 @@ if (!fs.existsSync(gcodeDir)) {
   console.log(`Created G-code directory: ${gcodeDir}\n`);
 }
 
-// STL export toggle and output folder (uses same output dir by default).
+// STL export toggle and output folder.
 const exportSTL = true;
-const meshesDir = outputDir; // write STL next to G-code (same filenames, .stl)
+const meshesDir = stlDir; // write STL to resources/stl
 
 /**
  * Create a thin sheet (box) with holes punched in it using CSG.
@@ -217,7 +217,7 @@ console.log(`- Hole Radius: ${holeRadius}mm`);
 console.log(`- Min Hole Gap: ${minHoleGap}mm`);
 console.log(`- Edge Margin: ${edgeMarginMin}mm`);
 console.log(`- Grid Sizes: ${gridSizes.map(size => `${size}x${size}`).join(', ')}`);
-console.log(`- STL Output Dir: ${outputDir}`);
+console.log(`- STL Output Dir: ${stlDir}`);
 console.log(`- G-code Output Dir: ${gcodeDir}\n`);
 
 console.log('Starting hole slicing...\n');
@@ -276,7 +276,7 @@ console.log('='.repeat(90));
   console.log(`✅ Successfully generated ${results.length}/${gridSizes.length} files`);
   console.log(`⏱️  Total Time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
   console.log(`📁 G-code Output Directory: ${gcodeDir}`);
-  console.log(`📁 STL Output Directory: ${outputDir}`);
+  console.log(`📁 STL Output Directory: ${stlDir}`);
 
   if (results.length > 0) {
     console.log('\nGenerated Files:');

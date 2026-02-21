@@ -230,8 +230,8 @@ async function main() {
             console.log(`✅ Saved: ${outPath}`);
         }
 
-        // Export a single STL (upright) to examples/output
-        const stlOutDir = path.join(__dirname, "..", "output");
+        // Export a single STL (upright) to resources/stl
+        const stlOutDir = path.join(__dirname, "..", "..", "resources", "stl", "arch");
         if (!fs.existsSync(stlOutDir)) {
             fs.mkdirSync(stlOutDir, { recursive: true });
         }
