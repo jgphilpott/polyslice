@@ -283,3 +283,21 @@ describe 'Normal Support Module', ->
             result = normalSupport.isPointInSupportWedge(8, 8, faces, 2, interfaceGap)
 
             expect(result).toBe(false)
+
+        test 'should safely skip degenerate (zero-area) triangles', ->
+
+            # Degenerate face: all three vertices are collinear along X at Y=0, Z=10.
+            # A non-degenerate triangle covering this area would create a support wedge,
+            # but degenerate triangles should be ignored to avoid numerical issues.
+            degenerateFace = makeFace([0, 0, 10], [5, 0, 10], [10, 0, 10])
+            faces = [degenerateFace]
+            interfaceGap = 0.3
+
+            # Point at (5, 0) directly "under" where a valid face would be.
+            # Choose currentZ so that a valid, non-degenerate face at Z=10 would
+            # be within the support wedge (10 > 5 + 0.3).
+            result = normalSupport.isPointInSupportWedge(5, 0, faces, 5, interfaceGap)
+
+            # Degenerate triangles must be skipped, so the point should not be
+            # considered inside any support wedge, and the call must not throw.
+            expect(result).toBe(false)
