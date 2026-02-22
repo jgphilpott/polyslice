@@ -119,7 +119,8 @@ module.exports =
                 if region.maxZ > (z + interfaceGap)
 
                     # Delegate tree pattern generation to tree support module.
-                    treeSupportModule.generateTreePattern(
+                    # Returns true only when G-code was actually emitted.
+                    wasGenerated = treeSupportModule.generateTreePattern(
                         slicer,
                         region,
                         z,
@@ -133,7 +134,7 @@ module.exports =
                         layerHeight
                     )
 
-                    supportsGenerated++
+                    supportsGenerated++ if wasGenerated
 
             if verbose and supportsGenerated > 0 and layerIndex is 0
 
