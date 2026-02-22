@@ -5,6 +5,7 @@ coders = require('../gcode/coders')
 pathsUtils = require('../utils/paths')
 primitives = require('../utils/primitives')
 normalSupportModule = require('./normal/normal')
+treeSupportModule = require('./tree/tree')
 
 module.exports =
 
@@ -81,8 +82,62 @@ module.exports =
 
         else if supportType is 'tree'
 
-            # Tree support not yet implemented
-            return
+            # Support 'buildPlate' and 'everywhere' placements.
+            return unless supportPlacement in ['buildPlate', 'everywhere']
+
+            # Initialize layer solid regions cache on first layer.
+            if not slicer._layerSolidRegions?
+
+                slicer._layerSolidRegions = @buildLayerSolidRegions(allLayers, layerHeight, minZ)
+
+            # Detect overhangs using the same algorithm as normal supports.
+            if not slicer._overhangFaces?
+
+                slicer._overhangFaces = normalSupportModule.detectOverhangs(mesh, supportThreshold, minZ, supportPlacement)
+
+            # Group adjacent faces into unified support regions.
+            if not slicer._supportRegions?
+
+                slicer._supportRegions = normalSupportModule.groupAdjacentFaces(slicer._overhangFaces)
+
+            overhangFaces = slicer._overhangFaces
+            supportRegions = slicer._supportRegions
+            layerSolidRegions = slicer._layerSolidRegions
+
+            return unless overhangFaces.length > 0
+
+            verbose = slicer.getVerbose()
+            nozzleDiameter = slicer.getNozzleDiameter()
+
+            supportsGenerated = 0
+
+            # Generate tree structure for each support region.
+            for region in supportRegions
+
+                interfaceGap = layerHeight * 1.5
+
+                if region.maxZ > (z + interfaceGap)
+
+                    # Delegate tree pattern generation to tree support module.
+                    treeSupportModule.generateTreePattern(
+                        slicer,
+                        region,
+                        z,
+                        layerIndex,
+                        centerOffsetX,
+                        centerOffsetY,
+                        nozzleDiameter,
+                        layerSolidRegions,
+                        supportPlacement,
+                        minZ,
+                        layerHeight
+                    )
+
+                    supportsGenerated++
+
+            if verbose and supportsGenerated > 0 and layerIndex is 0
+
+                slicer.gcode += "; Tree support structures detected (#{overhangFaces.length} overhang faces in #{supportRegions.length} regions)" + slicer.newline
 
         return
 

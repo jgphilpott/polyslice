@@ -12,6 +12,10 @@
  * - flipped (180°)
  * - sideways (90°)
  *
+ * Both support types are generated for arch and dome:
+ * - normal: resources/gcode/support/normal/arch and resources/gcode/support/normal/dome
+ * - tree:   resources/gcode/support/tree/arch   and resources/gcode/support/tree/dome
+ *
  * The strip is sliced with threshold values from 0 to 100 (step 10).
  *
  * Usage:
@@ -130,6 +134,55 @@ async function createDomeMesh(width = DOME_WIDTH, depth = DOME_DEPTH, thickness 
     return finalMesh;
 }
 
+/**
+ * Slice a mesh with the given support type and save results to the output directory.
+ */
+async function sliceWithSupportType(slicer, mesh, meshName, supportType, outputDir, orientations) {
+    slicer.setSupportType(supportType);
+
+    console.log(`=== Slicing ${meshName} (support: ${supportType}) ===\n`);
+
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+        console.log(`📁 Created directory: ${outputDir}\n`);
+    }
+
+    for (const o of orientations) {
+        // For sideways orientation, generate two versions: buildPlate and everywhere
+        const placements = (o.name === "sideways") ? ["buildPlate", "everywhere"] : ["buildPlate"];
+
+        for (const placement of placements) {
+            slicer.setSupportPlacement(placement);
+
+            // Clone mesh to avoid mutating base orientation
+            const variant = new THREE.Mesh(mesh.geometry.clone(), mesh.material);
+            variant.position.copy(mesh.position);
+            variant.rotation.copy(mesh.rotation);
+            variant.scale.copy(mesh.scale);
+            variant.rotation.y += o.rotY;
+            variant.updateMatrixWorld(true);
+
+            const placementSuffix = (o.name === "sideways") ? ((placement === "everywhere") ? "-everywhere" : "-buildPlate") : "";
+            console.log(`Slicing ${meshName} (${o.name}${placementSuffix})...`);
+            console.log(`  Support type: ${supportType}, placement: ${placement}`);
+
+            const start = Date.now();
+            const gcode = slicer.slice(variant);
+            const end = Date.now();
+            console.log(`- Done in ${end - start}ms`);
+
+            const outPath = path.join(outputDir, `${o.name}${placementSuffix}.gcode`);
+            fs.writeFileSync(outPath, gcode);
+            console.log(`✅ Saved: ${outPath}`);
+
+            // Brief stats
+            const lines = gcode.split("\n");
+            const supportLines = lines.filter(line => line.includes("TYPE: SUPPORT"));
+            console.log(`- Total lines: ${lines.length}, Support type lines: ${supportLines.length}\n`);
+        }
+    }
+}
+
 // Main async function to create the models and slice with supports enabled
 async function main() {
     console.log("Building CSG geometries...\n");
@@ -170,7 +223,7 @@ async function main() {
         verbose: true,
 
         // Support Settings
-        supportEnabled: true,  // ENABLED for all output
+        supportEnabled: true,
         supportType: "normal",
         supportPlacement: "buildPlate",
         supportThreshold: 55
@@ -185,7 +238,6 @@ async function main() {
     console.log(`- Nozzle Diameter: ${slicer.getNozzleDiameter()}mm`);
     console.log(`- Filament Diameter: ${slicer.getFilamentDiameter()}mm`);
     console.log(`- Support Enabled: ${slicer.getSupportEnabled() ? "Yes ✅" : "No"}`);
-    console.log(`- Support Type: ${slicer.getSupportType()}`);
     console.log(`- Support Placement: ${slicer.getSupportPlacement()}`);
     console.log(`- Support Threshold: ${slicer.getSupportThreshold()}°`);
     console.log(`- Verbose Comments: ${slicer.getVerbose() ? "Enabled" : "Disabled"}\n`);
@@ -197,93 +249,15 @@ async function main() {
         { name: "sideways", rotY: Math.PI / 2 },
     ];
 
-    // Slice arch with all orientations
-    console.log("=== Slicing Arch ===\n");
-    const archOutputDir = path.join(__dirname, "..", "..", "resources", "gcode", "support", "arch");
-    if (!fs.existsSync(archOutputDir)) {
-        fs.mkdirSync(archOutputDir, { recursive: true });
-        console.log(`📁 Created directory: ${archOutputDir}\n`);
-    }
+    const supportDir = path.join(__dirname, "..", "..", "resources", "gcode", "support");
 
-    for (const o of orientations) {
-        // For sideways orientation, generate two versions: buildPlate and everywhere
-        const placements = (o.name === "sideways") ? ["buildPlate", "everywhere"] : ["buildPlate"];
+    // Slice arch and dome with normal support type
+    await sliceWithSupportType(slicer, archMesh, "arch", "normal", path.join(supportDir, "normal", "arch"), orientations);
+    await sliceWithSupportType(slicer, domeMesh, "dome", "normal", path.join(supportDir, "normal", "dome"), orientations);
 
-        for (const placement of placements) {
-            // Set support placement for this iteration
-            slicer.setSupportPlacement(placement);
-
-            // Clone mesh to avoid mutating base orientation
-            const variant = new THREE.Mesh(archMesh.geometry.clone(), archMesh.material);
-            variant.position.copy(archMesh.position);
-            variant.rotation.copy(archMesh.rotation);
-            variant.scale.copy(archMesh.scale);
-            variant.rotation.y += o.rotY;
-            variant.updateMatrixWorld(true);
-
-            const placementSuffix = (o.name === "sideways") ? ((placement === "everywhere") ? "-everywhere" : "-buildPlate") : "";
-            console.log(`Slicing arch (${o.name}${placementSuffix})...`);
-            console.log(`  Support placement: ${placement}`);
-
-            const start = Date.now();
-            const gcode = slicer.slice(variant);
-            const end = Date.now();
-            console.log(`- Done in ${end - start}ms`);
-
-            const outPath = path.join(archOutputDir, `${o.name}${placementSuffix}.gcode`);
-            fs.writeFileSync(outPath, gcode);
-            console.log(`✅ Saved: ${outPath}`);
-
-            // Brief stats
-            const lines = gcode.split("\n");
-            const supportLines = lines.filter(line => line.includes("TYPE: SUPPORT"));
-            console.log(`- Total lines: ${lines.length}, Support type lines: ${supportLines.length}\n`);
-        }
-    }
-
-    // Slice dome with all orientations
-    console.log("=== Slicing Dome ===\n");
-    const domeOutputDir = path.join(__dirname, "..", "..", "resources", "gcode", "support", "dome");
-    if (!fs.existsSync(domeOutputDir)) {
-        fs.mkdirSync(domeOutputDir, { recursive: true });
-        console.log(`📁 Created directory: ${domeOutputDir}\n`);
-    }
-
-    for (const o of orientations) {
-        // For sideways orientation, generate two versions: buildPlate and everywhere
-        const placements = (o.name === "sideways") ? ["buildPlate", "everywhere"] : ["buildPlate"];
-
-        for (const placement of placements) {
-            // Set support placement for this iteration
-            slicer.setSupportPlacement(placement);
-
-            // Clone mesh so rotations don't accumulate
-            const variant = new THREE.Mesh(domeMesh.geometry.clone(), domeMesh.material);
-            variant.position.copy(domeMesh.position);
-            variant.rotation.copy(domeMesh.rotation);
-            variant.scale.copy(domeMesh.scale);
-            variant.rotation.y += o.rotY;
-            variant.updateMatrixWorld(true);
-
-            const placementSuffix = (o.name === "sideways") ? ((placement === "everywhere") ? "-everywhere" : "-buildPlate") : "";
-            console.log(`Slicing dome (${o.name}${placementSuffix})...`);
-            console.log(`  Support placement: ${placement}`);
-
-            const start = Date.now();
-            const gcode = slicer.slice(variant);
-            const end = Date.now();
-            console.log(`- Done in ${end - start}ms`);
-
-            const outPath = path.join(domeOutputDir, `${o.name}${placementSuffix}.gcode`);
-            fs.writeFileSync(outPath, gcode);
-            console.log(`✅ Saved: ${outPath}`);
-
-            // Brief stats
-            const lines = gcode.split("\n");
-            const supportLines = lines.filter(line => line.includes("TYPE: SUPPORT"));
-            console.log(`- Total lines: ${lines.length}, Support type lines: ${supportLines.length}\n`);
-        }
-    }
+    // Slice arch and dome with tree support type
+    await sliceWithSupportType(slicer, archMesh, "arch", "tree", path.join(supportDir, "tree", "arch"), orientations);
+    await sliceWithSupportType(slicer, domeMesh, "dome", "tree", path.join(supportDir, "tree", "dome"), orientations);
 
     // Slice strip.test.stl with various threshold values
     console.log("=== Slicing Strip with Threshold Variations ===\n");
@@ -305,7 +279,7 @@ async function main() {
     }
 
     // Define threshold output directory (used later for logging)
-    const thresholdOutputDir = path.join(__dirname, "..", "..", "resources", "gcode", "support", "threshold");
+    const thresholdOutputDir = path.join(supportDir, "threshold");
 
     if (stripMesh) {
         if (!fs.existsSync(thresholdOutputDir)) {
@@ -313,7 +287,8 @@ async function main() {
             console.log(`📁 Created directory: ${thresholdOutputDir}\n`);
         }
 
-        // Reset support placement to buildPlate for threshold tests
+        // Reset support type and placement for threshold tests
+        slicer.setSupportType("normal");
         slicer.setSupportPlacement("buildPlate");
 
         // Switch to object-centered infill for threshold tests
@@ -367,14 +342,17 @@ async function main() {
 
     console.log("\n✅ Support generation example completed successfully!");
     console.log("\nOutput locations:");
-    console.log(`- Arch G-code: ${archOutputDir}`);
-    console.log(`- Dome G-code: ${domeOutputDir}`);
+    console.log(`- Normal arch G-code: ${path.join(supportDir, "normal", "arch")}`);
+    console.log(`- Normal dome G-code: ${path.join(supportDir, "normal", "dome")}`);
+    console.log(`- Tree arch G-code:   ${path.join(supportDir, "tree", "arch")}`);
+    console.log(`- Tree dome G-code:   ${path.join(supportDir, "tree", "dome")}`);
     if (stripMesh) {
         console.log(`- Threshold examples: ${thresholdOutputDir}`);
     }
     console.log("\nNotes:");
     console.log("- All shapes sliced with supports enabled (supportEnabled: true)");
     console.log("- Arch and Dome: Support threshold set to 55° (faces angled more than 55° from vertical get supports)");
+    console.log("- Tree supports use fine contact grid near overhang and coarse trunk columns below");
     console.log("- Threshold examples: Strip sliced with thresholds from 0° to 100° (step 10°)");
     console.log("- Three orientations per shape: upright, flipped, sideways");
     console.log("- Output is version controlled in resources/gcode/support/ for algorithm study");
