@@ -1827,4 +1827,3 @@ describe 'Skin Generation', ->
                     expect(dist).toBeLessThanOrEqual(maxAllowedDist)
 
             return
-
