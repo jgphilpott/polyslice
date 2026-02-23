@@ -305,18 +305,6 @@ module.exports =
 
         isCCW = signedArea > 0
 
-        # Precompute a simple centroid for inward direction checks.
-        centroidX = 0
-        centroidY = 0
-
-        for p in simplifiedPath
-
-            centroidX += p.x
-            centroidY += p.y
-
-        centroidX /= n
-        centroidY /= n
-
         # Create offset lines for each edge.
         offsetLines = []
 
@@ -391,19 +379,25 @@ module.exports =
 
             if intersection
 
-                # Validate intersection is reasonable (not too far from original path).
-                # Use a threshold based on the original path size to detect degenerate intersections.
-                # If intersection is more than 10x the path size from centroid, it's likely an error.
-                distFromCentroid = Math.sqrt((intersection.x - centroidX) ** 2 + (intersection.y - centroidY) ** 2)
-                pathSize = Math.max(originalWidth, originalHeight)
-                maxAllowedDist = Math.max(20, pathSize * 10)  # Minimum 20mm to maintain stricter validation for small paths
+                # Validate intersection is reasonable using distance from original vertex.
+                # For a corner of angle θ, the intersection is insetDistance/sin(θ/2) from the vertex.
+                # Clamp at 100× insetDistance to handle near-parallel edges (e.g., sphere arcs
+                # meeting box edges) where adjacent normals are nearly opposite due to numerical
+                # precision in the pointInPolygon test.
+                distFromVertex = Math.sqrt((intersection.x - origVertex.x) ** 2 + (intersection.y - origVertex.y) ** 2)
 
-                if distFromCentroid > maxAllowedDist
+                if distFromVertex > insetDistance * 100
 
-                    # Extreme intersection detected - path is degenerate.
-                    return []
+                    # Near-parallel or diverging edges - use midpoint fallback.
+                    insetPath.push({
+                        x: line2.p1.x
+                        y: line2.p1.y
+                        z: origVertex.z
+                    })
 
-                insetPath.push({ x: intersection.x, y: intersection.y, z: origVertex.z })
+                else
+
+                    insetPath.push({ x: intersection.x, y: intersection.y, z: origVertex.z })
 
             else
 

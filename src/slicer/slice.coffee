@@ -440,11 +440,6 @@ module.exports =
                     if pathsWithInsufficientSpacingForInnerWalls[pathIndex]
                         break
 
-                    testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
-
-                    if testInsetPath.length < 3
-                        break
-
                 if wallIndex < wallCount - 1
 
                     insetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
@@ -516,12 +511,6 @@ module.exports =
                 if wallIndex > 0
 
                     if pathsWithInsufficientSpacingForInnerWalls[pathIndex] then break
-
-                    testInsetPath = pathsUtils.createInsetPath(currentPath, nozzleDiameter, isHole)
-
-                    if testInsetPath.length < 3
-
-                        break
 
                 combingStartPoint = lastPathEndPoint
 
