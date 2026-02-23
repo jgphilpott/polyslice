@@ -308,15 +308,20 @@ module.exports =
                 startPoint = bestLine.start
                 endPoint = bestLine.end
 
-            combingPath = combing.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
+            # Only travel if the start point is not already the current position.
+            isAlreadyAtStartPoint = lastEndPoint? and (startPoint.x - lastEndPoint.x) ** 2 + (startPoint.y - lastEndPoint.y) ** 2 < 0.001 ** 2
 
-            for i in [0...combingPath.length - 1]
+            if not isAlreadyAtStartPoint
 
-                waypoint = combingPath[i + 1]
-                offsetWaypointX = waypoint.x + centerOffsetX
-                offsetWaypointY = waypoint.y + centerOffsetY
+                combingPath = combing.findCombingPath(lastEndPoint or startPoint, startPoint, holeOuterWalls, infillBoundary, nozzleDiameter)
 
-                slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
+                for i in [0...combingPath.length - 1]
+
+                    waypoint = combingPath[i + 1]
+                    offsetWaypointX = waypoint.x + centerOffsetX
+                    offsetWaypointY = waypoint.y + centerOffsetY
+
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
 
             dx = endPoint.x - startPoint.x
             dy = endPoint.y - startPoint.y
