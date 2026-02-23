@@ -1759,7 +1759,72 @@ describe 'Skin Generation', ->
             # This test verifies that epsilon adjustment is working.
             gap = wallMaxX - infillMaxX
 
-            # Gap should be reasonable: not too large (< 0.7mm) and not too small (> 0.1mm).
-            # The actual gap depends on the exact wall and infill boundary calculations.
+            # Should maintain proper gap between skin wall and infill boundary.
             expect(gap).toBeLessThan(0.7)
             expect(gap).toBeGreaterThan(0.1)
+
+        test 'should not generate skin infill lines that cross the skin wall boundary (regression)', ->
+
+            # Regression test: skin infill lines were extending beyond the skin wall
+            # boundary for curved cross-sections (e.g. cylinder) due to the clip polygon
+            # epsilon being set too high (0.3mm). Bounding-box intersection points that
+            # were outside but within 0.3mm of the circular boundary were falsely treated
+            # as inside, producing spurious short segments at both ends of infill lines.
+
+            # Use a cylinder which produces a circular cross-section.
+            geometry = new THREE.CylinderGeometry(5, 5, 4, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 2)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            lines = result.split('\n')
+            inSkin = false
+            skinInfillMoves = []
+
+            for line in lines
+
+                if line.includes('; TYPE: SKIN')
+                    inSkin = true
+                    continue
+
+                if line.includes('; TYPE:') and inSkin
+                    break
+
+                # Collect skin infill G1 extrusion moves (F3600 = infill speed).
+                if inSkin and line.includes('G1') and line.includes('E') and line.includes('F3600')
+                    skinInfillMoves.push(line)
+
+            # Cylinder center on build plate is at (110, 110) for 220x220 bed.
+            cx = 110
+            cy = 110
+
+            # All skin infill endpoints should be inside the cylinder radius (5mm) minus
+            # the skin wall gap (nozzleDiameter + nozzleDiameter/2 - 0.05mm ≈ 0.55mm).
+            # Maximum allowed distance from center: radius - skinWallGap ≈ 5 - 0.55 = 4.45mm.
+            # Use 4.5mm to allow for the polygon approximation of the cylinder boundary.
+            maxAllowedDist = 4.5
+
+            for line in skinInfillMoves
+
+                xMatch = line.match(/X([\d.]+)/)
+                yMatch = line.match(/Y([\d.]+)/)
+
+                if xMatch and yMatch
+
+                    x = parseFloat(xMatch[1]) - cx
+                    y = parseFloat(yMatch[1]) - cy
+                    dist = Math.sqrt(x * x + y * y)
+
+                    # No infill endpoint should be outside the expected infill zone.
+                    expect(dist).toBeLessThanOrEqual(maxAllowedDist)
+
+            return
+
