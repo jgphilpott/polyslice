@@ -366,6 +366,10 @@ module.exports =
             })
 
         # Find intersections of adjacent offset lines.
+        # Miter-limit: clamp at MITER_LIMIT_MULTIPLIER × insetDistance to handle near-parallel
+        # edges (e.g., sphere arcs meeting box edges) where adjacent normals are nearly opposite
+        # due to numerical precision in the pointInPolygon test.
+        MITER_LIMIT_MULTIPLIER = 100
         for i in [0...offsetLines.length]
 
             prevIdx = if i is 0 then offsetLines.length - 1 else i - 1
@@ -381,9 +385,6 @@ module.exports =
 
                 # Validate intersection is reasonable using distance from original vertex.
                 # For a corner of angle θ, the intersection is insetDistance/sin(θ/2) from the vertex.
-                # Clamp at 100× insetDistance to handle near-parallel edges (e.g., sphere arcs
-                # meeting box edges) where adjacent normals are nearly opposite due to numerical
-                # precision in the pointInPolygon test.
                 # Additionally reject any intersection that lands outside the original path's
                 # bounding box for non-holes: a valid inward inset must stay inside the original.
                 distFromVertex = Math.sqrt((intersection.x - origVertex.x) ** 2 + (intersection.y - origVertex.y) ** 2)
@@ -393,7 +394,7 @@ module.exports =
                     intersection.y < originalMinY - insetDistance or
                     intersection.y > originalMaxY + insetDistance)
 
-                if distFromVertex > insetDistance * 100 or outsideBounds
+                if distFromVertex > insetDistance * MITER_LIMIT_MULTIPLIER or outsideBounds
 
                     # Near-parallel or diverging edges - use midpoint fallback.
                     insetPath.push({
@@ -455,17 +456,19 @@ module.exports =
             insetWidth = insetMaxX - insetMinX
             insetHeight = insetMaxY - insetMinY
 
-            # Maximum allowed expansion for concave polygons: 2× insetDistance.
-            # Concave re-entrant corners can push the inset slightly outside the original
-            # bounding box, but genuine normal-direction errors expand it far more.
-            maxAllowedExpansion = insetDistance * 2
+            # Floating-point epsilon for bounding-box size validation.
+            # Concave re-entrant corners can shift the inset bounding box by a tiny amount
+            # (up to ~insetDistance * 0.1) due to midpoint fallbacks; anything larger indicates
+            # a genuinely wrong normal direction and the path should be rejected.
+            floatEpsilon = insetDistance * 0.1
 
             if isHole
 
                 widthIncrease = insetWidth - originalWidth
                 heightIncrease = insetHeight - originalHeight
 
-                if widthIncrease < -maxAllowedExpansion or heightIncrease < -maxAllowedExpansion
+                # A hole outset should expand the bounding box; allow only float noise shrinkage.
+                if widthIncrease < -floatEpsilon or heightIncrease < -floatEpsilon
 
                     return []
 
@@ -474,7 +477,8 @@ module.exports =
                 widthReduction = originalWidth - insetWidth
                 heightReduction = originalHeight - insetHeight
 
-                if widthReduction < -maxAllowedExpansion or heightReduction < -maxAllowedExpansion
+                # A non-hole inset should shrink or stay near the bounding box; allow only float noise expansion.
+                if widthReduction < -floatEpsilon or heightReduction < -floatEpsilon
 
                     return []
 
