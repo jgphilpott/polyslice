@@ -509,3 +509,84 @@ describe 'Paths', ->
                 expect(point.y).toBeLessThan(20)
 
             undefined
+
+        test 'should handle near-tangent edges without producing extreme inset points', ->
+
+            # A C-shaped path where two adjacent nearly-horizontal edges (e.g. from a sphere-box
+            # intersection) have opposite computed normals due to pointInPolygon precision.
+            # This previously caused inset intersections ~84mm from the vertex, producing
+            # an insetWidth of 84mm instead of ~11mm, failing the widthReduction validation.
+            # The fix: use a vertex-distance threshold so near-parallel diverging offset lines
+            # fall back to the midpoint instead of producing a geometrically invalid result.
+            cShapePath = [
+                { x: -6.0000, y: -12.5000, z: 0 }
+                { x:  5.8000, y: -12.5000, z: 0 }
+                { x:  5.8000, y:  12.5000, z: 0 }
+                { x: -6.0000, y:  12.5000, z: 0 }
+                { x: -6.0000, y:  10.1342, z: 0 }
+                { x: -5.8898, y:  10.1342, z: 0 }
+                { x: -5.7776, y:  10.1326, z: 0 }
+                { x: -5.6609, y:  10.1298, z: 0 }
+                { x: -5.4000, y:   9.5000, z: 0 }
+                { x: -5.0000, y:   7.0000, z: 0 }
+                { x: -4.5000, y:   0.0000, z: 0 }
+                { x: -5.0000, y:  -7.0000, z: 0 }
+                { x: -5.4000, y:  -9.5000, z: 0 }
+                { x: -5.6609, y: -10.1298, z: 0 }
+                { x: -5.7776, y: -10.1326, z: 0 }
+                { x: -5.8898, y: -10.1342, z: 0 }
+                { x: -6.0000, y: -10.1342, z: 0 }
+            ]
+
+            insetPath = paths.createInsetPath(cShapePath, 0.4, false)
+
+            # Should produce a valid inset path (not empty).
+            expect(insetPath.length).toBeGreaterThan(0)
+
+            # All inset points must stay within reasonable bounds (original bbox +/- 1mm).
+            for point in insetPath
+                expect(point.x).toBeGreaterThan(-7)
+                expect(point.x).toBeLessThan(7)
+                expect(point.y).toBeGreaterThan(-13.5)
+                expect(point.y).toBeLessThan(13.5)
+
+            undefined
+
+        test 'should produce infill boundary for concave C-shaped path with sphere-arc junction', ->
+
+            # Simulates the innerWall at sideways dome layer ~60 where a C-shaped cross-section
+            # (box minus sphere arc) previously failed widthReduction validation because concave
+            # re-entrant corners cause the inset to expand slightly in the X dimension.
+            # The fix: allow up to insetDistance*2 expansion (for concavity) in the bounding box
+            # check, instead of requiring a minimum positive reduction.
+            cShapePath = [
+                { x: -5.9340, y: -11.9000, z: 0 }
+                { x:  5.4000, y: -11.9000, z: 0 }
+                { x:  5.4000, y:  11.9000, z: 0 }
+                { x: -5.9340, y:  11.9000, z: 0 }
+                { x: -5.9340, y:   9.8799, z: 0 }
+                { x: -5.8019, y:   9.8581, z: 0 }
+                { x: -5.6136, y:   9.8581, z: 0 }
+                { x: -5.4000, y:   9.5000, z: 0 }
+                { x: -5.2000, y:   8.0000, z: 0 }
+                { x: -5.0000, y:   0.0000, z: 0 }
+                { x: -5.2000, y:  -8.0000, z: 0 }
+                { x: -5.4000, y:  -9.5000, z: 0 }
+                { x: -5.6136, y:  -9.8581, z: 0 }
+                { x: -5.8019, y:  -9.8581, z: 0 }
+                { x: -5.9340, y:  -9.8799, z: 0 }
+            ]
+
+            insetPath = paths.createInsetPath(cShapePath, 0.4, false)
+
+            # Should produce a valid inset path (not empty).
+            expect(insetPath.length).toBeGreaterThan(0)
+
+            # All inset points must stay within original bbox + insetDistance margin.
+            for point in insetPath
+                expect(point.x).toBeGreaterThan(-7)
+                expect(point.x).toBeLessThan(7)
+                expect(point.y).toBeGreaterThan(-13)
+                expect(point.y).toBeLessThan(13)
+
+            undefined
