@@ -147,6 +147,41 @@ describe 'Clipping', ->
                 expect(lastSeg.end.x).toBeCloseTo(10.1, 1)
                 expect(lastSeg.end.y).toBeCloseTo(9.9, 1)
 
+        test 'should not produce spurious segments for near-tangent line on circular polygon', ->
+
+            # Regression test: with the old default epsilon=0.3, a diagonal line whose
+            # bounding-box endpoint was within 0.3mm of a circular polygon boundary
+            # would be falsely included as a segment endpoint, producing extra segments
+            # that extended beyond the polygon. With epsilon=0.001 the bounding-box
+            # corner (0.002mm outside) is correctly excluded.
+
+            n = 64
+            r = 10
+
+            circle = []
+            for i in [0...n]
+                angle = (2 * Math.PI * i) / n
+                circle.push({ x: r * Math.cos(angle), y: r * Math.sin(angle) })
+
+            # Near-tangent diagonal line: bounding-box start is ~0.002mm outside circle.
+            C = -9.8
+            lineStart = { x: -r, y: r + C }
+            lineEnd   = { x:  r, y: -r + C }
+
+            segments = clipping.clipLineWithHoles(lineStart, lineEnd, circle)
+
+            # Should produce exactly one segment, clipped to the circle boundary.
+            expect(segments.length).toBe(1)
+
+            # All segment endpoints must be within the circle (distance ≤ r + 0.01).
+            for segment in segments
+                dStart = Math.sqrt(segment.start.x ** 2 + segment.start.y ** 2)
+                dEnd   = Math.sqrt(segment.end.x ** 2   + segment.end.y ** 2)
+                expect(dStart).toBeLessThanOrEqual(r + 0.01)
+                expect(dEnd).toBeLessThanOrEqual(r + 0.01)
+
+            return
+
     describe 'clipLineWithHoles', ->
 
         test 'should return full line when no holes provided', ->
