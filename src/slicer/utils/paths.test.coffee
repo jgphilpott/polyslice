@@ -551,3 +551,42 @@ describe 'Paths', ->
                 expect(point.y).toBeLessThan(13.5)
 
             undefined
+
+        test 'should produce infill boundary for concave C-shaped path with sphere-arc junction', ->
+
+            # Simulates the innerWall at sideways dome layer ~60 where a C-shaped cross-section
+            # (box minus sphere arc) previously failed widthReduction validation because concave
+            # re-entrant corners cause the inset to expand slightly in the X dimension.
+            # The fix: allow up to insetDistance*2 expansion (for concavity) in the bounding box
+            # check, instead of requiring a minimum positive reduction.
+            cShapePath = [
+                { x: -5.9340, y: -11.9000, z: 0 }
+                { x:  5.4000, y: -11.9000, z: 0 }
+                { x:  5.4000, y:  11.9000, z: 0 }
+                { x: -5.9340, y:  11.9000, z: 0 }
+                { x: -5.9340, y:   9.8799, z: 0 }
+                { x: -5.8019, y:   9.8581, z: 0 }
+                { x: -5.6136, y:   9.8581, z: 0 }
+                { x: -5.4000, y:   9.5000, z: 0 }
+                { x: -5.2000, y:   8.0000, z: 0 }
+                { x: -5.0000, y:   0.0000, z: 0 }
+                { x: -5.2000, y:  -8.0000, z: 0 }
+                { x: -5.4000, y:  -9.5000, z: 0 }
+                { x: -5.6136, y:  -9.8581, z: 0 }
+                { x: -5.8019, y:  -9.8581, z: 0 }
+                { x: -5.9340, y:  -9.8799, z: 0 }
+            ]
+
+            insetPath = paths.createInsetPath(cShapePath, 0.4, false)
+
+            # Should produce a valid inset path (not empty).
+            expect(insetPath.length).toBeGreaterThan(0)
+
+            # All inset points must stay within original bbox + insetDistance margin.
+            for point in insetPath
+                expect(point.x).toBeGreaterThan(-7)
+                expect(point.x).toBeLessThan(7)
+                expect(point.y).toBeGreaterThan(-13)
+                expect(point.y).toBeLessThan(13)
+
+            undefined

@@ -384,9 +384,16 @@ module.exports =
                 # Clamp at 100× insetDistance to handle near-parallel edges (e.g., sphere arcs
                 # meeting box edges) where adjacent normals are nearly opposite due to numerical
                 # precision in the pointInPolygon test.
+                # Additionally reject any intersection that lands outside the original path's
+                # bounding box for non-holes: a valid inward inset must stay inside the original.
                 distFromVertex = Math.sqrt((intersection.x - origVertex.x) ** 2 + (intersection.y - origVertex.y) ** 2)
+                outsideBounds = not isHole and (
+                    intersection.x < originalMinX - insetDistance or
+                    intersection.x > originalMaxX + insetDistance or
+                    intersection.y < originalMinY - insetDistance or
+                    intersection.y > originalMaxY + insetDistance)
 
-                if distFromVertex > insetDistance * 100
+                if distFromVertex > insetDistance * 100 or outsideBounds
 
                     # Near-parallel or diverging edges - use midpoint fallback.
                     insetPath.push({
@@ -448,14 +455,17 @@ module.exports =
             insetWidth = insetMaxX - insetMinX
             insetHeight = insetMaxY - insetMinY
 
-            expectedSizeChange = insetDistance * 2 * 0.1
+            # Maximum allowed expansion for concave polygons: 2× insetDistance.
+            # Concave re-entrant corners can push the inset slightly outside the original
+            # bounding box, but genuine normal-direction errors expand it far more.
+            maxAllowedExpansion = insetDistance * 2
 
             if isHole
 
                 widthIncrease = insetWidth - originalWidth
                 heightIncrease = insetHeight - originalHeight
 
-                if widthIncrease < expectedSizeChange or heightIncrease < expectedSizeChange
+                if widthIncrease < -maxAllowedExpansion or heightIncrease < -maxAllowedExpansion
 
                     return []
 
@@ -464,7 +474,7 @@ module.exports =
                 widthReduction = originalWidth - insetWidth
                 heightReduction = originalHeight - insetHeight
 
-                if widthReduction < expectedSizeChange or heightReduction < expectedSizeChange
+                if widthReduction < -maxAllowedExpansion or heightReduction < -maxAllowedExpansion
 
                     return []
 
