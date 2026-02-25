@@ -38,10 +38,16 @@ module.exports =
             centerX = (minX + maxX) / 2
             centerY = (minY + maxY) / 2
 
-        # Calculate maximum radius needed to cover the entire boundary.
-        width = maxX - minX
-        height = maxY - minY
-        maxRadius = Math.sqrt(width * width + height * height) / 2
+        # Calculate maximum radius needed to cover the entire boundary from the pattern center.
+        # Use the farthest distance from (centerX, centerY) to any bounding box corner so
+        # that the spiral reaches the boundary even when the pattern center is far from the
+        # boundary (e.g. with infillPatternCentering = 'global').
+        maxRadius = Math.max(
+            Math.sqrt((minX - centerX) ** 2 + (minY - centerY) ** 2),
+            Math.sqrt((maxX - centerX) ** 2 + (minY - centerY) ** 2),
+            Math.sqrt((minX - centerX) ** 2 + (maxY - centerY) ** 2),
+            Math.sqrt((maxX - centerX) ** 2 + (maxY - centerY) ** 2)
+        )
 
         # Generate Archimedean spiral points.
         # Parametric equation: r = a * theta, where a controls spacing.
