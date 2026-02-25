@@ -234,10 +234,10 @@ describe 'Infill Orchestration', ->
             minInfill = Math.min(...infillX)
             maxInfill = Math.max(...infillX)
 
-            # Infill should be inside inner wall.
-            # Tolerance of 0.05mm: with old epsilon=0.3 (pre-PR #153) infill extended
-            # ~0.1mm beyond the inner wall center, which would fail this check.
-            # With the fixed epsilon=0.001 infill stays ~0.2mm inside, well within tolerance.
+            # Infill should be inside the inner wall.
+            # We use a relatively tight ±0.05mm tolerance here to catch small boundary
+            # violations that were previously masked by the larger epsilon=0.3 used in
+            # clipLineToPolygon (pre-PR #153), and are known to show up on circular shapes.
             expect(minInfill).toBeGreaterThanOrEqual(minInnerWall - 0.05)
             expect(maxInfill).toBeLessThanOrEqual(maxInnerWall + 0.05)
 
@@ -282,10 +282,10 @@ describe 'Infill Orchestration', ->
                     continue
 
                 # Collect extrusion moves only (G1 with both X and E parameters).
-                if inFill and line.includes('G1') and line.includes('X') and line.includes('E')
+                if inFill and line.startsWith('G1 ') and line.includes('X') and line.includes('E')
 
-                    xMatch = line.match(/X([\d.]+)/)
-                    yMatch = line.match(/Y([\d.]+)/)
+                    xMatch = line.match(/X(-?[\d.]+)/)
+                    yMatch = line.match(/Y(-?[\d.]+)/)
 
                     if xMatch and yMatch
 
@@ -297,16 +297,17 @@ describe 'Infill Orchestration', ->
             # Should have collected regular infill coordinates from middle layers.
             expect(infillCoords.length).toBeGreaterThan(0)
 
-            # Cylinder centered on 220x220 build plate at (110, 110), outer radius 5mm.
-            # With 2 walls (nozzle=0.4mm each), infill boundary is ~4.2mm from center.
-            # Inner wall center is ~4.4mm from center.
+            # Cylinder centered on the build plate. Derive center from slicer defaults
+            # so the test remains valid even if the default build plate size changes.
+            # Outer radius 5mm; with 2 walls (nozzle=0.4mm) the infill boundary is ~4.2mm
+            # from center, and the inner wall centre is ~4.4mm from center.
             #
             # With old epsilon=0.3 (pre-PR #153): max infill radius ≈ 4.2 + 0.3 = 4.5mm.
             # With fixed epsilon=0.001 (post-PR #153): max infill radius ≈ 4.2mm.
             #
             # Threshold of 4.45mm: fails before fix (4.5 > 4.45), passes after fix (4.2 ≤ 4.45).
-            centerX = 110
-            centerY = 110
+            centerX = slicer.getBuildPlateWidth() / 2
+            centerY = slicer.getBuildPlateLength() / 2
             maxAllowedRadius = 4.45
 
             for coord in infillCoords
