@@ -815,6 +815,98 @@ describe 'Grid Infill Generation', ->
 
             return
 
+        test 'should generate consistent infill count across all layers with global centering', ->
+
+            # Regression test for: missing infill in flipped arch example beyond layer 48.
+            # Root cause: numLinesUp was computed from bounding box diagonal, not the distance
+            # from the pattern center (origin) to the boundary corners. When using global
+            # centering and the infill boundary is far from the origin, the diagonal was
+            # smaller than the offset range required to cover the boundary, so the last
+            # few valid infill lines were not generated - dropping from 4 to 1 line as the
+            # arch pillars narrowed slightly between layers.
+            #
+            # Two pillars separated by a gap, simulating arch pillar cross-sections.
+            BufferGeometryUtils = null
+
+            try
+                mod = require('three/examples/jsm/utils/BufferGeometryUtils.js')
+                BufferGeometryUtils = mod
+            catch error
+                return
+
+            # Create two small square pillars offset from origin (like arch legs).
+            pillarSize = 9
+            pillarHeight = 0.6
+            pillarOffsetX = 15
+
+            geometries = []
+
+            for side in [-1, 1]
+                box = new THREE.BoxGeometry(pillarSize, pillarSize, pillarHeight)
+                mesh = new THREE.Mesh(box)
+                mesh.position.set(side * pillarOffsetX, 0, pillarHeight / 2)
+                mesh.updateMatrixWorld()
+                geom = mesh.geometry.clone()
+                geom.applyMatrix4(mesh.matrixWorld)
+                geometries.push(geom)
+
+            mergedGeometry = BufferGeometryUtils.mergeGeometries(geometries, false)
+            mergedMesh = new THREE.Mesh(mergedGeometry)
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+            slicer.setInfillPatternCentering('global')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mergedMesh)
+
+            # Analyze all middle layers (excluding skin layers at top/bottom).
+            layers = result.split('M117 LAYER:')
+            skinLayerCount = 2 # shellSkinThickness 0.4 / layerHeight 0.2 = 2.
+
+            # Collect infill line counts per layer per pillar section.
+            infillCountsPerLayer = []
+
+            for i in [skinLayerCount + 1...layers.length - skinLayerCount]
+                layer = layers[i]
+                continue unless layer
+
+                # Each layer should have 2 FILL sections (one per pillar).
+                fillSections = layer.split('; TYPE: FILL').slice(1)
+                continue if fillSections.length isnt 2
+
+                counts = []
+                for section in fillSections
+                    # Only count up to the next TYPE marker.
+                    sectionContent = section.split('; TYPE:')[0]
+                    extrusions = sectionContent.match(/G1\s+X[\d.]+\s+Y[\d.]+.*?E[\d.]+/g)
+                    counts.push(if extrusions then extrusions.length else 0)
+
+                infillCountsPerLayer.push(counts)
+
+            expect(infillCountsPerLayer.length).toBeGreaterThan(0)
+
+            # All middle layers should have the same number of infill lines per pillar
+            # (within 1 line to allow for minor floating-point boundary differences).
+            firstLayerCounts = infillCountsPerLayer[0]
+
+            for counts in infillCountsPerLayer
+                # Neither pillar should be empty.
+                expect(counts[0]).toBeGreaterThan(0)
+                expect(counts[1]).toBeGreaterThan(0)
+
+                # Both pillars should have roughly the same count (symmetric geometry).
+                expect(Math.abs(counts[0] - counts[1])).toBeLessThanOrEqual(1)
+
+                # Count should not drop significantly between layers.
+                expect(Math.abs(counts[0] - firstLayerCounts[0])).toBeLessThanOrEqual(1)
+
+            return
+
         test 'should center infill on boundary not global origin', ->
 
             # This test verifies the fix: infill is centered on each boundary's center
