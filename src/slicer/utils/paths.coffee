@@ -238,9 +238,16 @@ module.exports =
             # Calculate cross product to detect direction change.
             cross = v1x * v2y - v1y * v2x
 
-            # Keep all points except those that are perfectly collinear (zero cross product).
-            # This preserves geometric detail while avoiding numerical issues in offset calculation.
-            if Math.abs(cross) > angleThreshold then simplifiedPath.push(p2)
+            # Calculate dot product to detect backtracking (near-reversal) vertices.
+            dot = v1x * v2x + v1y * v2y
+
+            # Keep all points except:
+            # 1. Those that are perfectly collinear (|cross| near zero), or
+            # 2. Those that create a near-reversal (dot near -1, backtracking vertices).
+            # Backtracking vertices cause incorrect offsets: the two adjacent offset lines
+            # are anti-parallel, so the fallback intersection lands on the wrong side,
+            # producing a spike that extends outside the intended inset boundary.
+            if Math.abs(cross) > angleThreshold and dot > -0.99 then simplifiedPath.push(p2)
 
         # If simplification resulted in too few points, use original path.
         if simplifiedPath.length < MIN_SIMPLIFIED_CORNERS then simplifiedPath = path

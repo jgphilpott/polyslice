@@ -177,6 +177,51 @@ describe 'Paths', ->
 
             return
 
+        test 'should not produce spikes when path has a backtracking vertex near a junction', ->
+
+            # Reproduce the sideways dome Z11.7 issue: the arc meets the rectangle with
+            # a tiny backtracking nub vertex (goes slightly past the junction then returns).
+            # The nub width (0.12mm) is smaller than the inset distance (0.4mm).
+            # Without the fix the inset produced a spike at Y≈119.76 instead of Y≈120.56.
+            path = [
+                { x: 104.814, y: 120.131 }
+                { x: 104.669, y: 120.141 }
+                { x: 104.545, y: 120.148 }
+                { x: 104.436, y: 120.153 }
+                { x: 104.338, y: 120.158 }
+                { x: 104.247, y: 120.161 }
+                { x: 104.162, y: 120.163 }
+                { x: 104.08,  y: 120.164 }  # backtracking spike vertex
+                { x: 104.2,   y: 120.163 }
+                { x: 104.2,   y: 122.3   }
+                { x: 115.8,   y: 122.3   }
+                { x: 115.8,   y: 97.7    }
+                { x: 104.2,   y: 97.7    }
+                { x: 104.2,   y: 99.837  }
+                { x: 104.082, y: 99.836  }  # second backtracking spike vertex
+                { x: 104.164, y: 99.837  }
+            ]
+
+            insetPath = paths.createInsetPath(path, 0.4, false)
+
+            # Inset must be non-empty.
+            expect(insetPath.length).toBeGreaterThan(0)
+
+            # No vertex should be outside the original Y bounds (97.7–122.3),
+            # i.e. no spike that dips below the arc into the bounding-box interior.
+            for point in insetPath
+                expect(point.y).toBeGreaterThan(97.3)
+                expect(point.y).toBeLessThan(122.7)
+
+            # More specifically: no vertex should land near the old spike region
+            # (Y≈119.76 at X≈104.08) which was an artifact of the backtracking vertex.
+            hasSpikeAtOldBugLocation = insetPath.some (pt) ->
+                pt.x < 104.2 and pt.y < 120.0 and pt.y > 119.0
+
+            expect(hasSpikeAtOldBugLocation).toBe(false)
+
+            return
+
     describe 'connectSegmentsToPaths', ->
 
         test 'should connect segments into a closed path', ->
