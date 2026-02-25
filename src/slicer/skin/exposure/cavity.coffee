@@ -19,6 +19,10 @@ module.exports =
         currentHeight = currentPathBounds.maxY - currentPathBounds.minY
         currentArea = currentWidth * currentHeight
 
+        # Tolerance used to determine whether a region touches the current path boundary.
+        # Regions that reach the outer boundary are structural elements, not interior cavities.
+        BOUNDARY_EPSILON = 0.001
+
         for regionAbove in coveringRegionsAbove
 
             continue if regionAbove.length < 3
@@ -30,7 +34,6 @@ module.exports =
             # Such regions are structural elements (e.g. arch pillars) that continue
             # from layer to layer, not interior cavity features that need special skin walls.
             # A genuine fully-covered cavity region is entirely inside the current path.
-            BOUNDARY_EPSILON = 0.001
             touchesBoundary = (
                 boundsAbove.minX <= currentPathBounds.minX + BOUNDARY_EPSILON or
                 boundsAbove.maxX >= currentPathBounds.maxX - BOUNDARY_EPSILON or
