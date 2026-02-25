@@ -222,6 +222,59 @@ describe 'Paths', ->
 
             return
 
+        test 'should not produce spikes when path has cascading backtracking vertices near a junction', ->
+
+            # Reproduce the sideways dome Z11.9 cascading issue: the arc overshoots the
+            # rectangle corner through multiple vertices (104.413→104.329→...→104.059→104.2).
+            # A single-pass backtracking removal only catches the deepest vertex (104.059),
+            # leaving earlier vertices (104.12, 104.184) as new backtracking vertices after
+            # 104.059 is removed. The iterative fix removes all cascading vertices.
+            # Without iterative fix: spike at Y≈119.78 (below the arc, wrong side).
+            # With iterative fix: smooth transition, all Y values near the arc ≈ 120.57.
+            path = [
+                { x: 104.746, y: 120.149 }
+                { x: 104.613, y: 120.159 }
+                { x: 104.504, y: 120.166 }
+                { x: 104.413, y: 120.172 }
+                { x: 104.329, y: 120.176 }
+                { x: 104.262, y: 120.179 }
+                { x: 104.184, y: 120.179 }  # cascading backtracking vertex 1
+                { x: 104.12,  y: 120.18  }  # cascading backtracking vertex 2
+                { x: 104.059, y: 120.18  }  # deepest backtracking vertex
+                { x: 104.2,   y: 120.18  }  # junction return point
+                { x: 104.2,   y: 122.3   }
+                { x: 115.8,   y: 122.3   }
+                { x: 115.8,   y: 97.7    }
+                { x: 104.2,   y: 97.7    }
+                { x: 104.2,   y: 99.82   }
+                { x: 104.059, y: 99.82   }  # symmetric bottom deepest vertex
+                { x: 104.12,  y: 99.82   }  # symmetric bottom cascading vertex 2
+                { x: 104.184, y: 99.821  }  # symmetric bottom cascading vertex 1
+                { x: 104.262, y: 99.821  }
+                { x: 104.413, y: 99.828  }
+            ]
+
+            insetPath = paths.createInsetPath(path, 0.4, false)
+
+            # Inset must be non-empty.
+            expect(insetPath.length).toBeGreaterThan(0)
+
+            # No inset vertex near X=104 in the top-arc zone (Y>119) should dip below Y=119.9
+            # (the outer arc is at Y≈120.18, so the inset should be ABOVE ≈120.58, not below).
+            hasTopSpike = insetPath.some (pt) ->
+                pt.x < 104.5 and pt.y < 119.9 and pt.y > 119.0
+
+            expect(hasTopSpike).toBe(false)
+
+            # Symmetric check: no vertex near X=104 in the bottom-arc zone (Y<101) should
+            # rise above Y=100.1 (the outer arc is at Y≈99.82, inset should be at ≈99.42).
+            hasBottomSpike = insetPath.some (pt) ->
+                pt.x < 104.5 and pt.y > 100.1 and pt.y < 101.0
+
+            expect(hasBottomSpike).toBe(false)
+
+            return
+
     describe 'connectSegmentsToPaths', ->
 
         test 'should connect segments into a closed path', ->

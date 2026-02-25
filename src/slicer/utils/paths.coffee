@@ -200,57 +200,70 @@ module.exports =
 
         return [] if path.length < 3
 
-        # Step 1: Remove only truly degenerate/collinear points to avoid numerical issues.
-        # Use an extremely small threshold to preserve nearly all geometric detail while
-        # avoiding instability from perfectly collinear points in the offset calculation.
+        # Step 1: Iteratively remove degenerate/backtracking vertices until the path stabilises.
+        # Each pass removes:
+        #   1. Collinear points (|cross| near zero), and
+        #   2. Near-reversal (backtracking) vertices (dot near -1).
+        # Multiple passes are needed because removing one backtracking vertex can expose the
+        # previous vertex as a new backtracking vertex (cascading U-turns in arc-to-wall
+        # junctions where the arc overshoots the corner before returning to the wall).
         angleThreshold = 0.0001 # ~0.0057 degrees - only removes perfectly collinear points
-        simplifiedPath = []
+        currentPath = path
+        changed = true
 
-        n = path.length
+        while changed and currentPath.length >= MIN_SIMPLIFIED_CORNERS
 
-        for i in [0...n]
+            changed = false
+            simplifiedPath = []
+            n = currentPath.length
 
-            prevIdx = if i is 0 then n - 1 else i - 1
-            nextIdx = if i is n - 1 then 0 else i + 1
+            for i in [0...n]
 
-            p1 = path[prevIdx]
-            p2 = path[i]
-            p3 = path[nextIdx]
+                prevIdx = if i is 0 then n - 1 else i - 1
+                nextIdx = if i is n - 1 then 0 else i + 1
 
-            # Calculate vectors for the two edges.
-            v1x = p2.x - p1.x
-            v1y = p2.y - p1.y
-            v2x = p3.x - p2.x
-            v2y = p3.y - p2.y
+                p1 = currentPath[prevIdx]
+                p2 = currentPath[i]
+                p3 = currentPath[nextIdx]
 
-            len1 = Math.sqrt(v1x * v1x + v1y * v1y)
-            len2 = Math.sqrt(v2x * v2x + v2y * v2y)
+                # Calculate vectors for the two edges.
+                v1x = p2.x - p1.x
+                v1y = p2.y - p1.y
+                v2x = p3.x - p2.x
+                v2y = p3.y - p2.y
 
-            # Skip if either edge is degenerate.
-            if len1 < 0.0001 or len2 < 0.0001 then continue
+                len1 = Math.sqrt(v1x * v1x + v1y * v1y)
+                len2 = Math.sqrt(v2x * v2x + v2y * v2y)
 
-            # Normalize vectors.
-            v1x /= len1
-            v1y /= len1
-            v2x /= len2
-            v2y /= len2
+                # Skip degenerate edges.
+                if len1 < 0.0001 or len2 < 0.0001 then continue
 
-            # Calculate cross product to detect direction change.
-            cross = v1x * v2y - v1y * v2x
+                # Normalize vectors.
+                v1x /= len1
+                v1y /= len1
+                v2x /= len2
+                v2y /= len2
 
-            # Calculate dot product to detect backtracking (near-reversal) vertices.
-            dot = v1x * v2x + v1y * v2y
+                # Calculate cross and dot products.
+                cross = v1x * v2y - v1y * v2x
+                dot = v1x * v2x + v1y * v2y
 
-            # Keep all points except:
-            # 1. Those that are perfectly collinear (|cross| near zero), or
-            # 2. Those that create a near-reversal (dot near -1, backtracking vertices).
-            # Backtracking vertices cause incorrect offsets: the two adjacent offset lines
-            # are anti-parallel, so the fallback intersection lands on the wrong side,
-            # producing a spike that extends outside the intended inset boundary.
-            if Math.abs(cross) > angleThreshold and dot > -0.99 then simplifiedPath.push(p2)
+                if Math.abs(cross) > angleThreshold and dot > -0.99
 
-        # If simplification resulted in too few points, use original path.
-        if simplifiedPath.length < MIN_SIMPLIFIED_CORNERS then simplifiedPath = path
+                    simplifiedPath.push(p2)
+
+                else
+
+                    changed = true
+
+            # If too few points remain, fall back to the original path and stop iterating.
+            if simplifiedPath.length < MIN_SIMPLIFIED_CORNERS
+                simplifiedPath = path
+                changed = false
+            else
+                currentPath = simplifiedPath
+
+        simplifiedPath = currentPath
 
         # Additional pass: Remove any remaining duplicate consecutive points.
         # This prevents issues where duplicate points can cause degenerate edges
