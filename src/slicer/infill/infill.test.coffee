@@ -234,9 +234,92 @@ describe 'Infill Orchestration', ->
             minInfill = Math.min(...infillX)
             maxInfill = Math.max(...infillX)
 
-            # Infill should be inside inner wall (with some tolerance).
-            expect(minInfill).toBeGreaterThanOrEqual(minInnerWall - 0.5)
-            expect(maxInfill).toBeLessThanOrEqual(maxInnerWall + 0.5)
+            # Infill should be inside the inner wall.
+            # We use a relatively tight ±0.05mm tolerance here to catch small boundary
+            # violations that were previously masked by the larger epsilon=0.3 used in
+            # clipLineToPolygon (pre-PR #153), and are known to show up on circular shapes.
+            expect(minInfill).toBeGreaterThanOrEqual(minInnerWall - 0.05)
+            expect(maxInfill).toBeLessThanOrEqual(maxInnerWall + 0.05)
+
+        test 'should not extend regular infill beyond inner wall boundary for circular shape', ->
+
+            # Regression test: with the old epsilon=0.3 in clipLineToPolygon, bounding-box
+            # intersection points outside the infill boundary were falsely included, causing
+            # infill to extend ~0.1mm beyond the inner wall center. The PR #153 fix (epsilon=0.001)
+            # corrects this for all infill patterns since they all use clipLineToPolygon.
+            # Circular shapes are most susceptible to this boundary precision issue.
+
+            # Create a cylinder mesh (circular cross-section best exposes the epsilon bug).
+            geometry = new THREE.CylinderGeometry(5, 5, 10, 32)
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.rotation.x = Math.PI / 2
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.6)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Parse G-code to extract regular infill extrusion coordinates (TYPE: FILL sections).
+            lines = result.split('\n')
+            inFill = false
+            infillCoords = []
+
+            for line in lines
+
+                if line.includes('; TYPE: FILL')
+                    inFill = true
+                    continue
+
+                if (line.includes('; TYPE:') and not line.includes('FILL')) or line.includes('LAYER:')
+                    inFill = false
+                    continue
+
+                # Collect extrusion moves only (G1 with both X and E parameters).
+                if inFill and line.startsWith('G1 ') and line.includes('X') and line.includes('E')
+
+                    xMatch = line.match(/X(-?[\d.]+)/)
+                    yMatch = line.match(/Y(-?[\d.]+)/)
+
+                    if xMatch and yMatch
+
+                        infillCoords.push({
+                            x: parseFloat(xMatch[1])
+                            y: parseFloat(yMatch[1])
+                        })
+
+            # Should have collected regular infill coordinates from middle layers.
+            expect(infillCoords.length).toBeGreaterThan(0)
+
+            # Cylinder centered on the build plate. Derive center from slicer defaults
+            # so the test remains valid even if the default build plate size changes.
+            # Outer radius 5mm; with 2 walls (nozzle=0.4mm) the infill boundary is ~4.2mm
+            # from center, and the inner wall centre is ~4.4mm from center.
+            #
+            # With old epsilon=0.3 (pre-PR #153): max infill radius ≈ 4.2 + 0.3 = 4.5mm.
+            # With fixed epsilon=0.001 (post-PR #153): max infill radius ≈ 4.2mm.
+            #
+            # Threshold of 4.45mm: fails before fix (4.5 > 4.45), passes after fix (4.2 ≤ 4.45).
+            centerX = slicer.getBuildPlateWidth() / 2
+            centerY = slicer.getBuildPlateLength() / 2
+            maxAllowedRadius = 4.45
+
+            for coord in infillCoords
+
+                dx = coord.x - centerX
+                dy = coord.y - centerY
+
+                distance = Math.sqrt(dx * dx + dy * dy)
+
+                expect(distance).toBeLessThanOrEqual(maxAllowedRadius)
+
+            return
 
     describe 'Infill Line Spacing Calculation', ->
 
