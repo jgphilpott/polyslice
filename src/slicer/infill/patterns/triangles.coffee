@@ -50,7 +50,21 @@ module.exports =
 
         offsetStep45 = lineSpacing * Math.sqrt(2)
 
-        numLinesUp = Math.ceil(diagonalSpan / offsetStep45)
+        # Compute numLinesUp to cover the full valid offset range for the 45° direction,
+        # accounting for boundary position relative to the pattern center.
+        centerOffsetNeg45 = centerY + centerX
+
+        maxExtentPos45 = Math.max(
+            Math.abs((maxY - minX) - centerOffset),
+            Math.abs((minY - maxX) - centerOffset)
+        )
+
+        maxExtentNeg45 = Math.max(
+            Math.abs((maxX + maxY) - centerOffsetNeg45),
+            Math.abs((minX + minY) - centerOffsetNeg45)
+        )
+
+        numLinesUp = Math.ceil(Math.max(maxExtentPos45, maxExtentNeg45) / offsetStep45) + 1
 
         offset = centerOffset - numLinesUp * offsetStep45
         maxOffset = centerOffset + numLinesUp * offsetStep45
@@ -104,7 +118,17 @@ module.exports =
 
         centerOffset = centerY - slope * centerX
 
-        numLinesUp = Math.ceil(diagonalSpan / offsetStep105)
+        # Compute numLinesUp for 105° direction accounting for boundary position.
+        # For line y = slope*x + c: valid c range is [minY - max(slope*minX, slope*maxX), maxY - min(slope*minX, slope*maxX)].
+        slopeMinX105 = slope * minX
+        slopeMaxX105 = slope * maxX
+
+        maxExtent105 = Math.max(
+            Math.abs((maxY - Math.min(slopeMinX105, slopeMaxX105)) - centerOffset),
+            Math.abs((minY - Math.max(slopeMinX105, slopeMaxX105)) - centerOffset)
+        )
+
+        numLinesUp = Math.ceil(maxExtent105 / offsetStep105) + 1
 
         offset = centerOffset - numLinesUp * offsetStep105
         maxOffset = centerOffset + numLinesUp * offsetStep105
@@ -158,7 +182,16 @@ module.exports =
 
         centerOffset = centerY - slope * centerX
 
-        numLinesUp = Math.ceil(diagonalSpan / offsetStep15)
+        # Compute numLinesUp for -15° direction accounting for boundary position.
+        slopeMinX15 = slope * minX
+        slopeMaxX15 = slope * maxX
+
+        maxExtent15 = Math.max(
+            Math.abs((maxY - Math.min(slopeMinX15, slopeMaxX15)) - centerOffset),
+            Math.abs((minY - Math.max(slopeMinX15, slopeMaxX15)) - centerOffset)
+        )
+
+        numLinesUp = Math.ceil(maxExtent15 / offsetStep15) + 1
 
         offset = centerOffset - numLinesUp * offsetStep15
         maxOffset = centerOffset + numLinesUp * offsetStep15
