@@ -819,6 +819,74 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Verify skin infill exists in exposed areas.
             expect(layer47SkinInfillLines.length).toBeGreaterThan(100)
 
+        test 'should NOT generate extra skin walls for structural arch pillar regions', ->
+
+            # Regression test for the flipped arch issue (layers 22-25).
+            # When a model has an arch opening at the top (flipped arch), the arch
+            # splits into two separate column paths in the checking layer above.
+            # These columns must NOT be treated as "fully covered" interior cavity
+            # features, since they touch the outer boundary of the current path.
+            # Before the fix, each transition layer generated 3 skin sections
+            # (two spurious side patches + one correct center patch).
+            # After the fix, each transition layer should generate exactly 1.
+            archWidth = 40
+            archHeight = 10
+            archThickness = 20
+            archRadius = 15
+
+            boxGeometry = new THREE.BoxGeometry(archWidth, archHeight, archThickness)
+            boxMesh = new THREE.Mesh(boxGeometry, new THREE.MeshBasicMaterial())
+
+            cylGeo = new THREE.CylinderGeometry(archRadius, archRadius, archWidth * 1.25, 48)
+            cylMesh = new THREE.Mesh(cylGeo, new THREE.MeshBasicMaterial())
+            cylMesh.position.z = -archHeight
+            cylMesh.updateMatrixWorld()
+
+            archResult = await Polytree.subtract(boxMesh, cylMesh)
+            archMesh = new THREE.Mesh(archResult.geometry, archResult.material)
+            archMesh.position.set(0, 0, archThickness / 2)
+            archMesh.updateMatrixWorld()
+
+            # Flip the arch so the opening is at the top (solid base at bottom).
+            flippedMesh = new THREE.Mesh(archMesh.geometry.clone(), archMesh.material)
+            flippedMesh.position.copy(archMesh.position)
+            flippedMesh.rotation.y = Math.PI
+            flippedMesh.updateMatrixWorld(true)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)
+            slicer.setShellWallThickness(0.8)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(flippedMesh)
+
+            # Parse skin sections per layer.
+            lines = result.split('\n')
+            skinCountByLayer = {}
+            currentLayer = null
+
+            for line in lines
+
+                if line.includes('LAYER:')
+
+                    layerMatch = line.match(/LAYER:\s*(\d+) of/)
+
+                    if layerMatch
+                        currentLayer = parseInt(layerMatch[1])
+
+                else if currentLayer? and line.includes('TYPE: SKIN')
+
+                    skinCountByLayer[currentLayer] = (skinCountByLayer[currentLayer] or 0) + 1
+
+            # Layers 22-25 (1-indexed) are the arch transition layers.
+            # Each should have exactly 1 skin section (the center arch opening).
+            # Before the fix they had 3 (two spurious side patches + one center patch).
+            for layerNum in [22, 23, 24, 25]
+
+                expect(skinCountByLayer[layerNum]).toBe(1)
+
         test 'should handle multiple covered areas on same layer', ->
 
             # Test that multiple covered areas are all properly excluded.

@@ -26,6 +26,19 @@ module.exports =
             boundsAbove = bounds.calculatePathBounds(regionAbove)
             continue unless boundsAbove?
 
+            # Skip regions that extend to or beyond the current path's boundary.
+            # Such regions are structural elements (e.g. arch pillars) that continue
+            # from layer to layer, not interior cavity features that need special skin walls.
+            # A genuine fully-covered cavity region is entirely inside the current path.
+            BOUNDARY_EPSILON = 0.001
+            touchesBoundary = (
+                boundsAbove.minX <= currentPathBounds.minX + BOUNDARY_EPSILON or
+                boundsAbove.maxX >= currentPathBounds.maxX - BOUNDARY_EPSILON or
+                boundsAbove.minY <= currentPathBounds.minY + BOUNDARY_EPSILON or
+                boundsAbove.maxY >= currentPathBounds.maxY - BOUNDARY_EPSILON
+            )
+            continue if touchesBoundary
+
             aboveWidth = boundsAbove.maxX - boundsAbove.minX
             aboveHeight = boundsAbove.maxY - boundsAbove.minY
             aboveArea = aboveWidth * aboveHeight
