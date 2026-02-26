@@ -388,8 +388,8 @@ describe 'Paths', ->
 
     describe 'Degenerate Path Handling', ->
 
-        # Helper: returns true if insetPath has no backtracking vertices (dot < dotThreshold).
-        hasBacktracking = (insetPath, dotThreshold = -0.97) ->
+        # Helper: returns true if insetPath has a backtracking vertex (dot < dotThreshold).
+        hasBacktracking = (insetPath, dotThreshold = -0.99) ->
 
             return false if insetPath.length < 3
 

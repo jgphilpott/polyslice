@@ -203,68 +203,67 @@ module.exports =
 
         return [] if path.length < 3
 
-        # Step 1: Iteratively remove collinear and backtracking vertices to avoid numerical issues.
+        # Step 1: Remove collinear and backtracking vertices to avoid numerical issues.
         # Backtracking vertices (dot < -0.99, nearly 180° turns) produce near-anti-parallel
         # offset lines causing wrong intersection vertices (spikes) in the inset.
-        # Single-pass removal may expose new backtracking vertices, so iterate until stable.
+        # Uses an index-based scan: when a vertex is removed, step back to re-check
+        # the adjacent vertex for cascading removals (O(n) vs O(n²) multi-pass restart).
         angleThreshold = 0.0001 # ~0.0057 degrees - removes perfectly collinear points
-        simplifiedPath = []
-        changed = true
-        workingPath = path
-        maxIterations = path.length + 1
-        iterationCount = 0
+        simplifiedPath = path.slice()
+        i = 0
+        loopCount = 0
+        loopLimit = (path.length + 1) * 2
 
-        while changed and iterationCount < maxIterations
+        while i < simplifiedPath.length and simplifiedPath.length >= MIN_SIMPLIFIED_CORNERS
 
-            iterationCount++
-            changed = false
-            simplifiedPath = []
-            n = workingPath.length
+            loopCount++
+            break if loopCount > loopLimit
 
-            for i in [0...n]
+            n = simplifiedPath.length
+            prevIdx = if i is 0 then n - 1 else i - 1
+            nextIdx = if i is n - 1 then 0 else i + 1
 
-                prevIdx = if i is 0 then n - 1 else i - 1
-                nextIdx = if i is n - 1 then 0 else i + 1
+            p1 = simplifiedPath[prevIdx]
+            p2 = simplifiedPath[i]
+            p3 = simplifiedPath[nextIdx]
 
-                p1 = workingPath[prevIdx]
-                p2 = workingPath[i]
-                p3 = workingPath[nextIdx]
+            # Calculate vectors for the two edges.
+            v1x = p2.x - p1.x
+            v1y = p2.y - p1.y
+            v2x = p3.x - p2.x
+            v2y = p3.y - p2.y
 
-                # Calculate vectors for the two edges.
-                v1x = p2.x - p1.x
-                v1y = p2.y - p1.y
-                v2x = p3.x - p2.x
-                v2y = p3.y - p2.y
+            len1 = Math.sqrt(v1x * v1x + v1y * v1y)
+            len2 = Math.sqrt(v2x * v2x + v2y * v2y)
 
-                len1 = Math.sqrt(v1x * v1x + v1y * v1y)
-                len2 = Math.sqrt(v2x * v2x + v2y * v2y)
+            # Remove degenerate-edge vertex and step back to re-check affected neighbor.
+            if len1 < 0.0001 or len2 < 0.0001
 
-                # Skip if either edge is degenerate.
-                if len1 < 0.0001 or len2 < 0.0001 then continue
+                simplifiedPath.splice(i, 1)
+                i = Math.max(0, i - 1)
+                continue
 
-                # Normalize vectors.
-                v1x /= len1
-                v1y /= len1
-                v2x /= len2
-                v2y /= len2
+            # Normalize vectors.
+            v1x /= len1
+            v1y /= len1
+            v2x /= len2
+            v2y /= len2
 
-                # Calculate cross product and dot product for direction analysis.
-                cross = v1x * v2y - v1y * v2x
-                dot = v1x * v2x + v1y * v2y
+            # Calculate cross product and dot product for direction analysis.
+            cross = v1x * v2y - v1y * v2x
+            dot = v1x * v2x + v1y * v2y
 
-                # Keep vertices with significant direction change that are not backtracking.
-                # Backtracking vertices (dot < BACKTRACKING_DOT_THRESHOLD) produce near-anti-parallel offset lines.
-                if Math.abs(cross) > angleThreshold and dot > BACKTRACKING_DOT_THRESHOLD
+            # Keep vertices with significant direction change that are not backtracking.
+            # Backtracking vertices (dot < BACKTRACKING_DOT_THRESHOLD) produce near-anti-parallel offset lines.
+            if Math.abs(cross) > angleThreshold and dot > BACKTRACKING_DOT_THRESHOLD
 
-                    simplifiedPath.push(p2)
+                i++
 
-                else
+            else
 
-                    changed = true  # Vertex removed, iterate again for cascading effects.
-
-            workingPath = simplifiedPath
-
-            break if workingPath.length < MIN_SIMPLIFIED_CORNERS
+                # Remove vertex and step back to re-check adjacent vertex for cascading effects.
+                simplifiedPath.splice(i, 1)
+                i = Math.max(0, i - 1)
 
         # If simplification resulted in too few points, use original path.
         if simplifiedPath.length < MIN_SIMPLIFIED_CORNERS then simplifiedPath = path
