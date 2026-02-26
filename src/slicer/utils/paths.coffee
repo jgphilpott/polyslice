@@ -16,13 +16,14 @@ BACKTRACKING_DOT_THRESHOLD = -0.99
 # so cascading removals are handled correctly in O(n) time.
 removeBacktrackingVertices = (path) ->
 
-    return if path.length < MIN_SIMPLIFIED_CORNERS
+    # Allow cleanup down to triangles (3 vertices); below that the polygon is invalid.
+    return if path.length < 3
 
     i = 0
     loopCount = 0
     loopLimit = (path.length + 1) * 2
 
-    while i < path.length and path.length >= MIN_SIMPLIFIED_CORNERS
+    while i < path.length and path.length >= 3
 
         loopCount++
         break if loopCount > loopLimit
