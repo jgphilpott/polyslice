@@ -39,9 +39,20 @@ export function sliceModel(loadedModel, currentFilename, loadGCodeCallback) {
     const slicer = new window.Polyslice.Polyslice({
       printer: printer,
       filament: filament,
+      nozzleTemperature: params.nozzleTemperature,
+      bedTemperature: params.bedTemperature,
+      fanSpeed: params.fanSpeed,
       layerHeight: params.layerHeight,
+      shellWallThickness: params.shellWallThickness,
+      shellSkinThickness: params.shellSkinThickness,
       infillPattern: params.infillPattern,
       infillDensity: params.infillDensity,
+      adhesionEnabled: params.adhesionEnabled,
+      adhesionType: params.adhesionType,
+      supportEnabled: params.supportEnabled,
+      supportType: params.supportType,
+      supportPlacement: params.supportPlacement,
+      supportThreshold: params.supportThreshold,
       verbose: true
     });
 

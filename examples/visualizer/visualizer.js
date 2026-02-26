@@ -75,7 +75,8 @@ window.THREE = Object.assign({}, THREE, {
 // Application state
 let gcodeObject = null;
 let meshObject = null;
-let isFirstUpload = true;
+let isFirstModelUpload = true;
+let isFirstGcodeUpload = true;
 let currentGcode = null;
 let currentFilename = null;
 let loadedModelForSlicing = null;
@@ -169,15 +170,20 @@ function loadModelWrapper(file) {
     displayMesh: (object, filename) => {
       meshObject = displayMeshHelper(object, filename, scene, {
         centerCamera: (obj) => {
-          centerCamera(obj, camera, controls);
+          if (isFirstModelUpload) {
+            centerCamera(obj, camera, controls);
+            isFirstModelUpload = false;
+          }
         },
         hideForkMeBanner,
         hideGCodeLegends,
         createSlicingGUI: () => {
-          createSlicingGUI(() => sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper));
+          createSlicingGUI(() => {
+            isFirstGcodeUpload = true;
+            sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper);
+          });
         },
-        updateMeshInfo,
-        isFirstUpload: () => isFirstUpload
+        updateMeshInfo
       });
       loadedModelForSlicing = object;
       return meshObject;
@@ -217,8 +223,10 @@ function loadGCodeWrapper(content, filename) {
     hideForkMeBanner,
     showGCodeLegends,
     centerCamera: (obj) => {
-      centerCamera(obj, camera, controls);
-      isFirstUpload = false;
+      if (isFirstGcodeUpload) {
+        centerCamera(obj, camera, controls);
+        isFirstGcodeUpload = false;
+      }
     },
     setupLayerSlider: (gcodeObj) => {
       const layerData = collectLayers(gcodeObj);
@@ -234,7 +242,6 @@ function loadGCodeWrapper(content, filename) {
     updateInfo,
     applyThickLines: applyThickLinesEffect,
     applyTranslucent: applyTranslucentLinesEffect,
-    isFirstUpload: () => isFirstUpload,
     clearMeshData: (sceneObj) => {
       if (meshObject) {
         sceneObj.remove(meshObject);
@@ -292,6 +299,10 @@ function resetView() {
     resetCameraToDefault(camera, controls);
     showForkMeBanner();
   }
+
+  // Reset first upload state so camera refocuses on the next upload
+  isFirstModelUpload = true;
+  isFirstGcodeUpload = true;
 
   // Reset all movement type checkboxes
   document.querySelectorAll('.legend-checkbox:not(.axis-checkbox):not(.settings-checkbox)').forEach(checkbox => {

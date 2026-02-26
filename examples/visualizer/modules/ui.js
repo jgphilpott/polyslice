@@ -140,25 +140,52 @@ export function createSlicingGUI(sliceCallback, useDefaults = false) {
   const params = {
     printer: savedSettings?.printer || 'Ender3',
     filament: savedSettings?.filament || 'GenericPLA',
+    nozzleTemperature: savedSettings?.nozzleTemperature ?? 200,
+    bedTemperature: savedSettings?.bedTemperature ?? 60,
+    fanSpeed: savedSettings?.fanSpeed ?? 100,
     layerHeight: savedSettings?.layerHeight || 0.2,
+    shellWallThickness: savedSettings?.shellWallThickness || 0.8,
+    shellSkinThickness: savedSettings?.shellSkinThickness || 0.8,
     infillDensity: savedSettings?.infillDensity || 20,
     infillPattern: savedSettings?.infillPattern || 'grid',
+    adhesionEnabled: savedSettings?.adhesionEnabled ?? false,
+    adhesionType: savedSettings?.adhesionType || 'skirt',
+    supportEnabled: savedSettings?.supportEnabled ?? false,
+    supportType: savedSettings?.supportType || 'normal',
+    supportPlacement: savedSettings?.supportPlacement || 'buildPlate',
+    supportThreshold: savedSettings?.supportThreshold ?? 55,
     slice: sliceCallback
   };
 
   const PRINTER_OPTIONS = ['Ender3', 'UltimakerS5', 'PrusaI3MK3S', 'AnycubicI3Mega', 'BambuLabP1P'];
   const FILAMENT_OPTIONS = ['GenericPLA', 'GenericPETG', 'GenericABS'];
+  const INFILL_PATTERN_OPTIONS = ['grid', 'triangles', 'hexagons', 'concentric', 'gyroid', 'spiral', 'lightning'];
 
   slicingGUI = new GUI({ title: 'Slicer' });
 
   let h = slicingGUI.addFolder('Printer & Filament');
   h.add(params, 'printer', PRINTER_OPTIONS).name('Printer').onChange(() => saveSlicingSettings(params));
   h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'nozzleTemperature', 150, 300, 5).name('Nozzle Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'bedTemperature', 0, 120, 5).name('Bed Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'fanSpeed', 0, 100, 5).name('Fan Speed (%)').onFinishChange(() => saveSlicingSettings(params));
 
   h = slicingGUI.addFolder('Slicer Settings');
-  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'infillPattern', ['grid', 'triangles', 'hexagons']).name('Infill Pattern').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'shellWallThickness', 0.4, 2.0, 0.4).name('Shell Wall Thickness (mm)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'shellSkinThickness', 0.4, 2.0, 0.4).name('Shell Skin Thickness (mm)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'infillPattern', INFILL_PATTERN_OPTIONS).name('Infill Pattern').onChange(() => saveSlicingSettings(params));
+
+  h = slicingGUI.addFolder('Adhesion');
+  h.add(params, 'adhesionEnabled').name('Adhesion Enabled').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'adhesionType', ['skirt', 'brim', 'raft']).name('Adhesion Type').onChange(() => saveSlicingSettings(params));
+
+  h = slicingGUI.addFolder('Support');
+  h.add(params, 'supportEnabled').name('Support Enabled').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'supportType', ['normal', 'tree']).name('Support Type').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'supportPlacement', ['buildPlate', 'everywhere']).name('Support Placement').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'supportThreshold', 0, 90, 1).name('Support Threshold (°)').onFinishChange(() => saveSlicingSettings(params));
 
   slicingGUI.add(params, 'slice').name('Slice');
   slicingGUI.open();

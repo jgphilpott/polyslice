@@ -130,9 +130,20 @@ export function saveSlicingSettings(params) {
   const settings = {
     printer: params.printer,
     filament: params.filament,
+    nozzleTemperature: params.nozzleTemperature,
+    bedTemperature: params.bedTemperature,
+    fanSpeed: params.fanSpeed,
     layerHeight: params.layerHeight,
+    shellWallThickness: params.shellWallThickness,
+    shellSkinThickness: params.shellSkinThickness,
     infillDensity: params.infillDensity,
-    infillPattern: params.infillPattern
+    infillPattern: params.infillPattern,
+    adhesionEnabled: params.adhesionEnabled,
+    adhesionType: params.adhesionType,
+    supportEnabled: params.supportEnabled,
+    supportType: params.supportType,
+    supportPlacement: params.supportPlacement,
+    supportThreshold: params.supportThreshold
   };
   try {
     localStorage.setItem('visualizer-slicing-settings', JSON.stringify(settings));
