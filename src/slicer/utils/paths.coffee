@@ -10,6 +10,58 @@ MIN_SIMPLIFIED_CORNERS = 4
 # Dot product threshold below which a vertex is considered backtracking (~172° turn).
 # Vertices below this threshold produce near-anti-parallel offset lines causing inset spikes.
 BACKTRACKING_DOT_THRESHOLD = -0.99
+
+# Remove backtracking vertices (dot < BACKTRACKING_DOT_THRESHOLD) from a closed path in-place.
+# Uses the same index-based scan with step-back used by the input simplification pass,
+# so cascading removals are handled correctly in O(n) time.
+removeBacktrackingVertices = (path) ->
+
+    return if path.length < MIN_SIMPLIFIED_CORNERS
+
+    i = 0
+    loopCount = 0
+    loopLimit = (path.length + 1) * 2
+
+    while i < path.length and path.length >= MIN_SIMPLIFIED_CORNERS
+
+        loopCount++
+        break if loopCount > loopLimit
+
+        n = path.length
+        prevIdx = if i is 0 then n - 1 else i - 1
+        nextIdx = if i is n - 1 then 0 else i + 1
+
+        prev = path[prevIdx]
+        curr = path[i]
+        next = path[nextIdx]
+
+        v1x = curr.x - prev.x
+        v1y = curr.y - prev.y
+        len1 = Math.sqrt(v1x * v1x + v1y * v1y)
+
+        v2x = next.x - curr.x
+        v2y = next.y - curr.y
+        len2 = Math.sqrt(v2x * v2x + v2y * v2y)
+
+        # Remove degenerate-edge vertex and step back.
+        if len1 < 0.0001 or len2 < 0.0001
+
+            path.splice(i, 1)
+            i = Math.max(0, i - 1)
+            continue
+
+        dot = (v1x / len1) * (v2x / len2) + (v1y / len1) * (v2y / len2)
+
+        if dot <= BACKTRACKING_DOT_THRESHOLD
+
+            # Backtracking vertex: remove and step back to re-check affected neighbor.
+            path.splice(i, 1)
+            i = Math.max(0, i - 1)
+
+        else
+
+            i++
+
 module.exports =
 
     # Convert Polytree line segments (Line3 objects) to closed paths.
@@ -438,6 +490,12 @@ module.exports =
                     y: line2.p1.y
                     z: origVertex.z
                 })
+
+        # Post-process: remove any backtracking vertices introduced by the miter/fallback computation.
+        # At concave corners the miter intersection can land slightly past the adjacent straight-edge
+        # offset, creating a backtracking vertex (dot ≈ -1) in the result that causes wall endpoints
+        # to extend beyond their expected positions.
+        removeBacktrackingVertices(insetPath)
 
         # Validate the inset path.
         if insetPath.length >= 3
