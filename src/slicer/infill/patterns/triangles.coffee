@@ -50,21 +50,16 @@ module.exports =
 
         offsetStep45 = lineSpacing * Math.sqrt(2)
 
-        # Compute numLinesUp to cover the full valid offset range for the 45° direction,
-        # accounting for boundary position relative to the pattern center.
-        centerOffsetNeg45 = centerY + centerX
-
-        maxExtentPos45 = Math.max(
+        # Compute numLinesUp based solely on the 45° offsets (y - x) at the bounding-box
+        # corners, accounting for boundary position relative to the pattern center.
+        maxExtent45 = Math.max(
+            Math.abs((minY - minX) - centerOffset),
             Math.abs((maxY - minX) - centerOffset),
-            Math.abs((minY - maxX) - centerOffset)
+            Math.abs((minY - maxX) - centerOffset),
+            Math.abs((maxY - maxX) - centerOffset)
         )
 
-        maxExtentNeg45 = Math.max(
-            Math.abs((maxX + maxY) - centerOffsetNeg45),
-            Math.abs((minX + minY) - centerOffsetNeg45)
-        )
-
-        numLinesUp = Math.ceil(Math.max(maxExtentPos45, maxExtentNeg45) / offsetStep45) + 1
+        numLinesUp = Math.ceil(maxExtent45 / offsetStep45) + 1
 
         offset = centerOffset - numLinesUp * offsetStep45
         maxOffset = centerOffset + numLinesUp * offsetStep45
