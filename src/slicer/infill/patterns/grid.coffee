@@ -49,7 +49,24 @@ module.exports =
         # For +45° lines (y = x + offset), center offset is y - x at center point.
         centerOffset = centerY - centerX
 
-        numLinesUp = Math.ceil(diagonalSpan / (lineSpacing * Math.sqrt(2)))
+        # Compute numLinesUp to cover the full valid offset range for both ±45° directions.
+        # The valid +45° range is [minY - maxX, maxY - minX] and the valid -45° range is
+        # [minX + minY, maxX + maxY]. When using global centering, the infill boundary can
+        # be far from the origin, so the extent from the pattern center to the boundary
+        # may be much larger than the boundary's own diagonal span.
+        centerOffsetNeg = centerY + centerX
+
+        maxExtentPos = Math.max(
+            Math.abs((maxY - minX) - centerOffset),
+            Math.abs((minY - maxX) - centerOffset)
+        )
+
+        maxExtentNeg = Math.max(
+            Math.abs((maxX + maxY) - centerOffsetNeg),
+            Math.abs((minX + minY) - centerOffsetNeg)
+        )
+
+        numLinesUp = Math.ceil(Math.max(maxExtentPos, maxExtentNeg) / (lineSpacing * Math.sqrt(2))) + 1
 
         offset = centerOffset - numLinesUp * lineSpacing * Math.sqrt(2)
         maxOffset = centerOffset + numLinesUp * lineSpacing * Math.sqrt(2)
