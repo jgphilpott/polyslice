@@ -171,9 +171,9 @@ export function createSlicingGUI(sliceCallback, useDefaults = false) {
   h.add(params, 'fanSpeed', 0, 100, 5).name('Fan Speed (%)').onChange(() => saveSlicingSettings(params));
 
   h = slicingGUI.addFolder('Slicer Settings');
-  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onChange(() => saveSlicingSettings(params));
   h.add(params, 'shellWallThickness', 0.4, 2.0, 0.4).name('Shell Wall Thickness (mm)').onChange(() => saveSlicingSettings(params));
   h.add(params, 'shellSkinThickness', 0.4, 2.0, 0.4).name('Shell Skin Thickness (mm)').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onChange(() => saveSlicingSettings(params));
   h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)').onChange(() => saveSlicingSettings(params));
   h.add(params, 'infillPattern', INFILL_PATTERN_OPTIONS).name('Infill Pattern').onChange(() => saveSlicingSettings(params));
 

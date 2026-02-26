@@ -178,7 +178,10 @@ function loadModelWrapper(file) {
         hideForkMeBanner,
         hideGCodeLegends,
         createSlicingGUI: () => {
-          createSlicingGUI(() => sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper));
+          createSlicingGUI(() => {
+            isFirstGcodeUpload = true;
+            sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper);
+          });
         },
         updateMeshInfo
       });
