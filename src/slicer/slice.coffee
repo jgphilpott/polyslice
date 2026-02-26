@@ -767,29 +767,14 @@ module.exports =
 
                     else
 
-                        # Mixed layers: infill first, then skin.
+                        # Middle layers in sequential completion: generate full infill only.
+                        # Absolute top/bottom layers (handled above) get skin; middle layers do not.
+                        # Exposure-detected areas on middle layers (e.g. C-shaped dome cross-sections)
+                        # are part of the normal geometry and are fully covered by regular infill.
+                        # Generating skin patches here produces spurious regions on interior layers.
                         if infillDensity > 0 and infillBoundary.length >= 3
 
-                            # For mixed layers, pass skin areas to infill to prevent overlap.
-                            infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, [], [], skinAreas)
-
-                        # Generate skin for exposed areas.
-                        for skinArea in skinAreas
-                            skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, true, [], [], fullyCoveredSkinWalls, false, true)
-
-                        # Generate skin walls (no infill) for fully covered regions.
-                        for fullyCoveredSkinWall in fullyCoveredSkinWalls
-                            continue if fullyCoveredSkinWall.length < 3
-                            skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, false, false, [], [], [], true, true)
-
-                            if infillDensity > 0
-                                infillGap = 0
-                                skinWallInset = nozzleDiameter
-                                totalInsetForInfill = skinWallInset + infillGap
-                                coveredInfillBoundary = pathsUtils.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
-
-                                if coveredInfillBoundary.length >= 3
-                                    infillModule.generateInfillGCode(slicer, coveredInfillBoundary, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, [], [], [])
+                            infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastPathEndPoint, [], []) # No hole walls, no skin exclusions.
 
                 else
 
