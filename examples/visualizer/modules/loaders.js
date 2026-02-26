@@ -134,7 +134,7 @@ export function loadModel(file, scene, callbacks) {
  * Display a loaded mesh in the scene.
  */
 export function displayMesh(object, filename, scene, callbacks) {
-  const { centerCamera, hideForkMeBanner, hideGCodeLegends, createSlicingGUI, updateMeshInfo, isFirstUpload } = callbacks;
+  const { centerCamera, hideForkMeBanner, hideGCodeLegends, createSlicingGUI, updateMeshInfo } = callbacks;
 
   scene.add(object);
 
@@ -171,7 +171,6 @@ export function loadGCode(content, filename, scene, callbacks) {
     updateInfo,
     applyThickLines,
     applyTranslucent,
-    isFirstUpload,
     clearMeshData,
     clearGCodeData
   } = callbacks;

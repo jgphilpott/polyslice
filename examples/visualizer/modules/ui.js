@@ -166,15 +166,15 @@ export function createSlicingGUI(sliceCallback, useDefaults = false) {
   let h = slicingGUI.addFolder('Printer & Filament');
   h.add(params, 'printer', PRINTER_OPTIONS).name('Printer').onChange(() => saveSlicingSettings(params));
   h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'nozzleTemperature', 150, 300, 5).name('Nozzle Temp (°C)').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'bedTemperature', 0, 120, 5).name('Bed Temp (°C)').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'fanSpeed', 0, 100, 5).name('Fan Speed (%)').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'nozzleTemperature', 150, 300, 5).name('Nozzle Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'bedTemperature', 0, 120, 5).name('Bed Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'fanSpeed', 0, 100, 5).name('Fan Speed (%)').onFinishChange(() => saveSlicingSettings(params));
 
   h = slicingGUI.addFolder('Slicer Settings');
-  h.add(params, 'shellWallThickness', 0.4, 2.0, 0.4).name('Shell Wall Thickness (mm)').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'shellSkinThickness', 0.4, 2.0, 0.4).name('Shell Skin Thickness (mm)').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'shellWallThickness', 0.4, 2.0, 0.4).name('Shell Wall Thickness (mm)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'shellSkinThickness', 0.4, 2.0, 0.4).name('Shell Skin Thickness (mm)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onFinishChange(() => saveSlicingSettings(params));
+  h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)').onFinishChange(() => saveSlicingSettings(params));
   h.add(params, 'infillPattern', INFILL_PATTERN_OPTIONS).name('Infill Pattern').onChange(() => saveSlicingSettings(params));
 
   h = slicingGUI.addFolder('Adhesion');
@@ -185,7 +185,7 @@ export function createSlicingGUI(sliceCallback, useDefaults = false) {
   h.add(params, 'supportEnabled').name('Support Enabled').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportType', ['normal', 'tree']).name('Support Type').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportPlacement', ['buildPlate', 'everywhere']).name('Support Placement').onChange(() => saveSlicingSettings(params));
-  h.add(params, 'supportThreshold', 0, 90, 1).name('Support Threshold (°)').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'supportThreshold', 0, 90, 1).name('Support Threshold (°)').onFinishChange(() => saveSlicingSettings(params));
 
   slicingGUI.add(params, 'slice').name('Slice');
   slicingGUI.open();
