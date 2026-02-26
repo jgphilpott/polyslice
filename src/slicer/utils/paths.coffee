@@ -212,7 +212,7 @@ module.exports =
         simplifiedPath = path.slice()
         i = 0
         loopCount = 0
-        loopLimit = (path.length + 1) * 2
+        loopLimit = (path.length + 1) * 2 # Each iteration either advances or removes+steps-back: total ≤ 2n.
 
         while i < simplifiedPath.length and simplifiedPath.length >= MIN_SIMPLIFIED_CORNERS
 
