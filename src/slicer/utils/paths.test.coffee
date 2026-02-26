@@ -388,6 +388,35 @@ describe 'Paths', ->
 
     describe 'Degenerate Path Handling', ->
 
+        # Helper: returns true if insetPath has a backtracking vertex (dot < dotThreshold).
+        hasBacktracking = (insetPath, dotThreshold = -0.99) ->
+
+            return false if insetPath.length < 3
+
+            for i in [0...insetPath.length]
+
+                prevIdx = if i is 0 then insetPath.length - 1 else i - 1
+                nextIdx = if i is insetPath.length - 1 then 0 else i + 1
+
+                prev = insetPath[prevIdx]
+                curr = insetPath[i]
+                next = insetPath[nextIdx]
+
+                inX = curr.x - prev.x
+                inY = curr.y - prev.y
+                inLen = Math.sqrt(inX * inX + inY * inY)
+
+                outX = next.x - curr.x
+                outY = next.y - curr.y
+                outLen = Math.sqrt(outX * outX + outY * outY)
+
+                if inLen > 0.001 and outLen > 0.001
+
+                    dot = (inX / inLen) * (outX / outLen) + (inY / inLen) * (outY / outLen)
+                    return true if dot < dotThreshold
+
+            return false
+
         test 'should remove duplicate consecutive points', ->
 
             # Create a path with duplicate consecutive points (common in problematic STL files).
@@ -549,6 +578,65 @@ describe 'Paths', ->
                 expect(point.x).toBeLessThan(7)
                 expect(point.y).toBeGreaterThan(-13.5)
                 expect(point.y).toBeLessThan(13.5)
+
+            undefined
+
+        test 'should not produce spikes when path has a backtracking vertex near a junction', ->
+
+            # Regression test for the Z11.7 sideways dome jagged inner wall issue.
+            # A path where vertex B=(5.0002,5) is a near-backtracking vertex (dot ≈ -0.9999,
+            # nearly 180° turn) between A=(5.0001,5) and C=(5.0001,5.000001).
+            # The old single-pass code kept B (cross > 0.0001) but it produces near-anti-parallel
+            # offset lines, generating a spike in the inset extending beyond the outer wall.
+            # The fix filters it with the dot < -0.99 check, eliminating the spike.
+            path = [
+                { x: 0, y: 0, z: 11.7 }
+                { x: 10, y: 0, z: 11.7 }
+                { x: 10, y: 5, z: 11.7 }
+                { x: 5.0001, y: 5, z: 11.7 }       # A: approaching backtrack
+                { x: 5.0002, y: 5, z: 11.7 }       # B: backtracking vertex (dot ≈ -0.9999)
+                { x: 5.0001, y: 5.000001, z: 11.7 } # C: doubles back left
+                { x: 5.0000, y: 5, z: 11.7 }       # D: continues left
+                { x: 0, y: 5, z: 11.7 }
+            ]
+
+            insetPath = paths.createInsetPath(path, 0.4, false)
+
+            # Should produce a valid inset for the overall rectangular shape.
+            expect(insetPath.length).toBeGreaterThan(0)
+
+            # The inset must not contain backtracking vertices (dot < -0.97).
+            # Such vertices would produce spikes extending beyond the outer wall.
+            expect(hasBacktracking(insetPath)).toBe(false)
+
+            undefined
+
+        test 'should handle cascading backtracking vertices (Z11.9 case)', ->
+
+            # Regression test for the cascading backtracking case at Z11.9.
+            # Path has two consecutive near-backtracking vertices:
+            #   C=(4.0001,5) is backtracking between B=(4,5) and D=(3.9999,5.000001).
+            #   After the single-pass removes C, B=(4,5) becomes backtracking between
+            #   A=(3.9999,5) and D (A→B goes right, B→D goes left: dot = -0.9999).
+            # The while-loop iterative fix handles this cascading case correctly.
+            path = [
+                { x: 0, y: 0, z: 11.9 }
+                { x: 10, y: 0, z: 11.9 }
+                { x: 10, y: 5, z: 11.9 }
+                { x: 3.9999, y: 5, z: 11.9 }       # A: approaching cascade
+                { x: 4.0000, y: 5, z: 11.9 }       # B: exposed as backtracking after C removed
+                { x: 4.0001, y: 5, z: 11.9 }       # C: first backtracking vertex (dot ≈ -0.9999)
+                { x: 3.9999, y: 5.000001, z: 11.9 } # D: new neighbor after cascade
+                { x: 0, y: 5, z: 11.9 }
+            ]
+
+            insetPath = paths.createInsetPath(path, 0.4, false)
+
+            # Should produce a valid inset for the overall rectangular shape.
+            expect(insetPath.length).toBeGreaterThan(0)
+
+            # The inset must not contain backtracking vertices (dot < -0.97).
+            expect(hasBacktracking(insetPath)).toBe(false)
 
             undefined
 
