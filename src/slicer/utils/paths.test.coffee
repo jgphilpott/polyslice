@@ -678,3 +678,52 @@ describe 'Paths', ->
                 expect(point.y).toBeLessThan(13)
 
             undefined
+
+        test 'should not produce backtracking vertices in inset path at concave arc junctions', ->
+
+            # Regression test for "wall endpoints extending beyond expected position".
+            # The C-shape represents the sideways dome cross-section where the sphere arc
+            # meets the rectangular box. At the concave arc junction vertices (e.g. vertex 5),
+            # the miter intersection lands slightly past the straight outer wall section,
+            # creating a backtracking vertex (dot ≈ -1) in the output. This causes the
+            # outer wall to briefly extend leftward beyond its expected straight-edge position,
+            # and the inner wall to extend further toward the outer wall than expected.
+            # The fix: a post-processing pass removes backtracking vertices from the inset result.
+            cShapePath = [
+                { x: -6.0000, y: -12.5000, z: 0 }
+                { x:  5.8000, y: -12.5000, z: 0 }
+                { x:  5.8000, y:  12.5000, z: 0 }
+                { x: -6.0000, y:  12.5000, z: 0 }
+                { x: -6.0000, y:  10.1342, z: 0 }
+                { x: -5.8898, y:  10.1342, z: 0 }
+                { x: -5.7776, y:  10.1326, z: 0 }
+                { x: -5.6609, y:  10.1298, z: 0 }
+                { x: -5.4000, y:   9.5000, z: 0 }
+                { x: -5.0000, y:   7.0000, z: 0 }
+                { x: -4.5000, y:   0.0000, z: 0 }
+                { x: -5.0000, y:  -7.0000, z: 0 }
+                { x: -5.4000, y:  -9.5000, z: 0 }
+                { x: -5.6609, y: -10.1298, z: 0 }
+                { x: -5.7776, y: -10.1326, z: 0 }
+                { x: -5.8898, y: -10.1342, z: 0 }
+                { x: -6.0000, y: -10.1342, z: 0 }
+            ]
+
+            outerWall = paths.createInsetPath(cShapePath, 0.2, false)
+
+            # Outer wall should be non-empty.
+            expect(outerWall.length).toBeGreaterThan(0)
+
+            # The outer wall must not contain backtracking vertices.
+            # Such vertices cause the wall to briefly extend past the straight-edge position.
+            expect(hasBacktracking(outerWall)).toBe(false)
+
+            # Inner wall computed from outer wall should also have no backtracking.
+            if outerWall.length >= 3
+
+                innerWall = paths.createInsetPath(outerWall, 0.4, false)
+
+                if innerWall.length > 0
+                    expect(hasBacktracking(innerWall)).toBe(false)
+
+            undefined
