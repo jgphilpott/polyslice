@@ -132,7 +132,13 @@ export function saveSlicingSettings(params) {
     filament: params.filament,
     layerHeight: params.layerHeight,
     infillDensity: params.infillDensity,
-    infillPattern: params.infillPattern
+    infillPattern: params.infillPattern,
+    adhesionEnabled: params.adhesionEnabled,
+    adhesionType: params.adhesionType,
+    supportEnabled: params.supportEnabled,
+    supportType: params.supportType,
+    supportPlacement: params.supportPlacement,
+    supportThreshold: params.supportThreshold
   };
   try {
     localStorage.setItem('visualizer-slicing-settings', JSON.stringify(settings));

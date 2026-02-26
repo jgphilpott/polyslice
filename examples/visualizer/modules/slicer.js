@@ -42,6 +42,12 @@ export function sliceModel(loadedModel, currentFilename, loadGCodeCallback) {
       layerHeight: params.layerHeight,
       infillPattern: params.infillPattern,
       infillDensity: params.infillDensity,
+      adhesionEnabled: params.adhesionEnabled,
+      adhesionType: params.adhesionType,
+      supportEnabled: params.supportEnabled,
+      supportType: params.supportType,
+      supportPlacement: params.supportPlacement,
+      supportThreshold: params.supportThreshold,
       verbose: true
     });
 
