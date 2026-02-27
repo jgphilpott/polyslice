@@ -292,7 +292,7 @@ function loadModelWrapper(file) {
               sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper);
             },
             false,
-            (axis, degrees) => applyMeshRotation(loadedMesh, axis, degrees)
+            (axis, degrees) => applyMeshRotation(meshObject, axis, degrees)
           );
         },
         updateMeshInfo
