@@ -307,7 +307,7 @@ module.exports =
 
                             exposedAreas.push(exposedPoly)
 
-        return if exposedAreas.length > 0 then exposedAreas else [testRegion]
+        return exposedAreas
 
     # Calculate non-exposed areas (areas that should get infill, not skin).
     calculateNonExposedAreas: (fullBoundary, exposedAreas) ->
