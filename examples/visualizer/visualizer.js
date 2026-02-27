@@ -85,6 +85,9 @@ let transformControls = null;
 // In three.js ≥ r162, TransformControls no longer extends Object3D.
 // transformControlsGizmo holds the Object3D (_gizmo) that is added to the scene.
 let transformControlsGizmo = null;
+// True while a gizmo drag is in progress; prevents the pointerup click handler
+// from treating the drag-release as a "click elsewhere" and hiding the gizmo.
+let wasDraggingGizmo = false;
 
 // Layer visualization state
 const layerState = {
@@ -207,22 +210,52 @@ function initTransformControls() {
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode('rotate');
 
-  // Use the internal gizmo Object3D for scene membership and visibility toggling.
-  // In three.js ≥ r162, TransformControls extends Controls (not Object3D); the
-  // renderable gizmo is in `_gizmo`. The fallback to `transformControls` itself
-  // keeps compatibility with any build that still extends Object3D directly.
-  transformControlsGizmo = transformControls._gizmo || transformControls;
+  // The gizmo Object3D is what belongs in the scene.
+  transformControlsGizmo = transformControls._gizmo;
   scene.add(transformControlsGizmo);
 
   // Disable orbit controls while the user is dragging the rotation gizmo.
+  // Track that a drag occurred so the pointerup handler can ignore it.
   transformControls.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value;
+    if (event.value) wasDraggingGizmo = true;
   });
 
   // Sync drag interactions back to the GUI sliders.
   transformControls.addEventListener('objectChange', syncTransformToSliders);
 
-  // Hidden until a mesh is attached.
+  // Show the gizmo when the user clicks on the mesh; hide it on click-elsewhere.
+  // The listener is registered once at startup so no cleanup reference is needed.
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  renderer.domElement.addEventListener('pointerup', (event) => {
+    // A drag-release must not be treated as a "click elsewhere".
+    if (wasDraggingGizmo) {
+      wasDraggingGizmo = false;
+      return;
+    }
+
+    if (!meshObject) return;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+
+    const hits = raycaster.intersectObject(meshObject, true);
+    if (hits.length > 0) {
+      // Click on mesh: attach and reveal the gizmo.
+      transformControls.attach(meshObject);
+      transformControlsGizmo.visible = true;
+    } else {
+      // Click elsewhere: hide the gizmo.
+      transformControls.detach();
+      transformControlsGizmo.visible = false;
+    }
+  });
+
+  // Hidden until the user clicks the mesh.
   transformControlsGizmo.visible = false;
 }
 
@@ -270,10 +303,9 @@ function loadModelWrapper(file) {
       });
       loadedModelForSlicing = loadedMesh;
 
-      // Attach TransformControls gizmo to the loaded mesh.
+      // Pre-attach TransformControls to the loaded mesh; gizmo appears on first click.
       if (transformControls) {
         transformControls.attach(loadedMesh);
-        transformControlsGizmo.visible = true;
       }
 
       return meshObject;
@@ -471,10 +503,9 @@ function resetView() {
     );
   }
 
-  // Re-attach TransformControls to the mesh after reset.
+  // Re-attach TransformControls to the mesh after reset; gizmo appears on next click.
   if (meshObject && transformControls) {
     transformControls.attach(meshObject);
-    transformControlsGizmo.visible = true;
   }
 
   // Update visibility
