@@ -241,6 +241,10 @@ function initTransformControls() {
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
 
+    // If the click lands on the gizmo arc handles, do not dismiss it.
+    const gizmoHits = raycaster.intersectObject(transformControls.getHelper(), true);
+    if (gizmoHits.length > 0) return;
+
     const hits = raycaster.intersectObject(meshObject, true);
     if (hits.length > 0) {
       // Click on mesh: attach and reveal the gizmo.
