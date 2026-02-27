@@ -7,6 +7,23 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.2.2] - 2026-02-27
+
+### Added
+- **Visualizer: Model Rotation Controls** - Added full rotation control to the visualizer slicing GUI
+  - New **Model Rotation** folder in the Slicer panel with X, Y, Z sliders (−180° to +180°, 1° steps)
+  - Rotation values are persisted to localStorage and restored on reload
+  - Three.js `TransformControls` gizmo in rotate mode for interactive in-viewport rotation
+    - Click on a loaded mesh to reveal the arc-handle gizmo
+    - Drag any arc handle to rotate the mesh; GUI sliders stay in sync in real time
+    - Click anywhere off the mesh to dismiss the gizmo
+    - `OrbitControls` are automatically paused while dragging the gizmo to prevent conflicts
+  - Bidirectional sync: moving a slider updates the gizmo, dragging the gizmo updates the sliders
+  - Gizmo is detached/hidden when G-code is displayed, on mesh clear, and on Reset
+
+### Changed
+- **Visualizer: UI Layout** - Collapsed `Adhesion` and `Support` GUI folders by default to reduce visual clutter; both can still be expanded by clicking their headers
+
 ## [26.2.1] - 2026-02-19
 
 ### Changed
