@@ -496,9 +496,9 @@ function resetView() {
     );
   }
 
-  // Re-attach TransformControls to the mesh after reset; gizmo appears on next click.
+  // Ensure TransformControls remain detached after reset; gizmo appears only when the user clicks the mesh.
   if (meshObject && transformControls) {
-    transformControls.attach(meshObject);
+    transformControls.detach();
   }
 
   // Update visibility
