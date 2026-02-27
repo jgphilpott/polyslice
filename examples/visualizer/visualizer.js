@@ -12,6 +12,7 @@ import { AMFLoader } from 'three/addons/loaders/AMFLoader.js';
 import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 // Import modules
 import { initScene, scene, camera, renderer, controls, axesLines, gridHelper, onWindowResize, animate } from './modules/scene.js';
@@ -27,7 +28,7 @@ import {
   showGCodeLegends,
   updateDownloadButtonVisibility
 } from './modules/ui.js';
-import { clearSlicingSettings, saveCheckboxStates, saveAxisCheckboxStates, saveSettingsStates } from './modules/state.js';
+import { clearSlicingSettings, saveCheckboxStates, saveAxisCheckboxStates, saveSettingsStates, saveSlicingSettings } from './modules/state.js';
 import { centerCamera, resetCameraToDefault } from './modules/camera.js';
 import {
   setupMovementTypeToggles,
@@ -80,6 +81,7 @@ let isFirstGcodeUpload = true;
 let currentGcode = null;
 let currentFilename = null;
 let loadedModelForSlicing = null;
+let transformControls = null;
 
 // Layer visualization state
 const layerState = {
@@ -104,6 +106,9 @@ function init() {
 
   // Initialize scene
   initScene();
+
+  // Initialize TransformControls gizmo for interactive model rotation
+  initTransformControls();
 
   // Create UI elements
   createLegend();
@@ -156,6 +161,60 @@ function handleFileUpload(event) {
   handleFileUploadHelper(event, loadModelWrapper, loadGCodeWrapper);
 }
 
+// Rotation controller property names used for bidirectional slider sync.
+const ROTATION_PROPERTIES = ['rotationX', 'rotationY', 'rotationZ'];
+
+/**
+ * Convert radians to degrees normalized to the range [-180, 180].
+ * The double-modulo handles negative inputs: e.g. -190° → 170°.
+ */
+function radiansToDegrees(radians) {
+  const degrees = radians * 180 / Math.PI;
+  return ((degrees + 180) % 360 + 360) % 360 - 180;
+}
+
+/**
+ * Sync the TransformControls current rotation back to the slicing GUI sliders.
+ */
+function syncTransformToSliders() {
+  const mesh = transformControls?.object;
+  if (!mesh || !window.slicingGUI) return;
+  const params = window.slicingGUI.userData;
+  if (!params) return;
+
+  params.rotationX = radiansToDegrees(mesh.rotation.x);
+  params.rotationY = radiansToDegrees(mesh.rotation.y);
+  params.rotationZ = radiansToDegrees(mesh.rotation.z);
+
+  window.slicingGUI.controllersRecursive().forEach(c => {
+    if (ROTATION_PROPERTIES.includes(c.property)) {
+      c.updateDisplay();
+    }
+  });
+
+  saveSlicingSettings(params);
+}
+
+/**
+ * Initialize TransformControls for interactive model rotation in the viewport.
+ */
+function initTransformControls() {
+  transformControls = new TransformControls(camera, renderer.domElement);
+  transformControls.setMode('rotate');
+  scene.add(transformControls);
+
+  // Disable orbit controls while the user is dragging the rotation gizmo.
+  transformControls.addEventListener('dragging-changed', (event) => {
+    controls.enabled = !event.value;
+  });
+
+  // Sync drag interactions back to the GUI sliders.
+  transformControls.addEventListener('objectChange', syncTransformToSliders);
+
+  // Hidden until a mesh is attached.
+  transformControls.visible = false;
+}
+
 /**
  * Apply a rotation in degrees to one axis of a mesh.
  */
@@ -199,6 +258,13 @@ function loadModelWrapper(file) {
         updateMeshInfo
       });
       loadedModelForSlicing = loadedMesh;
+
+      // Attach TransformControls gizmo to the loaded mesh.
+      if (transformControls) {
+        transformControls.attach(loadedMesh);
+        transformControls.visible = true;
+      }
+
       return meshObject;
     },
     clearGCodeData: () => {
@@ -212,6 +278,10 @@ function loadModelWrapper(file) {
       }
     },
     clearMeshData: (sceneObj) => {
+      if (transformControls) {
+        transformControls.detach();
+        transformControls.visible = false;
+      }
       if (meshObject) {
         sceneObj.remove(meshObject);
         meshObject = null;
@@ -256,6 +326,10 @@ function loadGCodeWrapper(content, filename) {
     applyThickLines: applyThickLinesEffect,
     applyTranslucent: applyTranslucentLinesEffect,
     clearMeshData: (sceneObj) => {
+      if (transformControls) {
+        transformControls.detach();
+        transformControls.visible = false;
+      }
       if (meshObject) {
         sceneObj.remove(meshObject);
         meshObject = null;
@@ -365,6 +439,12 @@ function resetView() {
   // Reset slicing settings
   clearSlicingSettings();
 
+  // Detach TransformControls before resetting rotation.
+  if (transformControls) {
+    transformControls.detach();
+    transformControls.visible = false;
+  }
+
   // Reset mesh rotation if a model is loaded
   if (meshObject) {
     meshObject.rotation.set(0, 0, 0);
@@ -378,6 +458,12 @@ function resetView() {
       true,
       (axis, degrees) => applyMeshRotation(meshObject, axis, degrees)
     );
+  }
+
+  // Re-attach TransformControls to the mesh after reset.
+  if (meshObject && transformControls) {
+    transformControls.attach(meshObject);
+    transformControls.visible = true;
   }
 
   // Update visibility
