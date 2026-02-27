@@ -126,7 +126,7 @@ export function createMoveSlider() {
 /**
  * Create the slicing GUI for loaded 3D models.
  */
-export function createSlicingGUI(sliceCallback, useDefaults = false) {
+export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallback = null) {
 
   let slicingGUI = window.slicingGUI;
 
@@ -138,6 +138,9 @@ export function createSlicingGUI(sliceCallback, useDefaults = false) {
   const savedSettings = useDefaults ? null : loadSlicingSettings();
 
   const params = {
+    rotationX: savedSettings?.rotationX ?? 0,
+    rotationY: savedSettings?.rotationY ?? 0,
+    rotationZ: savedSettings?.rotationZ ?? 0,
     printer: savedSettings?.printer || 'Ender3',
     filament: savedSettings?.filament || 'GenericPLA',
     nozzleTemperature: savedSettings?.nozzleTemperature ?? 200,
@@ -163,7 +166,28 @@ export function createSlicingGUI(sliceCallback, useDefaults = false) {
 
   slicingGUI = new GUI({ title: 'Slicer' });
 
-  let h = slicingGUI.addFolder('Printer & Filament');
+  let h = slicingGUI.addFolder('Model Rotation');
+  h.add(params, 'rotationX', -180, 180, 1).name('Rotation X (°)').onChange((value) => {
+    saveSlicingSettings(params);
+    if (rotateCallback) rotateCallback('x', value);
+  });
+  h.add(params, 'rotationY', -180, 180, 1).name('Rotation Y (°)').onChange((value) => {
+    saveSlicingSettings(params);
+    if (rotateCallback) rotateCallback('y', value);
+  });
+  h.add(params, 'rotationZ', -180, 180, 1).name('Rotation Z (°)').onChange((value) => {
+    saveSlicingSettings(params);
+    if (rotateCallback) rotateCallback('z', value);
+  });
+
+  // Apply initial rotation values to the mesh.
+  if (rotateCallback) {
+    rotateCallback('x', params.rotationX);
+    rotateCallback('y', params.rotationY);
+    rotateCallback('z', params.rotationZ);
+  }
+
+  h = slicingGUI.addFolder('Printer & Filament');
   h.add(params, 'printer', PRINTER_OPTIONS).name('Printer').onChange(() => saveSlicingSettings(params));
   h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament').onChange(() => saveSlicingSettings(params));
   h.add(params, 'nozzleTemperature', 150, 300, 5).name('Nozzle Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
@@ -180,12 +204,14 @@ export function createSlicingGUI(sliceCallback, useDefaults = false) {
   h = slicingGUI.addFolder('Adhesion');
   h.add(params, 'adhesionEnabled').name('Adhesion Enabled').onChange(() => saveSlicingSettings(params));
   h.add(params, 'adhesionType', ['skirt', 'brim', 'raft']).name('Adhesion Type').onChange(() => saveSlicingSettings(params));
+  h.close();
 
   h = slicingGUI.addFolder('Support');
   h.add(params, 'supportEnabled').name('Support Enabled').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportType', ['normal', 'tree']).name('Support Type').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportPlacement', ['buildPlate', 'everywhere']).name('Support Placement').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportThreshold', 0, 90, 1).name('Support Threshold (°)').onFinishChange(() => saveSlicingSettings(params));
+  h.close();
 
   slicingGUI.add(params, 'slice').name('Slice');
   slicingGUI.open();
