@@ -15,6 +15,18 @@ module.exports =
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
 
+        # Pre-check: when infill is requested, verify the infill boundary is feasible
+        # before emitting anything. This prevents degenerate ribbon/complex skin areas
+        # from generating a skin wall with no infill (the "bad" skin-wall-only blocks).
+        if generateInfill
+
+            infillGap = nozzleDiameter / 2
+            boundaryEpsilon = 0.05
+            preCheckInset = nozzleDiameter + infillGap - boundaryEpsilon
+            preCheckBoundary = paths.createInsetPath(boundaryPath, preCheckInset, isHole)
+
+            return if preCheckBoundary.length < 3
+
         if verbose then slicer.gcode += "; TYPE: SKIN" + slicer.newline
 
         # Generate skin wall perimeter (unless disabled).
