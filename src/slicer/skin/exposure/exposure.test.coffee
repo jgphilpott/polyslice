@@ -614,7 +614,7 @@ describe 'Exposure Detection Algorithm', ->
             geometry = new THREE.ConeGeometry(10, 20, 32)
             mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
 
-            # Position so the base sits on the build plate (cone center is at Z=10).
+            # Position so minZ sits on the build plate (local Z spans ±10 so position.z=10 gives minZ=0).
             mesh.position.set(0, 0, 10)
             mesh.updateMatrixWorld()
 
