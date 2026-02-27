@@ -15,6 +15,23 @@ module.exports =
         verbose = slicer.getVerbose()
         nozzleDiameter = slicer.getNozzleDiameter()
 
+        # Pre-check: when infill is requested, compute the infill boundary early to
+        # avoid generating a skin wall with no infill (degenerate ribbon polygons).
+        # The result is reused later for the actual infill generation.
+        infillBoundary = null
+
+        if generateInfill
+
+            infillGap = nozzleDiameter / 2
+
+            # Add small epsilon to ensure diagonal lines at boundary corners aren't excluded
+            # due to floating-point precision issues in point-in-polygon tests.
+            boundaryEpsilon = 0.05  # 0.05mm = 50 microns
+            infillInset = nozzleDiameter + infillGap - boundaryEpsilon
+            infillBoundary = paths.createInsetPath(boundaryPath, infillInset, isHole)
+
+            return if infillBoundary.length < 3
+
         if verbose then slicer.gcode += "; TYPE: SKIN" + slicer.newline
 
         # Generate skin wall perimeter (unless disabled).
@@ -121,28 +138,7 @@ module.exports =
         # Generate diagonal skin infill.
         return unless generateInfill
 
-        # Calculate infill boundary.
-        # If wall was generated, use its offset; otherwise calculate from boundary.
-        infillGap = nozzleDiameter / 2
-
-        # Add small epsilon to ensure diagonal lines at boundary corners aren't excluded
-        # due to floating-point precision issues in point-in-polygon tests.
-        boundaryEpsilon = 0.05  # 0.05mm = 50 microns
-
-        if generateWall
-
-            skinWallInset = nozzleDiameter
-            infillInset = skinWallInset + infillGap - boundaryEpsilon
-
-        else
-
-            # No wall generated, calculate infill boundary directly from boundaryPath.
-            # Use the same offset as if wall had been generated.
-            infillInset = nozzleDiameter + infillGap - boundaryEpsilon
-
-        infillBoundary = paths.createInsetPath(boundaryPath, infillInset, isHole)
-
-        return if infillBoundary.length < 3
+        # infillBoundary was pre-computed and validated at the top of this function.
 
         # Create hole exclusion zones with gap.
         holeSkinWallsWithGap = []

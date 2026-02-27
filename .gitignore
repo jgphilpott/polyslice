@@ -36,6 +36,7 @@ logs
 # Temporary Files
 *.tmp
 *.temp
+tmp_*.js
 
 # Other Files
 marlin
