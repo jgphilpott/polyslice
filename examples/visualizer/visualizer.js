@@ -82,9 +82,6 @@ let currentGcode = null;
 let currentFilename = null;
 let loadedModelForSlicing = null;
 let transformControls = null;
-// In three.js ≥ r162, TransformControls no longer extends Object3D.
-// transformControlsGizmo holds the Object3D (_gizmo) that is added to the scene.
-let transformControlsGizmo = null;
 // True while a gizmo drag is in progress; prevents the pointerup click handler
 // from treating the drag-release as a "click elsewhere" and hiding the gizmo.
 let wasDraggingGizmo = false;
@@ -203,16 +200,17 @@ function syncTransformToSliders() {
 
 /**
  * Initialize TransformControls for interactive model rotation in the viewport.
- * In three.js ≥ r162, TransformControls extends Controls (not Object3D), so the
- * renderable gizmo lives in `_gizmo` and must be added to the scene separately.
+ * In three.js ≥ r162, TransformControls extends Controls (not Object3D).
+ * getHelper() returns the TransformControlsRoot (an Object3D) that contains both
+ * the renderable gizmo and the interaction plane, and must be added to the scene.
+ * attach() / detach() manage root.visible automatically.
  */
 function initTransformControls() {
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode('rotate');
 
-  // The gizmo Object3D is what belongs in the scene.
-  transformControlsGizmo = transformControls._gizmo;
-  scene.add(transformControlsGizmo);
+  // Add the helper root (gizmo + interaction plane) to the scene.
+  scene.add(transformControls.getHelper());
 
   // Disable orbit controls while the user is dragging the rotation gizmo.
   // Track that a drag occurred so the pointerup handler can ignore it.
@@ -247,16 +245,14 @@ function initTransformControls() {
     if (hits.length > 0) {
       // Click on mesh: attach and reveal the gizmo.
       transformControls.attach(meshObject);
-      transformControlsGizmo.visible = true;
     } else {
       // Click elsewhere: hide the gizmo.
       transformControls.detach();
-      transformControlsGizmo.visible = false;
     }
   });
 
-  // Hidden until the user clicks the mesh.
-  transformControlsGizmo.visible = false;
+  // Gizmo is hidden until the user clicks the mesh.
+  transformControls.detach();
 }
 
 /**
@@ -303,9 +299,9 @@ function loadModelWrapper(file) {
       });
       loadedModelForSlicing = loadedMesh;
 
-      // Pre-attach TransformControls to the loaded mesh; gizmo appears on first click.
+      // TransformControls are available; gizmo appears when the user clicks the mesh.
       if (transformControls) {
-        transformControls.attach(loadedMesh);
+        transformControls.detach();
       }
 
       return meshObject;
@@ -323,7 +319,6 @@ function loadModelWrapper(file) {
     clearMeshData: (sceneObj) => {
       if (transformControls) {
         transformControls.detach();
-        transformControlsGizmo.visible = false;
       }
       if (meshObject) {
         sceneObj.remove(meshObject);
@@ -371,7 +366,6 @@ function loadGCodeWrapper(content, filename) {
     clearMeshData: (sceneObj) => {
       if (transformControls) {
         transformControls.detach();
-        transformControlsGizmo.visible = false;
       }
       if (meshObject) {
         sceneObj.remove(meshObject);
@@ -485,7 +479,6 @@ function resetView() {
   // Detach TransformControls before resetting rotation.
   if (transformControls) {
     transformControls.detach();
-    transformControlsGizmo.visible = false;
   }
 
   // Reset mesh rotation if a model is loaded
