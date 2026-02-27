@@ -82,6 +82,9 @@ let currentGcode = null;
 let currentFilename = null;
 let loadedModelForSlicing = null;
 let transformControls = null;
+// In three.js ≥ r162, TransformControls no longer extends Object3D.
+// transformControlsGizmo holds the Object3D (_gizmo) that is added to the scene.
+let transformControlsGizmo = null;
 
 // Layer visualization state
 const layerState = {
@@ -197,11 +200,19 @@ function syncTransformToSliders() {
 
 /**
  * Initialize TransformControls for interactive model rotation in the viewport.
+ * In three.js ≥ r162, TransformControls extends Controls (not Object3D), so the
+ * renderable gizmo lives in `_gizmo` and must be added to the scene separately.
  */
 function initTransformControls() {
   transformControls = new TransformControls(camera, renderer.domElement);
   transformControls.setMode('rotate');
-  scene.add(transformControls);
+
+  // Use the internal gizmo Object3D for scene membership and visibility toggling.
+  // In three.js ≥ r162, TransformControls extends Controls (not Object3D); the
+  // renderable gizmo is in `_gizmo`. The fallback to `transformControls` itself
+  // keeps compatibility with any build that still extends Object3D directly.
+  transformControlsGizmo = transformControls._gizmo || transformControls;
+  scene.add(transformControlsGizmo);
 
   // Disable orbit controls while the user is dragging the rotation gizmo.
   transformControls.addEventListener('dragging-changed', (event) => {
@@ -212,7 +223,7 @@ function initTransformControls() {
   transformControls.addEventListener('objectChange', syncTransformToSliders);
 
   // Hidden until a mesh is attached.
-  transformControls.visible = false;
+  transformControlsGizmo.visible = false;
 }
 
 /**
@@ -262,7 +273,7 @@ function loadModelWrapper(file) {
       // Attach TransformControls gizmo to the loaded mesh.
       if (transformControls) {
         transformControls.attach(loadedMesh);
-        transformControls.visible = true;
+        transformControlsGizmo.visible = true;
       }
 
       return meshObject;
@@ -280,7 +291,7 @@ function loadModelWrapper(file) {
     clearMeshData: (sceneObj) => {
       if (transformControls) {
         transformControls.detach();
-        transformControls.visible = false;
+        transformControlsGizmo.visible = false;
       }
       if (meshObject) {
         sceneObj.remove(meshObject);
@@ -328,7 +339,7 @@ function loadGCodeWrapper(content, filename) {
     clearMeshData: (sceneObj) => {
       if (transformControls) {
         transformControls.detach();
-        transformControls.visible = false;
+        transformControlsGizmo.visible = false;
       }
       if (meshObject) {
         sceneObj.remove(meshObject);
@@ -442,7 +453,7 @@ function resetView() {
   // Detach TransformControls before resetting rotation.
   if (transformControls) {
     transformControls.detach();
-    transformControls.visible = false;
+    transformControlsGizmo.visible = false;
   }
 
   // Reset mesh rotation if a model is loaded
@@ -463,7 +474,7 @@ function resetView() {
   // Re-attach TransformControls to the mesh after reset.
   if (meshObject && transformControls) {
     transformControls.attach(meshObject);
-    transformControls.visible = true;
+    transformControlsGizmo.visible = true;
   }
 
   // Update visibility
