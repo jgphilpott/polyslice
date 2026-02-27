@@ -608,10 +608,15 @@ describe 'Exposure Detection Algorithm', ->
 
         test 'should not generate overlapping infill and skin on adaptive skin layers', ->
 
-            # Create a pyramid geometry which will have mixed layers with both infill and adaptive skin.
-            # Use a larger pyramid to ensure there's room for both infill and skin.
-            geometry = new THREE.CylinderGeometry(20, 40, 40, 8)
+            # Create a cone geometry (ConeGeometry: radius changes from 10 at base to 0 at top)
+            # which has mixed layers with both infill and adaptive skin. The 32-segment geometry
+            # produces smooth exposure rings wide enough for skin infill (>0.55mm) on middle layers.
+            geometry = new THREE.ConeGeometry(10, 20, 32)
             mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+
+            # Position so the base sits on the build plate (cone center is at Z=10).
+            mesh.position.set(0, 0, 10)
+            mesh.updateMatrixWorld()
 
             # Configure slicer with exposure detection and infill enabled.
             customSlicer = new Polyslice({
