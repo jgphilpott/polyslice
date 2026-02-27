@@ -7,6 +7,52 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.2.2] - 2026-02-27
+
+### Added
+- **Tree Support Type** - Fully functional tree support as an alternative to normal grid supports (PR #151)
+  - Convergence algorithm: dense contact points near the overhang thin into sparse trunk columns toward the build plate
+  - Two zones per point using barycentric interpolation of overhang face Z:
+    - **Branch zone** (within 8mm of overhang): fine 1.5× nozzle diameter spacing
+    - **Trunk zone** (>8mm from overhang): coarse 4× nozzle diameter spacing, convergence snapping
+  - Reuses `isPointInSupportWedge` and `canGenerateSupportAt` from normal module for collision detection
+  - Uses less material and creates smaller contact footprints for easier removal
+- **Visualizer: Model Rotation Controls** - Added full rotation control to the visualizer slicing GUI (PR #162)
+  - New **Model Rotation** folder in the Slicer panel with X, Y, Z sliders (−180° to +180°, 1° steps)
+  - Rotation values are persisted to localStorage and restored on reload
+  - Three.js `TransformControls` gizmo in rotate mode for interactive in-viewport rotation
+    - Click on a loaded mesh to reveal the arc-handle gizmo
+    - Drag any arc handle to rotate the mesh; GUI sliders stay in sync in real time
+    - Click anywhere off the mesh to dismiss the gizmo
+    - `OrbitControls` are automatically paused while dragging the gizmo to prevent conflicts
+  - Bidirectional sync: moving a slider updates the gizmo, dragging the gizmo updates the sliders
+  - Gizmo is detached/hidden when G-code is displayed, on mesh clear, and on Reset
+- **Visualizer: Extended Slicer Settings** - Added Adhesion, Support, and additional print settings to the GUI (PR #159)
+  - Adhesion type and all skirt/brim/raft settings
+  - Support type, placement, and threshold settings
+  - Nozzle temperature, bed temperature, and fan speed sliders
+  - Shell wall and skin thickness controls moved to top of Slicer Settings section
+  - All 7 infill patterns now selectable
+- **Adhesion Examples** - Added torus and arch geometries to `slice-adhesion.js` example script (PR #150)
+  - G-code output files for all 4 adhesion types × 4 geometries
+
+### Changed
+- **Visualizer: UI Layout** - Collapsed `Adhesion` and `Support` GUI folders by default to reduce visual clutter; both can still be expanded by clicking their headers (PR #162)
+- **Visualizer: Camera Behaviour** - Camera no longer refocuses on every file upload; refocuses only on the first upload per type (model or G-code), and resets when Slice is clicked (PR #159)
+- **Visualizer: Slider Events** - Numeric sliders use `onFinishChange` instead of `onChange` to avoid excessive localStorage writes while dragging (PR #159)
+
+### Fixed
+- **Support: First-Layer Blocking** - Support structures no longer generated on layer 0 when solid geometry blocks the position; `canGenerateSupportAt` now includes the current layer in the blocking check (`<=` instead of `<`) (PR #148)
+- **Support: Wedge-Shaped Overhang Fill** - Support generation now uses barycentric interpolation (`isPointInSupportWedge`) to restrict fill to the actual overhang wedge, preventing support on the wrong side of slanted surfaces (PR #149)
+- **Walls/Infill: C-Shaped Cross-Sections** - Fixed missing `WALL-INNER` and `FILL`/`SKIN` on all layers of C-shaped cross-sections (e.g. sideways dome); removed incorrect `testInsetPath` guard in `slice.coffee` and fixed `createInsetPath` near-tangent divergence (PR #152)
+- **Skin: Infill Lines Crossing Wall Boundary** - Fixed skin and regular infill lines extending outside the inner wall boundary; reduced `clipLineToPolygon` default epsilon from `0.3` to `0.001` (PR #153, PR #155)
+- **Skin: Redundant G0 Travel Moves** - Added `isAlreadyAtStartPoint` guard in `skin.coffee` to skip G0 generation when the nozzle is already within 0.001mm of the infill segment start (PR #153)
+- **Skin: Spurious Walls on Flipped Arch** - Fixed extra skin walls on arch transition layers; `identifyFullyCoveredRegions` in `cavity.coffee` now skips covering regions whose bounding box extends to or beyond the current path boundary (PR #154)
+- **Infill: Global Centering Coverage** - Fixed missing infill lines when using `infillPatternCentering: 'global'` for grid, triangles, and spiral patterns; `numLinesUp` now computed from boundary corner extents relative to the pattern center rather than the bounding box diagonal (PR #156)
+- **Walls: Jagged Inner Wall Spikes** - Fixed spike vertices in inner wall G-code at arc-rectangle junctions (sideways dome); `createInsetPath` backtracking-vertex removal is now an iterative index-scan loop that handles cascading near-reversal vertices (PR #158)
+- **Walls: Endpoints Extending Beyond Boundary** - Fixed wall endpoints extending past expected positions at concave arc junctions; `createInsetPath` now applies a `removeBacktrackingVertices` post-processing pass on its output (PR #160)
+- **Skin: Spurious Skin Patches After Infill** - Fixed skin-wall-only blocks generated for degenerate ribbon polygons on sideways dome layers 14–18 and 108–112; `generateSkinGCode` now pre-checks infill boundary feasibility before emitting `; TYPE: SKIN` (PR #161)
+
 ## [26.2.1] - 2026-02-19
 
 ### Changed
@@ -144,7 +190,8 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 Initial release for January 2026. See GitHub releases and commit history for details on previous versions.
 
-[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.2.1...HEAD
+[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.2.2...HEAD
+[26.2.2]: https://github.com/jgphilpott/polyslice/compare/v26.2.1...v26.2.2
 [26.2.1]: https://github.com/jgphilpott/polyslice/compare/v26.2.0...v26.2.1
 [26.2.0]: https://github.com/jgphilpott/polyslice/compare/v26.1.2...v26.2.0
 [26.1.2]: https://github.com/jgphilpott/polyslice/compare/v26.1.1...v26.1.2
