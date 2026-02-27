@@ -128,6 +128,9 @@ export function loadSettingsStates() {
  */
 export function saveSlicingSettings(params) {
   const settings = {
+    rotationX: params.rotationX,
+    rotationY: params.rotationY,
+    rotationZ: params.rotationZ,
     printer: params.printer,
     filament: params.filament,
     nozzleTemperature: params.nozzleTemperature,

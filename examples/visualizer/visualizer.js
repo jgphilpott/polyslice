@@ -157,6 +157,15 @@ function handleFileUpload(event) {
 }
 
 /**
+ * Apply a rotation in degrees to one axis of a mesh.
+ */
+function applyMeshRotation(mesh, axis, degrees) {
+  if (!mesh) return;
+  mesh.rotation[axis] = degrees * Math.PI / 180;
+  mesh.updateMatrixWorld(true);
+}
+
+/**
  * Load 3D model wrapper.
  */
 function loadModelWrapper(file) {
@@ -167,8 +176,8 @@ function loadModelWrapper(file) {
       updateDownloadButtonVisibility(false);
     },
     hideSlicingGUI,
-    displayMesh: (object, filename) => {
-      meshObject = displayMeshHelper(object, filename, scene, {
+    displayMesh: (loadedMesh, filename) => {
+      meshObject = displayMeshHelper(loadedMesh, filename, scene, {
         centerCamera: (obj) => {
           if (isFirstModelUpload) {
             centerCamera(obj, camera, controls);
@@ -178,14 +187,18 @@ function loadModelWrapper(file) {
         hideForkMeBanner,
         hideGCodeLegends,
         createSlicingGUI: () => {
-          createSlicingGUI(() => {
-            isFirstGcodeUpload = true;
-            sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper);
-          });
+          createSlicingGUI(
+            () => {
+              isFirstGcodeUpload = true;
+              sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper);
+            },
+            false,
+            (axis, degrees) => applyMeshRotation(loadedMesh, axis, degrees)
+          );
         },
         updateMeshInfo
       });
-      loadedModelForSlicing = object;
+      loadedModelForSlicing = loadedMesh;
       return meshObject;
     },
     clearGCodeData: () => {
@@ -352,9 +365,19 @@ function resetView() {
   // Reset slicing settings
   clearSlicingSettings();
 
+  // Reset mesh rotation if a model is loaded
+  if (meshObject) {
+    meshObject.rotation.set(0, 0, 0);
+    meshObject.updateMatrixWorld(true);
+  }
+
   // Recreate slicing GUI with default settings if mesh is loaded
   if (meshObject && loadedModelForSlicing) {
-    createSlicingGUI(() => sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper), true);
+    createSlicingGUI(
+      () => sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper),
+      true,
+      (axis, degrees) => applyMeshRotation(meshObject, axis, degrees)
+    );
   }
 
   // Update visibility
