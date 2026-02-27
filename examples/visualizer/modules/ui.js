@@ -204,12 +204,14 @@ export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallb
   h = slicingGUI.addFolder('Adhesion');
   h.add(params, 'adhesionEnabled').name('Adhesion Enabled').onChange(() => saveSlicingSettings(params));
   h.add(params, 'adhesionType', ['skirt', 'brim', 'raft']).name('Adhesion Type').onChange(() => saveSlicingSettings(params));
+  h.close();
 
   h = slicingGUI.addFolder('Support');
   h.add(params, 'supportEnabled').name('Support Enabled').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportType', ['normal', 'tree']).name('Support Type').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportPlacement', ['buildPlate', 'everywhere']).name('Support Placement').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportThreshold', 0, 90, 1).name('Support Threshold (°)').onFinishChange(() => saveSlicingSettings(params));
+  h.close();
 
   slicingGUI.add(params, 'slice').name('Slice');
   slicingGUI.open();
