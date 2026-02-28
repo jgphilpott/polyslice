@@ -322,15 +322,23 @@ describe 'Slicing', ->
             # Slice the mesh.
             result = slicer.slice(mesh)
 
-            # Parse G-code to find actual print coordinates (only extrusion moves).
+            # Parse G-code to find actual print coordinates (only absolute extrusion moves).
             lines = result.split('\n')
             minX = Infinity
             maxX = -Infinity
             minY = Infinity
             maxY = -Infinity
+            isRelative = false
 
             for line in lines
-                if (line.indexOf('G1 ') is 0 or line.indexOf('G0 ') is 0) and line.indexOf('E') > -1
+
+                # Track positioning mode to skip relative moves (e.g. smart wipe).
+                if line.indexOf('G91') is 0
+                    isRelative = true
+                else if line.indexOf('G90') is 0
+                    isRelative = false
+
+                if not isRelative and (line.indexOf('G1 ') is 0 or line.indexOf('G0 ') is 0) and line.indexOf('E') > -1
                     xMatch = line.match(/X([-\d.]+)/)
                     yMatch = line.match(/Y([-\d.]+)/)
                     if xMatch

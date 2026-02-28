@@ -182,9 +182,10 @@ module.exports =
         centerOffsetX = (buildPlateWidth / 2) - meshCenterX
         centerOffsetY = (buildPlateLength / 2) - meshCenterY
 
-        # Store center offsets for smart wipe nozzle in post-print.
+        # Store center offsets and raw mesh bounds for smart wipe nozzle in post-print.
         slicer.centerOffsetX = centerOffsetX
         slicer.centerOffsetY = centerOffsetY
+        slicer._meshBounds = boundingBox
 
         # Store bounding box for metadata (convert to build plate coordinates)
         slicer.meshBounds = {
