@@ -985,7 +985,6 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # 5x5 slab covers X=[85,135], Y=[85,135].
             lines = result.split('\n')
             layer51Started = false
-            layer52Started = false
             layer51SkinInfillLines = []
             layer51FillLines = []
             inFillSection = false
@@ -996,7 +995,6 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                     layer51Started = true
                     inFillSection = false
                 else if line.includes('LAYER: 52 of')
-                    layer52Started = true
                     break
                 else if layer51Started
                     if line.includes('TYPE: FILL')
