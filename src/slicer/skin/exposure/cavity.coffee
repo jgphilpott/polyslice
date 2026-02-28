@@ -91,6 +91,73 @@ module.exports =
                                     fullyCoveredRegions.push(regionAbove)
                                     break
 
+        # Second pass: symmetric to first pass but iterates over coveringRegionsBelow.
+        # Handles inverted case where smaller region is from below (e.g. inverted pyramid).
+        for regionBelow in coveringRegionsBelow
+
+            continue if regionBelow.length < 3
+
+            boundsBelow = bounds.calculatePathBounds(regionBelow)
+            continue unless boundsBelow?
+
+            # Skip regions that extend to or beyond the current path's boundary.
+            touchesBoundary = (
+                boundsBelow.minX <= currentPathBounds.minX + BOUNDARY_EPSILON or
+                boundsBelow.maxX >= currentPathBounds.maxX - BOUNDARY_EPSILON or
+                boundsBelow.minY <= currentPathBounds.minY + BOUNDARY_EPSILON or
+                boundsBelow.maxY >= currentPathBounds.maxY - BOUNDARY_EPSILON
+            )
+            continue if touchesBoundary
+
+            belowWidth = boundsBelow.maxX - boundsBelow.minX
+            belowHeight = boundsBelow.maxY - boundsBelow.minY
+            belowArea = belowWidth * belowHeight
+
+            for regionAbove in coveringRegionsAbove
+
+                continue if regionAbove.length < 3
+
+                boundsAbove = bounds.calculatePathBounds(regionAbove)
+                continue unless boundsAbove?
+
+                aboveWidth = boundsAbove.maxX - boundsAbove.minX
+                aboveHeight = boundsAbove.maxY - boundsAbove.minY
+                aboveArea = aboveWidth * aboveHeight
+
+                # Check for overlap between regions.
+                overlapMinX = Math.max(boundsAbove.minX, boundsBelow.minX)
+                overlapMaxX = Math.min(boundsAbove.maxX, boundsBelow.maxX)
+                overlapMinY = Math.max(boundsAbove.minY, boundsBelow.minY)
+                overlapMaxY = Math.min(boundsAbove.maxY, boundsBelow.maxY)
+
+                if overlapMinX < overlapMaxX and overlapMinY < overlapMaxY
+
+                    overlapWidth = overlapMaxX - overlapMinX
+                    overlapHeight = overlapMaxY - overlapMinY
+                    overlapArea = overlapWidth * overlapHeight
+
+                    if belowArea > 0 and currentArea > 0
+
+                        # Check if overlap is substantial (≥50% of regionBelow).
+                        if (overlapArea / belowArea) >= 0.5
+
+                            aboveRatio = aboveArea / currentArea
+                            belowRatio = belowArea / currentArea
+
+                            # Check if at least one region is smaller than current layer (step/transition).
+                            if aboveRatio < 0.9 or belowRatio < 0.9
+
+                                smallerArea = Math.min(aboveArea, belowArea)
+                                largerArea = Math.max(aboveArea, belowArea)
+                                sizeRatio = smallerArea / largerArea
+
+                                # Filter: size ratio 10-55% (excludes tiny holes and similar-sized regions).
+                                # Only mark as covered when smaller region is from below.
+                                if sizeRatio >= 0.10 and sizeRatio < 0.55 and belowArea < aboveArea
+
+                                    fullyCoveredRegions.push(regionBelow)
+                                    break
+
         return fullyCoveredRegions
 
     # Filter fully covered regions for skin infill exclusion.
