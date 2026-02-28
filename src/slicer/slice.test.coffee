@@ -362,6 +362,67 @@ describe 'Slicing', ->
             expect(Math.abs(printCenterX - expectedCenterX)).toBeLessThan(2)
             expect(Math.abs(printCenterY - expectedCenterY)).toBeLessThan(2)
 
+        test 'should use smart wipe when slicing a real mesh with smartWipeNozzle enabled', ->
+
+            # Create a small box mesh.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            # Enable smart wipe (both flags must be true).
+            slicer.setWipeNozzle(true)
+            slicer.setSmartWipeNozzle(true)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(0) # No infill for faster test.
+            slicer.setVerbose(false)
+
+            result = slicer.slice(mesh)
+
+            # Smart wipe emits a G1 with both X or Y and E- inside a G91 block.
+            # Find the relative-mode section and confirm it contains such a line.
+            lines = result.split('\n')
+            isRelative = false
+            foundSmartWipe = false
+
+            for line in lines
+
+                if line.indexOf('G91') is 0
+                    isRelative = true
+                else if line.indexOf('G90') is 0
+                    isRelative = false
+
+                # Smart wipe move: relative G1 with X or Y displacement and negative E.
+                if isRelative and line.indexOf('G1 ') is 0 and line.indexOf('E-') > -1 and (line.indexOf('X') > -1 or line.indexOf('Y') > -1)
+                    foundSmartWipe = true
+
+            # Smart wipe should have fired (not the fallback G0 X5 Y5).
+            expect(foundSmartWipe).toBe(true)
+            expect(result).not.toContain('G0 X5 Y5') # No simple fallback wipe.
+
+        test 'should fall back to simple wipe when smartWipeNozzle is disabled', ->
+
+            # Create a small box mesh.
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            # Disable smart wipe — expect the simple X+5 Y+5 fallback.
+            slicer.setWipeNozzle(true)
+            slicer.setSmartWipeNozzle(false)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(0) # No infill for faster test.
+            slicer.setVerbose(false)
+
+            result = slicer.slice(mesh)
+
+            expect(result).toContain('G0 X5 Y5') # Simple fallback wipe should be present.
+
     describe 'Torus Slicing with Holes', ->
 
         test 'should generate infill clipped by hole walls', ->
