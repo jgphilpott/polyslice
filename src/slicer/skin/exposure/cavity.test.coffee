@@ -935,3 +935,116 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # 2. Each covered region
             # Expect multiple skin sections.
             expect(skinSectionCount).toBeGreaterThan(3)
+
+        test 'should detect fully covered region when smaller region is from BELOW (inverted pyramid)', ->
+
+            # Regression test for inverted pyramid case.
+            # When the shape is inverted (small base, large top), the fully covered region
+            # comes from below the transition layer, not above.
+            # On transition layers, the center area (covered by the small slab below) should
+            # be detected as "fully covered" and get a skin wall + regular infill,
+            # while the outer ring should get O-shaped skin infill only.
+            cubeSize = 10
+
+            # Inverted: small base slab (3x3) at bottom, large top slab (5x5) on top.
+            baseSlab = new THREE.BoxGeometry(3 * cubeSize, 3 * cubeSize, cubeSize)
+            baseSlabMesh = new THREE.Mesh(baseSlab, new THREE.MeshBasicMaterial())
+            baseSlabMesh.position.set(0, 0, 0)
+            baseSlabMesh.updateMatrixWorld()
+
+            topSlab = new THREE.BoxGeometry(5 * cubeSize, 5 * cubeSize, cubeSize)
+            topSlabMesh = new THREE.Mesh(topSlab, new THREE.MeshBasicMaterial())
+            topSlabMesh.position.set(0, 0, cubeSize)
+            topSlabMesh.updateMatrixWorld()
+
+            invertedMesh = await Polytree.unite(baseSlabMesh, topSlabMesh)
+
+            finalMesh = new THREE.Mesh(invertedMesh.geometry, invertedMesh.material)
+            finalMesh.position.set(0, 0, 0)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer with exposure detection enabled.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+
+            result = slicer.slice(finalMesh)
+
+            # The base slab is 10mm tall = 50 layers (1-50).
+            # The top slab is 10mm tall = 50 layers (51-100).
+            # First 4 layers of top slab (51-54) should have adaptive skin.
+            # Center 3x3 area (covered by small slab below) should NOT have skin infill.
+            # Outer ring (exposed area) should have skin infill.
+            # Build plate center = 110x110 (220x220 bed).
+            # 3x3 slab covers X=[95,125], Y=[95,125].
+            # 5x5 slab covers X=[85,135], Y=[85,135].
+            lines = result.split('\n')
+            layer51Started = false
+            layer51SkinInfillLines = []
+            layer51FillLines = []
+            inFillSection = false
+
+            for line in lines
+
+                if line.includes('LAYER: 51 of')
+                    layer51Started = true
+                    inFillSection = false
+                else if line.includes('LAYER: 52 of')
+                    break
+                else if layer51Started
+                    if line.includes('TYPE: FILL')
+                        inFillSection = true
+                    else if line.includes('TYPE:')
+                        inFillSection = false
+
+                    if line.includes('Moving to skin infill line')
+                        layer51SkinInfillLines.push(line)
+                    else if inFillSection and line.includes('G1') and line.includes(' E')
+                        layer51FillLines.push(line)
+
+            # Verify that layer 51 has skin infill (outer ring exposed area).
+            expect(layer51SkinInfillLines.length).toBeGreaterThan(0)
+
+            # Verify NO skin infill lines are in the fully covered center area (95-125).
+            # The 3x3 slab below covers X=[95,125] and Y=[95,125].
+            # Skin infill should only be in the exposed outer ring, not the center.
+            centerSkinInfillCount = 0
+
+            for line in layer51SkinInfillLines
+
+                xMatch = line.match(/X([\d.]+)/)
+                yMatch = line.match(/Y([\d.]+)/)
+
+                if xMatch and yMatch
+
+                    xCoord = parseFloat(xMatch[1])
+                    yCoord = parseFloat(yMatch[1])
+
+                    if xCoord > 95 and xCoord < 125 and yCoord > 95 and yCoord < 125
+                        centerSkinInfillCount += 1
+
+            expect(centerSkinInfillCount).toBe(0)
+
+            # Verify that regular infill IS generated in the covered center area.
+            # This ensures structural support in fully covered regions.
+            centerFillCount = 0
+
+            for line in layer51FillLines
+
+                xMatch = line.match(/X([\d.]+)/)
+                yMatch = line.match(/Y([\d.]+)/)
+
+                if xMatch and yMatch
+
+                    xCoord = parseFloat(xMatch[1])
+                    yCoord = parseFloat(yMatch[1])
+
+                    if xCoord > 95 and xCoord < 125 and yCoord > 95 and yCoord < 125
+                        centerFillCount += 1
+
+            expect(centerFillCount).toBeGreaterThan(0)
