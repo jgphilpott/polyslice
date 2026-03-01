@@ -582,11 +582,15 @@ module.exports =
 
     setSupportPlacement: (slicer, placement = "buildPlate") ->
 
-        placement = placement.toLowerCase().trim()
+        normalized = placement.toLowerCase().trim()
 
-        if ["everywhere", "buildPlate"].includes placement
+        if normalized is "buildplate"
 
-            slicer.supportPlacement = String placement
+            slicer.supportPlacement = "buildPlate"
+
+        else if normalized is "everywhere"
+
+            slicer.supportPlacement = "everywhere"
 
         return slicer
 
