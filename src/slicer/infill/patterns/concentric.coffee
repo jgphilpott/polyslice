@@ -92,8 +92,47 @@ module.exports =
 
                 polylines.push(currentPolyline)
 
-                # Render each polyline with combing travel and extrusion.
-                for polyline in polylines
+                # Select and render polylines in nearest-neighbour order to minimize travel.
+                remainingPolylines = polylines.slice()
+
+                while remainingPolylines.length > 0
+
+                    if lastEndPoint?
+
+                        # Find the polyline start/end closest to the current position.
+                        bestIdx = 0
+                        bestFlipped = false
+                        minDistSq = Infinity
+
+                        for plIdx in [0...remainingPolylines.length]
+
+                            pl = remainingPolylines[plIdx]
+                            continue if pl.length < 2
+
+                            startDistSq = (pl[0].x - lastEndPoint.x) ** 2 + (pl[0].y - lastEndPoint.y) ** 2
+                            endDistSq = (pl[pl.length - 1].x - lastEndPoint.x) ** 2 + (pl[pl.length - 1].y - lastEndPoint.y) ** 2
+
+                            if startDistSq < minDistSq
+
+                                minDistSq = startDistSq
+                                bestIdx = plIdx
+                                bestFlipped = false
+
+                            if endDistSq < minDistSq
+
+                                minDistSq = endDistSq
+                                bestIdx = plIdx
+                                bestFlipped = true
+
+                        polyline = remainingPolylines.splice(bestIdx, 1)[0]
+
+                        if bestFlipped
+
+                            polyline = polyline.slice().reverse()
+
+                    else
+
+                        polyline = remainingPolylines.shift()
 
                     continue if polyline.length < 2
 

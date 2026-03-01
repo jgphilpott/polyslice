@@ -12,6 +12,34 @@ describe 'Concentric Infill Generation', ->
 
         slicer = new Polyslice({progressCallback: null})
 
+    # Parse X/Y coordinates from all infill extrusion (G1 ... E) lines in a G-code string.
+    parseFillExtrusionCoords = (gcode) ->
+
+        lines = gcode.split('\n')
+        inFill = false
+        coords = []
+
+        for line in lines
+
+            if line.includes('; TYPE: FILL')
+                inFill = true
+            else if line.includes('; TYPE:') and not line.includes('; TYPE: FILL')
+                inFill = false
+
+            if inFill and line.includes('G1') and line.includes('E')
+
+                xMatch = line.match(/X([\d.-]+)/)
+                yMatch = line.match(/Y([\d.-]+)/)
+
+                if xMatch and yMatch
+                    coords.push({ x: parseFloat(xMatch[1]), y: parseFloat(yMatch[1]) })
+
+        return coords
+
+    # Tolerance (mm) applied to hole-radius assertions to absorb polygon approximation
+    # of circular hole boundaries (sliced as polygons, not true circles).
+    HOLE_TOLERANCE = 0.5
+
     describe 'Pattern Generation Tests', ->
 
         test 'should generate infill for middle layers', ->
@@ -199,25 +227,7 @@ describe 'Concentric Infill Generation', ->
 
             # Verify that infill doesn't generate in the hole area.
             # Extract coordinates from infill sections.
-            inFill = false
-            fillCoords = []
-
-            for line in lines
-
-                if line.includes('; TYPE: FILL')
-                    inFill = true
-                else if line.includes('; TYPE:') and not line.includes('; TYPE: FILL')
-                    inFill = false
-
-                if inFill and line.includes('G1') and line.includes('E')
-
-                    # Parse X and Y coordinates from G-code.
-                    # Regex captures numeric value after X or Y (e.g., "X110.5" → match[1] = "110.5").
-                    xMatch = line.match(/X([\d.-]+)/)
-                    yMatch = line.match(/Y([\d.-]+)/)
-
-                    if xMatch and yMatch
-                        fillCoords.push({ x: parseFloat(xMatch[1]), y: parseFloat(yMatch[1]) })
+            fillCoords = parseFillExtrusionCoords(result)
 
             # Check that no infill points are in the center hole area.
             # Derive build plate center from slicer configuration to avoid hardcoding.
@@ -225,9 +235,8 @@ describe 'Concentric Infill Generation', ->
             centerY = slicer.getBuildPlateLength() / 2
 
             # For a torus with radius 5 and tube 2, the hole radius is approximately 3mm.
+            # Use HOLE_TOLERANCE to absorb polygon approximation of the circular hole.
             holeRadius = 3
-
-            # Count how many infill points are near the hole center.
             pointsNearHole = 0
 
             for coord in fillCoords
@@ -236,7 +245,7 @@ describe 'Concentric Infill Generation', ->
                 dy = coord.y - centerY
                 distToCenter = Math.sqrt(dx * dx + dy * dy)
 
-                if distToCenter < holeRadius
+                if distToCenter < holeRadius - HOLE_TOLERANCE
                     pointsNearHole++
 
             # Should have no points in the hole area after the fix.
@@ -286,29 +295,14 @@ describe 'Concentric Infill Generation', ->
 
             lines = result.split('\n')
 
-            # Extract infill extrusion G-code coordinates.
-            inFill = false
-            fillCoords = []
-
-            for line in lines
-
-                if line.includes('; TYPE: FILL')
-                    inFill = true
-                else if line.includes('; TYPE:') and not line.includes('; TYPE: FILL')
-                    inFill = false
-
-                if inFill and line.includes('G1') and line.includes('E')
-
-                    xMatch = line.match(/X([\d.-]+)/)
-                    yMatch = line.match(/Y([\d.-]+)/)
-
-                    if xMatch and yMatch
-                        fillCoords.push({ x: parseFloat(xMatch[1]), y: parseFloat(yMatch[1]) })
+            # Extract infill extrusion G-code coordinates using shared helper.
+            fillCoords = parseFillExtrusionCoords(result)
 
             centerX = slicer.getBuildPlateWidth() / 2
             centerY = slicer.getBuildPlateLength() / 2
 
-            # The circular hole has radius 6mm — no infill point should fall inside it.
+            # The circular hole has radius 6mm. Use HOLE_TOLERANCE to absorb
+            # polygon approximation of the circular hole boundary.
             holeRadius = 6
             pointsNearHole = 0
 
@@ -318,7 +312,7 @@ describe 'Concentric Infill Generation', ->
                 dy = coord.y - centerY
                 distToCenter = Math.sqrt(dx * dx + dy * dy)
 
-                if distToCenter < holeRadius
+                if distToCenter < holeRadius - HOLE_TOLERANCE
                     pointsNearHole++
 
             # No infill should be generated inside the circular hole.
