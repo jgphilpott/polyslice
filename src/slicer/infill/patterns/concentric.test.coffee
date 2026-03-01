@@ -241,3 +241,85 @@ describe 'Concentric Infill Generation', ->
 
             # Should have no points in the hole area after the fix.
             expect(pointsNearHole).toBe(0) # 100% elimination of hole violations.
+
+        test 'should clip partial-overlap loops when rectangular loops intersect circular hole (regression for dome)', ->
+
+            # Create a shape with a 20x20mm rectangular outer boundary and a
+            # circular inner hole of radius 6mm at the center.  Extruded 10mm tall.
+            # This replicates dome-like cross-sections where concentric loops shrink as
+            # rectangles but the hole is circular: at ~10x10mm loop size the four side
+            # midpoints fall inside the 6mm hole while the corners stay outside.
+            # Old code: 4/8 sampled points inside → ≤50% threshold → loop NOT skipped
+            # → parts of the loop printed inside the hole (bug).
+            # New code: each edge is clipped against the hole → correct arcs only.
+            outerShape = new THREE.Shape()
+            outerShape.moveTo(-10, -10)
+            outerShape.lineTo(10, -10)
+            outerShape.lineTo(10, 10)
+            outerShape.lineTo(-10, 10)
+            outerShape.lineTo(-10, -10)
+
+            holePath = new THREE.Path()
+            holePath.absarc(0, 0, 6, 0, Math.PI * 2, false)
+            outerShape.holes.push(holePath)
+
+            extrudeSettings = { depth: 10, bevelEnabled: false }
+            geometry = new THREE.ExtrudeGeometry(outerShape, extrudeSettings)
+
+            mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setNozzleDiameter(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('concentric')
+            slicer.setVerbose(true)
+
+            result = slicer.slice(mesh)
+
+            # Should generate valid G-code with infill.
+            expect(result).toBeTruthy()
+            expect(result).toContain('; TYPE: FILL')
+
+            lines = result.split('\n')
+
+            # Extract infill extrusion G-code coordinates.
+            inFill = false
+            fillCoords = []
+
+            for line in lines
+
+                if line.includes('; TYPE: FILL')
+                    inFill = true
+                else if line.includes('; TYPE:') and not line.includes('; TYPE: FILL')
+                    inFill = false
+
+                if inFill and line.includes('G1') and line.includes('E')
+
+                    xMatch = line.match(/X([\d.-]+)/)
+                    yMatch = line.match(/Y([\d.-]+)/)
+
+                    if xMatch and yMatch
+                        fillCoords.push({ x: parseFloat(xMatch[1]), y: parseFloat(yMatch[1]) })
+
+            centerX = slicer.getBuildPlateWidth() / 2
+            centerY = slicer.getBuildPlateLength() / 2
+
+            # The circular hole has radius 6mm — no infill point should fall inside it.
+            holeRadius = 6
+            pointsNearHole = 0
+
+            for coord in fillCoords
+
+                dx = coord.x - centerX
+                dy = coord.y - centerY
+                distToCenter = Math.sqrt(dx * dx + dy * dy)
+
+                if distToCenter < holeRadius
+                    pointsNearHole++
+
+            # No infill should be generated inside the circular hole.
+            expect(pointsNearHole).toBe(0)
