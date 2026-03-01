@@ -223,7 +223,7 @@ describe 'Concentric Infill Generation', ->
             # Derive build plate center from slicer configuration to avoid hardcoding.
             centerX = slicer.getBuildPlateWidth() / 2
             centerY = slicer.getBuildPlateLength() / 2
-            
+
             # For a torus with radius 5 and tube 2, the hole radius is approximately 3mm.
             holeRadius = 3
 
