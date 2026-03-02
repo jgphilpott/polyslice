@@ -55,6 +55,30 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setAngleUnit('invalid')
             expect(slicer.getAngleUnit()).toBe('degree') # unchanged.
 
+        test 'should set and get speed unit', ->
+
+            expect(slicer.getSpeedUnit()).toBe('millimeterSecond')
+
+            slicer.setSpeedUnit('inchSecond')
+            expect(slicer.getSpeedUnit()).toBe('inchSecond')
+
+            slicer.setSpeedUnit('meterSecond')
+            expect(slicer.getSpeedUnit()).toBe('meterSecond')
+
+            slicer.setSpeedUnit('millimeterSecond')
+            expect(slicer.getSpeedUnit()).toBe('millimeterSecond')
+
+            # Should ignore invalid values.
+            slicer.setSpeedUnit('invalid')
+            expect(slicer.getSpeedUnit()).toBe('millimeterSecond') # unchanged.
+
+            # Should accept any capitalization and store canonical camelCase form.
+            slicer.setSpeedUnit('MILLIMETERSECOND')
+            expect(slicer.getSpeedUnit()).toBe('millimeterSecond')
+
+            slicer.setSpeedUnit('InchSecond')
+            expect(slicer.getSpeedUnit()).toBe('inchSecond')
+
     describe 'Temperature Accessors', ->
 
         test 'should set and get temperatures', ->
@@ -774,6 +798,13 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setPositioningMode('invalid')
             expect(slicer.getPositioningMode()).toBe('absolute') # unchanged.
 
+            # Should accept any capitalization.
+            slicer.setPositioningMode('Relative')
+            expect(slicer.getPositioningMode()).toBe('relative')
+
+            slicer.setPositioningMode('ABSOLUTE')
+            expect(slicer.getPositioningMode()).toBe('absolute')
+
         test 'should set and get extruder mode', ->
 
             expect(slicer.getExtruderMode()).toBe('absolute') # default.
@@ -786,6 +817,63 @@ describe 'Accessors (Getters and Setters)', ->
             # Should ignore invalid values.
             slicer.setExtruderMode('invalid')
             expect(slicer.getExtruderMode()).toBe('absolute') # unchanged.
+
+            # Should accept any capitalization.
+            slicer.setExtruderMode('Relative')
+            expect(slicer.getExtruderMode()).toBe('relative')
+
+            slicer.setExtruderMode('ABSOLUTE')
+            expect(slicer.getExtruderMode()).toBe('absolute')
+
+        test 'should accept case-insensitive input for all string setters', ->
+
+            # Each string setter must accept any capitalization and store the canonical form.
+            # This prevents silent failures caused by toLowerCase() vs camelCase mismatch.
+
+            slicer.setWorkspacePlane('xy')
+            expect(slicer.getWorkspacePlane()).toBe('XY')
+
+            slicer.setTimeUnit('SECONDS')
+            expect(slicer.getTimeUnit()).toBe('seconds')
+
+            slicer.setLengthUnit('INCHES')
+            expect(slicer.getLengthUnit()).toBe('inches')
+
+            slicer.setSpeedUnit('MILLIMETERSECOND')
+            expect(slicer.getSpeedUnit()).toBe('millimeterSecond')
+
+            slicer.setTemperatureUnit('FAHRENHEIT')
+            expect(slicer.getTemperatureUnit()).toBe('fahrenheit')
+
+            slicer.setAngleUnit('RADIAN')
+            expect(slicer.getAngleUnit()).toBe('radian')
+
+            slicer.setInfillPattern('GRID')
+            expect(slicer.getInfillPattern()).toBe('grid')
+
+            slicer.setInfillPatternCentering('GLOBAL')
+            expect(slicer.getInfillPatternCentering()).toBe('global')
+
+            slicer.setSupportType('NORMAL')
+            expect(slicer.getSupportType()).toBe('normal')
+
+            slicer.setSupportPlacement('EVERYWHERE')
+            expect(slicer.getSupportPlacement()).toBe('everywhere')
+
+            slicer.setSupportPlacement('BUILDPLATE')
+            expect(slicer.getSupportPlacement()).toBe('buildPlate')
+
+            slicer.setAdhesionType('BRIM')
+            expect(slicer.getAdhesionType()).toBe('brim')
+
+            slicer.setSkirtType('CIRCULAR')
+            expect(slicer.getSkirtType()).toBe('circular')
+
+            slicer.setPositioningMode('RELATIVE')
+            expect(slicer.getPositioningMode()).toBe('relative')
+
+            slicer.setExtruderMode('RELATIVE')
+            expect(slicer.getExtruderMode()).toBe('relative')
 
     describe 'Configuration Object Accessors', ->
 

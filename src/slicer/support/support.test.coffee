@@ -97,6 +97,20 @@ describe 'Support Module', ->
 
             expect(result).toBeUndefined()
 
+        test 'should allow switching supportPlacement from everywhere back to buildPlate', ->
+
+            # Setting to 'everywhere' then back to 'buildPlate' must persist correctly.
+            # Regression test for bug where setSupportPlacement('buildPlate') silently
+            # failed because toLowerCase() turned 'buildPlate' into 'buildplate' which
+            # did not match the validation array ["everywhere", "buildPlate"].
+            slicer.setSupportPlacement('everywhere')
+
+            expect(slicer.getSupportPlacement()).toBe('everywhere')
+
+            slicer.setSupportPlacement('buildPlate')
+
+            expect(slicer.getSupportPlacement()).toBe('buildPlate')
+
         test 'should use supportThreshold for overhang detection', ->
 
             slicer.setSupportEnabled(true)
