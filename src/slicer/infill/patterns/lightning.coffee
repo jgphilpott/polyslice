@@ -134,7 +134,7 @@ module.exports =
                     for segment in clippedSegments
 
                         # Add zig-zag kink to main branch for lightning-like appearance.
-                        mainKinkT = 0.4 + 0.15 * Math.sin(branchIndex * 2.3)
+                        mainKinkT = 0.475 + 0.075 * Math.sin(branchIndex * 2.3)
                         mainKinkSide = if branchIndex % 2 is 0 then 1 else -1
                         addKinkedLine(allInfillLines, segment.start, segment.end, mainKinkT, branchLength * 0.2 * mainKinkSide, infillBoundary, holeInnerWalls)
 
@@ -146,8 +146,8 @@ module.exports =
                         perpDirY = rotatedDirX
 
                         # Left fork at ~35-45%, right fork at ~55-65% for asymmetric look.
-                        leftForkT = 0.3 + 0.15 * (Math.sin(targetDistance * 7.3) * 0.5 + 0.5)
-                        rightForkT = 0.55 + 0.15 * (Math.cos(targetDistance * 5.7) * 0.5 + 0.5)
+                        leftForkT = 0.35 + 0.10 * (Math.sin(targetDistance * 7.3) * 0.5 + 0.5)
+                        rightForkT = 0.55 + 0.10 * (Math.cos(targetDistance * 5.7) * 0.5 + 0.5)
 
                         for sideIdx in [0...2]
 
@@ -170,15 +170,10 @@ module.exports =
                                 subEndX = forkX + subBranchDirX * subBranchLength
                                 subEndY = forkY + subBranchDirY * subBranchLength
 
-                                # Clip sub-branch (clipper handles out-of-bounds endpoints).
+                                # Clip and add zig-zag kink to sub-branch.
                                 subStartPoint = { x: forkX, y: forkY }
                                 subEndPoint = { x: subEndX, y: subEndY }
-                                subClippedSegments = clipping.clipLineWithHoles(subStartPoint, subEndPoint, infillBoundary, holeInnerWalls)
-
-                                for subSegment in subClippedSegments
-
-                                    # Add zig-zag kink to sub-branch.
-                                    addKinkedLine(allInfillLines, subSegment.start, subSegment.end, 0.5, subBranchLength * 0.2 * side, infillBoundary, holeInnerWalls)
+                                addKinkedLine(allInfillLines, subStartPoint, subEndPoint, 0.5, subBranchLength * 0.2 * side, infillBoundary, holeInnerWalls)
 
                     branchIndex++
 
