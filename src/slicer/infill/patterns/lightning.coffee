@@ -5,6 +5,26 @@ primitives = require('../../utils/primitives')
 clipping = require('../../utils/clipping')
 combing = require('../../geometry/combing')
 
+# Add a zig-zagged line by routing via a kink point for lightning-like sharpness.
+addKinkedLine = (lines, startPt, endPt, kinkT, kinkOffset, boundary, holeInnerWalls) ->
+
+    dx = endPt.x - startPt.x
+    dy = endPt.y - startPt.y
+    len = Math.sqrt(dx * dx + dy * dy)
+
+    return if len < 0.001
+
+    perpX = -dy / len
+    perpY = dx / len
+
+    kinkPt = { x: startPt.x + dx * kinkT + perpX * kinkOffset, y: startPt.y + dy * kinkT + perpY * kinkOffset }
+
+    for seg in clipping.clipLineWithHoles(startPt, kinkPt, boundary, holeInnerWalls)
+        lines.push({ start: seg.start, end: seg.end })
+
+    for seg in clipping.clipLineWithHoles(kinkPt, endPt, boundary, holeInnerWalls)
+        lines.push({ start: seg.start, end: seg.end })
+
 module.exports =
 
     # Generate lightning pattern infill (tree-like branching structure).
@@ -64,6 +84,7 @@ module.exports =
         # Generate branches from boundary points.
         currentDistance = 0
         targetDistance = 0
+        branchIndex = 0
 
         for i in [0...infillBoundary.length]
             p1 = infillBoundary[i]
@@ -112,24 +133,31 @@ module.exports =
 
                     for segment in clippedSegments
 
-                        allInfillLines.push({
-                            start: segment.start
-                            end: segment.end
-                        })
+                        # Add zig-zag kink to main branch for lightning-like appearance.
+                        mainKinkT = 0.475 + 0.075 * Math.sin(branchIndex * 2.3)
+                        mainKinkSide = if branchIndex % 2 is 0 then 1 else -1
+                        addKinkedLine(allInfillLines, segment.start, segment.end, mainKinkT, branchLength * 0.2 * mainKinkSide, infillBoundary, holeInnerWalls)
 
-                        # Generate sub-branches (forking).
-                        branchMidX = (segment.start.x + segment.end.x) / 2
-                        branchMidY = (segment.start.y + segment.end.y) / 2
-
-                        # Create two sub-branches at 45 degrees from main direction.
+                        # Generate sub-branches forking at different positions for each side.
+                        branchSegDx = segment.end.x - segment.start.x
+                        branchSegDy = segment.end.y - segment.start.y
                         subBranchLength = branchLength * 0.4
                         perpDirX = -rotatedDirY
                         perpDirY = rotatedDirX
 
-                        for side in [-1, 1]
+                        # Left fork at ~35-45%, right fork at ~55-65% for asymmetric look.
+                        leftForkT = 0.35 + 0.10 * (Math.sin(targetDistance * 7.3) * 0.5 + 0.5)
+                        rightForkT = 0.55 + 0.10 * (Math.cos(targetDistance * 5.7) * 0.5 + 0.5)
+
+                        for sideIdx in [0...2]
+
+                            side = if sideIdx is 0 then -1 else 1
+                            forkT = if sideIdx is 0 then leftForkT else rightForkT
+
+                            forkX = segment.start.x + branchSegDx * forkT
+                            forkY = segment.start.y + branchSegDy * forkT
 
                             # Use perpendicular blend to achieve 45° fork angle.
-                            # tan(45°) = 1, so equal blend of main and perpendicular directions.
                             subBranchDirX = (rotatedDirX + perpDirX * side)
                             subBranchDirY = (rotatedDirY + perpDirY * side)
                             subBranchDirLength = Math.sqrt(subBranchDirX * subBranchDirX + subBranchDirY * subBranchDirY)
@@ -139,20 +167,15 @@ module.exports =
                                 subBranchDirX /= subBranchDirLength
                                 subBranchDirY /= subBranchDirLength
 
-                                subEndX = branchMidX + subBranchDirX * subBranchLength
-                                subEndY = branchMidY + subBranchDirY * subBranchLength
+                                subEndX = forkX + subBranchDirX * subBranchLength
+                                subEndY = forkY + subBranchDirY * subBranchLength
 
-                                # Clip sub-branch (clipper handles out-of-bounds endpoints).
-                                subStartPoint = { x: branchMidX, y: branchMidY }
+                                # Clip and add zig-zag kink to sub-branch.
+                                subStartPoint = { x: forkX, y: forkY }
                                 subEndPoint = { x: subEndX, y: subEndY }
-                                subClippedSegments = clipping.clipLineWithHoles(subStartPoint, subEndPoint, infillBoundary, holeInnerWalls)
+                                addKinkedLine(allInfillLines, subStartPoint, subEndPoint, 0.5, subBranchLength * 0.2 * side, infillBoundary, holeInnerWalls)
 
-                                for subSegment in subClippedSegments
-
-                                    allInfillLines.push({
-                                        start: subSegment.start
-                                        end: subSegment.end
-                                    })
+                    branchIndex++
 
                 targetDistance += branchStepSize
 
