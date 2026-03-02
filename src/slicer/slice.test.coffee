@@ -1804,6 +1804,114 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+        test 'should print walls in nesting level order for 3 nested cylinders (sequential matryoshka)', ->
+
+            # Create 3 nested hollow cylinders.
+            # The walls should be printed in nesting level order on each layer.
+            # Starting from home (outside), the expected order is:
+            #   outermost (level 0) → next hole (level 1) → next structure (level 2) → ...
+            # On subsequent layers, order may reverse based on starting position.
+
+            height = 1.2
+            wallThickness = 5
+            gap = 3
+
+            # Innermost cylinder: inner=5, outer=10.
+            inner = await createHollowCylinder(5 + wallThickness, 5, height)
+
+            # Middle cylinder: inner=13, outer=18.
+            middle = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            # Outer cylinder: inner=21, outer=26.
+            outer = await createHollowCylinder(5 + wallThickness + gap + wallThickness + gap + wallThickness, 5 + wallThickness + gap + wallThickness + gap, height)
+
+            # Combine all cylinders.
+            combined = await Polytree.unite(inner, middle)
+            combined = await Polytree.unite(combined, outer)
+            finalMesh = new THREE.Mesh(combined.geometry, combined.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # Extract the first middle layer (layer 3 of 6 at 0.2mm height).
+            lines = result.split('\n')
+            layerStartIndex = -1
+            layerEndIndex = -1
+
+            for lineIndex in [0...lines.length]
+                if lines[lineIndex].includes('LAYER: 3 of')
+                    layerStartIndex = lineIndex
+                else if layerStartIndex >= 0 and lines[lineIndex].includes('LAYER: 4 of')
+                    layerEndIndex = lineIndex
+                    break
+
+            layerEndIndex = lines.length if layerEndIndex < 0
+            layerLines = lines.slice(layerStartIndex, layerEndIndex)
+
+            # Verify the layer has walls.
+            outerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-OUTER')).length
+            expect(outerWallCount).toBe(6)  # 3 cylinders × 2 boundaries (outer + inner circle each).
+
+            # Extract X/Y coordinates of first G1 move after each WALL-OUTER marker.
+            # For sequential nesting order, the radius of successive wall groups should change
+            # monotonically (either decreasing outer→inner or increasing inner→outer).
+            wallRadii = []
+            buildPlateCenterX = slicer.getBuildPlateWidth() / 2
+            buildPlateCenterY = slicer.getBuildPlateLength() / 2
+
+            for lineIndex in [0...layerLines.length]
+
+                if layerLines[lineIndex].includes('TYPE: WALL-OUTER')
+
+                    # Find the first G1 move after this TYPE marker.
+                    for nextOffset in [1..10]
+
+                        break if lineIndex + nextOffset >= layerLines.length
+                        nextLine = layerLines[lineIndex + nextOffset]
+
+                        if nextLine.match(/^G[01]\s/)
+
+                            xMatch = nextLine.match(/X([-\d.]+)/)
+                            yMatch = nextLine.match(/Y([-\d.]+)/)
+
+                            if xMatch and yMatch
+
+                                # Calculate distance from build plate center (proxy for ring radius).
+                                dx = parseFloat(xMatch[1]) - buildPlateCenterX
+                                dy = parseFloat(yMatch[1]) - buildPlateCenterY
+                                radius = Math.sqrt(dx * dx + dy * dy)
+                                wallRadii.push(radius)
+                                break
+
+            # Should have 6 radius measurements (one per WALL-OUTER group).
+            expect(wallRadii.length).toBe(6)
+
+            # Check that all consecutive wall radii are strictly ordered (sequential printing).
+            # Each nesting level has a distinct ring radius, so consecutive radii must all
+            # move in the same direction (outer→inner = decreasing, inner→outer = increasing).
+            RADIUS_TOLERANCE = 1.0  # 1mm tolerance for floating-point variation.
+
+            isAllDecreasing = wallRadii.every((r, i, arr) -> i is 0 or r < arr[i - 1] + RADIUS_TOLERANCE)
+            isAllIncreasing = wallRadii.every((r, i, arr) -> i is 0 or r > arr[i - 1] - RADIUS_TOLERANCE)
+
+            # All consecutive radii must move strictly in one direction.
+            expect(isAllDecreasing or isAllIncreasing).toBe(true)
+
+            # Verify no NaN or errors.
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
     describe 'Nested Structures Infill Generation', ->
 
         Polytree = null
