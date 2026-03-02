@@ -4,6 +4,20 @@ Polyslice = require('../../../index')
 
 THREE = require('three')
 
+# Helper: create a minimal mock slicer for direct lightning module testing.
+createMockSlicer = ->
+    getVerbose: -> false
+    getNozzleDiameter: -> 0.4
+    getTravelSpeed: -> 50
+    getInfillSpeed: -> 40
+    getCoordinatePrecision: -> 3
+    getExtrusionPrecision: -> 5
+    getFeedratePrecision: -> 0
+    gcode: ''
+    cumulativeE: 0
+    newline: '\n'
+    calculateExtrusion: (d, n) -> d * 0.03
+
 describe 'Lightning Infill Generation', ->
 
     slicer = null
@@ -202,3 +216,41 @@ describe 'Lightning Infill Generation', ->
 
             # Higher density should have more branches (more G-code).
             expect(result50.length).toBeGreaterThan(result10.length)
+
+        test 'should produce G1 extrusion moves with multiple segments per branch', ->
+
+            # Directly invoke the lightning module with a minimal mock slicer.
+            lightningModule = require('./lightning')
+
+            # Simple 10mm square boundary.
+            boundary = [{x: 0, y: 0}, {x: 10, y: 0}, {x: 10, y: 10}, {x: 0, y: 10}]
+
+            mockSlicer = createMockSlicer()
+
+            lightningModule.generateLightningInfill(mockSlicer, boundary, 0.2, 0, 0, 4.0, 'object')
+
+            # Zig-zag segments produce extrusion G1 moves — verify they are present.
+            expect(mockSlicer.gcode).toContain('G1')
+
+            # Zig-zag kinking means multiple G1 segments per branch, so total count > 5.
+            expect(mockSlicer.gcode.split('G1').length - 1).toBeGreaterThan(5)
+
+        test 'should generate zig-zag kinks in branch lines', ->
+
+            # Directly invoke the lightning module with a minimal mock slicer.
+            lightningModule = require('./lightning')
+
+            # Simple 10mm square boundary.
+            boundary = [{x: 0, y: 0}, {x: 10, y: 0}, {x: 10, y: 10}, {x: 0, y: 10}]
+
+            mockSlicer = createMockSlicer()
+
+            lightningModule.generateLightningInfill(mockSlicer, boundary, 0.2, 0, 0, 4.0, 'object')
+
+            # Count extrusion G1 lines (lines containing both 'G1' and 'E').
+            extrusionLineCount = mockSlicer.gcode.split('\n').filter((line) -> line.includes('G1') and line.includes('E')).length
+
+            # For a 10mm square (perimeter=40mm) with lineSpacing=4.0 (branchSpacing=10mm),
+            # at least 3 branches are generated. Each branch with zig-zag produces ≥2 segments.
+            branchEstimate = 3
+            expect(extrusionLineCount).toBeGreaterThan(branchEstimate * 2)
