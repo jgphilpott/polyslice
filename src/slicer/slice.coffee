@@ -693,9 +693,9 @@ module.exports =
             minNestingLevel = nestingLevels[0]
             maxNestingLevel = nestingLevels[nestingLevels.length - 1]
 
-            # Determine direction: compare minimum distance from starting position to
-            # paths at the outermost vs innermost nesting level.
-            # Minimum distance correctly identifies which extreme level is nearest.
+            # Determine direction: compare distance from starting position to the
+            # centroid of the nearest path at outermost vs innermost nesting level.
+            # Using centroids avoids O(points) vertex iteration and is a sufficient proxy.
             calcMinDistToLevel = (level) =>
 
                 levelPathIndices = pathsByNestingLevel[level]
@@ -705,9 +705,11 @@ module.exports =
 
                 for pathIdx in levelPathIndices
 
-                    for point in paths[pathIdx]
+                    centroid = calculatePathCentroid(paths[pathIdx])
 
-                        dist = calculateDistance(lastPathEndPoint, point)
+                    if centroid
+
+                        dist = calculateDistance(lastPathEndPoint, centroid)
                         minDist = Math.min(minDist, dist)
 
                 return minDist
@@ -732,8 +734,8 @@ module.exports =
 
                 levelPathIndices = pathsByNestingLevel[level]
 
-                # Sort paths at this nesting level by nearest-neighbor from current position.
-                sortedLevelPathIndices = []
+                # Greedy nearest-neighbor: pick closest path, print it, then pick next
+                # closest using the updated lastPathEndPoint from the previous print.
                 remainingLevelPathIndices = levelPathIndices.slice()
 
                 while remainingLevelPathIndices.length > 0
@@ -754,25 +756,17 @@ module.exports =
                                 nearestDist = dist
                                 nearestIdx = pathIdx
 
-                    if nearestIdx >= 0
+                    nearestIdx = remainingLevelPathIndices[0] if nearestIdx < 0
 
-                        sortedLevelPathIndices.push(nearestIdx)
-                        remainingLevelPathIndices = remainingLevelPathIndices.filter((idx) -> idx isnt nearestIdx)
+                    remainingLevelPathIndices = remainingLevelPathIndices.filter((idx) -> idx isnt nearestIdx)
 
-                    else
-
-                        sortedLevelPathIndices.push(remainingLevelPathIndices[0])
-                        remainingLevelPathIndices.shift()
-
-                for pathIdx in sortedLevelPathIndices
-
-                    path = paths[pathIdx]
-                    isHole = pathIsHole[pathIdx]
+                    path = paths[nearestIdx]
+                    isHole = pathIsHole[nearestIdx]
 
                     # Determine if skin walls should be generated.
                     shouldGenerateSkinWalls = false
 
-                    if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[pathIdx]
+                    if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[nearestIdx]
 
                         if isHole
 
@@ -792,8 +786,8 @@ module.exports =
 
                                 shouldGenerateSkinWalls = true
 
-                    innermostWall = generateWallsForPath(path, pathIdx, isHole, shouldGenerateSkinWalls)
-                    innermostWalls[pathIdx] = innermostWall
+                    innermostWall = generateWallsForPath(path, nearestIdx, isHole, shouldGenerateSkinWalls)
+                    innermostWalls[nearestIdx] = innermostWall
 
         else
 

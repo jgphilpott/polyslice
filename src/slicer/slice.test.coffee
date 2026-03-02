@@ -1861,11 +1861,12 @@ describe 'Slicing', ->
             outerWallCount = layerLines.filter((line) -> line.includes('TYPE: WALL-OUTER')).length
             expect(outerWallCount).toBe(6)  # 3 cylinders × 2 boundaries (outer + inner circle each).
 
-            # Extract X coordinates of first G1 move after each WALL-OUTER marker.
+            # Extract X/Y coordinates of first G1 move after each WALL-OUTER marker.
             # For sequential nesting order, the radius of successive wall groups should change
             # monotonically (either decreasing outer→inner or increasing inner→outer).
             wallRadii = []
-            buildPlateCenter = slicer.getBuildPlateWidth() / 2
+            buildPlateCenterX = slicer.getBuildPlateWidth() / 2
+            buildPlateCenterY = slicer.getBuildPlateLength() / 2
 
             for lineIndex in [0...layerLines.length]
 
@@ -1885,8 +1886,8 @@ describe 'Slicing', ->
                             if xMatch and yMatch
 
                                 # Calculate distance from build plate center (proxy for ring radius).
-                                dx = parseFloat(xMatch[1]) - buildPlateCenter
-                                dy = parseFloat(yMatch[1]) - buildPlateCenter
+                                dx = parseFloat(xMatch[1]) - buildPlateCenterX
+                                dy = parseFloat(yMatch[1]) - buildPlateCenterY
                                 radius = Math.sqrt(dx * dx + dy * dy)
                                 wallRadii.push(radius)
                                 break
