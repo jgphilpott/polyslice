@@ -370,9 +370,19 @@ module.exports =
 
     setSpeedUnit: (slicer, unit = "millimeterSecond") ->
 
-        if ["millimeterSecond", "inchSecond", "meterSecond"].includes unit
+        normalized = unit.toLowerCase().trim()
 
-            slicer.speedUnit = String unit
+        if normalized is "millimetersecond"
+
+            slicer.speedUnit = "millimeterSecond"
+
+        else if normalized is "inchsecond"
+
+            slicer.speedUnit = "inchSecond"
+
+        else if normalized is "metersecond"
+
+            slicer.speedUnit = "meterSecond"
 
         return slicer
 
@@ -908,6 +918,8 @@ module.exports =
 
     setPositioningMode: (slicer, mode = "absolute") ->
 
+        mode = mode.toLowerCase().trim()
+
         if ["absolute", "relative"].includes mode
 
             slicer.positioningMode = String mode
@@ -915,6 +927,8 @@ module.exports =
         return slicer
 
     setExtruderMode: (slicer, mode = "absolute") ->
+
+        mode = mode.toLowerCase().trim()
 
         if ["absolute", "relative"].includes mode
 
