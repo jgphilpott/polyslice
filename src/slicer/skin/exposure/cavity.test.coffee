@@ -481,9 +481,11 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             expect(layer47SkinInfillLines.length).toBeGreaterThan(0)
 
             # Extract X and Y coordinates from skin infill lines.
-            # Check that NO infill lines are in the fully covered center area (95-125).
+            # Check that NO infill lines penetrate the inner skin wall of the covered area.
+            # After the infillGap fix, infill extends to X≈95.2 (= boundary + infillGap),
+            # so the center check uses 95.3 (between exclusion zone at 95.2 and skin wall at 95.4).
             # The 3x3 slab covers X=[95, 125] and Y=[95, 125] (approximately).
-            # Skin infill should only be in the outer ring, not the center.
+            # Skin infill should only be in the outer ring, not past the inner skin wall.
             centerInfillCount = 0
 
             for line in layer47SkinInfillLines
@@ -498,13 +500,12 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                     xCoord = parseFloat(xMatch[1])
                     yCoord = parseFloat(yMatch[1])
 
-                    # Check if this coordinate is in the center area (95-125).
-                    # Allow small tolerance for rounding.
-                    if xCoord > 95 and xCoord < 125 and yCoord > 95 and yCoord < 125
+                    # Check if inside the inner skin wall region (past the infillGap exclusion zone).
+                    if xCoord > 95.3 and xCoord < 124.7 and yCoord > 95.3 and yCoord < 124.7
 
                         centerInfillCount += 1
 
-            # Verify that NO skin infill lines are in the fully covered center area.
+            # Verify that NO skin infill lines penetrate the inner skin wall of the covered area.
             # All skin infill should be in the exposed outer ring only.
             expect(centerInfillCount).toBe(0)
 
@@ -745,10 +746,11 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Verify that infill lines don't get too close to the boundary.
             expect(minDistFromBoundary).toBeGreaterThan(expectedMinGap)
 
-        test 'should use covered area boundaries directly without offset for exclusion', ->
+        test 'should use covered area boundaries with infillGap offset for exclusion zone', ->
 
-            # Test that covered area boundaries are used as-is for skin infill exclusion.
-            # This verifies the fix where we removed the double offset issue.
+            # Test that covered area exclusion zone is inset by infillGap from the boundary.
+            # This ensures skin infill stops infillGap away from the inner skin wall,
+            # matching the gap maintained between infill and the outer skin wall.
             cubeSize = 10
 
             baseSlab = new THREE.BoxGeometry(5 * cubeSize, 5 * cubeSize, cubeSize)
@@ -777,9 +779,10 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             result = slicer.slice(finalMesh)
 
-            # Parse to verify that NO skin infill appears in the covered center area.
-            # The covered area boundary (from layer above) should be used directly
-            # as the exclusion zone, preventing any skin infill from entering.
+            # Parse to verify that NO skin infill penetrates the inner skin wall of the covered area.
+            # The exclusion zone = inset(coveredAreaBoundary, infillGap=0.2), so infill extends
+            # to X≈95.2 (boundary + infillGap). The inner skin wall is at X≈95.4.
+            # Skin infill must not appear past the skin wall centerline (checked at 95.3).
             lines = result.split('\n')
             layer47Started = false
             layer48Started = false
@@ -795,7 +798,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                 else if layer47Started and line.includes('Moving to skin infill line')
                     layer47SkinInfillLines.push(line)
 
-            # Count infill in covered center area.
+            # Count infill past the inner skin wall region.
             centerInfillCount = 0
 
             for line in layer47SkinInfillLines
@@ -808,12 +811,12 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                     xCoord = parseFloat(xMatch[1])
                     yCoord = parseFloat(yMatch[1])
 
-                    # Covered area is approximately X=[95, 125], Y=[95, 125].
-                    if xCoord > 95 and xCoord < 125 and yCoord > 95 and yCoord < 125
+                    # Check past inner skin wall (boundary + nozzleDiameter ≈ 95.4, check at 95.3).
+                    if xCoord > 95.3 and xCoord < 124.7 and yCoord > 95.3 and yCoord < 124.7
                         centerInfillCount += 1
 
-            # Verify exact exclusion - no infill in covered area.
-            # This confirms that covered area boundaries are used directly without offset.
+            # Verify skin infill does not penetrate past the inner skin wall.
+            # The exclusion zone inset by infillGap allows infill up to X≈95.2 (correct gap).
             expect(centerInfillCount).toBe(0)
 
             # Verify skin infill exists in exposed areas.
@@ -1010,9 +1013,11 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Verify that layer 51 has skin infill (outer ring exposed area).
             expect(layer51SkinInfillLines.length).toBeGreaterThan(0)
 
-            # Verify NO skin infill lines are in the fully covered center area (95-125).
+            # Verify NO skin infill lines penetrate the inner skin wall of the covered area.
             # The 3x3 slab below covers X=[95,125] and Y=[95,125].
-            # Skin infill should only be in the exposed outer ring, not the center.
+            # After the infillGap fix, infill extends to X≈95.2 (boundary + infillGap=0.2).
+            # The check uses 95.3 (between exclusion zone 95.2 and inner skin wall 95.4).
+            # Skin infill should only be in the exposed outer ring, not past the inner skin wall.
             centerSkinInfillCount = 0
 
             for line in layer51SkinInfillLines
@@ -1025,7 +1030,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                     xCoord = parseFloat(xMatch[1])
                     yCoord = parseFloat(yMatch[1])
 
-                    if xCoord > 95 and xCoord < 125 and yCoord > 95 and yCoord < 125
+                    if xCoord > 95.3 and xCoord < 124.7 and yCoord > 95.3 and yCoord < 124.7
                         centerSkinInfillCount += 1
 
             expect(centerSkinInfillCount).toBe(0)

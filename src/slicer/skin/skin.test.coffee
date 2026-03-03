@@ -1827,3 +1827,155 @@ describe 'Skin Generation', ->
                     expect(dist).toBeLessThanOrEqual(maxAllowedDist)
 
             return
+
+    describe 'Covered Area Skin Wall Gap', ->
+
+        skinModule = require('./skin')
+
+        test 'should maintain infillGap between skin infill and covered area skin wall', ->
+
+            # Regression test: skin infill was too far from the inner (covered-area) skin wall.
+            # The exclusion zone for covered-area walls was the raw boundary (no gap applied),
+            # causing infill to stop nozzleDiameter away instead of the expected infillGap.
+
+            nozzleDiameter = 0.4
+            infillGap = nozzleDiameter / 2  # 0.2mm
+
+            # Set up slicer with known settings.
+            slicer.setNozzleDiameter(nozzleDiameter)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.gcode = ''
+            slicer.cumulativeE = 0
+
+            # Outer boundary: 40x40 square with bottom-left at (0, 0).
+            outerBoundary = [
+                {x: 0, y: 0}
+                {x: 40, y: 0}
+                {x: 40, y: 40}
+                {x: 0, y: 40}
+            ]
+
+            # Covered area boundary: 20x20 square at (10, 10)-(30, 30).
+            # This simulates fullyCoveredSkinWall from a transition layer (e.g. pyramid layer 50).
+            # The covered area skin wall is drawn at inset(coveredAreaPath, 0.4) = (10.4, 10.4)-(29.6, 29.6).
+            # After the fix: exclusion zone = inset(coveredAreaPath, infillGap=0.2) = (10.2, 10.2)-(29.8, 29.8),
+            # so the nearest infill endpoint on the left has X ≈ 10.2, giving gap = 10.4 - 10.2 = 0.2mm. ✓
+            # Before the fix: exclusion zone = coveredAreaPath itself (X=10.0), giving gap = 0.4mm. ✗
+            coveredAreaPath = [
+                {x: 10, y: 10}
+                {x: 30, y: 10}
+                {x: 30, y: 30}
+                {x: 10, y: 30}
+            ]
+
+            # Generate skin infill for the outer ring (O-shape) with the covered area wall.
+            skinModule.generateSkinGCode(slicer, outerBoundary, 1.0, 0, 0, 0, null, false, true, [], [], [coveredAreaPath], false, true)
+
+            lines = slicer.gcode.split('\n')
+
+            # Collect all infill endpoint X coords near the inner left boundary (X in 9.5..10.5).
+            # This narrow range targets only LEFT-side exclusion zone approaches (X≈10.2),
+            # avoiding bottom/top approaches (which land at X≈11-12 with Y at 10.2 or 29.8).
+            # After fix they land at X ≈ 10.2; before fix they would land at X ≈ 10.0.
+            nearInnerLeftX = []
+
+            for line in lines
+
+                xMatch = line.match(/X([\d.]+)/)
+
+                if xMatch
+
+                    x = parseFloat(xMatch[1])
+
+                    if x > 9.5 and x < 10.5
+
+                        nearInnerLeftX.push(x)
+
+            expect(nearInnerLeftX.length).toBeGreaterThan(0)
+
+            # The nearest infill endpoint to the inner left skin wall should be at X ≈ 10.2
+            # (= coveredAreaPath.left + infillGap = 10.0 + 0.2).
+            # Before fix it would be at X ≈ 10.0 (raw boundary, no gap applied).
+            maxNearInnerX = Math.max(...nearInnerLeftX)
+
+            expect(maxNearInnerX).toBeGreaterThanOrEqual(10.0 + infillGap - 0.05)  # ≥ 10.15
+            expect(maxNearInnerX).toBeLessThan(10.0 + nozzleDiameter)              # < 10.4 (skin wall)
+
+            return
+
+        test 'should match gap on both sides of covered area boundary', ->
+
+            # Verify the gap is symmetric: infill is infillGap from the inner skin wall on both sides.
+
+            nozzleDiameter = 0.4
+            infillGap = nozzleDiameter / 2  # 0.2mm
+
+            slicer.setNozzleDiameter(nozzleDiameter)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.gcode = ''
+            slicer.cumulativeE = 0
+
+            outerBoundary = [
+                {x: 0, y: 0}
+                {x: 40, y: 0}
+                {x: 40, y: 40}
+                {x: 0, y: 40}
+            ]
+
+            coveredAreaPath = [
+                {x: 10, y: 10}
+                {x: 30, y: 10}
+                {x: 30, y: 30}
+                {x: 10, y: 30}
+            ]
+
+            skinModule.generateSkinGCode(slicer, outerBoundary, 1.0, 0, 0, 0, null, false, true, [], [], [coveredAreaPath], false, true)
+
+            lines = slicer.gcode.split('\n')
+
+            # Collect endpoints near left (X in 9.5..10.5) and right (X in 29.5..30.5) inner boundaries.
+            # Narrow ranges target only the LEFT and RIGHT sides of the exclusion zone, avoiding
+            # bottom/top approaches which have different X coordinates (e.g. X≈11-12 at Y=10.2).
+            nearLeftX = []
+            nearRightX = []
+
+            for line in lines
+
+                xMatch = line.match(/X([\d.]+)/)
+
+                if xMatch
+
+                    x = parseFloat(xMatch[1])
+
+                    if x > 9.5 and x < 10.5
+
+                        nearLeftX.push(x)
+
+                    if x > 29.5 and x < 30.5
+
+                        nearRightX.push(x)
+
+            expect(nearLeftX.length).toBeGreaterThan(0)
+            expect(nearRightX.length).toBeGreaterThan(0)
+
+            # Left side: nearest infill endpoint ≈ coveredAreaPath.left + infillGap = 10.2.
+            # Right side: nearest infill endpoint ≈ coveredAreaPath.right - infillGap = 29.8.
+            # Inner skin wall at 10.4 (left) and 29.6 (right).
+            # Gap left:  10.4 - 10.2 = 0.2mm = infillGap ✓
+            # Gap right: 29.8 - 29.6 = 0.2mm = infillGap ✓
+            maxLeftX = Math.max(...nearLeftX)
+            minRightX = Math.min(...nearRightX)
+
+            gapLeft = (10.0 + nozzleDiameter) - maxLeftX   # inner skin wall X - nearest infill X
+            gapRight = minRightX - (30.0 - nozzleDiameter) # nearest infill X - inner skin wall X
+
+            expect(gapLeft).toBeGreaterThanOrEqual(infillGap - 0.05)   # ≥ 0.15
+            expect(gapLeft).toBeLessThanOrEqual(infillGap + 0.05)      # ≤ 0.25
+            expect(gapRight).toBeGreaterThanOrEqual(infillGap - 0.05)  # ≥ 0.15
+            expect(gapRight).toBeLessThanOrEqual(infillGap + 0.05)     # ≤ 0.25
+
+            return

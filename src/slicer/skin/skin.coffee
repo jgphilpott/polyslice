@@ -153,14 +153,20 @@ module.exports =
 
                     holeSkinWallsWithGap.push(holeSkinWallWithGap)
 
-        # Use covered area boundaries as exclusion zones.
+        # Use covered area boundaries as exclusion zones with infill gap.
+        # Inset inward by infillGap so that infill sits infillGap away from the covered area skin wall,
+        # matching the gap maintained between infill and the outer skin wall.
         coveredAreaSkinWallsWithGap = []
 
         for coveredAreaSkinWall in coveredAreaSkinWalls
 
             if coveredAreaSkinWall.length >= 3
 
-                coveredAreaSkinWallsWithGap.push(coveredAreaSkinWall)
+                coveredAreaSkinWallWithGap = paths.createInsetPath(coveredAreaSkinWall, infillGap, false)
+
+                if coveredAreaSkinWallWithGap.length >= 3
+
+                    coveredAreaSkinWallsWithGap.push(coveredAreaSkinWallWithGap)
 
         # Calculate bounding box.
         minX = Infinity
