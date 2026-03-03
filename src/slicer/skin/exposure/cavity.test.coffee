@@ -441,6 +441,8 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             finalMesh.updateMatrixWorld()
 
             # Configure slicer with exposure detection enabled.
+            nozzleDiameter = 0.4
+            slicer.setNozzleDiameter(nozzleDiameter)
             slicer.setLayerHeight(0.2)
             slicer.setShellSkinThickness(0.8)  # 4 skin layers.
             slicer.setShellWallThickness(0.8)
@@ -482,10 +484,13 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             # Extract X and Y coordinates from skin infill lines.
             # Check that NO infill lines penetrate the inner skin wall of the covered area.
-            # After the infillGap fix, infill extends to X≈95.2 (= boundary + infillGap),
-            # so the center check uses 95.3 (between exclusion zone at 95.2 and skin wall at 95.4).
             # The 3x3 slab covers X=[95, 125] and Y=[95, 125] (approximately).
+            # After the infillGap fix, infill extends to boundary + infillGap (= 95.2).
+            # Threshold is set between the exclusion zone and the inner skin wall (mid-point ≈ 95.3).
             # Skin infill should only be in the outer ring, not past the inner skin wall.
+            infillGap = nozzleDiameter / 2
+            innerBoundary = 95 + infillGap + 0.1   # midpoint between exclusion zone and skin wall
+            outerBoundary = 125 - infillGap - 0.1  # symmetric on far side
             centerInfillCount = 0
 
             for line in layer47SkinInfillLines
@@ -501,7 +506,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                     yCoord = parseFloat(yMatch[1])
 
                     # Check if inside the inner skin wall region (past the infillGap exclusion zone).
-                    if xCoord > 95.3 and xCoord < 124.7 and yCoord > 95.3 and yCoord < 124.7
+                    if xCoord > innerBoundary and xCoord < outerBoundary and yCoord > innerBoundary and yCoord < outerBoundary
 
                         centerInfillCount += 1
 
@@ -770,6 +775,8 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             finalMesh.updateMatrixWorld()
 
             # Configure slicer.
+            nozzleDiameter = 0.4
+            slicer.setNozzleDiameter(nozzleDiameter)
             slicer.setLayerHeight(0.2)
             slicer.setShellSkinThickness(0.8)
             slicer.setShellWallThickness(0.8)
@@ -780,9 +787,12 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             result = slicer.slice(finalMesh)
 
             # Parse to verify that NO skin infill penetrates the inner skin wall of the covered area.
-            # The exclusion zone = inset(coveredAreaBoundary, infillGap=0.2), so infill extends
-            # to X≈95.2 (boundary + infillGap). The inner skin wall is at X≈95.4.
-            # Skin infill must not appear past the skin wall centerline (checked at 95.3).
+            # The exclusion zone = inset(coveredAreaBoundary, infillGap), so infill extends
+            # to boundary + infillGap. The inner skin wall is at boundary + nozzleDiameter.
+            # Threshold is mid-point between exclusion zone and skin wall.
+            infillGap = nozzleDiameter / 2
+            innerBoundary = 95 + infillGap + 0.1   # midpoint between exclusion zone and skin wall
+            outerBoundary = 125 - infillGap - 0.1  # symmetric on far side
             lines = result.split('\n')
             layer47Started = false
             layer48Started = false
@@ -811,12 +821,12 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                     xCoord = parseFloat(xMatch[1])
                     yCoord = parseFloat(yMatch[1])
 
-                    # Check past inner skin wall (boundary + nozzleDiameter ≈ 95.4, check at 95.3).
-                    if xCoord > 95.3 and xCoord < 124.7 and yCoord > 95.3 and yCoord < 124.7
+                    # Check past inner skin wall (boundary + nozzleDiameter).
+                    if xCoord > innerBoundary and xCoord < outerBoundary and yCoord > innerBoundary and yCoord < outerBoundary
                         centerInfillCount += 1
 
             # Verify skin infill does not penetrate past the inner skin wall.
-            # The exclusion zone inset by infillGap allows infill up to X≈95.2 (correct gap).
+            # The exclusion zone inset by infillGap allows infill up to boundary + infillGap (correct gap).
             expect(centerInfillCount).toBe(0)
 
             # Verify skin infill exists in exposed areas.
@@ -967,6 +977,8 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             finalMesh.updateMatrixWorld()
 
             # Configure slicer with exposure detection enabled.
+            nozzleDiameter = 0.4
+            slicer.setNozzleDiameter(nozzleDiameter)
             slicer.setLayerHeight(0.2)
             slicer.setShellSkinThickness(0.8)  # 4 skin layers.
             slicer.setShellWallThickness(0.8)
@@ -986,6 +998,9 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Build plate center = 110x110 (220x220 bed).
             # 3x3 slab covers X=[95,125], Y=[95,125].
             # 5x5 slab covers X=[85,135], Y=[85,135].
+            infillGap = nozzleDiameter / 2
+            innerBoundary = 95 + infillGap + 0.1   # midpoint between exclusion zone and skin wall
+            outerBoundary = 125 - infillGap - 0.1  # symmetric on far side
             lines = result.split('\n')
             layer51Started = false
             layer51SkinInfillLines = []
@@ -1015,8 +1030,8 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             # Verify NO skin infill lines penetrate the inner skin wall of the covered area.
             # The 3x3 slab below covers X=[95,125] and Y=[95,125].
-            # After the infillGap fix, infill extends to X≈95.2 (boundary + infillGap=0.2).
-            # The check uses 95.3 (between exclusion zone 95.2 and inner skin wall 95.4).
+            # After the infillGap fix, infill extends to boundary + infillGap.
+            # Threshold is mid-point between exclusion zone and inner skin wall.
             # Skin infill should only be in the exposed outer ring, not past the inner skin wall.
             centerSkinInfillCount = 0
 
@@ -1030,7 +1045,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                     xCoord = parseFloat(xMatch[1])
                     yCoord = parseFloat(yMatch[1])
 
-                    if xCoord > 95.3 and xCoord < 124.7 and yCoord > 95.3 and yCoord < 124.7
+                    if xCoord > innerBoundary and xCoord < outerBoundary and yCoord > innerBoundary and yCoord < outerBoundary
                         centerSkinInfillCount += 1
 
             expect(centerSkinInfillCount).toBe(0)
