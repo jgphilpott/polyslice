@@ -137,13 +137,15 @@ describe 'Tree Support Module', ->
             startMatch = g0lines[0].match(/X([\-\d.]+)/)
             endMatch = g1lines[11]?.match(/X([\-\d.]+)/)  # index 11 = CIRCLE_SEGMENTS - 1
 
-            if startMatch and endMatch
+            # Fail loudly if the G-code format has changed and the coordinates cannot be found.
+            expect(startMatch).toBeTruthy()
+            expect(endMatch).toBeTruthy()
 
-                startX = parseFloat(startMatch[1])
-                endX = parseFloat(endMatch[1])
+            startX = parseFloat(startMatch[1])
+            endX = parseFloat(endMatch[1])
 
-                # The circle closes: last polygon vertex matches the start vertex.
-                expect(startX).toBeCloseTo(endX, 3)
+            # The circle closes: last polygon vertex matches the start vertex.
+            expect(startX).toBeCloseTo(endX, 3)
 
     describe 'getFaceZAtPoint', ->
 
@@ -323,6 +325,42 @@ describe 'Tree Support Module', ->
             segmentsLarge = treeSupport.buildTreeStructure(regionLarge, 0.4, 0, 0.2)
 
             expect(segmentsLarge.length).toBeGreaterThan(segmentsSmall.length)
+
+        test 'should emit exactly one trunk segment regardless of branch count', ->
+
+            # A wide region has multiple branches but must have only a single vertical trunk.
+            region = makeRegion(-15, 15, -15, 15, 20)
+            segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2)
+
+            trunkSegments = segments.filter (s) -> s.type is 'trunk'
+
+            expect(trunkSegments.length).toBe(1)
+
+        test 'should always include a trunk segment even when overhang is wide and low', ->
+
+            # Wide region (20mm) at a low Z (3mm) forces branchRootZ to be clamped for
+            # every branch — the old code would emit no trunk in this case.
+            region = makeRegion(0, 20, 0, 20, 3)
+            segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2)
+
+            # Must still have at least one trunk segment.
+            trunkSegments = segments.filter (s) -> s.type is 'trunk'
+
+            expect(trunkSegments.length).toBeGreaterThan(0)
+
+        test 'should cluster consistently when the same region is offset on the build plate', ->
+
+            # Two identical geometries placed at different absolute positions.
+            # Clustering anchored to region minX/minY means the number of branch nodes
+            # (and therefore segments) should be the same regardless of offset.
+            regionAtOrigin = makeRegion(0, 20, 0, 20, 20)
+            regionOffset = makeRegion(100, 120, 200, 220, 20)
+
+            segsOrigin = treeSupport.buildTreeStructure(regionAtOrigin, 0.4, 0, 0.2)
+            segsOffset = treeSupport.buildTreeStructure(regionOffset, 0.4, 0, 0.2)
+
+            # The two structures should produce the same segment counts.
+            expect(segsOffset.length).toBe(segsOrigin.length)
 
     describe 'generateTreePattern', ->
 

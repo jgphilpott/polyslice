@@ -125,14 +125,16 @@ module.exports =
         trunkX /= tips.length
         trunkY /= tips.length
 
-        # Cluster tips into branch groups using a regular grid of cells.
+        # Cluster tips into branch groups using a grid anchored to the region's own minX/minY.
+        # Using floor((tip - min) / spacing) keeps cell boundaries region-local so clustering
+        # is stable regardless of the model's absolute position on the build plate.
         clusterSpacing = contactSpacing * BRANCH_CLUSTER_SIZE
         clusterMap = {}
 
         for tip in tips
 
-            cellX = Math.round(tip.x / clusterSpacing)
-            cellY = Math.round(tip.y / clusterSpacing)
+            cellX = Math.floor((tip.x - minX) / clusterSpacing)
+            cellY = Math.floor((tip.y - minY) / clusterSpacing)
             key = "#{cellX},#{cellY}"
             clusterMap[key] ?= []
             clusterMap[key].push(tip)
@@ -157,8 +159,12 @@ module.exports =
 
             branchNodes.push({ x: cx, y: cy, z: maxZ, tips: clusterTips })
 
-        # Build trunk, branch, and twig segments for each branch node.
-        segments = []
+        # Compute branch root heights: where each branch diverges from the shared trunk.
+        # The ideal root height is determined by the 45° angle constraint
+        # (vertical rise = horizontal spread from trunk to branch centroid).
+        # Root Z is clamped to the first printable layer above the build plate;
+        # the clamp may reduce the effective angle below 45° for wide or low overhangs.
+        branchRootZs = []
 
         for node in branchNodes
 
@@ -166,20 +172,30 @@ module.exports =
             dy = node.y - trunkY
             dist = Math.sqrt(dx * dx + dy * dy)
 
-            # Enforce 45-degree constraint: vertical rise equals horizontal spread.
-            branchRootZ = node.z - dist
-            branchRootZ = Math.max(branchRootZ, buildPlateZ + layerHeight)
+            idealZ = node.z - dist
+            branchRootZs.push(Math.max(idealZ, buildPlateZ + layerHeight))
 
-            # Trunk segment: vertical column from build plate to where this branch splits off.
-            if branchRootZ > buildPlateZ + layerHeight
+        # Single shared trunk segment: vertical column from build plate to the highest
+        # branch split point.  One segment (rather than one per branch) avoids duplicate
+        # overlapping trunk renders at the same trunk XY on every layer.
+        trunkTopZ = buildPlateZ + layerHeight
 
-                segments.push({
-                    x1: trunkX, y1: trunkY, z1: buildPlateZ
-                    x2: trunkX, y2: trunkY, z2: branchRootZ
-                    type: 'trunk'
-                })
+        for bz in branchRootZs
 
-            # Branch segment: angled from trunk top toward the branch node at ~45 degrees.
+            trunkTopZ = Math.max(trunkTopZ, bz)
+
+        segments = [{
+            x1: trunkX, y1: trunkY, z1: buildPlateZ
+            x2: trunkX, y2: trunkY, z2: trunkTopZ
+            type: 'trunk'
+        }]
+
+        for nodeIdx in [0...branchNodes.length]
+
+            node = branchNodes[nodeIdx]
+            branchRootZ = branchRootZs[nodeIdx]
+
+            # Branch segment: angled from trunk toward the branch node.
             segments.push({
                 x1: trunkX, y1: trunkY, z1: branchRootZ
                 x2: node.x, y2: node.y, z2: node.z
