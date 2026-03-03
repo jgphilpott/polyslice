@@ -1912,6 +1912,113 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+        test 'should print skin infill sequentially after walls for each nesting level (matryoshka)', ->
+
+            # Create 2 nested hollow cylinders (matryoshka-style).
+            # For skin layers (absolute top/bottom), the expected TYPE order is:
+            #   Outer ring walls + skin wall (levels 0+1 in Phase 1)
+            #   Outer ring skin INFILL (NEW: sequential step after level 1 processed)
+            #   Inner ring walls + skin wall (levels 2+3 in Phase 1)
+            #   Inner ring skin INFILL (NEW: sequential step after level 3 processed)
+            # Key assertion: inner ring's WALL-OUTER appears AFTER outer ring's skin infill SKIN.
+
+            height = 1.2
+            wallThickness = 5
+            gap = 3
+
+            # Inner ring: outer=10, inner=5.
+            innerRing = await createHollowCylinder(5 + wallThickness, 5, height)
+
+            # Outer ring: outer=18, inner=13.
+            outerRing = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            combined = await Polytree.unite(innerRing, outerRing)
+            finalMesh = new THREE.Mesh(combined.geometry, combined.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer with skin layers.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.4)  # 2 skin layers at top and bottom.
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(finalMesh)
+
+            # Find layer 1 (bottom skin layer).
+            lines = result.split('\n')
+            layer1Start = -1
+            layer2Start = -1
+
+            for lineIndex in [0...lines.length]
+
+                if lines[lineIndex].includes('LAYER: 1 of')
+                    layer1Start = lineIndex
+                else if layer1Start >= 0 and lines[lineIndex].includes('LAYER: 2 of')
+                    layer2Start = lineIndex
+                    break
+
+            expect(layer1Start).toBeGreaterThan(-1)
+
+            layer2Start = lines.length if layer2Start < 0
+            layer1Lines = lines.slice(layer1Start, layer2Start)
+
+            # Build type sequence for layer 1.
+            typeSequence = []
+
+            for line in layer1Lines
+
+                if line.includes('TYPE: WALL-OUTER')
+                    typeSequence.push('WALL-OUTER')
+                else if line.includes('TYPE: WALL-INNER')
+                    typeSequence.push('WALL-INNER')
+                else if line.includes('TYPE: SKIN')
+                    typeSequence.push('SKIN')
+                else if line.includes('TYPE: FILL')
+                    typeSequence.push('FILL')
+
+            # We must have at least 4 SKIN entries (2 skin walls + 2 skin infills per ring pair).
+            skinCount = typeSequence.filter((t) -> t is 'SKIN').length
+            expect(skinCount).toBeGreaterThanOrEqual(4)
+
+            # Key check: verify sequential ordering.
+            # Find the first SKIN entry that appears after 2+ WALL-OUTER markers.
+            # This represents the skin infill for the outer ring (sequential step).
+            outerWallCount = 0
+            firstSkinAfterWalls = -1
+
+            for typeIndex in [0...typeSequence.length]
+
+                type = typeSequence[typeIndex]
+
+                if type is 'WALL-OUTER'
+                    outerWallCount++
+                else if type is 'SKIN' and outerWallCount >= 2 and firstSkinAfterWalls < 0
+                    firstSkinAfterWalls = typeIndex
+
+            # There must be a SKIN entry after 2+ WALL-OUTER markers.
+            expect(firstSkinAfterWalls).toBeGreaterThan(-1)
+
+            # After this SKIN, there must be another WALL-OUTER (inner ring's walls).
+            hasWallAfterSkin = false
+
+            for typeIndex in [firstSkinAfterWalls + 1...typeSequence.length]
+
+                if typeSequence[typeIndex] is 'WALL-OUTER'
+                    hasWallAfterSkin = true
+                    break
+
+            # This is the key assertion: walls for inner ring appear AFTER skin infill for outer ring.
+            expect(hasWallAfterSkin).toBe(true)
+
+            # Verify no errors.
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
     describe 'Nested Structures Infill Generation', ->
 
         Polytree = null
