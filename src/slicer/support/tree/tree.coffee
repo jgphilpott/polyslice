@@ -1,28 +1,33 @@
 # Tree support generation module.
-# Generates tree-like branching supports with convergence behavior.
-# Near the overhang: fine contact grid. Far from overhang: sparse trunk columns.
-# Branch contact points converge down to trunk columns as Z decreases.
+# Generates anatomically-correct tree supports that grow upward from a single trunk,
+# splitting into branches and fine twig tips that contact the overhang surface.
+# The structure converges as it descends toward the build plate:
+#   - Many fine twig tips spread across the overhang area (top)
+#   - Twig tips merge into branch nodes at approximately 45-degree angles
+#   - Branches converge to a single vertical trunk column (bottom)
 
 coders = require('../../gcode/coders')
 normalSupportModule = require('../normal/normal')
 
-# Height (mm) below the overhang within which the fine contact grid is used.
-BRANCH_HEIGHT = 8.0
-
-# Contact spacing multiplier (fine grid near overhang).
-CONTACT_SPACING_MULTIPLIER = 1.5
-
-# Trunk spacing multiplier (coarse columns far from overhang).
-TRUNK_SPACING_MULTIPLIER = 4.0
-
 # Minimum 2D triangle area threshold for barycentric interpolation.
 DEGENERATE_TRIANGLE_THRESHOLD = 0.0001
+
+# Spacing between contact tip grid points (in nozzle diameters).
+# Tree supports intentionally use a coarser contact grid than normal supports
+# because the angled twig tips provide adequate coverage with wider spacing.
+CONTACT_SPACING_MULTIPLIER = 3.0
+
+# Cluster cell size as a multiple of contact spacing.
+# Tips within one cluster cell share a branch node.
+BRANCH_CLUSTER_SIZE = 3.0
+
+# Half-size of the cross arms as a multiplier of nozzle diameter.
+CROSS_SIZE_MULTIPLIER = 0.8
 
 module.exports =
 
     # Return the interpolated face Z at (x, y) by searching all region faces.
     # Returns null if the point lies outside every face's 2D XY projection.
-    # Used for per-point zone selection (branch vs trunk) on sloped overhangs.
     getFaceZAtPoint: (x, y, faces) ->
 
         for face in faces
@@ -54,150 +59,281 @@ module.exports =
 
         return null
 
-    # Check whether a point is on or near the coarse trunk grid.
-    # The grid is anchored at (originX, originY) with spacing trunkSpacing.
-    # Tolerance is half of contactSpacing so each fine-grid point falls in
-    # exactly one trunk cell, ensuring proper convergence.
-    isOnTrunkGrid: (x, y, originX, originY, trunkSpacing, tolerance) ->
+    # Build the complete tree segment structure for a support region.
+    # Pre-computes all trunk, branch, and twig line segments from build plate to overhang.
+    # Segments are cached on the region object so they are computed only once per slice.
+    # Returns an array of {x1, y1, z1, x2, y2, z2, type} segment objects.
+    buildTreeStructure: (region, nozzleDiameter, buildPlateZ, layerHeight) ->
 
-        offsetX = x - originX
-        offsetY = y - originY
-        nearestTrunkX = Math.round(offsetX / trunkSpacing) * trunkSpacing
-        nearestTrunkY = Math.round(offsetY / trunkSpacing) * trunkSpacing
-
-        return Math.abs(offsetX - nearestTrunkX) < tolerance and
-               Math.abs(offsetY - nearestTrunkY) < tolerance
-
-    # Generate tree-style support for a single region at a given layer.
-    # Scans at the fine contact spacing always. Branch-zone points (per-point distance
-    # below the interpolated overhang face ≤ BRANCH_HEIGHT) are all kept. Trunk-zone
-    # points are filtered to those that align with the coarse trunk grid, so the
-    # structure naturally converges from many contact points at the top to few trunk
-    # columns at the bottom. Returns true if any G-code was emitted.
-    generateTreePattern: (slicer, region, z, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
-
-        verbose = slicer.getVerbose()
-
-        # Interface gap between support top and overhang face.
+        contactSpacing = nozzleDiameter * CONTACT_SPACING_MULTIPLIER
         interfaceGap = layerHeight * 1.5
-
-        # Shrink bounds to prevent the support from touching the object.
         supportGap = nozzleDiameter / 2
+
         minX = region.minX + supportGap
         maxX = region.maxX - supportGap
         minY = region.minY + supportGap
         maxY = region.maxY - supportGap
 
-        return false if minX >= maxX or minY >= maxY
+        return [] if minX >= maxX or minY >= maxY
 
-        contactSpacing = nozzleDiameter * CONTACT_SPACING_MULTIPLIER
-        trunkSpacing = nozzleDiameter * TRUNK_SPACING_MULTIPLIER
+        # Generate contact tips: fine grid points just below the overhang surface.
+        tips = []
 
-        # Tolerance for trunk-grid snapping: half of contact spacing.
-        trunkTolerance = contactSpacing * 0.5
-
-        supportLineWidth = nozzleDiameter * 0.8
-        supportSpeed = slicer.getPerimeterSpeed() * 60 * 0.5
-
-        supportPoints = []
-
-        # Always scan at the fine contact spacing.
-        # Per-point zone determination uses the interpolated face Z at (x, y),
-        # correctly handling sloped regions where different points of the same
-        # region can be in different zones.
         y = minY
+
         while y <= maxY
 
             x = minX
+
             while x <= maxX
 
                 faceZ = @getFaceZAtPoint(x, y, region.faces)
 
                 if faceZ isnt null
 
-                    distBelow = faceZ - z
-                    isBranchZone = distBelow <= BRANCH_HEIGHT
+                    contactZ = faceZ - interfaceGap
 
-                    # Trunk-zone points are filtered to those aligning with the
-                    # coarse trunk grid, creating the convergence effect.
-                    isIncluded = isBranchZone or @isOnTrunkGrid(x, y, minX, minY, trunkSpacing, trunkTolerance)
+                    if contactZ > buildPlateZ + layerHeight
 
-                    if isIncluded and
-                       normalSupportModule.isPointInSupportWedge(x, y, region.faces, z, interfaceGap) and
-                       normalSupportModule.canGenerateSupportAt(slicer, { x: x, y: y }, z, layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex)
-
-                        supportPoints.push({ x: x, y: y })
+                        tips.push({ x: x, y: y, z: contactZ })
 
                 x += contactSpacing
 
             y += contactSpacing
 
-        return false if supportPoints.length is 0
+        return [] if tips.length is 0
 
-        useXDirection = layerIndex % 2 is 0
-        lines = @groupPointsIntoLines(supportPoints, useXDirection)
+        # Compute the trunk base position: centroid of all contact tips in XY.
+        trunkX = 0
+        trunkY = 0
 
-        # Single-point lines cannot produce extrusion moves: extrusion requires
-        # movement between at least two points (a travel to the start, then a G1
-        # with E to the second point). Filtering them out avoids orphaned travel
-        # moves that waste time without printing any material.
-        extrudableLines = lines.filter((line) -> line.length > 1)
+        for tip in tips
 
-        return false if extrudableLines.length is 0
+            trunkX += tip.x
+            trunkY += tip.y
+
+        trunkX /= tips.length
+        trunkY /= tips.length
+
+        # Cluster tips into branch groups using a regular grid of cells.
+        clusterSpacing = contactSpacing * BRANCH_CLUSTER_SIZE
+        clusterMap = {}
+
+        for tip in tips
+
+            cellX = Math.round(tip.x / clusterSpacing)
+            cellY = Math.round(tip.y / clusterSpacing)
+            key = "#{cellX},#{cellY}"
+            clusterMap[key] ?= []
+            clusterMap[key].push(tip)
+
+        # Build branch nodes from cluster centroids.
+        branchNodes = []
+
+        for key, clusterTips of clusterMap
+
+            cx = 0
+            cy = 0
+            maxZ = -Infinity
+
+            for tip in clusterTips
+
+                cx += tip.x
+                cy += tip.y
+                maxZ = Math.max(maxZ, tip.z)
+
+            cx /= clusterTips.length
+            cy /= clusterTips.length
+
+            branchNodes.push({ x: cx, y: cy, z: maxZ, tips: clusterTips })
+
+        # Build trunk, branch, and twig segments for each branch node.
+        segments = []
+
+        for node in branchNodes
+
+            dx = node.x - trunkX
+            dy = node.y - trunkY
+            dist = Math.sqrt(dx * dx + dy * dy)
+
+            # Enforce 45-degree constraint: vertical rise equals horizontal spread.
+            branchRootZ = node.z - dist
+            branchRootZ = Math.max(branchRootZ, buildPlateZ + layerHeight)
+
+            # Trunk segment: vertical column from build plate to where this branch splits off.
+            if branchRootZ > buildPlateZ + layerHeight
+
+                segments.push({
+                    x1: trunkX, y1: trunkY, z1: buildPlateZ
+                    x2: trunkX, y2: trunkY, z2: branchRootZ
+                    type: 'trunk'
+                })
+
+            # Branch segment: angled from trunk top toward the branch node at ~45 degrees.
+            segments.push({
+                x1: trunkX, y1: trunkY, z1: branchRootZ
+                x2: node.x, y2: node.y, z2: node.z
+                type: 'branch'
+            })
+
+            # Twig segments: fine sub-branches from cluster node to individual contact tips.
+            for tip in node.tips
+
+                tdx = tip.x - node.x
+                tdy = tip.y - node.y
+                tdist = Math.sqrt(tdx * tdx + tdy * tdy)
+
+                twigRootZ = tip.z - tdist
+                twigRootZ = Math.max(twigRootZ, branchRootZ + layerHeight)
+
+                if twigRootZ < tip.z - layerHeight
+
+                    segments.push({
+                        x1: node.x, y1: node.y, z1: twigRootZ
+                        x2: tip.x, y2: tip.y, z2: tip.z
+                        type: 'twig'
+                    })
+
+        return segments
+
+    # Remove points that are within 'tolerance' distance of an already-kept point.
+    # Collapses multiple tree paths that converge to the same trunk position.
+    deduplicatePoints: (points, tolerance) ->
+
+        result = []
+        toleranceSq = tolerance * tolerance
+
+        for point in points
+
+            isDuplicate = false
+
+            for existing in result
+
+                dx = point.x - existing.x
+                dy = point.y - existing.y
+
+                if dx * dx + dy * dy < toleranceSq
+
+                    isDuplicate = true
+                    break
+
+            result.push(point) unless isDuplicate
+
+        return result
+
+    # Render a small cross-shaped extrusion at a single support node position.
+    # The cross is the characteristic cross-section shape of tree support trunks
+    # and branches, creating a solid anchor point at each layer.
+    renderCrossAt: (slicer, px, py, z, centerOffsetX, centerOffsetY, nozzleDiameter, supportLineWidth, supportSpeed, travelSpeed) ->
+
+        halfSize = nozzleDiameter * CROSS_SIZE_MULTIPLIER
+
+        # Horizontal arm: travel to left end, extrude to right end.
+        slicer.gcode += coders.codeLinearMovement(
+            slicer,
+            px - halfSize + centerOffsetX,
+            py + centerOffsetY,
+            z, null, travelSpeed
+        )
+
+        extrusionDelta = slicer.calculateExtrusion(halfSize * 2, supportLineWidth)
+        slicer.cumulativeE += extrusionDelta
+
+        slicer.gcode += coders.codeLinearMovement(
+            slicer,
+            px + halfSize + centerOffsetX,
+            py + centerOffsetY,
+            z, slicer.cumulativeE, supportSpeed
+        )
+
+        # Vertical arm: travel to bottom end, extrude to top end.
+        slicer.gcode += coders.codeLinearMovement(
+            slicer,
+            px + centerOffsetX,
+            py - halfSize + centerOffsetY,
+            z, null, travelSpeed
+        )
+
+        extrusionDelta = slicer.calculateExtrusion(halfSize * 2, supportLineWidth)
+        slicer.cumulativeE += extrusionDelta
+
+        slicer.gcode += coders.codeLinearMovement(
+            slicer,
+            px + centerOffsetX,
+            py + halfSize + centerOffsetY,
+            z, slicer.cumulativeE, supportSpeed
+        )
+
+    # Generate tree-style support G-code for a region at a given layer.
+    # Finds the cross-section of every tree segment (trunk, branch, twig) at height Z
+    # and renders a small cross at each intersection point:
+    #   - Bottom layers: one cross at the trunk centroid (convergence)
+    #   - Middle layers: a few crosses where branches have split from the trunk
+    #   - Top layers: many fine crosses spread across the overhang contact area
+    # Returns true if any G-code was emitted, false otherwise.
+    generateTreePattern: (slicer, region, z, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
+
+        verbose = slicer.getVerbose()
+
+        # Build tree structure once per region per slice (cached on the region object).
+        if not region._treeSegments?
+
+            region._treeSegments = @buildTreeStructure(region, nozzleDiameter, minZ, layerHeight)
+
+        segments = region._treeSegments
+
+        return false if segments.length is 0
+
+        # Find the cross-section point of every segment that spans this layer Z.
+        supportPoints = []
+
+        for seg in segments
+
+            segMinZ = Math.min(seg.z1, seg.z2)
+            segMaxZ = Math.max(seg.z1, seg.z2)
+
+            continue if z < segMinZ or z > segMaxZ
+
+            # Interpolate XY position at height Z along the segment.
+            if Math.abs(seg.z2 - seg.z1) < 0.0001
+
+                px = (seg.x1 + seg.x2) / 2
+                py = (seg.y1 + seg.y2) / 2
+
+            else
+
+                t = (z - seg.z1) / (seg.z2 - seg.z1)
+                px = seg.x1 + t * (seg.x2 - seg.x1)
+                py = seg.y1 + t * (seg.y2 - seg.y1)
+
+            # Verify no solid geometry blocks the support path from below.
+            if normalSupportModule.canGenerateSupportAt(
+                slicer, { x: px, y: py }, z,
+                layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex
+            )
+
+                supportPoints.push({ x: px, y: py })
+
+        # Collapse multiple paths that converge to the same trunk position.
+        deduplicated = @deduplicatePoints(supportPoints, nozzleDiameter * 0.5)
+
+        return false if deduplicated.length is 0
 
         if verbose
 
             slicer.gcode += "; TYPE: SUPPORT" + slicer.newline
 
+        supportLineWidth = nozzleDiameter * 0.8
+        supportSpeed = slicer.getPerimeterSpeed() * 60 * 0.5
         travelSpeed = slicer.getTravelSpeed() * 60
 
-        for line in extrudableLines
+        # Render a cross at each support node cross-section.
+        for point in deduplicated
 
-            startPoint = line[0]
-            offsetX = startPoint.x + centerOffsetX
-            offsetY = startPoint.y + centerOffsetY
-
-            slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, null, travelSpeed)
-
-            for i in [1...line.length]
-
-                point = line[i]
-                prevPoint = line[i - 1]
-
-                dx = point.x - prevPoint.x
-                dy = point.y - prevPoint.y
-                distance = Math.sqrt(dx * dx + dy * dy)
-
-                if distance > 0.001
-
-                    extrusionDelta = slicer.calculateExtrusion(distance, supportLineWidth)
-                    slicer.cumulativeE += extrusionDelta
-
-                    offsetX = point.x + centerOffsetX
-                    offsetY = point.y + centerOffsetY
-
-                    slicer.gcode += coders.codeLinearMovement(slicer, offsetX, offsetY, z, slicer.cumulativeE, supportSpeed)
+            @renderCrossAt(
+                slicer, point.x, point.y, z,
+                centerOffsetX, centerOffsetY,
+                nozzleDiameter, supportLineWidth, supportSpeed, travelSpeed
+            )
 
         return true
-
-    # Group support points into lines for efficient printing.
-    # Alternates between X-direction and Y-direction lines each layer.
-    groupPointsIntoLines: (points, useXDirection) ->
-
-        lines = {}
-
-        for point in points
-            key = if useXDirection then point.y.toFixed(3) else point.x.toFixed(3)
-            lines[key] ?= []
-            lines[key].push(point)
-
-        result = []
-
-        for key, linePoints of lines
-            if useXDirection
-                linePoints.sort((a, b) -> a.x - b.x)
-            else
-                linePoints.sort((a, b) -> a.y - b.y)
-            result.push(linePoints)
-
-        return result
