@@ -667,8 +667,33 @@ module.exports =
                 sortedOuterBoundaryIndices.push(remainingOuterBoundaryIndices[0])
                 remainingOuterBoundaryIndices.shift()
 
+        # Helper function to filter holes by nesting level.
+        # For a structure at nesting level N, only include holes at level N+1 (direct children).
+        # This prevents nested structures from being excluded by holes at higher levels.
+        filterHolesByNestingLevel = (holeWalls, holeNestingLevels, structureNestingLevel) =>
+
+            filteredWalls = []
+
+            # Validate parameters.
+            return filteredWalls if not holeWalls or not holeNestingLevels
+            return filteredWalls if holeWalls.length is 0 or holeNestingLevels.length is 0
+
+            for holeWall, idx in holeWalls
+
+                # Bounds check to ensure array lengths match.
+                continue if idx >= holeNestingLevels.length
+
+                holeLevel = holeNestingLevels[idx]
+
+                # Only include holes that are direct children (one level deeper).
+                if holeLevel is structureNestingLevel + 1
+
+                    filteredWalls.push(holeWall)
+
+            return filteredWalls
+
         # Process outer boundaries in nearest-neighbor order.
-        # Track which objects have been completed (for independent objects only).
+        # Track which objects have been completed (sequential completion or skin already generated).
         completedObjectIndices = {}
 
         # Calculate if this layer is absolute top or bottom (used multiple times below).
@@ -729,6 +754,127 @@ module.exports =
             # Order nesting levels based on direction.
             orderedNestingLevels = if processOuterToInner then nestingLevels else nestingLevels.slice().reverse()
 
+            # Helper: generate skin infill for all structures at a given nesting level.
+            # Called after the corresponding hole level has been processed, ensuring hole skin
+            # walls are available for correct infill clipping.
+            generateSkinInfillForStructureLevel = (structureLevel) =>
+
+                levelPaths = pathsByNestingLevel[structureLevel]
+                return unless levelPaths and levelPaths.length > 0
+
+                for pathIdx in levelPaths
+
+                    continue if completedObjectIndices[pathIdx]
+                    continue if pathIsHole[pathIdx]
+
+                    currentPath = innermostWalls[pathIdx]
+                    continue unless currentPath and currentPath.length >= 3
+
+                    lastWallPoint = lastPathEndPoint or { x: currentPath[0].x, y: currentPath[0].y, z: z }
+
+                    currentStructureNestingLevel = pathNestingLevel[pathIdx]
+
+                    filteredHoleInnerWalls = filterHolesByNestingLevel(holeInnerWalls, holeInnerWallNestingLevels, currentStructureNestingLevel)
+                    filteredHoleOuterWalls = filterHolesByNestingLevel(holeOuterWalls, holeOuterWallNestingLevels, currentStructureNestingLevel)
+                    filteredHoleSkinWalls = filterHolesByNestingLevel(holeSkinWalls, holeSkinWallNestingLevels, currentStructureNestingLevel)
+
+                    infillBoundary = pathsUtils.createInsetPath(currentPath, nozzleDiameter, false)
+
+                    needsSkin = false
+                    skinAreas = []
+                    coveringRegionsAbove = []
+                    coveringRegionsBelow = []
+
+                    if layerIndex < skinLayerCount or layerIndex >= totalLayers - skinLayerCount
+
+                        if not pathsWithInsufficientSpacingForSkinWalls[pathIdx]
+
+                            needsSkin = true
+                            skinAreas = [currentPath]
+
+                    else if slicer.getExposureDetection()
+
+                        exposureResult = exposureModule.calculateExposedAreasForLayer(
+                            currentPath, layerIndex, skinLayerCount, totalLayers, allLayers, slicer.getExposureDetectionResolution()
+                        )
+
+                        skinAreas = exposureResult.exposedAreas
+                        coveringRegionsAbove = exposureResult.coveringRegionsAbove
+                        coveringRegionsBelow = exposureResult.coveringRegionsBelow
+                        needsSkin = skinAreas.length > 0
+
+                    continue unless needsSkin
+
+                    infillDensity = slicer.getInfillDensity()
+
+                    fullyCoveredRegions = exposureModule.identifyFullyCoveredRegions(currentPath, coveringRegionsAbove, coveringRegionsBelow)
+                    fullyCoveredSkinWalls = exposureModule.filterFullyCoveredSkinWalls(fullyCoveredRegions, currentPath)
+
+                    # For absolute top/bottom layers, Phase 1 already generated the skin wall for structures.
+                    # For mixed layers (exposure detection), Phase 1 did not generate skin walls for structures.
+                    shouldGenerateWall = not isAbsoluteTopOrBottom
+
+                    if isAbsoluteTopOrBottom
+
+                        for skinArea in skinAreas
+
+                            skinEndPoint = skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, filteredHoleSkinWalls, filteredHoleOuterWalls, fullyCoveredSkinWalls, false, false)
+
+                            lastPathEndPoint = skinEndPoint if skinEndPoint?
+                            lastWallPoint = skinEndPoint if skinEndPoint?
+
+                    else
+
+                        # Mixed layers: infill first (excluding skin areas), then skin for exposed regions.
+                        if infillDensity > 0 and infillBoundary.length >= 3
+
+                            skinAreasForInfill = []
+
+                            for skinArea in skinAreas
+
+                                if not coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+
+                                    skinAreasForInfill.push(skinArea)
+
+                            infillModule.generateInfillGCode(slicer, currentPath, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, filteredHoleInnerWalls, filteredHoleOuterWalls, skinAreasForInfill)
+
+                        for skinArea in skinAreas
+
+                            continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+
+                            skinEndPoint = skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, filteredHoleSkinWalls, filteredHoleOuterWalls, fullyCoveredSkinWalls, false, shouldGenerateWall)
+
+                            lastPathEndPoint = skinEndPoint if skinEndPoint?
+                            lastWallPoint = skinEndPoint if skinEndPoint?
+
+                        infillGap = 0
+                        skinWallInset = nozzleDiameter
+                        totalInsetForInfill = skinWallInset + infillGap
+                        fullyCoveredInfillBoundaries = []
+
+                        for fullyCoveredSkinWall in fullyCoveredSkinWalls
+
+                            continue if fullyCoveredSkinWall.length < 3
+                            continue if coverage.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, holeSkinWalls, holeInnerWalls, holeOuterWalls)
+
+                            skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], filteredHoleOuterWalls, [], true, true)
+
+                            if infillDensity > 0
+
+                                coveredInfillBoundary = pathsUtils.createInsetPath(fullyCoveredSkinWall, totalInsetForInfill, false)
+
+                                if coveredInfillBoundary.length >= 3
+
+                                    fullyCoveredInfillBoundaries.push(coveredInfillBoundary)
+
+                        if fullyCoveredInfillBoundaries.length > 0
+
+                            for coveredInfillBoundary in fullyCoveredInfillBoundaries
+
+                                infillModule.generateInfillGCode(slicer, coveredInfillBoundary, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, [], filteredHoleOuterWalls, [])
+
+                    completedObjectIndices[pathIdx] = true
+
             # Process all paths grouped by nesting level in the determined order.
             for level in orderedNestingLevels
 
@@ -788,6 +934,30 @@ module.exports =
 
                     innermostWall = generateWallsForPath(path, nearestIdx, isHole, shouldGenerateSkinWalls)
                     innermostWalls[nearestIdx] = innermostWall
+
+                # After all walls for this nesting level, generate skin infill for the appropriate structure.
+                # For outer-to-inner: after processing a hole level, generate skin for the parent structure.
+                # For inner-to-outer: after processing a structure level, generate skin immediately
+                #   (child holes at level+1 were already processed earlier in inner-to-outer order).
+                # Also handle structures with no child holes (generate skin immediately).
+                if processOuterToInner
+
+                    if level % 2 is 1
+
+                        # Hole level just processed; parent structure's skin can now be generated.
+                        generateSkinInfillForStructureLevel(level - 1)
+
+                    else if not pathsByNestingLevel[level + 1]
+
+                        # Structure at the deepest even level with no child holes.
+                        generateSkinInfillForStructureLevel(level)
+
+                else
+
+                    if level % 2 is 0
+
+                        # Inner-to-outer: structure level just processed; child holes were already processed.
+                        generateSkinInfillForStructureLevel(level)
 
         else
 
@@ -892,37 +1062,12 @@ module.exports =
 
                     completedObjectIndices[pathIndex] = true
 
-        # Helper function to filter holes by nesting level.
-        # For a structure at nesting level N, only include holes at level N+1 (direct children).
-        # This prevents nested structures from being excluded by holes at higher levels.
-        filterHolesByNestingLevel = (holeWalls, holeNestingLevels, structureNestingLevel) =>
-
-            filteredWalls = []
-
-            # Validate parameters.
-            return filteredWalls if not holeWalls or not holeNestingLevels
-            return filteredWalls if holeWalls.length is 0 or holeNestingLevels.length is 0
-
-            for holeWall, idx in holeWalls
-
-                # Bounds check to ensure array lengths match.
-                continue if idx >= holeNestingLevels.length
-
-                holeLevel = holeNestingLevels[idx]
-
-                # Only include holes that are direct children (one level deeper).
-                if holeLevel is structureNestingLevel + 1
-
-                    filteredWalls.push(holeWall)
-
-            return filteredWalls
-
         # Phase 2: Generate infill and skin for outer boundaries.
         for path, pathIndex in paths
 
             continue if path.length < 3 or pathIsHole[pathIndex]
 
-            # Skip objects that were already completed inline (independent objects only).
+            # Skip objects that were already completed (independent sequential, or nested sequential skin).
             continue if completedObjectIndices[pathIndex]
 
             currentPath = innermostWalls[pathIndex]
