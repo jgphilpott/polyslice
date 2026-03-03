@@ -2019,6 +2019,283 @@ describe 'Slicing', ->
 
             return # Explicitly return undefined for Jest.
 
+        test 'should print skin infill sequentially for 3 nesting levels (outer skin before middle walls before inner skin)', ->
+
+            # Create 3 nested hollow cylinders (3 rings).
+            # Expected sequential order on skin layer 1:
+            #   Walls outer ring (levels 0+1) + skin wall → outer ring skin INFILL
+            #   Walls middle ring (levels 2+3) + skin wall → middle ring skin INFILL
+            #   Walls inner ring (levels 4+5) + skin wall → inner ring skin INFILL
+            # This covers the 3+ nesting level sequential skin code path.
+
+            height = 1.2
+            wallThickness = 5
+            gap = 3
+
+            # Inner ring: r=5-10.
+            innerRing = await createHollowCylinder(5 + wallThickness, 5, height)
+
+            # Middle ring: r=13-18.
+            middleRing = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            # Outer ring: r=21-26.
+            outerRing = await createHollowCylinder(5 + wallThickness + gap + wallThickness + gap + wallThickness, 5 + wallThickness + gap + wallThickness + gap, height)
+
+            combined12 = await Polytree.unite(innerRing, middleRing)
+            combined123 = await Polytree.unite(combined12, outerRing)
+            finalMesh = new THREE.Mesh(combined123.geometry, combined123.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(finalMesh)
+
+            # Find layer 1 (bottom skin layer).
+            lines = result.split('\n')
+            layer1Start = -1
+            layer2Start = -1
+
+            for lineIndex in [0...lines.length]
+
+                if lines[lineIndex].includes('LAYER: 1 of')
+                    layer1Start = lineIndex
+                else if layer1Start >= 0 and lines[lineIndex].includes('LAYER: 2 of')
+                    layer2Start = lineIndex
+                    break
+
+            expect(layer1Start).toBeGreaterThan(-1)
+            layer2Start = lines.length if layer2Start < 0
+            layer1Lines = lines.slice(layer1Start, layer2Start)
+
+            # Build type sequence.
+            typeSequence = []
+
+            for line in layer1Lines
+
+                if line.includes('TYPE: WALL-OUTER')
+                    typeSequence.push('WALL-OUTER')
+                else if line.includes('TYPE: WALL-INNER')
+                    typeSequence.push('WALL-INNER')
+                else if line.includes('TYPE: SKIN')
+                    typeSequence.push('SKIN')
+
+            # At least 6 SKIN entries (3 rings × 2 each: skin wall + skin infill).
+            skinCount = typeSequence.filter((t) -> t is 'SKIN').length
+            expect(skinCount).toBeGreaterThanOrEqual(6)
+
+            # Verify 3 sequential blocks: each ring's skin appears before the next ring's walls.
+            # Find SKIN entries after 2+ consecutive WALL-OUTER markers.
+            # First block (outer ring): 2+ WALL-OUTER → SKIN.
+            # Then WALL-OUTER again (middle ring) → more SKIN → WALL-OUTER (inner ring) → SKIN.
+            transitionCount = 0
+            outerWallCount = 0
+            lastWasWall = false
+
+            for type in typeSequence
+
+                if type is 'WALL-OUTER'
+                    outerWallCount++
+                    lastWasWall = true
+                else if type is 'WALL-INNER'
+                    lastWasWall = true  # WALL-INNER counts as wall for transition detection.
+                else if type is 'SKIN' and lastWasWall and outerWallCount >= 2
+                    transitionCount++
+                    outerWallCount = 0
+                    lastWasWall = false
+                else
+                    lastWasWall = false
+
+            # Should see at least 2 wall→skin transitions (outer and middle rings, minimum).
+            expect(transitionCount).toBeGreaterThanOrEqual(2)
+
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should print infill sequentially on middle layers for nested objects', ->
+
+            # Create 2 nested hollow cylinders with infill on middle layers.
+            # With exposure detection enabled (default), generateSkinInfillForStructureLevel
+            # handles middle layers via its exposure-detection branch, which also generates
+            # infill (the 'else' branch: infill first, then skin for exposed areas).
+            # Key assertion: FILL for outer ring appears BEFORE WALL-OUTER of inner ring.
+
+            height = 1.2
+            wallThickness = 5
+            gap = 3
+
+            innerRing = await createHollowCylinder(5 + wallThickness, 5, height)
+            outerRing = await createHollowCylinder(5 + wallThickness + gap + wallThickness, 5 + wallThickness + gap, height)
+
+            combined = await Polytree.unite(innerRing, outerRing)
+            finalMesh = new THREE.Mesh(combined.geometry, combined.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.4)  # 2 skin layers (layers 1-2 and 5-6).
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(20)         # Non-zero infill density.
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(finalMesh)
+
+            # Find layer 3 (first middle layer, layerIndex=2).
+            lines = result.split('\n')
+            layer3Start = -1
+            layer4Start = -1
+
+            for lineIndex in [0...lines.length]
+
+                if lines[lineIndex].includes('LAYER: 3 of')
+                    layer3Start = lineIndex
+                else if layer3Start >= 0 and lines[lineIndex].includes('LAYER: 4 of')
+                    layer4Start = lineIndex
+                    break
+
+            expect(layer3Start).toBeGreaterThan(-1)
+            layer4Start = lines.length if layer4Start < 0
+            layer3Lines = lines.slice(layer3Start, layer4Start)
+
+            # Build type sequence for the middle layer.
+            typeSequence = []
+
+            for line in layer3Lines
+
+                if line.includes('TYPE: WALL-OUTER')
+                    typeSequence.push('WALL-OUTER')
+                else if line.includes('TYPE: WALL-INNER')
+                    typeSequence.push('WALL-INNER')
+                else if line.includes('TYPE: FILL')
+                    typeSequence.push('FILL')
+                else if line.includes('TYPE: SKIN')
+                    typeSequence.push('SKIN')
+
+            # Must contain at least 2 fills (one per ring).
+            fillCount = typeSequence.filter((t) -> t is 'FILL').length
+            expect(fillCount).toBeGreaterThanOrEqual(2)
+
+            # Key assertion: first FILL must appear before at least one WALL-OUTER.
+            # This confirms sequential ordering: outer ring infill before inner ring walls.
+            firstFillIndex = typeSequence.indexOf('FILL')
+            expect(firstFillIndex).toBeGreaterThan(-1)
+
+            hasWallAfterFirstFill = typeSequence.slice(firstFillIndex + 1).some((t) -> t is 'WALL-OUTER')
+            expect(hasWallAfterFirstFill).toBe(true)
+
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should generate skin for leaf structure (innermost solid with no child holes)', ->
+
+            # Create a hollow ring plus a solid cylinder inside it using raw (unpositioned)
+            # geometries so both are centred at z=0 before Polytree.unite aligns them correctly.
+            # The solid cylinder is a "leaf" structure at nesting level 2 with no child holes.
+            # This covers the `not pathsByNestingLevel[level + 1]` branch in the sequential
+            # skin logic: after processing walls for the solid cylinder, skin should be
+            # generated immediately (no level-3 hole to wait for).
+
+            height = 1.2
+
+            # Hollow ring: outer=18, inner=13 — create with raw geometry (no position offset).
+            ringOuterGeom = new THREE.CylinderGeometry(18, 18, height, 32)
+            ringOuterMesh = new THREE.Mesh(ringOuterGeom, new THREE.MeshBasicMaterial())
+            ringOuterMesh.rotation.x = Math.PI / 2
+            ringOuterMesh.updateMatrixWorld()
+
+            ringHoleGeom = new THREE.CylinderGeometry(13, 13, height * 1.2, 32)
+            ringHoleMesh = new THREE.Mesh(ringHoleGeom, new THREE.MeshBasicMaterial())
+            ringHoleMesh.rotation.x = Math.PI / 2
+            ringHoleMesh.updateMatrixWorld()
+
+            hollowRingMesh = await Polytree.subtract(ringOuterMesh, ringHoleMesh)
+
+            # Solid cylinder inside the hole: radius=5 (fits inside r=13 hole).
+            solidGeometry = new THREE.CylinderGeometry(5, 5, height, 32)
+            solidMesh = new THREE.Mesh(solidGeometry, new THREE.MeshBasicMaterial())
+            solidMesh.rotation.x = Math.PI / 2
+            solidMesh.updateMatrixWorld()
+
+            # Both geometries are centred at z=0 — unite works correctly.
+            combined = await Polytree.unite(hollowRingMesh, solidMesh)
+            finalMesh = new THREE.Mesh(combined.geometry, combined.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(finalMesh)
+
+            # Find layer 1 (bottom skin layer).
+            lines = result.split('\n')
+            layer1Start = -1
+            layer2Start = -1
+
+            for lineIndex in [0...lines.length]
+
+                if lines[lineIndex].includes('LAYER: 1 of')
+                    layer1Start = lineIndex
+                else if layer1Start >= 0 and lines[lineIndex].includes('LAYER: 2 of')
+                    layer2Start = lineIndex
+                    break
+
+            expect(layer1Start).toBeGreaterThan(-1)
+            layer2Start = lines.length if layer2Start < 0
+            layer1Lines = lines.slice(layer1Start, layer2Start)
+
+            # Build type sequence.
+            typeSequence = []
+
+            for line in layer1Lines
+
+                if line.includes('TYPE: WALL-OUTER')
+                    typeSequence.push('WALL-OUTER')
+                else if line.includes('TYPE: WALL-INNER')
+                    typeSequence.push('WALL-INNER')
+                else if line.includes('TYPE: SKIN')
+                    typeSequence.push('SKIN')
+
+            # Must have walls and skin for both the ring and the solid cylinder.
+            # 3 paths: ring outer boundary (level 0), ring hole (level 1), solid (level 2).
+            expect(typeSequence.filter((t) -> t is 'WALL-OUTER').length).toBeGreaterThanOrEqual(3)
+            expect(typeSequence.filter((t) -> t is 'SKIN').length).toBeGreaterThanOrEqual(2)
+
+            # Key assertion: the leaf structure (solid, level 2) must get SKIN infill.
+            # Verify there is at least one SKIN entry that appears AFTER the leaf structure's walls
+            # (i.e., after all 3 WALL-OUTER groups have been seen).
+            outerWallCount = 0
+            skinAfterLeaf = false
+
+            for type in typeSequence
+
+                if type is 'WALL-OUTER'
+                    outerWallCount++
+                else if type is 'SKIN' and outerWallCount >= 3
+                    skinAfterLeaf = true
+                    break
+
+            expect(skinAfterLeaf).toBe(true)
+
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
     describe 'Nested Structures Infill Generation', ->
 
         Polytree = null
