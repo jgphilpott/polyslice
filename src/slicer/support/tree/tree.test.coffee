@@ -19,6 +19,132 @@ describe 'Tree Support Module', ->
     test 'should have deduplicatePoints method', ->
         expect(typeof treeSupport.deduplicatePoints).toBe('function')
 
+    test 'should have renderNodeAt method', ->
+        expect(typeof treeSupport.renderNodeAt).toBe('function')
+
+    describe 'renderNodeAt', ->
+
+        # Helper: create a minimal slicer for rendering tests.
+        makeSlicer = ->
+
+            slicer = new (require('../../../index'))({
+                progressCallback: null
+            })
+
+            slicer.gcode = ''
+            slicer.cumulativeE = 0
+
+            return slicer
+
+        # Helper: extract the maximum absolute X coordinate from G-code.
+        maxAbsX = (gcode) ->
+
+            maxX = 0
+
+            for line in gcode.split('\n')
+
+                match = line.match(/X([\-\d.]+)/)
+
+                if match
+
+                    maxX = Math.max(maxX, Math.abs(parseFloat(match[1])))
+
+            return maxX
+
+        nozzle = 0.4
+        supportLineWidth = nozzle * 0.8
+        supportSpeed = 900
+        travelSpeed = 9000
+
+        test 'should emit G-code with extrusion moves', ->
+
+            slicer = makeSlicer()
+
+            treeSupport.renderNodeAt(
+                slicer, 0, 0, 1, 0, 0,
+                nozzle, 'twig', supportLineWidth, supportSpeed, travelSpeed
+            )
+
+            expect(slicer.gcode).toMatch(/G1 .*E[\d.]+/)
+
+        test 'trunk node should have a larger cross-section radius than twig node', ->
+
+            slicerTrunk = makeSlicer()
+            slicerTwig = makeSlicer()
+
+            # Render at centerOffset = 0 so coordinates equal local coordinates directly.
+            treeSupport.renderNodeAt(
+                slicerTrunk, 0, 0, 1, 0, 0,
+                nozzle, 'trunk', supportLineWidth, supportSpeed, travelSpeed
+            )
+
+            treeSupport.renderNodeAt(
+                slicerTwig, 0, 0, 1, 0, 0,
+                nozzle, 'twig', supportLineWidth, supportSpeed, travelSpeed
+            )
+
+            # Trunk circle radius = 3.0 × nozzle; twig = 0.8 × nozzle.
+            # The maximum absolute X in the trunk G-code must be substantially larger.
+            expect(maxAbsX(slicerTrunk.gcode)).toBeGreaterThan(maxAbsX(slicerTwig.gcode))
+
+        test 'branch node should have a cross-section radius between trunk and twig', ->
+
+            slicerTrunk = makeSlicer()
+            slicerBranch = makeSlicer()
+            slicerTwig = makeSlicer()
+
+            treeSupport.renderNodeAt(
+                slicerTrunk, 0, 0, 1, 0, 0,
+                nozzle, 'trunk', supportLineWidth, supportSpeed, travelSpeed
+            )
+
+            treeSupport.renderNodeAt(
+                slicerBranch, 0, 0, 1, 0, 0,
+                nozzle, 'branch', supportLineWidth, supportSpeed, travelSpeed
+            )
+
+            treeSupport.renderNodeAt(
+                slicerTwig, 0, 0, 1, 0, 0,
+                nozzle, 'twig', supportLineWidth, supportSpeed, travelSpeed
+            )
+
+            branchMaxX = maxAbsX(slicerBranch.gcode)
+
+            expect(branchMaxX).toBeLessThan(maxAbsX(slicerTrunk.gcode))
+            expect(branchMaxX).toBeGreaterThan(maxAbsX(slicerTwig.gcode))
+
+        test 'should produce a closed circular perimeter (first and last circle points match)', ->
+
+            slicer = makeSlicer()
+
+            treeSupport.renderNodeAt(
+                slicer, 0, 0, 1, 0, 0,
+                nozzle, 'twig', supportLineWidth, supportSpeed, travelSpeed
+            )
+
+            # Split once; reuse for both G0 and G1 filtering.
+            gcodeLines = slicer.gcode.split('\n')
+            g0lines = gcodeLines.filter (l) -> l.startsWith('G0')
+            g1lines = gcodeLines.filter (l) -> l.startsWith('G1')
+
+            # There must be at least one travel and multiple extrusion moves.
+            expect(g0lines.length).toBeGreaterThan(0)
+            expect(g1lines.length).toBeGreaterThan(0)
+
+            # The first G0 travel goes to the circle start at angle 0 (rightmost point).
+            # After CIRCLE_SEGMENTS (=12) extrusion steps the perimeter closes: g1lines[11]
+            # is the last circle vertex and must share its X coordinate with the start G0.
+            startMatch = g0lines[0].match(/X([\-\d.]+)/)
+            endMatch = g1lines[11]?.match(/X([\-\d.]+)/)  # index 11 = CIRCLE_SEGMENTS - 1
+
+            if startMatch and endMatch
+
+                startX = parseFloat(startMatch[1])
+                endX = parseFloat(endMatch[1])
+
+                # The circle closes: last polygon vertex matches the start vertex.
+                expect(startX).toBeCloseTo(endX, 3)
+
     describe 'getFaceZAtPoint', ->
 
         # Helper: build a face with given vertices.

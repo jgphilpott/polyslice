@@ -21,8 +21,18 @@ CONTACT_SPACING_MULTIPLIER = 3.0
 # Tips within one cluster cell share a branch node.
 BRANCH_CLUSTER_SIZE = 3.0
 
-# Half-size of the cross arms as a multiplier of nozzle diameter.
-CROSS_SIZE_MULTIPLIER = 0.8
+# Cross-section radius multipliers by node type (in nozzle diameters).
+# Trunk is widest for structural stability; twigs are finest for easy overhang contact.
+TRUNK_RADIUS_MULTIPLIER = 3.0
+BRANCH_RADIUS_MULTIPLIER = 1.8
+TWIG_RADIUS_MULTIPLIER = 0.8
+
+# Number of polygon segments used to approximate the circular perimeter.
+CIRCLE_SEGMENTS = 12
+
+# Precomputed sin(π / CIRCLE_SEGMENTS) used for the chord length formula.
+# Chord length = 2 * radius * CIRCLE_CHORD_SIN_FACTOR.
+CIRCLE_CHORD_SIN_FACTOR = Math.sin(Math.PI / CIRCLE_SEGMENTS)
 
 module.exports =
 
@@ -221,36 +231,51 @@ module.exports =
 
         return result
 
-    # Render a small cross-shaped extrusion at a single support node position.
-    # The cross is the characteristic cross-section shape of tree support trunks
-    # and branches, creating a solid anchor point at each layer.
-    renderCrossAt: (slicer, px, py, z, centerOffsetX, centerOffsetY, nozzleDiameter, supportLineWidth, supportSpeed, travelSpeed) ->
+    # Render a circular cross-section with diagonal X infill at a single support node.
+    # The shape consists of:
+    #   - Outer circle (O): polygon approximation using CIRCLE_SEGMENTS segments
+    #   - Inner X fill:     two diagonal lines crossing the center at ±45 degrees
+    # The radius scales with nodeType: trunk is largest, branch is medium, twig is smallest.
+    renderNodeAt: (slicer, px, py, z, centerOffsetX, centerOffsetY, nozzleDiameter, nodeType, supportLineWidth, supportSpeed, travelSpeed) ->
 
-        halfSize = nozzleDiameter * CROSS_SIZE_MULTIPLIER
+        # Radius scales with node type so the structure tapers naturally from trunk to twig.
+        switch nodeType
+            when 'trunk' then halfSize = nozzleDiameter * TRUNK_RADIUS_MULTIPLIER
+            when 'branch' then halfSize = nozzleDiameter * BRANCH_RADIUS_MULTIPLIER
+            else halfSize = nozzleDiameter * TWIG_RADIUS_MULTIPLIER
 
-        # Horizontal arm: travel to left end, extrude to right end.
-        slicer.gcode += coders.codeLinearMovement(
-            slicer,
-            px - halfSize + centerOffsetX,
-            py + centerOffsetY,
-            z, null, travelSpeed
-        )
+        INV_SQRT2 = 1.0 / Math.sqrt(2)
 
-        extrusionDelta = slicer.calculateExtrusion(halfSize * 2, supportLineWidth)
-        slicer.cumulativeE += extrusionDelta
+        # Chord length between adjacent polygon vertices (precomputed sin factor).
+        chordLength = 2 * halfSize * CIRCLE_CHORD_SIN_FACTOR
 
         slicer.gcode += coders.codeLinearMovement(
             slicer,
             px + halfSize + centerOffsetX,
             py + centerOffsetY,
-            z, slicer.cumulativeE, supportSpeed
+            z, null, travelSpeed
         )
 
-        # Vertical arm: travel to bottom end, extrude to top end.
+        for i in [1..CIRCLE_SEGMENTS]
+
+            angle = i * 2 * Math.PI / CIRCLE_SEGMENTS
+            segX = px + halfSize * Math.cos(angle) + centerOffsetX
+            segY = py + halfSize * Math.sin(angle) + centerOffsetY
+
+            extrusionDelta = slicer.calculateExtrusion(chordLength, supportLineWidth)
+            slicer.cumulativeE += extrusionDelta
+
+            slicer.gcode += coders.codeLinearMovement(
+                slicer, segX, segY, z, slicer.cumulativeE, supportSpeed
+            )
+
+        # Diagonal X infill arm 1: bottom-left (−45°) → top-right (+135°).
+        arm = halfSize * INV_SQRT2
+
         slicer.gcode += coders.codeLinearMovement(
             slicer,
-            px + centerOffsetX,
-            py - halfSize + centerOffsetY,
+            px - arm + centerOffsetX,
+            py - arm + centerOffsetY,
             z, null, travelSpeed
         )
 
@@ -259,17 +284,35 @@ module.exports =
 
         slicer.gcode += coders.codeLinearMovement(
             slicer,
-            px + centerOffsetX,
-            py + halfSize + centerOffsetY,
+            px + arm + centerOffsetX,
+            py + arm + centerOffsetY,
+            z, slicer.cumulativeE, supportSpeed
+        )
+
+        # Diagonal X infill arm 2: top-left (+45°) → bottom-right (−135°).
+        slicer.gcode += coders.codeLinearMovement(
+            slicer,
+            px - arm + centerOffsetX,
+            py + arm + centerOffsetY,
+            z, null, travelSpeed
+        )
+
+        extrusionDelta = slicer.calculateExtrusion(halfSize * 2, supportLineWidth)
+        slicer.cumulativeE += extrusionDelta
+
+        slicer.gcode += coders.codeLinearMovement(
+            slicer,
+            px + arm + centerOffsetX,
+            py - arm + centerOffsetY,
             z, slicer.cumulativeE, supportSpeed
         )
 
     # Generate tree-style support G-code for a region at a given layer.
     # Finds the cross-section of every tree segment (trunk, branch, twig) at height Z
-    # and renders a small cross at each intersection point:
-    #   - Bottom layers: one cross at the trunk centroid (convergence)
-    #   - Middle layers: a few crosses where branches have split from the trunk
-    #   - Top layers: many fine crosses spread across the overhang contact area
+    # and renders a circular O+X node at each intersection point:
+    #   - Bottom layers: one large trunk node at the centroid (convergence)
+    #   - Middle layers: medium branch nodes spreading outward from the trunk
+    #   - Top layers: many small twig nodes spread across the overhang contact area
     # Returns true if any G-code was emitted, false otherwise.
     generateTreePattern: (slicer, region, z, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
 
@@ -312,7 +355,7 @@ module.exports =
                 layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex
             )
 
-                supportPoints.push({ x: px, y: py })
+                supportPoints.push({ x: px, y: py, type: seg.type })
 
         # Collapse multiple paths that converge to the same trunk position.
         deduplicated = @deduplicatePoints(supportPoints, nozzleDiameter * 0.5)
@@ -327,13 +370,13 @@ module.exports =
         supportSpeed = slicer.getPerimeterSpeed() * 60 * 0.5
         travelSpeed = slicer.getTravelSpeed() * 60
 
-        # Render a cross at each support node cross-section.
+        # Render an O+X node at each support cross-section, sized by node type.
         for point in deduplicated
 
-            @renderCrossAt(
+            @renderNodeAt(
                 slicer, point.x, point.y, z,
                 centerOffsetX, centerOffsetY,
-                nozzleDiameter, supportLineWidth, supportSpeed, travelSpeed
+                nozzleDiameter, point.type, supportLineWidth, supportSpeed, travelSpeed
             )
 
         return true
