@@ -832,7 +832,7 @@ module.exports =
 
                             for skinArea in skinAreas
 
-                                if not coverage.isAreaInsideAnyHoleWall(skinArea, filteredHoleSkinWalls, filteredHoleInnerWalls, filteredHoleOuterWalls)
+                                if not coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                                     skinAreasForInfill.push(skinArea)
 
@@ -840,7 +840,7 @@ module.exports =
 
                         for skinArea in skinAreas
 
-                            continue if coverage.isAreaInsideAnyHoleWall(skinArea, filteredHoleSkinWalls, filteredHoleInnerWalls, filteredHoleOuterWalls)
+                            continue if coverage.isAreaInsideAnyHoleWall(skinArea, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                             skinEndPoint = skinModule.generateSkinGCode(slicer, skinArea, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, true, filteredHoleSkinWalls, filteredHoleOuterWalls, fullyCoveredSkinWalls, false, shouldGenerateWall)
 
@@ -855,7 +855,7 @@ module.exports =
                         for fullyCoveredSkinWall in fullyCoveredSkinWalls
 
                             continue if fullyCoveredSkinWall.length < 3
-                            continue if coverage.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, filteredHoleSkinWalls, filteredHoleInnerWalls, filteredHoleOuterWalls)
+                            continue if coverage.isAreaInsideAnyHoleWall(fullyCoveredSkinWall, holeSkinWalls, holeInnerWalls, holeOuterWalls)
 
                             skinModule.generateSkinGCode(slicer, fullyCoveredSkinWall, z, centerOffsetX, centerOffsetY, layerIndex, lastWallPoint, false, false, [], filteredHoleOuterWalls, [], true, true)
 
