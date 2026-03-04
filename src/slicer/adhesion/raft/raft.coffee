@@ -21,24 +21,25 @@ module.exports =
         raftInterfaceThickness = slicer.getRaftInterfaceThickness()
         raftLineSpacing = slicer.getRaftLineSpacing()
 
-        # Calculate raft dimensions based on model bounding box + margin.
-        modelMinX = boundingBox.min.x
-        modelMaxX = boundingBox.max.x
-        modelMinY = boundingBox.min.y
-        modelMaxY = boundingBox.max.y
+        # Calculate separate raft regions per contact area when possible.
+        raftRegions = @calculateRaftRegions(boundingBox, firstLayerPaths, raftMargin)
 
-        raftMinX = modelMinX - raftMargin
-        raftMaxX = modelMaxX + raftMargin
-        raftMinY = modelMinY - raftMargin
-        raftMaxY = modelMaxY + raftMargin
+        # Check if raft extends beyond build plate boundaries (combined bounds of all regions).
+        combinedMinX = Infinity
+        combinedMaxX = -Infinity
+        combinedMinY = Infinity
+        combinedMaxY = -Infinity
 
-        raftWidth = raftMaxX - raftMinX
-        raftHeight = raftMaxY - raftMinY
+        for region in raftRegions
 
-        # Check if raft extends beyond build plate boundaries.
+            combinedMinX = Math.min(combinedMinX, region.minX)
+            combinedMaxX = Math.max(combinedMaxX, region.maxX)
+            combinedMinY = Math.min(combinedMinY, region.minY)
+            combinedMaxY = Math.max(combinedMaxY, region.maxY)
+
         raftBoundingBox = {
-            min: { x: raftMinX, y: raftMinY }
-            max: { x: raftMaxX, y: raftMaxY }
+            min: { x: combinedMinX, y: combinedMinY }
+            max: { x: combinedMaxX, y: combinedMaxY }
         }
         boundaryInfo = boundaryHelper.checkBuildPlateBoundaries(slicer, raftBoundingBox, centerOffsetX, centerOffsetY)
         boundaryHelper.addBoundaryWarning(slicer, boundaryInfo, 'Raft')
@@ -56,7 +57,9 @@ module.exports =
 
             slicer.gcode += "; Raft base layer" + slicer.newline
 
-        @generateRaftLayer(slicer, raftMinX, raftMaxX, raftMinY, raftMaxY, z, centerOffsetX, centerOffsetY, raftLineSpacing * 2, 0, raftSpeedMmMin, travelSpeedMmMin)
+        for region in raftRegions
+
+            @generateRaftLayer(slicer, region.minX, region.maxX, region.minY, region.maxY, z, centerOffsetX, centerOffsetY, raftLineSpacing * 2, 0, raftSpeedMmMin, travelSpeedMmMin)
 
         # Generate interface layers.
         for layerIndex in [0...raftInterfaceLayers]
@@ -70,9 +73,75 @@ module.exports =
             # Alternate line direction (90° rotation between layers).
             angle = if layerIndex % 2 is 0 then 0 else 90
 
-            @generateRaftLayer(slicer, raftMinX, raftMaxX, raftMinY, raftMaxY, z, centerOffsetX, centerOffsetY, raftLineSpacing, angle, raftSpeedMmMin, travelSpeedMmMin)
+            for region in raftRegions
+
+                @generateRaftLayer(slicer, region.minX, region.maxX, region.minY, region.maxY, z, centerOffsetX, centerOffsetY, raftLineSpacing, angle, raftSpeedMmMin, travelSpeedMmMin)
 
         return
+
+    # Calculate raft regions: separate regions per contact area when firstLayerPaths is available,
+    # or fall back to a single region from the mesh bounding box.
+    calculateRaftRegions: (boundingBox, firstLayerPaths, raftMargin) ->
+
+        if firstLayerPaths and firstLayerPaths.length > 0
+
+            # Filter out holes using nesting parity - paths at odd nesting levels are holes.
+            # Even nesting level (0, 2, 4...) = printable structure; odd (1, 3, 5...) = hole.
+            outerPaths = []
+
+            for path, pathIndex in firstLayerPaths
+
+                continue if path.length < 3
+
+                nestingLevel = 0
+
+                for otherPath, otherIndex in firstLayerPaths
+
+                    continue if pathIndex is otherIndex
+
+                    if otherPath.length >= 3 and primitives.pointInPolygon(path[0], otherPath)
+
+                        nestingLevel++
+
+                if nestingLevel % 2 is 0
+
+                    outerPaths.push(path)
+
+            if outerPaths.length > 0
+
+                # Create a separate raft region for each outer path's bounding box.
+                regions = []
+
+                for path in outerPaths
+
+                    minX = Infinity
+                    maxX = -Infinity
+                    minY = Infinity
+                    maxY = -Infinity
+
+                    for point in path
+
+                        minX = Math.min(minX, point.x)
+                        maxX = Math.max(maxX, point.x)
+                        minY = Math.min(minY, point.y)
+                        maxY = Math.max(maxY, point.y)
+
+                    regions.push({
+                        minX: minX - raftMargin
+                        maxX: maxX + raftMargin
+                        minY: minY - raftMargin
+                        maxY: maxY + raftMargin
+                    })
+
+                return regions
+
+        # Fall back to a single region from the mesh bounding box.
+        return [{
+            minX: boundingBox.min.x - raftMargin
+            maxX: boundingBox.max.x + raftMargin
+            minY: boundingBox.min.y - raftMargin
+            maxY: boundingBox.max.y + raftMargin
+        }]
 
     # Generate a single raft layer with lines at specified angle.
     generateRaftLayer: (slicer, minX, maxX, minY, maxY, z, centerOffsetX, centerOffsetY, lineSpacing, angle, raftSpeedMmMin, travelSpeedMmMin) ->
@@ -85,6 +154,9 @@ module.exports =
         # Generate lines at specified angle.
         allLines = []
 
+        # Tolerance for floating-point boundary comparisons.
+        edgeEpsilon = 0.001
+
         if angle is 0
 
             # Horizontal lines (along Y axis).
@@ -95,12 +167,24 @@ module.exports =
 
                 y = startY + i * lineSpacing
 
-                if y >= minY and y <= maxY
+                if y >= minY - edgeEpsilon and y <= maxY + edgeEpsilon
 
                     allLines.push({
                         start: { x: minX, y: y }
                         end: { x: maxX, y: y }
                     })
+
+            # Add a far-edge line when the last grid line stops short of maxY.
+            # This covers both truly non-aligned heights and floating-point cases
+            # where lastY slightly exceeds maxY (handled by loop epsilon above).
+            lastY = startY + (numLines - 1) * lineSpacing
+
+            if maxY - lastY > edgeEpsilon
+
+                allLines.push({
+                    start: { x: minX, y: maxY }
+                    end: { x: maxX, y: maxY }
+                })
 
         else
 
@@ -112,12 +196,22 @@ module.exports =
 
                 x = startX + i * lineSpacing
 
-                if x >= minX and x <= maxX
+                if x >= minX - edgeEpsilon and x <= maxX + edgeEpsilon
 
                     allLines.push({
                         start: { x: x, y: minY }
                         end: { x: x, y: maxY }
                     })
+
+            # Add a far-edge line when the last grid line stops short of maxX.
+            lastX = startX + (numLines - 1) * lineSpacing
+
+            if maxX - lastX > edgeEpsilon
+
+                allLines.push({
+                    start: { x: maxX, y: minY }
+                    end: { x: maxX, y: maxY }
+                })
 
         # Render lines in order (no need for nearest-neighbor since raft is simple).
         lastEndPoint = null

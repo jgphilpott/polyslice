@@ -406,8 +406,8 @@ describe 'Accessors (Getters and Setters)', ->
 
         test 'should set and get raft settings', ->
 
-            # Test raft margin (default 5mm).
-            expect(slicer.getRaftMargin()).toBe(5)
+            # Test raft margin (default 3mm).
+            expect(slicer.getRaftMargin()).toBe(3)
 
             slicer.setRaftMargin(8)
             expect(slicer.getRaftMargin()).toBe(8)
