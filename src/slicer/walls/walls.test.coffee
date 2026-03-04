@@ -375,6 +375,34 @@ describe 'Wall Generation', ->
 
     describe 'Travel Path Combing', ->
 
+        SHEET_W = 50
+        DEPTH = 2
+        HOLE_RADIUS = 3
+
+        buildSheetWithHolesMesh = (holePositions) ->
+
+            half = SHEET_W / 2
+            sheetShape = new THREE.Shape()
+            sheetShape.moveTo(-half, -half)
+            sheetShape.lineTo(half, -half)
+            sheetShape.lineTo(half, half)
+            sheetShape.lineTo(-half, half)
+            sheetShape.closePath()
+
+            for pos in holePositions
+
+                holePath = new THREE.Path()
+                holePath.absarc(pos.x, pos.y, HOLE_RADIUS, 0, Math.PI * 2, false)
+                sheetShape.holes.push(holePath)
+
+            sheetGeometry = new THREE.ExtrudeGeometry(sheetShape, { depth: DEPTH, bevelEnabled: false })
+
+            mesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 0)
+            mesh.updateMatrixWorld()
+
+            return mesh
+
         # Helper function to count combing paths in G-code.
         # A combing path is detected as 2+ consecutive G0 travel moves.
         countCombingPaths = (gcode) ->
@@ -402,45 +430,8 @@ describe 'Wall Generation', ->
 
         test 'should use combing paths when traveling between hole walls', ->
 
-            # Create a simple mesh with a hole using CSG-like approach.
-            # For testing, we'll create a thin box with a cylinder subtracted.
-            Brush = null
-            Evaluator = null
-            SUBTRACTION = null
-
-            try
-                { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
-            catch error
-                console.warn('three-bvh-csg not available, skipping combing test')
-                return
-
-            # Suppress MeshBVH deprecation warnings from three-bvh-csg.
-            originalWarn = console.warn
-            console.warn = jest.fn()
-
-            # Create a sheet (box).
-            sheetGeometry = new THREE.BoxGeometry(50, 50, 2)
-            sheetBrush = new Brush(sheetGeometry)
-            sheetBrush.updateMatrixWorld()
-
-            # Create a hole (cylinder).
-            holeGeometry = new THREE.CylinderGeometry(3, 3, 4, 32)
-            holeBrush = new Brush(holeGeometry)
-            holeBrush.rotation.x = Math.PI / 2
-            holeBrush.position.set(0, 0, 0)
-            holeBrush.updateMatrixWorld()
-
-            # Subtract hole from sheet.
-            csgEvaluator = new Evaluator()
-            resultBrush = csgEvaluator.evaluate(sheetBrush, holeBrush, SUBTRACTION)
-
-            # Restore console.warn.
-            console.warn = originalWarn
-
-            # Create final mesh.
-            mesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
-            mesh.position.set(0, 0, 1)
-            mesh.updateMatrixWorld()
+            # Create a sheet with a single centered hole using ExtrudeGeometry (no CSG required).
+            mesh = buildSheetWithHolesMesh([{ x: 0, y: 0 }])
 
             slicer.setNozzleDiameter(0.4)
             slicer.setShellWallThickness(0.8) # 2 walls
@@ -458,52 +449,15 @@ describe 'Wall Generation', ->
 
         test 'should generate combing paths for multiple holes', ->
 
-            # Create a mesh with multiple holes.
-            Brush = null
-            Evaluator = null
-            SUBTRACTION = null
+            # Create a sheet with 4 holes in a 2x2 grid using ExtrudeGeometry (no CSG required).
+            holePositions = [
+                { x: -12.5, y: -12.5 }
+                { x: 12.5, y: -12.5 }
+                { x: -12.5, y: 12.5 }
+                { x: 12.5, y: 12.5 }
+            ]
 
-            try
-                { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
-            catch error
-                console.warn('three-bvh-csg not available, skipping combing test')
-                return
-
-            # Suppress MeshBVH deprecation warnings from three-bvh-csg.
-            originalWarn = console.warn
-            console.warn = jest.fn()
-
-            # Create a sheet (box).
-            sheetGeometry = new THREE.BoxGeometry(50, 50, 2)
-            sheetBrush = new Brush(sheetGeometry)
-            sheetBrush.updateMatrixWorld()
-
-            csgEvaluator = new Evaluator()
-            resultBrush = sheetBrush
-
-            # Create 4 holes in a 2x2 grid.
-            for row in [0...2]
-
-                for col in [0...2]
-
-                    x = -12.5 + col * 25
-                    y = -12.5 + row * 25
-
-                    holeGeometry = new THREE.CylinderGeometry(3, 3, 4, 32)
-                    holeBrush = new Brush(holeGeometry)
-                    holeBrush.rotation.x = Math.PI / 2
-                    holeBrush.position.set(x, y, 0)
-                    holeBrush.updateMatrixWorld()
-
-                    resultBrush = csgEvaluator.evaluate(resultBrush, holeBrush, SUBTRACTION)
-
-            # Restore console.warn.
-            console.warn = originalWarn
-
-            # Create final mesh.
-            mesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
-            mesh.position.set(0, 0, 1)
-            mesh.updateMatrixWorld()
+            mesh = buildSheetWithHolesMesh(holePositions)
 
             slicer.setNozzleDiameter(0.4)
             slicer.setShellWallThickness(0.8) # 2 walls
