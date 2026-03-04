@@ -154,6 +154,9 @@ module.exports =
         # Generate lines at specified angle.
         allLines = []
 
+        # Tolerance for floating-point boundary comparisons.
+        edgeEpsilon = 0.001
+
         if angle is 0
 
             # Horizontal lines (along Y axis).
@@ -164,12 +167,24 @@ module.exports =
 
                 y = startY + i * lineSpacing
 
-                if y >= minY and y <= maxY
+                if y >= minY - edgeEpsilon and y <= maxY + edgeEpsilon
 
                     allLines.push({
                         start: { x: minX, y: y }
                         end: { x: maxX, y: y }
                     })
+
+            # Add a far-edge line when the last grid line stops short of maxY.
+            # This covers both truly non-aligned heights and floating-point cases
+            # where lastY slightly exceeds maxY (handled by loop epsilon above).
+            lastY = startY + (numLines - 1) * lineSpacing
+
+            if maxY - lastY > edgeEpsilon
+
+                allLines.push({
+                    start: { x: minX, y: maxY }
+                    end: { x: maxX, y: maxY }
+                })
 
         else
 
@@ -181,12 +196,22 @@ module.exports =
 
                 x = startX + i * lineSpacing
 
-                if x >= minX and x <= maxX
+                if x >= minX - edgeEpsilon and x <= maxX + edgeEpsilon
 
                     allLines.push({
                         start: { x: x, y: minY }
                         end: { x: x, y: maxY }
                     })
+
+            # Add a far-edge line when the last grid line stops short of maxX.
+            lastX = startX + (numLines - 1) * lineSpacing
+
+            if maxX - lastX > edgeEpsilon
+
+                allLines.push({
+                    start: { x: maxX, y: minY }
+                    end: { x: maxX, y: maxY }
+                })
 
         # Render lines in order (no need for nearest-neighbor since raft is simple).
         lastEndPoint = null
