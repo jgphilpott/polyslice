@@ -1071,29 +1071,32 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
     describe 'Sphere Pole Coverage (Regression)', ->
 
-        # Slice a 10mm-diameter sphere with exposure detection and return per-layer sections.
-        sliceSphereLayerSections = (slicer) ->
+        # Sliced once for the whole describe block; both pole tests share the result.
+        sphereLayerSections = {}
+        sphereTotalLayers = 0
+
+        beforeAll ->
+
+            sphereSlicer = new Polyslice({ progressCallback: null })
 
             geometry = new THREE.SphereGeometry(5, 32, 32)
             material = new THREE.MeshBasicMaterial()
             mesh = new THREE.Mesh(geometry, material)
             mesh.updateMatrixWorld()
 
-            slicer.setLayerHeight(0.2)
-            slicer.setShellSkinThickness(0.8)
-            slicer.setShellWallThickness(0.8)
-            slicer.setNozzleDiameter(0.4)
-            slicer.setInfillDensity(30)
-            slicer.setInfillPattern('grid')
-            slicer.setVerbose(true)
-            slicer.setAutohome(false)
-            slicer.setExposureDetection(true)
+            sphereSlicer.setLayerHeight(0.2)
+            sphereSlicer.setShellSkinThickness(0.8)
+            sphereSlicer.setShellWallThickness(0.8)
+            sphereSlicer.setNozzleDiameter(0.4)
+            sphereSlicer.setInfillDensity(30)
+            sphereSlicer.setInfillPattern('grid')
+            sphereSlicer.setVerbose(true)
+            sphereSlicer.setAutohome(false)
+            sphereSlicer.setExposureDetection(true)
 
-            result = slicer.slice(mesh)
+            result = sphereSlicer.slice(mesh)
 
             lines = result.split('\n')
-            totalLayers = 0
-            layerSections = {}
             currentLayer = null
 
             for line in lines
@@ -1104,20 +1107,18 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
                     if layerMatch
                         currentLayer = parseInt(layerMatch[1])
-                        totalLayers = parseInt(layerMatch[2])
-                        layerSections[currentLayer] = { skin: 0, fill: 0 }
+                        sphereTotalLayers = parseInt(layerMatch[2])
+                        sphereLayerSections[currentLayer] = { skin: 0, fill: 0 }
 
                 else if currentLayer? and line.includes('TYPE: SKIN')
 
-                    layerSections[currentLayer].skin++
+                    sphereLayerSections[currentLayer].skin++
 
                 else if currentLayer? and line.includes('TYPE: FILL')
 
-                    layerSections[currentLayer].fill++
+                    sphereLayerSections[currentLayer].fill++
 
-            return { layerSections: layerSections, totalLayers: totalLayers }
-
-        test 'should generate regular infill in center of layers near sphere bottom pole', ->
+        test 'should generate ring skin and center infill on layers near sphere bottom pole', ->
 
             # Regression test for sphere pole layers 9-11.
             # Previously, layers 9-11 at the bottom pole generated full-circle skin
@@ -1125,24 +1126,28 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # The fix raises the candidateRatio threshold (0.9→0.97) in findCoveredRegions
             # and the filterFullyCoveredSkinWalls threshold (0.9→0.99) so that covered
             # regions close in size to the current layer are still correctly detected.
-            { layerSections } = sliceSphereLayerSections(slicer)
-
+            #
             # Layers 9-11 (1-based) are near the bottom pole.
             # With exposure detection, these layers should have:
             # - TYPE: SKIN for the outer ring (exposed area)
             # - TYPE: FILL for the center (fully covered from below)
-            expect(layerSections[9].fill).toBeGreaterThan(0)
-            expect(layerSections[10].fill).toBeGreaterThan(0)
-            expect(layerSections[11].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[9].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[9].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[10].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[10].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[11].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[11].fill).toBeGreaterThan(0)
 
-        test 'should generate regular infill in center of layers near sphere top pole', ->
+        test 'should generate ring skin and center infill on layers near sphere top pole', ->
 
             # Mirror of the bottom pole test: layers near the top pole should also
             # generate ring skin + center infill (not full-circle skin).
-            { layerSections, totalLayers } = sliceSphereLayerSections(slicer)
-
-            # Layers near the top pole (totalLayers-10 through totalLayers-8, 1-based).
+            #
+            # Layers near the top pole (sphereTotalLayers-10 through sphereTotalLayers-8, 1-based).
             # These correspond to the same geometric situation mirrored at the top.
-            expect(layerSections[totalLayers - 10].fill).toBeGreaterThan(0)
-            expect(layerSections[totalLayers - 9].fill).toBeGreaterThan(0)
-            expect(layerSections[totalLayers - 8].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 10].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 10].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 9].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 9].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 8].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 8].fill).toBeGreaterThan(0)
