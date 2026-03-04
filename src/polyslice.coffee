@@ -103,7 +103,7 @@ class Polyslice
         @brimLineCount = options.brimLineCount ?= 8 # Number.
 
         # Raft adhesion settings.
-        @raftMargin = conversions.lengthToInternal(options.raftMargin ?= 5, this.lengthUnit) # Number (mm internal).
+        @raftMargin = conversions.lengthToInternal(options.raftMargin ?= 3, this.lengthUnit) # Number (mm internal).
         @raftBaseThickness = conversions.lengthToInternal(options.raftBaseThickness ?= 0.3, this.lengthUnit) # Number (mm internal).
         @raftInterfaceLayers = options.raftInterfaceLayers ?= 2 # Number.
         @raftInterfaceThickness = conversions.lengthToInternal(options.raftInterfaceThickness ?= 0.2, this.lengthUnit) # Number (mm internal).
