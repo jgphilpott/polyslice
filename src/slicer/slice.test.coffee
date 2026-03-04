@@ -717,29 +717,19 @@ describe 'Slicing', ->
 
         test 'should print outer boundary walls before hole walls', ->
 
-            # This test uses three-bvh-csg to create a sheet with holes.
-            # Import CSG dependencies.
-            { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
-
-            # Suppress MeshBVH deprecation warnings from three-bvh-csg.
-            originalWarn = console.warn
-            console.warn = jest.fn()
-
-            # Create a sheet with holes using CSG operations.
-            sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
-            sheetBrush = new Brush(sheetGeometry)
-            sheetBrush.updateMatrixWorld()
-
-            csgEvaluator = new Evaluator()
-
-            # Create 2x2 grid of holes.
+            # Create a sheet with holes using ExtrudeGeometry (no CSG required).
             gridSize = 2
             spacing = 50 / (gridSize + 1)
             offsetX = -50 / 2 + spacing
             offsetY = -50 / 2 + spacing
             holeRadius = 3
 
-            resultBrush = sheetBrush
+            sheetShape = new THREE.Shape()
+            sheetShape.moveTo(-25, -25)
+            sheetShape.lineTo(25, -25)
+            sheetShape.lineTo(25, 25)
+            sheetShape.lineTo(-25, 25)
+            sheetShape.closePath()
 
             for row in [0...gridSize]
 
@@ -749,23 +739,16 @@ describe 'Slicing', ->
                     holeX = offsetX + col * spacing
                     holeY = offsetY + row * spacing
 
-                    # Create cylinder for hole.
-                    holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, 10, 32)
-                    holeMesh = new Brush(holeGeometry)
+                    # Add circular hole to shape.
+                    holePath = new THREE.Path()
+                    holePath.absarc(holeX, holeY, holeRadius, 0, Math.PI * 2, true)
+                    sheetShape.holes.push(holePath)
 
-                    holeMesh.rotation.x = Math.PI / 2
-                    holeMesh.position.set(holeX, holeY, 0)
-                    holeMesh.updateMatrixWorld()
-
-                    # Subtract hole from sheet.
-                    resultBrush = csgEvaluator.evaluate(resultBrush, holeMesh, SUBTRACTION)
-
-            # Restore console.warn.
-            console.warn = originalWarn
+            sheetGeometry = new THREE.ExtrudeGeometry(sheetShape, { depth: 5, bevelEnabled: false })
 
             # Create final mesh.
-            finalMesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
-            finalMesh.position.set(0, 0, 2.5)
+            finalMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
+            finalMesh.position.set(0, 0, 0)
             finalMesh.updateMatrixWorld()
 
             # Configure slicer.
@@ -896,29 +879,19 @@ describe 'Slicing', ->
 
         test 'should generate skin walls immediately after regular walls for holes on skin layers', ->
 
-            # This test validates the skin wall integration feature.
-            # Import CSG dependencies.
-            { Brush, Evaluator, SUBTRACTION } = require('three-bvh-csg')
-
-            # Suppress MeshBVH deprecation warnings from three-bvh-csg.
-            originalWarn = console.warn
-            console.warn = jest.fn()
-
-            # Create a sheet with holes using CSG operations.
-            sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
-            sheetBrush = new Brush(sheetGeometry)
-            sheetBrush.updateMatrixWorld()
-
-            csgEvaluator = new Evaluator()
-
-            # Create 2x2 grid of holes.
+            # Create a sheet with holes using ExtrudeGeometry (no CSG required).
             gridSize = 2
             spacing = 50 / (gridSize + 1)
             offsetX = -50 / 2 + spacing
             offsetY = -50 / 2 + spacing
             holeRadius = 3
 
-            resultBrush = sheetBrush
+            sheetShape = new THREE.Shape()
+            sheetShape.moveTo(-25, -25)
+            sheetShape.lineTo(25, -25)
+            sheetShape.lineTo(25, 25)
+            sheetShape.lineTo(-25, 25)
+            sheetShape.closePath()
 
             for row in [0...gridSize]
 
@@ -928,23 +901,16 @@ describe 'Slicing', ->
                     holeX = offsetX + col * spacing
                     holeY = offsetY + row * spacing
 
-                    # Create cylinder for hole.
-                    holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, 10, 32)
-                    holeMesh = new Brush(holeGeometry)
+                    # Add circular hole to shape.
+                    holePath = new THREE.Path()
+                    holePath.absarc(holeX, holeY, holeRadius, 0, Math.PI * 2, true)
+                    sheetShape.holes.push(holePath)
 
-                    holeMesh.rotation.x = Math.PI / 2
-                    holeMesh.position.set(holeX, holeY, 0)
-                    holeMesh.updateMatrixWorld()
-
-                    # Subtract hole from sheet.
-                    resultBrush = csgEvaluator.evaluate(resultBrush, holeMesh, SUBTRACTION)
-
-            # Restore console.warn.
-            console.warn = originalWarn
+            sheetGeometry = new THREE.ExtrudeGeometry(sheetShape, { depth: 5, bevelEnabled: false })
 
             # Create final mesh.
-            finalMesh = new THREE.Mesh(resultBrush.geometry, new THREE.MeshBasicMaterial())
-            finalMesh.position.set(0, 0, 2.5)
+            finalMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
+            finalMesh.position.set(0, 0, 0)
             finalMesh.updateMatrixWorld()
 
             # Configure slicer.
