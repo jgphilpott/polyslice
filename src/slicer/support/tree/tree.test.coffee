@@ -359,8 +359,36 @@ describe 'Tree Support Module', ->
             segsOrigin = treeSupport.buildTreeStructure(regionAtOrigin, 0.4, 0, 0.2)
             segsOffset = treeSupport.buildTreeStructure(regionOffset, 0.4, 0, 0.2)
 
-            # The two structures should produce the same segment counts.
-            expect(segsOffset.length).toBe(segsOrigin.length)
+            # The number of branch nodes (and therefore branch segments) must be identical.
+            branchOrigin = segsOrigin.filter (s) -> s.type is 'branch'
+            branchOffset = segsOffset.filter (s) -> s.type is 'branch'
+
+            expect(branchOffset.length).toBe(branchOrigin.length)
+
+        test 'should not produce orphaned twigs - each twig start must match a branch endpoint', ->
+
+            # A twig is orphaned when its (x1, y1, z1) does not coincide with the (x2, y2, z2)
+            # of any branch segment.  This would mean the twig starts in mid-air with no
+            # structural connection to the branch below it.
+            region = makeRegion(-10, 10, -10, 10, 20)
+            segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2)
+
+            twigSegments = segments.filter (s) -> s.type is 'twig'
+            branchSegments = segments.filter (s) -> s.type is 'branch'
+
+            expect(twigSegments.length).toBeGreaterThan(0)
+
+            for twig in twigSegments
+
+                # Every twig must have a branch whose endpoint coincides with the twig start.
+                matchingBranch = branchSegments.some (branch) ->
+                    Math.abs(branch.x2 - twig.x1) < 0.001 and
+                    Math.abs(branch.y2 - twig.y1) < 0.001 and
+                    Math.abs(branch.z2 - twig.z1) < 0.001
+
+                expect(matchingBranch).toBe(true)
+
+            return
 
     describe 'generateTreePattern', ->
 

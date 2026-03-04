@@ -146,18 +146,35 @@ module.exports =
 
             cx = 0
             cy = 0
-            maxZ = -Infinity
 
             for tip in clusterTips
 
                 cx += tip.x
                 cy += tip.y
-                maxZ = Math.max(maxZ, tip.z)
 
             cx /= clusterTips.length
             cy /= clusterTips.length
 
-            branchNodes.push({ x: cx, y: cy, z: maxZ, tips: clusterTips })
+            # Compute the branch node Z from the 45-degree constraint applied to each tip.
+            # nodeZ = min(tip.z - tdist) guarantees every twig rises at ≤ 45 degrees from
+            # the branch endpoint to its contact tip, eliminating orphaned twig segments.
+            nodeZ = Infinity
+
+            for tip in clusterTips
+
+                tdx = tip.x - cx
+                tdy = tip.y - cy
+                tdist = Math.sqrt(tdx * tdx + tdy * tdy)
+                nodeZ = Math.min(nodeZ, tip.z - tdist)
+
+            nodeZ = Math.max(nodeZ, buildPlateZ + layerHeight)
+
+            # Round to 0.1 µm to avoid floating-point edge cases in the twig-emission
+            # condition (node.z < tip.z - layerHeight) when large absolute coordinates
+            # accumulate tiny rounding errors that differ from small-coordinate equivalents.
+            nodeZ = Math.round(nodeZ * 10000) / 10000
+
+            branchNodes.push({ x: cx, y: cy, z: nodeZ, tips: clusterTips })
 
         # Compute branch root heights: where each branch diverges from the shared trunk.
         # The ideal root height is determined by the 45° angle constraint
@@ -203,19 +220,13 @@ module.exports =
             })
 
             # Twig segments: fine sub-branches from cluster node to individual contact tips.
+            # Twigs start exactly at node.z (the branch endpoint) so they connect cleanly.
             for tip in node.tips
 
-                tdx = tip.x - node.x
-                tdy = tip.y - node.y
-                tdist = Math.sqrt(tdx * tdx + tdy * tdy)
-
-                twigRootZ = tip.z - tdist
-                twigRootZ = Math.max(twigRootZ, branchRootZ + layerHeight)
-
-                if twigRootZ < tip.z - layerHeight
+                if node.z < tip.z - layerHeight
 
                     segments.push({
-                        x1: node.x, y1: node.y, z1: twigRootZ
+                        x1: node.x, y1: node.y, z1: node.z
                         x2: tip.x, y2: tip.y, z2: tip.z
                         type: 'twig'
                     })
