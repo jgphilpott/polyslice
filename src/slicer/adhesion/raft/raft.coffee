@@ -85,14 +85,15 @@ module.exports =
 
         if firstLayerPaths and firstLayerPaths.length > 0
 
-            # Filter out holes - raft should only follow outer boundaries.
+            # Filter out holes using nesting parity - paths at odd nesting levels are holes.
+            # Even nesting level (0, 2, 4...) = printable structure; odd (1, 3, 5...) = hole.
             outerPaths = []
 
             for path, pathIndex in firstLayerPaths
 
                 continue if path.length < 3
 
-                isHole = false
+                nestingLevel = 0
 
                 for otherPath, otherIndex in firstLayerPaths
 
@@ -100,10 +101,9 @@ module.exports =
 
                     if otherPath.length >= 3 and primitives.pointInPolygon(path[0], otherPath)
 
-                        isHole = true
-                        break
+                        nestingLevel++
 
-                if not isHole
+                if nestingLevel % 2 is 0
 
                     outerPaths.push(path)
 

@@ -258,3 +258,34 @@ describe 'Raft Module', ->
             expect(regions[0].maxX).toBeCloseTo(9)
             expect(regions[0].minY).toBeCloseTo(-4)
             expect(regions[0].maxY).toBeCloseTo(9)
+
+        test 'should include inner island (nesting level 2) as a raft region', ->
+
+            # Outer boundary (nesting level 0 - printable).
+            outerPath = [
+                { x: -10, y: -10 }
+                { x: 10, y: -10 }
+                { x: 10, y: 10 }
+                { x: -10, y: 10 }
+            ]
+
+            # Hole inside outer boundary (nesting level 1 - hole, excluded).
+            holePath = [
+                { x: -8, y: -8 }
+                { x: 8, y: -8 }
+                { x: 8, y: 8 }
+                { x: -8, y: 8 }
+            ]
+
+            # Island inside the hole (nesting level 2 - printable, must get a raft).
+            islandPath = [
+                { x: -3, y: -3 }
+                { x: 3, y: -3 }
+                { x: 3, y: 3 }
+                { x: -3, y: 3 }
+            ]
+
+            regions = raftModule.calculateRaftRegions(boundingBox, [outerPath, holePath, islandPath], 1)
+
+            # Should produce two regions: outer boundary + island (hole excluded).
+            expect(regions.length).toBe(2)
