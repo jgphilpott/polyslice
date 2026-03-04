@@ -69,7 +69,7 @@ findCoveredRegions = (regionCandidates, regionRefs, currentPathBounds, currentAr
                         refRatio = refArea / currentArea
 
                         # Check if at least one region is smaller than the current layer.
-                        if candidateRatio < 0.9 or refRatio < 0.9
+                        if candidateRatio < 0.97 or refRatio < 0.97
 
                             smallerArea = Math.min(candidateArea, refArea)
                             largerArea = Math.max(candidateArea, refArea)
@@ -130,7 +130,7 @@ module.exports =
 
             coveredBounds = bounds.calculatePathBounds(fullyCoveredRegion)
 
-            # Skip regions >= 90% of current path (same geometry).
+            # Skip regions >= 99% of current path (essentially identical geometry).
             if currentPathBounds? and coveredBounds?
 
                 currentWidth = currentPathBounds.maxX - currentPathBounds.minX
@@ -138,7 +138,7 @@ module.exports =
                 coveredWidth = coveredBounds.maxX - coveredBounds.minX
                 coveredHeight = coveredBounds.maxY - coveredBounds.minY
 
-                if coveredWidth >= currentWidth * 0.9 and coveredHeight >= currentHeight * 0.9
+                if coveredWidth >= currentWidth * 0.99 and coveredHeight >= currentHeight * 0.99
 
                     continue
 
