@@ -715,41 +715,48 @@ describe 'Slicing', ->
 
     describe 'Wall Print Order with Holes', ->
 
-        test 'should print outer boundary walls before hole walls', ->
+        SHEET_SIZE = 50
+        THICKNESS = 5
+        GRID_SIZE = 2
+        HOLE_RADIUS = 3
 
-            # Create a sheet with holes using ExtrudeGeometry (no CSG required).
-            gridSize = 2
-            spacing = 50 / (gridSize + 1)
-            offsetX = -50 / 2 + spacing
-            offsetY = -50 / 2 + spacing
-            holeRadius = 3
+        buildSheetWithHolesMesh = ->
+
+            spacing = SHEET_SIZE / (GRID_SIZE + 1)
+            offsetX = -SHEET_SIZE / 2 + spacing
+            offsetY = -SHEET_SIZE / 2 + spacing
+            half = SHEET_SIZE / 2
 
             sheetShape = new THREE.Shape()
-            sheetShape.moveTo(-25, -25)
-            sheetShape.lineTo(25, -25)
-            sheetShape.lineTo(25, 25)
-            sheetShape.lineTo(-25, 25)
+            sheetShape.moveTo(-half, -half)
+            sheetShape.lineTo(half, -half)
+            sheetShape.lineTo(half, half)
+            sheetShape.lineTo(-half, half)
             sheetShape.closePath()
 
-            for row in [0...gridSize]
+            for row in [0...GRID_SIZE]
 
-                for col in [0...gridSize]
+                for col in [0...GRID_SIZE]
 
-                    # Calculate hole position.
                     holeX = offsetX + col * spacing
                     holeY = offsetY + row * spacing
 
-                    # Add circular hole to shape.
                     holePath = new THREE.Path()
-                    holePath.absarc(holeX, holeY, holeRadius, 0, Math.PI * 2, true)
+                    holePath.absarc(holeX, holeY, HOLE_RADIUS, 0, Math.PI * 2, false)
                     sheetShape.holes.push(holePath)
 
-            sheetGeometry = new THREE.ExtrudeGeometry(sheetShape, { depth: 5, bevelEnabled: false })
+            sheetGeometry = new THREE.ExtrudeGeometry(sheetShape, { depth: THICKNESS, bevelEnabled: false })
 
-            # Create final mesh.
-            finalMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
-            finalMesh.position.set(0, 0, 0)
-            finalMesh.updateMatrixWorld()
+            mesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
+            mesh.position.set(0, 0, 0)
+            mesh.updateMatrixWorld()
+
+            return mesh
+
+        test 'should print outer boundary walls before hole walls', ->
+
+            # Create a sheet with holes using ExtrudeGeometry (no CSG required).
+            finalMesh = buildSheetWithHolesMesh()
 
             # Configure slicer.
             slicer.setLayerHeight(0.2)
@@ -880,38 +887,7 @@ describe 'Slicing', ->
         test 'should generate skin walls immediately after regular walls for holes on skin layers', ->
 
             # Create a sheet with holes using ExtrudeGeometry (no CSG required).
-            gridSize = 2
-            spacing = 50 / (gridSize + 1)
-            offsetX = -50 / 2 + spacing
-            offsetY = -50 / 2 + spacing
-            holeRadius = 3
-
-            sheetShape = new THREE.Shape()
-            sheetShape.moveTo(-25, -25)
-            sheetShape.lineTo(25, -25)
-            sheetShape.lineTo(25, 25)
-            sheetShape.lineTo(-25, 25)
-            sheetShape.closePath()
-
-            for row in [0...gridSize]
-
-                for col in [0...gridSize]
-
-                    # Calculate hole position.
-                    holeX = offsetX + col * spacing
-                    holeY = offsetY + row * spacing
-
-                    # Add circular hole to shape.
-                    holePath = new THREE.Path()
-                    holePath.absarc(holeX, holeY, holeRadius, 0, Math.PI * 2, true)
-                    sheetShape.holes.push(holePath)
-
-            sheetGeometry = new THREE.ExtrudeGeometry(sheetShape, { depth: 5, bevelEnabled: false })
-
-            # Create final mesh.
-            finalMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
-            finalMesh.position.set(0, 0, 0)
-            finalMesh.updateMatrixWorld()
+            finalMesh = buildSheetWithHolesMesh()
 
             # Configure slicer.
             slicer.setLayerHeight(0.2)
