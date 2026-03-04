@@ -1068,3 +1068,86 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
                         centerFillCount += 1
 
             expect(centerFillCount).toBeGreaterThan(0)
+
+    describe 'Sphere Pole Coverage (Regression)', ->
+
+        # Sliced once for the whole describe block; both pole tests share the result.
+        sphereLayerSections = {}
+        sphereTotalLayers = 0
+
+        beforeAll ->
+
+            sphereSlicer = new Polyslice({ progressCallback: null })
+
+            geometry = new THREE.SphereGeometry(5, 32, 32)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+            mesh.updateMatrixWorld()
+
+            sphereSlicer.setLayerHeight(0.2)
+            sphereSlicer.setShellSkinThickness(0.8)
+            sphereSlicer.setShellWallThickness(0.8)
+            sphereSlicer.setNozzleDiameter(0.4)
+            sphereSlicer.setInfillDensity(30)
+            sphereSlicer.setInfillPattern('grid')
+            sphereSlicer.setVerbose(true)
+            sphereSlicer.setAutohome(false)
+            sphereSlicer.setExposureDetection(true)
+
+            result = sphereSlicer.slice(mesh)
+
+            lines = result.split('\n')
+            currentLayer = null
+
+            for line in lines
+
+                if line.includes('LAYER:')
+
+                    layerMatch = line.match(/LAYER:\s*(\d+) of (\d+)/)
+
+                    if layerMatch
+                        currentLayer = parseInt(layerMatch[1])
+                        sphereTotalLayers = parseInt(layerMatch[2])
+                        sphereLayerSections[currentLayer] = { skin: 0, fill: 0 }
+
+                else if currentLayer? and line.includes('TYPE: SKIN')
+
+                    sphereLayerSections[currentLayer].skin++
+
+                else if currentLayer? and line.includes('TYPE: FILL')
+
+                    sphereLayerSections[currentLayer].fill++
+
+        test 'should generate ring skin and center infill on layers near sphere bottom pole', ->
+
+            # Regression test for sphere pole layers 9-11.
+            # Previously, layers 9-11 at the bottom pole generated full-circle skin
+            # instead of a ring-shaped skin patch with regular infill in the center.
+            # The fix raises the candidateRatio threshold (0.9→0.97) in findCoveredRegions
+            # and the filterFullyCoveredSkinWalls threshold (0.9→0.99) so that covered
+            # regions close in size to the current layer are still correctly detected.
+            #
+            # Layers 9-11 (1-based) are near the bottom pole.
+            # With exposure detection, these layers should have:
+            # - TYPE: SKIN for the outer ring (exposed area)
+            # - TYPE: FILL for the center (fully covered from below)
+            expect(sphereLayerSections[9].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[9].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[10].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[10].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[11].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[11].fill).toBeGreaterThan(0)
+
+        test 'should generate ring skin and center infill on layers near sphere top pole', ->
+
+            # Mirror of the bottom pole test: layers near the top pole should also
+            # generate ring skin + center infill (not full-circle skin).
+            #
+            # Layers near the top pole (sphereTotalLayers-10 through sphereTotalLayers-8, 1-based).
+            # These correspond to the same geometric situation mirrored at the top.
+            expect(sphereLayerSections[sphereTotalLayers - 10].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 10].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 9].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 9].fill).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 8].skin).toBeGreaterThan(0)
+            expect(sphereLayerSections[sphereTotalLayers - 8].fill).toBeGreaterThan(0)
