@@ -47,11 +47,19 @@ TWIG_OVERLAP_LAYERS = 1
 # the base footprint and improving the structural stability of the tree support.
 ROOT_COUNT = 4
 
+# Number of layers below effectiveTrunkBaseZ to search for solid geometry when
+# determining whether a root endpoint in 'everywhere' mode has a surface to land on.
+# Two layers provides enough tolerance for Z-spacing variation without false positives.
+ROOT_SUPPORT_LAYER_SEARCH_DEPTH = 2
+
 module.exports =
 
     TWIG_OVERLAP_LAYERS: TWIG_OVERLAP_LAYERS
     ROOT_COUNT: ROOT_COUNT
     ROOT_RADIUS_MULTIPLIER: ROOT_RADIUS_MULTIPLIER
+    CONTACT_SPACING_MULTIPLIER: CONTACT_SPACING_MULTIPLIER
+    BRANCH_CLUSTER_SIZE: BRANCH_CLUSTER_SIZE
+    ROOT_SUPPORT_LAYER_SEARCH_DEPTH: ROOT_SUPPORT_LAYER_SEARCH_DEPTH
 
     # Return the interpolated face Z at (x, y) by searching all region faces.
     # Returns null if the point lies outside every face's 2D XY projection.
@@ -428,8 +436,8 @@ module.exports =
             region._effectiveTrunkBaseZ = z
 
         # Generate root cross-sections dynamically from the effective trunk base.
-        # Roots spread radially outward at the base and converge to the trunk position
-        # over a vertical span of rootSpread/2, keeping them close to the trunk base.
+        # Roots spread radially outward at the base (spread = rootHeight for 45° angle)
+        # and converge back to the trunk XY over the rootHeight vertical range.
         if region._effectiveTrunkBaseZ?
 
             trunkSeg = segments.find (s) -> s.type is 'trunk'
@@ -443,20 +451,60 @@ module.exports =
                 trunkHeight = Math.abs(trunkSeg.z2 - trunkSeg.z1)
                 rootSpread = Math.min(contactSpacing * BRANCH_CLUSTER_SIZE, trunkHeight)
                 effectiveBaseZ = region._effectiveTrunkBaseZ
-                rootHeight = rootSpread * 0.5  # Half the spread keeps roots near the trunk base.
+                # rootHeight equals rootSpread/2; roots spread by rootHeight horizontally
+                # so horizontal == vertical, giving exactly a 45-degree outward angle.
+                rootHeight = rootSpread * 0.5
                 rootTopZ = effectiveBaseZ + rootHeight
 
                 if z >= effectiveBaseZ and z <= rootTopZ and rootHeight >= layerHeight
+
+                    # Pre-compute which roots are actually supported on first visit.
+                    # A root is valid only if its base endpoint rests on solid geometry
+                    # (for 'everywhere' mode) — this eliminates hanging roots that spread
+                    # outward beyond the edge of the surface the trunk rests on.
+                    if not region._validRootIndices?
+
+                        region._validRootIndices = []
+
+                        for i in [0...ROOT_COUNT]
+
+                            angle = i * 2 * Math.PI / ROOT_COUNT
+                            rootBaseX = trunkX + rootHeight * Math.cos(angle)
+                            rootBaseY = trunkY + rootHeight * Math.sin(angle)
+                            basePoint = { x: rootBaseX, y: rootBaseY }
+
+                            rootIsSupported = true
+
+                            if supportPlacement is 'everywhere'
+
+                                # In 'everywhere' mode the trunk base is above solid geometry.
+                                # Check that the layer just below effectiveBaseZ contains solid
+                                # material at the root base position — if not, the root hangs.
+                                rootIsSupported = false
+
+                                for layerData in layerSolidRegions
+
+                                    if layerData.z < effectiveBaseZ and (effectiveBaseZ - layerData.z) <= layerHeight * ROOT_SUPPORT_LAYER_SEARCH_DEPTH
+
+                                        if normalSupportModule.isPointInsideSolidGeometry(
+                                            basePoint, layerData.paths, layerData.pathIsHole
+                                        )
+
+                                            rootIsSupported = true
+                                            break
+
+                            region._validRootIndices.push(i) if rootIsSupported
 
                     # Linear interpolation: t=0 at effective base (roots at full spread),
                     # t=1 at rootTopZ (roots converged back to trunk XY).
                     t = (z - effectiveBaseZ) / rootHeight
 
-                    for i in [0...ROOT_COUNT]
+                    for i in region._validRootIndices
 
                         angle = i * 2 * Math.PI / ROOT_COUNT
-                        rootEndX = trunkX + rootSpread * Math.cos(angle)
-                        rootEndY = trunkY + rootSpread * Math.sin(angle)
+                        # Spread equals rootHeight for a 45-degree outward angle.
+                        rootEndX = trunkX + rootHeight * Math.cos(angle)
+                        rootEndY = trunkY + rootHeight * Math.sin(angle)
 
                         # Interpolate from spread XY (base) toward trunk XY (top).
                         rootX = rootEndX + t * (trunkX - rootEndX)
