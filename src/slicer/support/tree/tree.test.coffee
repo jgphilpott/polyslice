@@ -395,7 +395,36 @@ describe 'Tree Support Module', ->
 
             return
 
-    describe 'generateTreePattern', ->
+        test 'should produce valid branches and twigs for low overhang near the build plate', ->
+
+            # A wide region at low Z forces nodeZ onto its clamp (buildPlateZ + layerHeight),
+            # which previously caused branchRootZ == nodeZ (zero-height branch) and
+            # twigStartZ to fall below branchRootZ.  Both must now be handled correctly.
+            layerHeight = 0.2
+            overlapZ = treeSupport.TWIG_OVERLAP_LAYERS * layerHeight
+            region = makeRegion(-10, 10, -10, 10, 2)
+            segments = treeSupport.buildTreeStructure(region, 0.4, 0, layerHeight)
+
+            branchSegments = segments.filter (s) -> s.type is 'branch'
+            twigSegments = segments.filter (s) -> s.type is 'twig'
+
+            # Every branch must span at least one printable layer (non-zero height).
+            for branch in branchSegments
+
+                expect(branch.z2).toBeGreaterThan(branch.z1)
+
+            # Every twig must connect to a branch and start within branchRootZ..nodeZ.
+            for twig in twigSegments
+
+                matchingBranch = branchSegments.some (branch) ->
+                    Math.abs(branch.x2 - twig.x1) < 0.001 and
+                    Math.abs(branch.y2 - twig.y1) < 0.001 and
+                    twig.z1 >= branch.z1 - 0.001 and
+                    twig.z1 <= branch.z2 + 0.001
+
+                expect(matchingBranch).toBe(true)
+
+            return
 
         # Helper: create a minimal slicer-like object for testing.
         makeSlicer = ->

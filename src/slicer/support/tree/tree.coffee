@@ -219,6 +219,13 @@ module.exports =
             node = branchNodes[nodeIdx]
             branchRootZ = branchRootZs[nodeIdx]
 
+            # Guarantee the branch spans at least one printable layer.
+            # When nodeZ was clamped to buildPlateZ + layerHeight and branchRootZ was also
+            # clamped to the same value, the branch segment collapses to zero height and
+            # never intersects any layer Z plane.  Nudging node.z up by layerHeight ensures
+            # a non-zero segment without changing the already-computed branchRootZ.
+            node.z = Math.max(node.z, Math.round((branchRootZ + layerHeight) * 10000) / 10000)
+
             # Branch segment: angled from trunk toward the branch node.
             segments.push({
                 x1: trunkX, y1: trunkY, z1: branchRootZ
@@ -230,7 +237,8 @@ module.exports =
             # Twigs start TWIG_OVERLAP_LAYERS below the branch endpoint so that both the
             # branch (nearing its end) and the twig (at its root) are printed at the same Z,
             # creating a physical bond that strengthens the twig/branch joint.
-            twigStartZ = Math.max(node.z - TWIG_OVERLAP_LAYERS * layerHeight, buildPlateZ)
+            # Floor is branchRootZ (not buildPlateZ) so twigs never start below the branch.
+            twigStartZ = Math.max(node.z - TWIG_OVERLAP_LAYERS * layerHeight, branchRootZ)
 
             for tip in node.tips
 
