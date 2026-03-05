@@ -4,7 +4,8 @@
 # The structure converges as it descends toward the build plate:
 #   - Many fine twig tips spread across the overhang area (top)
 #   - Twig tips merge into branch nodes at approximately 45-degree angles
-#   - Branches converge to a single vertical trunk column (bottom)
+#   - Branches converge to a single vertical trunk column (middle)
+#   - Roots spread outward and downward from the trunk base (bottom)
 
 coders = require('../../gcode/coders')
 normalSupportModule = require('../normal/normal')
@@ -23,7 +24,9 @@ BRANCH_CLUSTER_SIZE = 3.0
 
 # Cross-section radius multipliers by node type (in nozzle diameters).
 # Trunk is widest for structural stability; twigs are finest for easy overhang contact.
+# Roots are slightly wider than branches to provide a stable base footprint.
 TRUNK_RADIUS_MULTIPLIER = 3.0
+ROOT_RADIUS_MULTIPLIER = 2.0
 BRANCH_RADIUS_MULTIPLIER = 1.8
 TWIG_RADIUS_MULTIPLIER = 0.8
 
@@ -39,9 +42,16 @@ CIRCLE_CHORD_SIN_FACTOR = Math.sin(Math.PI / CIRCLE_SEGMENTS)
 # material are printed at the same Z level, physically bonding the joint.
 TWIG_OVERLAP_LAYERS = 1
 
+# Number of root segments spread radially outward and downward from the trunk base.
+# Roots connect the trunk to the build plate at multiple XY positions, increasing
+# the base footprint and improving the structural stability of the tree support.
+ROOT_COUNT = 4
+
 module.exports =
 
     TWIG_OVERLAP_LAYERS: TWIG_OVERLAP_LAYERS
+    ROOT_COUNT: ROOT_COUNT
+    ROOT_RADIUS_MULTIPLIER: ROOT_RADIUS_MULTIPLIER
 
     # Return the interpolated face Z at (x, y) by searching all region faces.
     # Returns null if the point lies outside every face's 2D XY projection.
@@ -214,6 +224,28 @@ module.exports =
             type: 'trunk'
         }]
 
+        # Root segments: angled from the trunk base outward and downward to the build plate.
+        # Each root starts at (trunkX, trunkY) at rootStartZ and ends at a spread XY position
+        # at buildPlateZ, increasing the base footprint for improved structural stability.
+        # Spread is clamped to the available trunk height so roots always fit within the tree.
+        rootSpread = Math.min(contactSpacing * BRANCH_CLUSTER_SIZE, trunkTopZ - buildPlateZ)
+
+        if rootSpread >= layerHeight
+
+            rootStartZ = buildPlateZ + rootSpread
+
+            for i in [0...ROOT_COUNT]
+
+                angle = i * 2 * Math.PI / ROOT_COUNT
+                rootEndX = trunkX + rootSpread * Math.cos(angle)
+                rootEndY = trunkY + rootSpread * Math.sin(angle)
+
+                segments.push({
+                    x1: trunkX, y1: trunkY, z1: rootStartZ
+                    x2: rootEndX, y2: rootEndY, z2: buildPlateZ
+                    type: 'root'
+                })
+
         for nodeIdx in [0...branchNodes.length]
 
             node = branchNodes[nodeIdx]
@@ -281,12 +313,13 @@ module.exports =
     # The shape consists of:
     #   - Outer circle (O): polygon approximation using CIRCLE_SEGMENTS segments
     #   - Inner X fill:     two diagonal lines crossing the center at ±45 degrees
-    # The radius scales with nodeType: trunk is largest, branch is medium, twig is smallest.
+    # The radius scales with nodeType: trunk is largest, roots and branches are medium, twig is smallest.
     renderNodeAt: (slicer, px, py, z, centerOffsetX, centerOffsetY, nozzleDiameter, nodeType, supportLineWidth, supportSpeed, travelSpeed) ->
 
         # Radius scales with node type so the structure tapers naturally from trunk to twig.
         switch nodeType
             when 'trunk' then halfSize = nozzleDiameter * TRUNK_RADIUS_MULTIPLIER
+            when 'root' then halfSize = nozzleDiameter * ROOT_RADIUS_MULTIPLIER
             when 'branch' then halfSize = nozzleDiameter * BRANCH_RADIUS_MULTIPLIER
             else halfSize = nozzleDiameter * TWIG_RADIUS_MULTIPLIER
 
@@ -354,9 +387,9 @@ module.exports =
         )
 
     # Generate tree-style support G-code for a region at a given layer.
-    # Finds the cross-section of every tree segment (trunk, branch, twig) at height Z
+    # Finds the cross-section of every tree segment (trunk, root, branch, twig) at height Z
     # and renders a circular O+X node at each intersection point:
-    #   - Bottom layers: one large trunk node at the centroid (convergence)
+    #   - Bottom layers: trunk node at centroid plus root nodes spreading outward (stability base)
     #   - Middle layers: medium branch nodes spreading outward from the trunk
     #   - Top layers: many small twig nodes spread across the overhang contact area
     # Returns true if any G-code was emitted, false otherwise.
