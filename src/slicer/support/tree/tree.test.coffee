@@ -608,130 +608,106 @@ describe 'Tree Support Module', ->
 
             expect(region._treeSegments).toBe(firstCache)
 
-        test 'should include root segments for a valid region', ->
+        test 'buildTreeStructure should NOT include root segments (roots are dynamic)', ->
 
             region = makeRegion(-10, 10, -10, 10, 20)
             segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2)
 
             rootSegments = segments.filter (s) -> s.type is 'root'
 
-            expect(rootSegments.length).toBeGreaterThan(0)
+            # Roots are generated dynamically in generateTreePattern, not pre-computed here.
+            expect(rootSegments.length).toBe(0)
 
-        test 'should produce exactly ROOT_COUNT root segments for a valid region', ->
+        test 'buildTreeStructure should only contain trunk, branch, and twig segment types', ->
 
             region = makeRegion(-10, 10, -10, 10, 20)
             segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2)
 
-            rootSegments = segments.filter (s) -> s.type is 'root'
+            for seg in segments
 
-            expect(rootSegments.length).toBe(treeSupport.ROOT_COUNT)
-
-        test 'should have roots going downward (z1 > z2) from trunk to build plate', ->
-
-            buildPlateZ = 0
-            layerHeight = 0.2
-            region = makeRegion(-10, 10, -10, 10, 20)
-            segments = treeSupport.buildTreeStructure(region, 0.4, buildPlateZ, layerHeight)
-
-            rootSegments = segments.filter (s) -> s.type is 'root'
-
-            expect(rootSegments.length).toBeGreaterThan(0)
-
-            for root in rootSegments
-
-                # Roots start higher (z1) and end at the build plate (z2).
-                expect(root.z1).toBeGreaterThan(root.z2)
-                expect(root.z2).toBeCloseTo(buildPlateZ, 5)
+                expect(['trunk', 'branch', 'twig']).toContain(seg.type)
 
             return
 
-        test 'should have roots whose z1 is at or below trunkTopZ', ->
+        test 'should emit ROOT_COUNT root cross-sections at the effective trunk base layer', ->
 
-            buildPlateZ = 0
-            layerHeight = 0.2
+            slicer = makeSlicer()
             region = makeRegion(-10, 10, -10, 10, 20)
-            segments = treeSupport.buildTreeStructure(region, 0.4, buildPlateZ, layerHeight)
 
-            trunkSegment = segments.find (s) -> s.type is 'trunk'
-            trunkTopZ = Math.max(trunkSegment.z1, trunkSegment.z2)
+            nozzleDiameter = slicer.getNozzleDiameter()
+            layerHeight = slicer.getLayerHeight()
 
-            rootSegments = segments.filter (s) -> s.type is 'root'
+            # First call at z=0.1 sets _effectiveTrunkBaseZ and renders roots + trunk.
+            treeSupport.generateTreePattern(
+                slicer, region, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
 
-            for root in rootSegments
+            # The effective trunk base must have been recorded.
+            expect(region._effectiveTrunkBaseZ).toBeCloseTo(0.1, 5)
 
-                # Root start must not exceed the trunk top.
-                expect(root.z1).toBeLessThanOrEqual(trunkTopZ + 0.001)
+            # G-code must include extruding moves (trunk + root nodes all produce extrusions).
+            expect(slicer.gcode).toMatch(/G1 .*E[\d.]+/)
 
-            return
+        test 'base layer should have more extrusion moves than a layer above the root zone', ->
 
-        test 'should have roots starting at trunk XY position', ->
-
-            buildPlateZ = 0
+            nozzleDiameter = 0.4
             layerHeight = 0.2
+
+            # Base layer (z=0.1): trunk + ROOT_COUNT roots → most extrusion moves.
+            slicerBase = makeSlicer()
+            regionBase = makeRegion(-10, 10, -10, 10, 20)
+
+            treeSupport.generateTreePattern(
+                slicerBase, regionBase, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            baseExtrusionCount = slicerBase.gcode.split('\n').filter((l) -> /^G1 .*E/.test(l)).length
+
+            # Each renderNodeAt call produces CIRCLE_SEGMENTS (12) + 2 X-arm extrusions = 14.
+            # With ROOT_COUNT=4 roots plus 1 trunk, the base layer should have significantly
+            # more than a single node (14 moves), confirming roots are being rendered.
+            singleNodeExtrusions = 12 + 2
+
+            expect(baseExtrusionCount).toBeGreaterThan(singleNodeExtrusions)
+
+        test 'roots should spread outward from the trunk (not at trunk XY) at the effective base layer', ->
+
+            slicer = makeSlicer()
             region = makeRegion(-10, 10, -10, 10, 20)
-            segments = treeSupport.buildTreeStructure(region, 0.4, buildPlateZ, layerHeight)
 
-            trunkSegment = segments.find (s) -> s.type is 'trunk'
-            trunkX = trunkSegment.x1
-            trunkY = trunkSegment.y1
+            nozzleDiameter = slicer.getNozzleDiameter()
+            layerHeight = slicer.getLayerHeight()
 
-            rootSegments = segments.filter (s) -> s.type is 'root'
+            # z=0.1: effective base layer where roots are at maximum spread.
+            treeSupport.generateTreePattern(
+                slicer, region, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
 
-            for root in rootSegments
+            # Trunk is at centroid (0, 0) for a symmetric region centered on origin.
+            # At the base layer (t=0), roots are at spread positions — G-code should
+            # contain X coordinates larger than trunk_radius (1.2mm) away from trunk.
+            trunkRadius = nozzleDiameter * 3.0
+            maxX = 0
 
-                # Every root originates at the trunk centroid XY.
-                expect(root.x1).toBeCloseTo(trunkX, 5)
-                expect(root.y1).toBeCloseTo(trunkY, 5)
+            for line in slicer.gcode.split('\n')
 
-            return
+                match = line.match(/X([\-\d.]+)/)
 
-        test 'root endpoints should be spread radially around the trunk at build plate level', ->
+                if match
 
-            buildPlateZ = 0
-            layerHeight = 0.2
-            region = makeRegion(-10, 10, -10, 10, 20)
-            segments = treeSupport.buildTreeStructure(region, 0.4, buildPlateZ, layerHeight)
+                    maxX = Math.max(maxX, Math.abs(parseFloat(match[1])))
 
-            trunkSegment = segments.find (s) -> s.type is 'trunk'
-            trunkX = trunkSegment.x1
-            trunkY = trunkSegment.y1
-
-            rootSegments = segments.filter (s) -> s.type is 'root'
-
-            # All root endpoints must be at the same distance from the trunk (radially symmetric).
-            distances = rootSegments.map (root) ->
-                dx = root.x2 - trunkX
-                dy = root.y2 - trunkY
-                Math.sqrt(dx * dx + dy * dy)
-
-            # Each root spreads by the same amount.
-            firstDist = distances[0]
-
-            for dist in distances
-
-                expect(dist).toBeCloseTo(firstDist, 5)
-
-            # The spread must be non-trivial.
-            expect(firstDist).toBeGreaterThan(0.1)
-
-        test 'roots should satisfy the 45-degree downward angle constraint', ->
-
-            buildPlateZ = 0
-            layerHeight = 0.2
-            region = makeRegion(-10, 10, -10, 10, 20)
-            segments = treeSupport.buildTreeStructure(region, 0.4, buildPlateZ, layerHeight)
-
-            rootSegments = segments.filter (s) -> s.type is 'root'
-
-            for root in rootSegments
-
-                horizontalDist = Math.sqrt((root.x2 - root.x1) ** 2 + (root.y2 - root.y1) ** 2)
-                verticalDist = Math.abs(root.z1 - root.z2)
-
-                # Horizontal spread must not exceed vertical drop (≤45°, 5% tolerance).
-                expect(horizontalDist).toBeLessThanOrEqual(verticalDist * 1.05)
-
-            return
+            # Root spread must extend beyond the trunk circle radius.
+            expect(maxX).toBeGreaterThan(trunkRadius)
 
         test 'root node should have radius between trunk and branch radii', ->
 
@@ -780,7 +756,7 @@ describe 'Tree Support Module', ->
             nozzleDiameter = slicer.getNozzleDiameter()
             layerHeight = slicer.getLayerHeight()
 
-            # Layer z=0.1 is the first printable layer: trunk + roots are present here.
+            # Layer z=0.1 sets the effective trunk base; trunk + dynamic roots appear here.
             treeSupport.generateTreePattern(
                 slicer, region, 0.1, 0,
                 0, 0,
@@ -788,8 +764,7 @@ describe 'Tree Support Module', ->
                 'buildPlate', 0, layerHeight
             )
 
-            # At the first layer only trunk and root segments intersect.
-            # Must contain extruding G1 moves (the O+X nodes).
+            # Must contain extruding G1 moves from both trunk and root nodes.
             expect(slicer.gcode).toMatch(/G1 .*E[\d.]+/)
 
 

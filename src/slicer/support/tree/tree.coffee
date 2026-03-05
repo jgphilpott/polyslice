@@ -86,9 +86,11 @@ module.exports =
 
         return null
 
-    # Build the complete tree segment structure for a support region.
-    # Pre-computes all trunk, branch, and twig line segments from build plate to overhang.
+    # Build the tree segment structure for a support region.
+    # Pre-computes trunk, branch, and twig line segments from build plate to overhang.
     # Segments are cached on the region object so they are computed only once per slice.
+    # Root segments are generated dynamically in generateTreePattern based on the
+    # effective trunk base (first printable trunk layer) and are not included here.
     # Returns an array of {x1, y1, z1, x2, y2, z2, type} segment objects.
     buildTreeStructure: (region, nozzleDiameter, buildPlateZ, layerHeight) ->
 
@@ -223,28 +225,6 @@ module.exports =
             x2: trunkX, y2: trunkY, z2: trunkTopZ
             type: 'trunk'
         }]
-
-        # Root segments: angled from the trunk base outward and downward to the build plate.
-        # Each root starts at (trunkX, trunkY) at rootStartZ and ends at a spread XY position
-        # at buildPlateZ, increasing the base footprint for improved structural stability.
-        # Spread is clamped to the available trunk height so roots always fit within the tree.
-        rootSpread = Math.min(contactSpacing * BRANCH_CLUSTER_SIZE, trunkTopZ - buildPlateZ)
-
-        if rootSpread >= layerHeight
-
-            rootStartZ = buildPlateZ + rootSpread
-
-            for i in [0...ROOT_COUNT]
-
-                angle = i * 2 * Math.PI / ROOT_COUNT
-                rootEndX = trunkX + rootSpread * Math.cos(angle)
-                rootEndY = trunkY + rootSpread * Math.sin(angle)
-
-                segments.push({
-                    x1: trunkX, y1: trunkY, z1: rootStartZ
-                    x2: rootEndX, y2: rootEndY, z2: buildPlateZ
-                    type: 'root'
-                })
 
         for nodeIdx in [0...branchNodes.length]
 
@@ -387,11 +367,13 @@ module.exports =
         )
 
     # Generate tree-style support G-code for a region at a given layer.
-    # Finds the cross-section of every tree segment (trunk, root, branch, twig) at height Z
+    # Finds the cross-section of every tree segment (trunk, branch, twig) at height Z
     # and renders a circular O+X node at each intersection point:
-    #   - Bottom layers: trunk node at centroid plus root nodes spreading outward (stability base)
+    #   - Bottom layers: trunk node plus root nodes spreading outward from the effective base
     #   - Middle layers: medium branch nodes spreading outward from the trunk
     #   - Top layers: many small twig nodes spread across the overhang contact area
+    # Roots are generated dynamically based on region._effectiveTrunkBaseZ, which is set
+    # to the first layer Z at which the trunk actually prints (handling floating trunks).
     # Returns true if any G-code was emitted, false otherwise.
     generateTreePattern: (slicer, region, z, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
 
@@ -435,6 +417,57 @@ module.exports =
             )
 
                 supportPoints.push({ x: px, y: py, type: seg.type })
+
+        # Track the lowest Z at which the trunk actually prints.
+        # This gives the effective base for root placement even when the trunk starts
+        # above the physical build plate (e.g., 'everywhere' mode on an arch print).
+        trunkPrinted = supportPoints.some (p) -> p.type is 'trunk'
+
+        if trunkPrinted and (not region._effectiveTrunkBaseZ? or z < region._effectiveTrunkBaseZ)
+
+            region._effectiveTrunkBaseZ = z
+
+        # Generate root cross-sections dynamically from the effective trunk base.
+        # Roots spread radially outward at the base and converge to the trunk position
+        # over a vertical span of rootSpread/2, keeping them close to the trunk base.
+        if region._effectiveTrunkBaseZ?
+
+            trunkSeg = segments.find (s) -> s.type is 'trunk'
+
+            if trunkSeg?
+
+                trunkX = trunkSeg.x1
+                trunkY = trunkSeg.y1
+
+                contactSpacing = nozzleDiameter * CONTACT_SPACING_MULTIPLIER
+                trunkHeight = Math.abs(trunkSeg.z2 - trunkSeg.z1)
+                rootSpread = Math.min(contactSpacing * BRANCH_CLUSTER_SIZE, trunkHeight)
+                effectiveBaseZ = region._effectiveTrunkBaseZ
+                rootHeight = rootSpread * 0.5  # Half the spread keeps roots near the trunk base.
+                rootTopZ = effectiveBaseZ + rootHeight
+
+                if z >= effectiveBaseZ and z <= rootTopZ and rootHeight >= layerHeight
+
+                    # Linear interpolation: t=0 at effective base (roots at full spread),
+                    # t=1 at rootTopZ (roots converged back to trunk XY).
+                    t = (z - effectiveBaseZ) / rootHeight
+
+                    for i in [0...ROOT_COUNT]
+
+                        angle = i * 2 * Math.PI / ROOT_COUNT
+                        rootEndX = trunkX + rootSpread * Math.cos(angle)
+                        rootEndY = trunkY + rootSpread * Math.sin(angle)
+
+                        # Interpolate from spread XY (base) toward trunk XY (top).
+                        rootX = rootEndX + t * (trunkX - rootEndX)
+                        rootY = rootEndY + t * (trunkY - rootEndY)
+
+                        if normalSupportModule.canGenerateSupportAt(
+                            slicer, { x: rootX, y: rootY }, z,
+                            layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex
+                        )
+
+                            supportPoints.push({ x: rootX, y: rootY, type: 'root' })
 
         # Collapse multiple paths that converge to the same trunk position.
         deduplicated = @deduplicatePoints(supportPoints, nozzleDiameter * 0.5)
