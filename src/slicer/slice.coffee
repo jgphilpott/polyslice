@@ -350,7 +350,6 @@ module.exports =
         holeInnerWalls = []  # Inner wall paths of holes (for regular infill clipping).
         holeOuterWalls = []  # Outer wall paths of holes (for travel path optimization).
         holeSkinWalls = []   # Skin wall paths of holes (for skin infill clipping).
-        structureSkinWalls = []  # Skin wall paths of structures (for skin infill clipping).
         innermostWalls = []
 
         # Track nesting levels for holes to filter exclusion zones.
