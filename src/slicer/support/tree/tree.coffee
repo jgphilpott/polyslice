@@ -47,10 +47,11 @@ TWIG_OVERLAP_LAYERS = 1
 # the base footprint and improving the structural stability of the tree support.
 ROOT_COUNT = 4
 
-# Number of layers below effectiveTrunkBaseZ to search for solid geometry when
-# determining whether a root endpoint in 'everywhere' mode has a surface to land on.
-# Two layers provides enough tolerance for Z-spacing variation without false positives.
-ROOT_SUPPORT_LAYER_SEARCH_DEPTH = 2
+# Fractional distances (as multiples of rootHeight) sampled along each root ray
+# when checking for solid geometry in 'everywhere' mode.
+# Sampling from 0.5× to 2× rootHeight detects curved surfaces (e.g. dome walls)
+# that lie further from the trunk than the root base point itself.
+ROOT_RAY_SAMPLE_FRACTIONS = [0.5, 1.0, 1.5, 2.0]
 
 module.exports =
 
@@ -59,7 +60,6 @@ module.exports =
     ROOT_RADIUS_MULTIPLIER: ROOT_RADIUS_MULTIPLIER
     CONTACT_SPACING_MULTIPLIER: CONTACT_SPACING_MULTIPLIER
     BRANCH_CLUSTER_SIZE: BRANCH_CLUSTER_SIZE
-    ROOT_SUPPORT_LAYER_SEARCH_DEPTH: ROOT_SUPPORT_LAYER_SEARCH_DEPTH
 
     # Return the interpolated face Z at (x, y) by searching all region faces.
     # Returns null if the point lies outside every face's 2D XY projection.
@@ -459,9 +459,10 @@ module.exports =
                 if z >= effectiveBaseZ and z <= rootTopZ and rootHeight >= layerHeight
 
                     # Pre-compute which roots are actually supported on first visit.
-                    # A root is valid only if its base endpoint rests on solid geometry
-                    # (for 'everywhere' mode) — this eliminates hanging roots that spread
-                    # outward beyond the edge of the surface the trunk rests on.
+                    # A root is valid only if its spread direction leads toward a solid
+                    # surface in 'everywhere' mode — this eliminates hanging roots that
+                    # point into empty space beyond the edge of the surface the trunk
+                    # rests on.
                     if not region._validRootIndices?
 
                         region._validRootIndices = []
@@ -469,29 +470,40 @@ module.exports =
                         for i in [0...ROOT_COUNT]
 
                             angle = i * 2 * Math.PI / ROOT_COUNT
-                            rootBaseX = trunkX + rootHeight * Math.cos(angle)
-                            rootBaseY = trunkY + rootHeight * Math.sin(angle)
-                            basePoint = { x: rootBaseX, y: rootBaseY }
 
                             rootIsSupported = true
 
                             if supportPlacement is 'everywhere'
 
-                                # In 'everywhere' mode the trunk base is above solid geometry.
-                                # Check that the layer just below effectiveBaseZ contains solid
-                                # material at the root base position — if not, the root hangs.
+                                # Cast a ray in the root direction and sample multiple
+                                # distances (0.5× to 2× rootHeight) to detect nearby solid
+                                # surfaces such as the interior of a curved dome.
+                                # A root is "hanging" only if NO solid geometry is found at
+                                # ANY sample distance within rootHeight layers of effectiveBaseZ.
                                 rootIsSupported = false
 
-                                for layerData in layerSolidRegions
+                                foundSolid = false
 
-                                    if layerData.z < effectiveBaseZ and (effectiveBaseZ - layerData.z) <= layerHeight * ROOT_SUPPORT_LAYER_SEARCH_DEPTH
+                                for sampleFraction in ROOT_RAY_SAMPLE_FRACTIONS
 
-                                        if normalSupportModule.isPointInsideSolidGeometry(
-                                            basePoint, layerData.paths, layerData.pathIsHole
-                                        )
+                                    break if foundSolid
 
-                                            rootIsSupported = true
-                                            break
+                                    sampleX = trunkX + rootHeight * sampleFraction * Math.cos(angle)
+                                    sampleY = trunkY + rootHeight * sampleFraction * Math.sin(angle)
+                                    samplePoint = { x: sampleX, y: sampleY }
+
+                                    for layerData in layerSolidRegions
+
+                                        if layerData.z <= effectiveBaseZ and (effectiveBaseZ - layerData.z) <= rootHeight
+
+                                            if normalSupportModule.isPointInsideSolidGeometry(
+                                                samplePoint, layerData.paths, layerData.pathIsHole
+                                            )
+
+                                                foundSolid = true
+                                                break
+
+                                rootIsSupported = foundSolid
 
                             region._validRootIndices.push(i) if rootIsSupported
 

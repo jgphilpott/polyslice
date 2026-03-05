@@ -831,12 +831,12 @@ describe 'Tree Support Module', ->
             layerHeight = 0.2
 
             # Simulate an 'everywhere' scenario where the trunk rests on a surface
-            # but one root direction points off the edge (no solid geometry below it).
-            # We do this by constructing a minimal layerSolidRegions that only covers
-            # the trunk XY position, leaving one root endpoint unsupported.
+            # but no solid geometry exists in any root direction at any sample distance.
+            # The broadened ray-cast checks 0.5× to 2× rootHeight; a polygon that is
+            # smaller than 0.5 × rootHeight (≈ 0.9 mm with these settings) leaves all
+            # root rays in empty space — all roots should be treated as hanging.
 
             # Trunk centroid for region (0,0,10) - (2,2,10) is approximately (1,1).
-            # Solid region covers only a small area around the trunk.
             region = makeRegion(0, 2, 0, 2, 10)
             slicer = makeSlicer()
 
@@ -859,10 +859,14 @@ describe 'Tree Support Module', ->
             trunkX2 = trunkSeg2.x1
             trunkY2 = trunkSeg2.y1
 
-            # Create a tiny solid region covering only the trunk XY (radius ~0.3mm).
-            # tinyRadius: small enough to exclude most root endpoints but large enough
-            # to cover the trunk center, ensuring only roots pointing over the edge hang.
-            tinyRadius = 0.3
+            # Compute rootHeight so tinyRadius can be derived from it.
+            # tinyRadius must be < 0.5 × rootHeight (the first sample fraction) so that
+            # no sample point in the broadened ray-cast lands inside the polygon.
+            contactSpacing2 = nozzleDiameter * treeSupport.CONTACT_SPACING_MULTIPLIER
+            trunkHeight2 = Math.abs(trunkSeg2.z2 - trunkSeg2.z1)
+            rootSpread2 = Math.min(contactSpacing2 * treeSupport.BRANCH_CLUSTER_SIZE, trunkHeight2)
+            rootHeight2 = rootSpread2 * 0.5
+            tinyRadius = rootHeight2 * 0.4  # Smaller than 0.5 × rootHeight (first sample)
             smallPolygon = [
                 { x: trunkX2 - tinyRadius, y: trunkY2 - tinyRadius }
                 { x: trunkX2 + tinyRadius, y: trunkY2 - tinyRadius }
@@ -878,17 +882,80 @@ describe 'Tree Support Module', ->
             slicer2 = makeSlicer()
 
             # With 'everywhere' mode and solid geometry only at the trunk center,
-            # roots that spread beyond tinyRadius will find no solid surface below them.
+            # the broadened ray-cast finds no solid at any sample distance — all hang.
+            # Use layerIndex=1 so the fake layer (layerIndex 0) is strictly below the
+            # current layer, keeping canGenerateSupportAt from blocking the trunk.
             treeSupport.generateTreePattern(
-                slicer2, region2, effectiveBaseZ, 0,
+                slicer2, region2, effectiveBaseZ, 1,
                 0, 0,
                 nozzleDiameter, fakeLayers,
                 'everywhere', 0, layerHeight
             )
 
-            # _validRootIndices should contain fewer than ROOT_COUNT entries since
-            # most root endpoints are beyond the small solid region.
+            # _validRootIndices should be empty: all roots hang with no surface to land on.
             expect(region2._validRootIndices).toBeDefined()
-            expect(region2._validRootIndices.length).toBeLessThan(treeSupport.ROOT_COUNT)
+            expect(region2._validRootIndices.length).toBe(0)
+
+        test 'roots in everywhere mode should be detected when solid is beyond the base point (broadened ray-cast)', ->
+
+            nozzleDiameter = 0.4
+            layerHeight = 0.2
+
+            # Compute rootHeight the same way the implementation does.
+            segments = treeSupport.buildTreeStructure(makeRegion(0, 2, 0, 2, 10), nozzleDiameter, 0, layerHeight)
+            trunkSeg = segments.find (s) -> s.type is 'trunk'
+            trunkX = trunkSeg.x1
+            trunkY = trunkSeg.y1
+
+            contactSpacing = nozzleDiameter * treeSupport.CONTACT_SPACING_MULTIPLIER
+            trunkHeight = Math.abs(trunkSeg.z2 - trunkSeg.z1)
+            rootSpread = Math.min(contactSpacing * treeSupport.BRANCH_CLUSTER_SIZE, trunkHeight)
+            rootHeight = rootSpread * 0.5
+
+            # First pass in buildPlate mode to discover effectiveBaseZ.
+            region = makeRegion(0, 2, 0, 2, 10)
+            slicer = makeSlicer()
+            treeSupport.generateTreePattern(
+                slicer, region, layerHeight, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+            effectiveBaseZ = region._effectiveTrunkBaseZ
+            expect(effectiveBaseZ).toBeDefined()
+
+            # Build a large polygon that covers all sample distances (0.5× to 2× rootHeight)
+            # in every direction. The key detail: the polygon is only in the layer BELOW
+            # effectiveBaseZ (layerIndex 0), so at the current layer (index 1) the roots
+            # are not embedded and canGenerateSupportAt allows them through.
+            halfSize = rootHeight * 3
+            largePolygon = [
+                { x: trunkX - halfSize, y: trunkY - halfSize }
+                { x: trunkX + halfSize, y: trunkY - halfSize }
+                { x: trunkX + halfSize, y: trunkY + halfSize }
+                { x: trunkX - halfSize, y: trunkY + halfSize }
+            ]
+
+            # Layer 0 (below effectiveBaseZ) is solid everywhere.
+            # Layer 1 (current layer when we call generateTreePattern with layerIndex=1) is absent,
+            # so layerSolidRegions[1] is undefined → roots are not embedded at current layer.
+            fakeLayers = [
+                { z: effectiveBaseZ - layerHeight, layerIndex: 0, paths: [largePolygon], pathIsHole: [false] }
+            ]
+
+            region2 = makeRegion(0, 2, 0, 2, 10)
+            slicer2 = makeSlicer()
+
+            # Call at effectiveBaseZ with layerIndex=1 so the large polygon is "below".
+            treeSupport.generateTreePattern(
+                slicer2, region2, effectiveBaseZ, 1,
+                0, 0,
+                nozzleDiameter, fakeLayers,
+                'everywhere', 0, layerHeight
+            )
+
+            # All root directions have solid geometry at sample distances — none hang.
+            expect(region2._validRootIndices).toBeDefined()
+            expect(region2._validRootIndices.length).toBe(treeSupport.ROOT_COUNT)
 
 
