@@ -367,11 +367,14 @@ describe 'Tree Support Module', ->
 
         test 'should not produce orphaned twigs - each twig start must match a branch endpoint', ->
 
-            # A twig is orphaned when its (x1, y1, z1) does not coincide with the (x2, y2, z2)
-            # of any branch segment.  This would mean the twig starts in mid-air with no
-            # structural connection to the branch below it.
+            # A twig is orphaned when it has no structural connection to any branch.
+            # Each twig's XY root must coincide with a branch endpoint's XY, and the
+            # twig's Z root must be within TWIG_OVERLAP_LAYERS layers below the branch
+            # endpoint (the twig starts slightly lower to create a physical bond).
+            layerHeight = 0.2
+            overlapZ = treeSupport.TWIG_OVERLAP_LAYERS * layerHeight
             region = makeRegion(-10, 10, -10, 10, 20)
-            segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2)
+            segments = treeSupport.buildTreeStructure(region, 0.4, 0, layerHeight)
 
             twigSegments = segments.filter (s) -> s.type is 'twig'
             branchSegments = segments.filter (s) -> s.type is 'branch'
@@ -380,11 +383,13 @@ describe 'Tree Support Module', ->
 
             for twig in twigSegments
 
-                # Every twig must have a branch whose endpoint coincides with the twig start.
+                # Every twig must have a branch whose XY endpoint matches the twig XY root,
+                # with the twig starting at most TWIG_OVERLAP_LAYERS layers below the branch end.
                 matchingBranch = branchSegments.some (branch) ->
                     Math.abs(branch.x2 - twig.x1) < 0.001 and
                     Math.abs(branch.y2 - twig.y1) < 0.001 and
-                    Math.abs(branch.z2 - twig.z1) < 0.001
+                    twig.z1 <= branch.z2 + 0.001 and
+                    twig.z1 >= branch.z2 - overlapZ - 0.001
 
                 expect(matchingBranch).toBe(true)
 

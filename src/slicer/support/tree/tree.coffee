@@ -34,7 +34,14 @@ CIRCLE_SEGMENTS = 12
 # Chord length = 2 * radius * CIRCLE_CHORD_SIN_FACTOR.
 CIRCLE_CHORD_SIN_FACTOR = Math.sin(Math.PI / CIRCLE_SEGMENTS)
 
+# Number of layers by which each twig overlaps its parent branch.
+# Twigs start this many layers below the branch endpoint so that branch and twig
+# material are printed at the same Z level, physically bonding the joint.
+TWIG_OVERLAP_LAYERS = 1
+
 module.exports =
+
+    TWIG_OVERLAP_LAYERS: TWIG_OVERLAP_LAYERS
 
     # Return the interpolated face Z at (x, y) by searching all region faces.
     # Returns null if the point lies outside every face's 2D XY projection.
@@ -220,13 +227,17 @@ module.exports =
             })
 
             # Twig segments: fine sub-branches from cluster node to individual contact tips.
-            # Twigs start exactly at node.z (the branch endpoint) so they connect cleanly.
+            # Twigs start TWIG_OVERLAP_LAYERS below the branch endpoint so that both the
+            # branch (nearing its end) and the twig (at its root) are printed at the same Z,
+            # creating a physical bond that strengthens the twig/branch joint.
+            twigStartZ = Math.max(node.z - TWIG_OVERLAP_LAYERS * layerHeight, buildPlateZ)
+
             for tip in node.tips
 
-                if node.z < tip.z - layerHeight
+                if twigStartZ < tip.z - layerHeight
 
                     segments.push({
-                        x1: node.x, y1: node.y, z1: node.z
+                        x1: node.x, y1: node.y, z1: twigStartZ
                         x2: tip.x, y2: tip.y, z2: tip.z
                         type: 'twig'
                     })
