@@ -58,6 +58,7 @@ module.exports =
     TWIG_OVERLAP_LAYERS: TWIG_OVERLAP_LAYERS
     ROOT_COUNT: ROOT_COUNT
     ROOT_RADIUS_MULTIPLIER: ROOT_RADIUS_MULTIPLIER
+    ROOT_RAY_SAMPLE_FRACTIONS: ROOT_RAY_SAMPLE_FRACTIONS
     CONTACT_SPACING_MULTIPLIER: CONTACT_SPACING_MULTIPLIER
     BRANCH_CLUSTER_SIZE: BRANCH_CLUSTER_SIZE
 
@@ -467,6 +468,12 @@ module.exports =
 
                         region._validRootIndices = []
 
+                        # Pre-filter: only layers at or below effectiveBaseZ within the
+                        # rootHeight window.  This avoids iterating all layers on tall
+                        # prints for every root × sampleFraction combination.
+                        relevantLayers = layerSolidRegions.filter (ld) ->
+                            ld.z <= effectiveBaseZ and (effectiveBaseZ - ld.z) <= rootHeight
+
                         for i in [0...ROOT_COUNT]
 
                             angle = i * 2 * Math.PI / ROOT_COUNT
@@ -492,16 +499,14 @@ module.exports =
                                     sampleY = trunkY + rootHeight * sampleFraction * Math.sin(angle)
                                     samplePoint = { x: sampleX, y: sampleY }
 
-                                    for layerData in layerSolidRegions
+                                    for layerData in relevantLayers
 
-                                        if layerData.z <= effectiveBaseZ and (effectiveBaseZ - layerData.z) <= rootHeight
+                                        if normalSupportModule.isPointInsideSolidGeometry(
+                                            samplePoint, layerData.paths, layerData.pathIsHole
+                                        )
 
-                                            if normalSupportModule.isPointInsideSolidGeometry(
-                                                samplePoint, layerData.paths, layerData.pathIsHole
-                                            )
-
-                                                foundSolid = true
-                                                break
+                                            foundSolid = true
+                                            break
 
                                 rootIsSupported = foundSolid
 

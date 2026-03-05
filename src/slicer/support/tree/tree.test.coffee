@@ -671,10 +671,39 @@ describe 'Tree Support Module', ->
 
             # Each renderNodeAt call produces CIRCLE_SEGMENTS (12) + 2 X-arm extrusions = 14.
             # With ROOT_COUNT=4 roots plus 1 trunk, the base layer should have significantly
-            # more than a single node (14 moves), confirming roots are being rendered.
-            singleNodeExtrusions = 12 + 2
+            # more extrusion moves than a layer above the root zone where only the trunk
+            # cross-section is rendered.
 
-            expect(baseExtrusionCount).toBeGreaterThan(singleNodeExtrusions)
+            # Generate a second layer above the root zone using a fresh slicer/region pair.
+            # First call at effectiveBaseZ establishes _effectiveTrunkBaseZ and root state;
+            # second call at zAboveRootZone (≈ rootTopZ + layerHeight) produces trunk only.
+            slicerAbove = makeSlicer()
+            regionAbove = makeRegion(-10, 10, -10, 10, 20)
+
+            treeSupport.generateTreePattern(
+                slicerAbove, regionAbove, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            gcodeAfterBase = slicerAbove.gcode
+
+            # rootTopZ ≈ effectiveBaseZ + rootHeight ≈ 0.1 + 1.8 = 1.9; choose 2.0 to be safely above.
+            zAboveRootZone = 2.0
+
+            treeSupport.generateTreePattern(
+                slicerAbove, regionAbove, zAboveRootZone, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            aboveLayerGcode = slicerAbove.gcode.substring(gcodeAfterBase.length)
+            aboveLayerExtrusionCount = aboveLayerGcode.split('\n').filter((l) -> /^G1 .*E/.test(l)).length
+
+            # Base layer (trunk + ROOT_COUNT roots) must exceed the trunk-only layer above.
+            expect(baseExtrusionCount).toBeGreaterThan(aboveLayerExtrusionCount)
 
         test 'roots should spread outward from the trunk (not at trunk XY) at the effective base layer', ->
 
