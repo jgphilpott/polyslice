@@ -957,5 +957,3 @@ describe 'Tree Support Module', ->
             # All root directions have solid geometry at sample distances — none hang.
             expect(region2._validRootIndices).toBeDefined()
             expect(region2._validRootIndices.length).toBe(treeSupport.ROOT_COUNT)
-
-
