@@ -607,3 +607,382 @@ describe 'Tree Support Module', ->
             )
 
             expect(region._treeSegments).toBe(firstCache)
+
+        test 'buildTreeStructure should NOT include root segments (roots are dynamic)', ->
+
+            region = makeRegion(-10, 10, -10, 10, 20)
+            segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2)
+
+            rootSegments = segments.filter (s) -> s.type is 'root'
+
+            # Roots are generated dynamically in generateTreePattern, not pre-computed here.
+            expect(rootSegments.length).toBe(0)
+
+        test 'buildTreeStructure should only contain trunk, branch, and twig segment types', ->
+
+            region = makeRegion(-10, 10, -10, 10, 20)
+            segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2)
+
+            for seg in segments
+
+                expect(['trunk', 'branch', 'twig']).toContain(seg.type)
+
+            return
+
+        test 'should emit ROOT_COUNT root cross-sections at the effective trunk base layer', ->
+
+            slicer = makeSlicer()
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            nozzleDiameter = slicer.getNozzleDiameter()
+            layerHeight = slicer.getLayerHeight()
+
+            # First call at z=0.1 sets _effectiveTrunkBaseZ and renders roots + trunk.
+            treeSupport.generateTreePattern(
+                slicer, region, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            # The effective trunk base must have been recorded.
+            expect(region._effectiveTrunkBaseZ).toBeCloseTo(0.1, 5)
+
+            # G-code must include extruding moves (trunk + root nodes all produce extrusions).
+            expect(slicer.gcode).toMatch(/G1 .*E[\d.]+/)
+
+        test 'base layer should have more extrusion moves than a layer above the root zone', ->
+
+            nozzleDiameter = 0.4
+            layerHeight = 0.2
+
+            # Base layer (z=0.1): trunk + ROOT_COUNT roots → most extrusion moves.
+            slicerBase = makeSlicer()
+            regionBase = makeRegion(-10, 10, -10, 10, 20)
+
+            treeSupport.generateTreePattern(
+                slicerBase, regionBase, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            baseExtrusionCount = slicerBase.gcode.split('\n').filter((l) -> /^G1 .*E/.test(l)).length
+
+            # Each renderNodeAt call produces CIRCLE_SEGMENTS (12) + 2 X-arm extrusions = 14.
+            # With ROOT_COUNT=4 roots plus 1 trunk, the base layer should have significantly
+            # more extrusion moves than a layer above the root zone where only the trunk
+            # cross-section is rendered.
+
+            # Generate a second layer above the root zone using a fresh slicer/region pair.
+            # First call at effectiveBaseZ establishes _effectiveTrunkBaseZ and root state;
+            # second call at zAboveRootZone (≈ rootTopZ + layerHeight) produces trunk only.
+            slicerAbove = makeSlicer()
+            regionAbove = makeRegion(-10, 10, -10, 10, 20)
+
+            treeSupport.generateTreePattern(
+                slicerAbove, regionAbove, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            gcodeAfterBase = slicerAbove.gcode
+
+            # rootTopZ ≈ effectiveBaseZ + rootHeight ≈ 0.1 + 1.8 = 1.9; choose 2.0 to be safely above.
+            zAboveRootZone = 2.0
+
+            treeSupport.generateTreePattern(
+                slicerAbove, regionAbove, zAboveRootZone, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            aboveLayerGcode = slicerAbove.gcode.substring(gcodeAfterBase.length)
+            aboveLayerExtrusionCount = aboveLayerGcode.split('\n').filter((l) -> /^G1 .*E/.test(l)).length
+
+            # Base layer (trunk + ROOT_COUNT roots) must exceed the trunk-only layer above.
+            expect(baseExtrusionCount).toBeGreaterThan(aboveLayerExtrusionCount)
+
+        test 'roots should spread outward from the trunk (not at trunk XY) at the effective base layer', ->
+
+            slicer = makeSlicer()
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            nozzleDiameter = slicer.getNozzleDiameter()
+            layerHeight = slicer.getLayerHeight()
+
+            # z=0.1: effective base layer where roots are at maximum spread.
+            treeSupport.generateTreePattern(
+                slicer, region, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            # Trunk is at centroid (0, 0) for a symmetric region centered on origin.
+            # At the base layer (t=0), roots are at spread positions — G-code should
+            # contain X coordinates larger than trunk_radius (1.2mm) away from trunk.
+            trunkRadius = nozzleDiameter * 3.0
+            maxX = 0
+
+            for line in slicer.gcode.split('\n')
+
+                match = line.match(/X([\-\d.]+)/)
+
+                if match
+
+                    maxX = Math.max(maxX, Math.abs(parseFloat(match[1])))
+
+            # Root spread must extend beyond the trunk circle radius.
+            expect(maxX).toBeGreaterThan(trunkRadius)
+
+        test 'root node should have radius between trunk and branch radii', ->
+
+            nozzle = 0.4
+            supportLineWidth = nozzle * 0.8
+            supportSpeed = 900
+            travelSpeed = 9000
+
+            slicerTrunk = new (require('../../../index'))({ progressCallback: null })
+            slicerRoot = new (require('../../../index'))({ progressCallback: null })
+            slicerBranch = new (require('../../../index'))({ progressCallback: null })
+
+            slicerTrunk.gcode = ''
+            slicerTrunk.cumulativeE = 0
+            slicerRoot.gcode = ''
+            slicerRoot.cumulativeE = 0
+            slicerBranch.gcode = ''
+            slicerBranch.cumulativeE = 0
+
+            treeSupport.renderNodeAt(slicerTrunk, 0, 0, 1, 0, 0, nozzle, 'trunk', supportLineWidth, supportSpeed, travelSpeed)
+            treeSupport.renderNodeAt(slicerRoot, 0, 0, 1, 0, 0, nozzle, 'root', supportLineWidth, supportSpeed, travelSpeed)
+            treeSupport.renderNodeAt(slicerBranch, 0, 0, 1, 0, 0, nozzle, 'branch', supportLineWidth, supportSpeed, travelSpeed)
+
+            # Extract maximum absolute X coordinate as a proxy for node radius.
+            maxAbsX = (gcode) ->
+                maxX = 0
+                for line in gcode.split('\n')
+                    match = line.match(/X([\-\d.]+)/)
+                    if match
+                        maxX = Math.max(maxX, Math.abs(parseFloat(match[1])))
+                return maxX
+
+            rootMaxX = maxAbsX(slicerRoot.gcode)
+
+            # Root radius must be strictly between trunk and branch radii.
+            expect(rootMaxX).toBeLessThan(maxAbsX(slicerTrunk.gcode))
+            expect(rootMaxX).toBeGreaterThan(maxAbsX(slicerBranch.gcode))
+
+        test 'should produce G-code at the base (trunk/root zone) with root cross-sections', ->
+
+            slicer = new (require('../../../index'))({ progressCallback: null })
+            slicer.gcode = ''
+            slicer.cumulativeE = 0
+
+            region = makeRegion(-10, 10, -10, 10, 20)
+            nozzleDiameter = slicer.getNozzleDiameter()
+            layerHeight = slicer.getLayerHeight()
+
+            # Layer z=0.1 sets the effective trunk base; trunk + dynamic roots appear here.
+            treeSupport.generateTreePattern(
+                slicer, region, 0.1, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            # Must contain extruding G1 moves from both trunk and root nodes.
+            expect(slicer.gcode).toMatch(/G1 .*E[\d.]+/)
+
+        test 'roots should be at a 45-degree outward angle (horizontal spread equals rootHeight)', ->
+
+            slicer = makeSlicer()
+            nozzleDiameter = slicer.getNozzleDiameter()
+            layerHeight = slicer.getLayerHeight()
+
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            # First call establishes effectiveTrunkBaseZ.
+            treeSupport.generateTreePattern(
+                slicer, region, layerHeight, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            effectiveBaseZ = region._effectiveTrunkBaseZ
+
+            expect(effectiveBaseZ).toBeDefined()
+
+            # Compute rootHeight as the code does.
+            contactSpacing = nozzleDiameter * treeSupport.CONTACT_SPACING_MULTIPLIER
+            segments = region._treeSegments
+            trunkSeg = segments.find (s) -> s.type is 'trunk'
+            trunkHeight = Math.abs(trunkSeg.z2 - trunkSeg.z1)
+            rootSpread = Math.min(contactSpacing * treeSupport.BRANCH_CLUSTER_SIZE, trunkHeight)
+            rootHeight = rootSpread * 0.5
+
+            # At the base layer (t=0), roots are at spread positions.
+            # Spread distance = rootHeight for a 45-degree angle.
+            # Verify by checking _validRootIndices contains indices and that the
+            # G-code X/Y extent at z=effectiveBaseZ is approximately rootHeight from trunk.
+            trunkX = trunkSeg.x1
+            maxDistFromTrunk = 0
+
+            for line in slicer.gcode.split('\n')
+
+                matchX = line.match(/X([\-\d.]+)/)
+                matchY = line.match(/Y([\-\d.]+)/)
+
+                if matchX and matchY
+
+                    px = parseFloat(matchX[1]) - trunkX
+                    py = parseFloat(matchY[1])
+                    dist = Math.sqrt(px * px + py * py)
+                    maxDistFromTrunk = Math.max(maxDistFromTrunk, dist)
+
+            # The furthest G-code coordinate should not exceed trunk_radius + rootHeight + tolerance.
+            # (trunk circle extends to trunkRadius = 3.0 * nozzle, root spread = rootHeight;
+            # the extra nozzleDiameter accounts for G-code rounding and trunk circle extent.)
+            trunkRadius = nozzleDiameter * 3.0
+            maxExpectedDist = trunkRadius + rootHeight + nozzleDiameter
+
+            expect(maxDistFromTrunk).toBeLessThanOrEqual(maxExpectedDist + 0.01)
+
+            # And the spread must be non-trivial (roots go outward).
+            expect(maxDistFromTrunk).toBeGreaterThan(trunkRadius)
+
+        test 'roots in everywhere mode should be suppressed when they would hang in mid-air', ->
+
+            nozzleDiameter = 0.4
+            layerHeight = 0.2
+
+            # Simulate an 'everywhere' scenario where the trunk rests on a surface
+            # but no solid geometry exists in any root direction at any sample distance.
+            # The broadened ray-cast checks 0.5× to 2× rootHeight; a polygon that is
+            # smaller than 0.5 × rootHeight (≈ 0.9 mm with these settings) leaves all
+            # root rays in empty space — all roots should be treated as hanging.
+
+            # Trunk centroid for region (0,0,10) - (2,2,10) is approximately (1,1).
+            region = makeRegion(0, 2, 0, 2, 10)
+            slicer = makeSlicer()
+
+            # Build tree structure to discover effectiveBaseZ.
+            treeSupport.generateTreePattern(
+                slicer, region, layerHeight, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+
+            effectiveBaseZ = region._effectiveTrunkBaseZ
+
+            expect(effectiveBaseZ).toBeDefined()
+
+            # Now simulate an 'everywhere' region2 where we provide fake solid regions.
+            # The solid region only covers the trunk center — roots pointing outward hang.
+            segments2 = treeSupport.buildTreeStructure(makeRegion(0, 2, 0, 2, 10), nozzleDiameter, 0, layerHeight)
+            trunkSeg2 = segments2.find (s) -> s.type is 'trunk'
+            trunkX2 = trunkSeg2.x1
+            trunkY2 = trunkSeg2.y1
+
+            # Compute rootHeight so tinyRadius can be derived from it.
+            # tinyRadius must be < 0.5 × rootHeight (the first sample fraction) so that
+            # no sample point in the broadened ray-cast lands inside the polygon.
+            contactSpacing2 = nozzleDiameter * treeSupport.CONTACT_SPACING_MULTIPLIER
+            trunkHeight2 = Math.abs(trunkSeg2.z2 - trunkSeg2.z1)
+            rootSpread2 = Math.min(contactSpacing2 * treeSupport.BRANCH_CLUSTER_SIZE, trunkHeight2)
+            rootHeight2 = rootSpread2 * 0.5
+            tinyRadius = rootHeight2 * 0.4  # Smaller than 0.5 × rootHeight (first sample)
+            smallPolygon = [
+                { x: trunkX2 - tinyRadius, y: trunkY2 - tinyRadius }
+                { x: trunkX2 + tinyRadius, y: trunkY2 - tinyRadius }
+                { x: trunkX2 + tinyRadius, y: trunkY2 + tinyRadius }
+                { x: trunkX2 - tinyRadius, y: trunkY2 + tinyRadius }
+            ]
+
+            fakeLayers = [
+                { z: effectiveBaseZ - layerHeight, layerIndex: 0, paths: [smallPolygon], pathIsHole: [false] }
+            ]
+
+            region2 = makeRegion(0, 2, 0, 2, 10)
+            slicer2 = makeSlicer()
+
+            # With 'everywhere' mode and solid geometry only at the trunk center,
+            # the broadened ray-cast finds no solid at any sample distance — all hang.
+            # Use layerIndex=1 so the fake layer (layerIndex 0) is strictly below the
+            # current layer, keeping canGenerateSupportAt from blocking the trunk.
+            treeSupport.generateTreePattern(
+                slicer2, region2, effectiveBaseZ, 1,
+                0, 0,
+                nozzleDiameter, fakeLayers,
+                'everywhere', 0, layerHeight
+            )
+
+            # _validRootIndices should be empty: all roots hang with no surface to land on.
+            expect(region2._validRootIndices).toBeDefined()
+            expect(region2._validRootIndices.length).toBe(0)
+
+        test 'roots in everywhere mode should be detected when solid is beyond the base point (broadened ray-cast)', ->
+
+            nozzleDiameter = 0.4
+            layerHeight = 0.2
+
+            # Compute rootHeight the same way the implementation does.
+            segments = treeSupport.buildTreeStructure(makeRegion(0, 2, 0, 2, 10), nozzleDiameter, 0, layerHeight)
+            trunkSeg = segments.find (s) -> s.type is 'trunk'
+            trunkX = trunkSeg.x1
+            trunkY = trunkSeg.y1
+
+            contactSpacing = nozzleDiameter * treeSupport.CONTACT_SPACING_MULTIPLIER
+            trunkHeight = Math.abs(trunkSeg.z2 - trunkSeg.z1)
+            rootSpread = Math.min(contactSpacing * treeSupport.BRANCH_CLUSTER_SIZE, trunkHeight)
+            rootHeight = rootSpread * 0.5
+
+            # First pass in buildPlate mode to discover effectiveBaseZ.
+            region = makeRegion(0, 2, 0, 2, 10)
+            slicer = makeSlicer()
+            treeSupport.generateTreePattern(
+                slicer, region, layerHeight, 0,
+                0, 0,
+                nozzleDiameter, [],
+                'buildPlate', 0, layerHeight
+            )
+            effectiveBaseZ = region._effectiveTrunkBaseZ
+            expect(effectiveBaseZ).toBeDefined()
+
+            # Build a large polygon that covers all sample distances (0.5× to 2× rootHeight)
+            # in every direction. The key detail: the polygon is only in the layer BELOW
+            # effectiveBaseZ (layerIndex 0), so at the current layer (index 1) the roots
+            # are not embedded and canGenerateSupportAt allows them through.
+            halfSize = rootHeight * 3
+            largePolygon = [
+                { x: trunkX - halfSize, y: trunkY - halfSize }
+                { x: trunkX + halfSize, y: trunkY - halfSize }
+                { x: trunkX + halfSize, y: trunkY + halfSize }
+                { x: trunkX - halfSize, y: trunkY + halfSize }
+            ]
+
+            # Layer 0 (below effectiveBaseZ) is solid everywhere.
+            # Layer 1 (current layer when we call generateTreePattern with layerIndex=1) is absent,
+            # so layerSolidRegions[1] is undefined → roots are not embedded at current layer.
+            fakeLayers = [
+                { z: effectiveBaseZ - layerHeight, layerIndex: 0, paths: [largePolygon], pathIsHole: [false] }
+            ]
+
+            region2 = makeRegion(0, 2, 0, 2, 10)
+            slicer2 = makeSlicer()
+
+            # Call at effectiveBaseZ with layerIndex=1 so the large polygon is "below".
+            treeSupport.generateTreePattern(
+                slicer2, region2, effectiveBaseZ, 1,
+                0, 0,
+                nozzleDiameter, fakeLayers,
+                'everywhere', 0, layerHeight
+            )
+
+            # All root directions have solid geometry at sample distances — none hang.
+            expect(region2._validRootIndices).toBeDefined()
+            expect(region2._validRootIndices.length).toBe(treeSupport.ROOT_COUNT)

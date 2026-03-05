@@ -204,8 +204,39 @@ describe 'Normal Support Module', ->
 
             point = { x: 5, y: 5 }
 
-            # Should be blocked: solid geometry at layer 0, minimumSupportZ > currentZ.
+            # Should be blocked: embedded inside solid at current layer.
             result = normalSupport.canGenerateSupportAt(null, point, 0.1, layerSolidRegions, 'everywhere', 0, 0.2, 0)
+
+            expect(result).toBe(false)
+
+        test 'should allow support on the layer immediately above solid geometry in everywhere mode', ->
+
+            # Two layers: layer 0 (Z=0.1) is solid, layer 1 (Z=0.3) is empty.
+            # Support at layer 1 should be allowed — it lands on top of the solid surface.
+            layerSolidRegions = [
+                solidLayerAt(0, 0.1, [solidSquare])
+                solidLayerAt(1, 0.3, [])
+            ]
+
+            point = { x: 5, y: 5 }
+
+            # Should be allowed: not embedded at current layer, above highest solid below.
+            result = normalSupport.canGenerateSupportAt(null, point, 0.3, layerSolidRegions, 'everywhere', 0, 0.2, 1)
+
+            expect(result).toBe(true)
+
+        test 'should block support embedded inside solid geometry in everywhere mode', ->
+
+            # Layer 0 and layer 1 both solid.
+            layerSolidRegions = [
+                solidLayerAt(0, 0.1, [solidSquare])
+                solidLayerAt(1, 0.3, [solidSquare])
+            ]
+
+            point = { x: 5, y: 5 }
+
+            # Should be blocked: embedded inside solid at current layer (layer 1).
+            result = normalSupport.canGenerateSupportAt(null, point, 0.3, layerSolidRegions, 'everywhere', 0, 0.2, 1)
 
             expect(result).toBe(false)
 
