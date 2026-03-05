@@ -34,7 +34,14 @@ CIRCLE_SEGMENTS = 12
 # Chord length = 2 * radius * CIRCLE_CHORD_SIN_FACTOR.
 CIRCLE_CHORD_SIN_FACTOR = Math.sin(Math.PI / CIRCLE_SEGMENTS)
 
+# Number of layers by which each twig overlaps its parent branch.
+# Twigs start this many layers below the branch endpoint so that branch and twig
+# material are printed at the same Z level, physically bonding the joint.
+TWIG_OVERLAP_LAYERS = 1
+
 module.exports =
+
+    TWIG_OVERLAP_LAYERS: TWIG_OVERLAP_LAYERS
 
     # Return the interpolated face Z at (x, y) by searching all region faces.
     # Returns null if the point lies outside every face's 2D XY projection.
@@ -146,18 +153,35 @@ module.exports =
 
             cx = 0
             cy = 0
-            maxZ = -Infinity
 
             for tip in clusterTips
 
                 cx += tip.x
                 cy += tip.y
-                maxZ = Math.max(maxZ, tip.z)
 
             cx /= clusterTips.length
             cy /= clusterTips.length
 
-            branchNodes.push({ x: cx, y: cy, z: maxZ, tips: clusterTips })
+            # Compute the branch node Z from the 45-degree constraint applied to each tip.
+            # nodeZ = min(tip.z - tdist) guarantees every twig rises at ≤ 45 degrees from
+            # the branch endpoint to its contact tip, eliminating orphaned twig segments.
+            nodeZ = Infinity
+
+            for tip in clusterTips
+
+                tdx = tip.x - cx
+                tdy = tip.y - cy
+                tdist = Math.sqrt(tdx * tdx + tdy * tdy)
+                nodeZ = Math.min(nodeZ, tip.z - tdist)
+
+            nodeZ = Math.max(nodeZ, buildPlateZ + layerHeight)
+
+            # Round to 0.1 µm to avoid floating-point edge cases in the twig-emission
+            # condition (node.z < tip.z - layerHeight) when large absolute coordinates
+            # accumulate tiny rounding errors that differ from small-coordinate equivalents.
+            nodeZ = Math.round(nodeZ * 10000) / 10000
+
+            branchNodes.push({ x: cx, y: cy, z: nodeZ, tips: clusterTips })
 
         # Compute branch root heights: where each branch diverges from the shared trunk.
         # The ideal root height is determined by the 45° angle constraint
@@ -195,6 +219,13 @@ module.exports =
             node = branchNodes[nodeIdx]
             branchRootZ = branchRootZs[nodeIdx]
 
+            # Guarantee the branch spans at least one printable layer.
+            # When nodeZ was clamped to buildPlateZ + layerHeight and branchRootZ was also
+            # clamped to the same value, the branch segment collapses to zero height and
+            # never intersects any layer Z plane.  Nudging node.z up by layerHeight ensures
+            # a non-zero segment without changing the already-computed branchRootZ.
+            node.z = Math.max(node.z, Math.round((branchRootZ + layerHeight) * 10000) / 10000)
+
             # Branch segment: angled from trunk toward the branch node.
             segments.push({
                 x1: trunkX, y1: trunkY, z1: branchRootZ
@@ -203,19 +234,18 @@ module.exports =
             })
 
             # Twig segments: fine sub-branches from cluster node to individual contact tips.
+            # Twigs start TWIG_OVERLAP_LAYERS below the branch endpoint so that both the
+            # branch (nearing its end) and the twig (at its root) are printed at the same Z,
+            # creating a physical bond that strengthens the twig/branch joint.
+            # Floor is branchRootZ (not buildPlateZ) so twigs never start below the branch.
+            twigStartZ = Math.max(node.z - TWIG_OVERLAP_LAYERS * layerHeight, branchRootZ)
+
             for tip in node.tips
 
-                tdx = tip.x - node.x
-                tdy = tip.y - node.y
-                tdist = Math.sqrt(tdx * tdx + tdy * tdy)
-
-                twigRootZ = tip.z - tdist
-                twigRootZ = Math.max(twigRootZ, branchRootZ + layerHeight)
-
-                if twigRootZ < tip.z - layerHeight
+                if twigStartZ < tip.z - layerHeight
 
                     segments.push({
-                        x1: node.x, y1: node.y, z1: twigRootZ
+                        x1: node.x, y1: node.y, z1: twigStartZ
                         x2: tip.x, y2: tip.y, z2: tip.z
                         type: 'twig'
                     })
