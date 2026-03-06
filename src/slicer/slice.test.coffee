@@ -1100,24 +1100,23 @@ describe 'Slicing', ->
             typeMatches = layer1.match(/TYPE: (WALL-OUTER|WALL-INNER|SKIN)/g) || []
             types = typeMatches.map((m) -> m.replace('TYPE: ', ''))
 
-            # Expected sequence on skin layer (with PR #96 structure skin walls):
+            # Expected sequence on skin layer (after fix merging structure skin wall + infill):
             # 1. WALL-OUTER (outer boundary)
             # 2. WALL-INNER (outer boundary)
-            # 3. SKIN (outer boundary structure skin wall) ← PR #96
-            # 4. WALL-OUTER (hole)
-            # 5. WALL-INNER (hole)
-            # 6. SKIN (hole skin wall) ← immediately after hole walls (PR #54)
-            # 7. SKIN (outer boundary skin infill)
+            # 3. WALL-OUTER (hole)
+            # 4. WALL-INNER (hole)
+            # 5. SKIN (hole skin wall) ← immediately after hole walls (PR #54)
+            # 6. SKIN (outer boundary skin wall + infill combined) ← merged fix
 
             # Verify we have the expected number of wall types.
-            expect(types.length).toBe(7)
+            expect(types.length).toBe(6)
 
-            # Verify the 3rd element (index 2) is SKIN.
-            # This confirms structure skin wall is generated after structure walls.
-            expect(types[2]).toBe('SKIN')
+            # Verify the 5th element (index 4) is SKIN.
+            # This confirms hole skin is generated immediately after hole walls.
+            expect(types[4]).toBe('SKIN')
 
             # Verify the 6th element (index 5) is SKIN.
-            # This confirms hole skin is generated immediately after hole walls.
+            # This confirms outer boundary skin wall and infill are combined in one section.
             expect(types[5]).toBe('SKIN')
 
             # Verify we have exactly 2 outer and 2 inner walls.
@@ -1127,7 +1126,64 @@ describe 'Slicing', ->
 
             expect(outerCount).toBe(2)  # Outer boundary + hole.
             expect(innerCount).toBe(2)  # Outer boundary + hole.
-            expect(skinCount).toBe(3)  # Structure skin wall + hole skin wall + structure skin infill.
+            expect(skinCount).toBe(2)  # Hole skin wall + outer boundary skin (wall+infill combined).
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should generate structure skin wall and infill in a single TYPE:SKIN section on bottom layers', ->
+
+            # Verifies the fix for the lego brick double-direction skin infill issue.
+            # Before the fix, the outer structure skin wall was generated as a separate
+            # TYPE:SKIN section in Phase 1 (generateWallsForPath), and the diagonal infill
+            # was generated as another TYPE:SKIN section in generateSkinInfillForStructureLevel.
+            # This caused two distinct sets of lines in G-code viewers.
+            # After the fix, both are combined into a single TYPE:SKIN section.
+
+            sheetGeometry = new THREE.BoxGeometry(50, 50, 5)
+            sheetMesh = new THREE.Mesh(sheetGeometry, new THREE.MeshBasicMaterial())
+
+            holeRadius = 3
+            holeGeometry = new THREE.CylinderGeometry(holeRadius, holeRadius, 10, 32)
+            holeMesh = new THREE.Mesh(holeGeometry, new THREE.MeshBasicMaterial())
+            holeMesh.rotation.x = Math.PI / 2
+            holeMesh.position.set(0, 0, 0)
+            holeMesh.updateMatrixWorld()
+
+            resultMesh = await Polytree.subtract(sheetMesh, holeMesh)
+            finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material)
+            finalMesh.position.set(0, 0, 2.5)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setShellSkinThickness(0.4)  # 2 skin layers.
+            slicer.setShellWallThickness(0.8)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+
+            result = slicer.slice(finalMesh)
+
+            # Parse layer 1 (bottom skin layer).
+            parts = result.split('LAYER: 1 of')
+            expect(parts.length).toBeGreaterThan(1)
+            layer1 = parts[1].split('LAYER: 2 of')[0]
+
+            # Count TYPE:SKIN sections (not individual lines, but section markers).
+            skinSectionCount = (layer1.match(/; TYPE: SKIN/g) || []).length
+
+            # After the fix: only 2 SKIN sections total (hole skin + outer structure skin).
+            # Before the fix: 3 SKIN sections (outer structure wall Phase1 + hole skin + outer structure infill).
+            expect(skinSectionCount).toBe(2)
+
+            # Verify each SKIN section that has infill also has a skin wall ("Moving to skin wall").
+            # Split layer1 into SKIN sections and check the last one (outer structure) has both.
+            skinSections = layer1.split('; TYPE: SKIN').slice(1)
+
+            # The outer structure skin section (last SKIN) should have "Moving to skin wall".
+            lastSkinSection = skinSections[skinSections.length - 1]
+            expect(lastSkinSection).toContain('Moving to skin wall')
+
+            # Also verify it has infill lines.
+            expect(lastSkinSection).toContain('Moving to skin infill line')
 
             return # Explicitly return undefined for Jest.
 

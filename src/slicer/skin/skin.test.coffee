@@ -920,9 +920,9 @@ describe 'Skin Generation', ->
                 if inLayer1 and line.includes('; TYPE: SKIN')
                     skinMarkerCount++
 
-            # Should have 9 SKIN markers: Phase 1 generates skin walls for all 6 paths (6 markers),
-            # then Phase 2 generates skin (wall + infill) for 3 structures (3 more markers). Total: 9.
-            expect(skinMarkerCount).toBe(9)
+            # Should have 6 SKIN markers: Phase 1 generates hole skin walls (3 markers),
+            # then generateSkinInfillForStructureLevel generates wall+infill for 3 structures (3 more markers). Total: 6.
+            expect(skinMarkerCount).toBe(6)
 
         test 'should have correct offset gap between inner walls and structure skin walls', ->
 
@@ -1044,9 +1044,9 @@ describe 'Skin Generation', ->
             # Should have 4 WALL-OUTER markers (4 paths).
             expect(wallOuterCount).toBe(4)
 
-            # Should have 6 SKIN markers: Phase 1 generates skin walls for all 4 paths (4 markers),
-            # then Phase 2 generates skin (wall + infill) for 2 structures (2 more markers). Total: 6.
-            expect(skinMarkerCount).toBe(6)
+            # Should have 4 SKIN markers: Phase 1 generates hole skin walls (2 markers),
+            # then generateSkinInfillForStructureLevel generates wall+infill for 2 structures (2 more markers). Total: 4.
+            expect(skinMarkerCount).toBe(4)
 
         test 'should not generate skin walls on middle layers without exposure detection', ->
 
@@ -1210,10 +1210,10 @@ describe 'Skin Generation', ->
                         currentSectionLines.push(line)
 
             # With 2 nested cylinders (4 paths: 2 structures + 2 holes):
-            # - Phase 1: 4 SKIN sections (walls only, no infill)
-            # - Phase 2: 2 SKIN sections (wall + infill for structures)
-            # Total: 6 SKIN sections
-            expect(skinSections.length).toBe(6)
+            # - Phase 1: 2 SKIN sections (hole skin walls only)
+            # - generateSkinInfillForStructureLevel: 2 SKIN sections (wall + infill for structures)
+            # Total: 4 SKIN sections
+            expect(skinSections.length).toBe(4)
 
             # Count sections with infill (those with "Moving to skin infill line").
             sectionsWithInfill = 0
