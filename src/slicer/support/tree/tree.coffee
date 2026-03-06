@@ -53,9 +53,15 @@ ROOT_COUNT = 4
 # that lie further from the trunk than the root base point itself.
 ROOT_RAY_SAMPLE_FRACTIONS = [0.5, 1.0, 1.5, 2.0]
 
+# |sin| or |cos| threshold below which an angle is considered axis-aligned.
+# Used in findAccessibleTrunkPosition to skip angles already covered by the
+# explicit ±X / ±Y axis checks.
+AXIS_ANGLE_THRESHOLD = 0.15
+
 module.exports =
 
     TWIG_OVERLAP_LAYERS: TWIG_OVERLAP_LAYERS
+    TRUNK_RADIUS_MULTIPLIER: TRUNK_RADIUS_MULTIPLIER
     ROOT_COUNT: ROOT_COUNT
     ROOT_RADIUS_MULTIPLIER: ROOT_RADIUS_MULTIPLIER
     ROOT_RAY_SAMPLE_FRACTIONS: ROOT_RAY_SAMPLE_FRACTIONS
@@ -63,12 +69,17 @@ module.exports =
     BRANCH_CLUSTER_SIZE: BRANCH_CLUSTER_SIZE
 
     # Check if a trunk at (trunkX, trunkY) is accessible from the build plate.
-    # Returns true if no layer has solid geometry at this XY position.
-    isTrunkAccessible: (trunkX, trunkY, layerSolidRegions) ->
+    # Only checks layers at Z <= maxZ so that solid geometry above the trunk top
+    # (e.g. the arch cap above an upright arch cavity) does not falsely block an
+    # otherwise clear trunk path.
+    # Returns true if no relevant layer has solid geometry at this XY position.
+    isTrunkAccessible: (trunkX, trunkY, layerSolidRegions, maxZ = Infinity) ->
 
         point = { x: trunkX, y: trunkY }
 
         for layerData in layerSolidRegions
+
+            continue if layerData.z > maxZ
 
             if normalSupportModule.isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
 
@@ -78,11 +89,17 @@ module.exports =
 
     # Find the nearest accessible trunk position for 'buildPlate' tree support.
     # Searches outward from the ideal centroid (cx, cy) until a position is found
-    # that is clear of solid geometry at every layer.
+    # that is clear of solid geometry at every layer up to maxZ.
+    # Axis-aligned directions (±X then ±Y) are tried first at each ring so that
+    # the result stays as centred as possible (e.g. same Y as the centroid when
+    # the arch body only blocks the X axis).
+    # clearance adds a safety margin: the centre and four cardinal boundary points
+    # of a circle of that radius must all be outside solid geometry, preventing the
+    # trunk cross-section circle from overlapping arch walls.
     # Returns { x, y } or null if none found within the search radius.
-    findAccessibleTrunkPosition: (cx, cy, layerSolidRegions, searchStep, maxSearchRadius) ->
+    findAccessibleTrunkPosition: (cx, cy, layerSolidRegions, searchStep, maxSearchRadius, maxZ = Infinity, clearance = 0) ->
 
-        # Build solid footprint bounding box from all layer paths for fast pre-check.
+        # Build solid footprint bounding box from relevant layers for fast pre-check.
         # Any position outside this bounding box is guaranteed to be accessible.
         fpMinX = Infinity
         fpMaxX = -Infinity
@@ -90,6 +107,8 @@ module.exports =
         fpMaxY = -Infinity
 
         for layerData in layerSolidRegions
+
+            continue if layerData.z > maxZ
 
             for path in layerData.paths
 
@@ -102,34 +121,66 @@ module.exports =
 
         isAccessible = (x, y) ->
 
-            # Quick bounding box pre-check: outside all solid geometry if beyond footprint.
-            if x < fpMinX or x > fpMaxX or y < fpMinY or y > fpMaxY
+            # Collect the centre point plus four cardinal clearance points.
+            checkPoints = [{ x, y }]
 
-                return true
+            if clearance > 0
 
-            point = { x, y }
+                for i in [0...4]
 
-            for layerData in layerSolidRegions
+                    angle = i * Math.PI / 2
+                    checkPoints.push({
+                        x: x + clearance * Math.cos(angle)
+                        y: y + clearance * Math.sin(angle)
+                    })
 
-                if normalSupportModule.isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
+            for checkPoint in checkPoints
 
-                    return false
+                # Quick bounding box pre-check: any point outside the solid geometry
+                # bounding box is guaranteed to be outside every solid polygon.
+                continue if checkPoint.x < fpMinX or checkPoint.x > fpMaxX or
+                             checkPoint.y < fpMinY or checkPoint.y > fpMaxY
+
+                for layerData in layerSolidRegions
+
+                    continue if layerData.z > maxZ
+
+                    if normalSupportModule.isPointInsideSolidGeometry(checkPoint, layerData.paths, layerData.pathIsHole)
+
+                        return false
 
             return true
 
         # Check the centroid itself first.
         return { x: cx, y: cy } if isAccessible(cx, cy)
 
-        # Expanding search: ring by ring outward from centroid.
+        # Expanding search: try axis-aligned directions first at each ring radius.
+        # ±X first preserves the centroid Y (centering in Y); ±Y next preserves X;
+        # then diagonal angles for remaining directions.
         radius = searchStep
 
         while radius <= maxSearchRadius
 
+            # ±X: same Y as centroid (Y-centred result).
+            return { x: cx + radius, y: cy } if isAccessible(cx + radius, cy)
+            return { x: cx - radius, y: cy } if isAccessible(cx - radius, cy)
+
+            # ±Y: same X as centroid (X-centred result).
+            return { x: cx, y: cy + radius } if isAccessible(cx, cy + radius)
+            return { x: cx, y: cy - radius } if isAccessible(cx, cy - radius)
+
+            # Diagonal directions (45° increments, skipping the axis angles).
             numAngles = Math.max(8, Math.ceil(2 * Math.PI * radius / searchStep))
 
             for i in [0...numAngles]
 
                 angle = i * 2 * Math.PI / numAngles
+
+                # Skip angles close to 0°, 90°, 180°, 270° (already tried above).
+                sinA = Math.abs(Math.sin(angle))
+                cosA = Math.abs(Math.cos(angle))
+                continue if sinA < AXIS_ANGLE_THRESHOLD or cosA < AXIS_ANGLE_THRESHOLD
+
                 candidateX = cx + radius * Math.cos(angle)
                 candidateY = cy + radius * Math.sin(angle)
 
@@ -490,14 +541,16 @@ module.exports =
 
                 trunkSeg = region._treeSegments.find (s) -> s.type is 'trunk'
 
-                if trunkSeg? and not @isTrunkAccessible(trunkSeg.x1, trunkSeg.y1, layerSolidRegions)
+                if trunkSeg? and not @isTrunkAccessible(trunkSeg.x1, trunkSeg.y1, layerSolidRegions, trunkSeg.z2)
 
                     contactSpacing = nozzleDiameter * CONTACT_SPACING_MULTIPLIER
                     maxSearchRadius = Math.max(60, region.maxZ - minZ)
+                    trunkClearance = nozzleDiameter * TRUNK_RADIUS_MULTIPLIER
 
                     accessibleTrunk = @findAccessibleTrunkPosition(
                         trunkSeg.x1, trunkSeg.y1,
-                        layerSolidRegions, contactSpacing, maxSearchRadius
+                        layerSolidRegions, contactSpacing, maxSearchRadius,
+                        trunkSeg.z2, trunkClearance
                     )
 
                     if accessibleTrunk?

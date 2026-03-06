@@ -1064,6 +1064,25 @@ describe 'Tree Support Module', ->
 
             expect(result).toBe(true)
 
+        test 'should return true when high-Z layers are blocked but maxZ excludes them', ->
+
+            # Simulate upright arch: hollow at low Z (trunk lives here),
+            # solid at high Z (arch cap above the overhang).
+            # Without maxZ this incorrectly returns false; with maxZ it must return true.
+            solidCapPath = makeSquarePath(0, 0, 5)
+            layers = [
+                { z: 0.2, layerIndex: 0, paths: [], pathIsHole: [] }
+                { z: 0.4, layerIndex: 1, paths: [], pathIsHole: [] }
+                { z: 14, layerIndex: 69, paths: [solidCapPath], pathIsHole: [false] }
+                { z: 16, layerIndex: 79, paths: [solidCapPath], pathIsHole: [false] }
+            ]
+
+            # Without maxZ: returns false because arch cap at z=14,16 blocks it.
+            expect(treeSupport.isTrunkAccessible(0, 0, layers)).toBe(false)
+
+            # With maxZ = trunkTopZ = 8 (below the arch cap): returns true.
+            expect(treeSupport.isTrunkAccessible(0, 0, layers, 8)).toBe(true)
+
     describe 'findAccessibleTrunkPosition', ->
 
         makeSquarePath = (cx, cy, halfSize) ->
@@ -1127,6 +1146,82 @@ describe 'Tree Support Module', ->
 
             # Closest accessible point is just outside the square at radius ≥ 3mm.
             expect(dist).toBeGreaterThan(2.9)
+
+        test 'should return centroid unchanged when only high-Z layers are blocked (maxZ filters them)', ->
+
+            # Solid at high Z only — centroid is accessible when maxZ excludes those layers.
+            solidHighPath = makeSquarePath(0, 0, 5)
+            layers = [
+                { z: 0.2, layerIndex: 0, paths: [], pathIsHole: [] }
+                { z: 15,  layerIndex: 70, paths: [solidHighPath], pathIsHole: [false] }
+            ]
+
+            # With maxZ = 8 (below z=15), high-Z layers are ignored → centroid is accessible.
+            result = treeSupport.findAccessibleTrunkPosition(0, 0, layers, 1.0, 30, 8)
+
+            expect(result).not.toBeNull()
+            expect(result.x).toBeCloseTo(0, 5)
+            expect(result.y).toBeCloseTo(0, 5)
+
+        test 'should prefer Y-preserving result (same Y as centroid) when blocked', ->
+
+            # Solid block completely covers the centroid at (0, 0).
+            # ±X positions at same Y=0 are accessible; ±Y positions at same X=0 are also accessible.
+            # The search should find (r, 0) or (-r, 0) first (same Y as centroid).
+            solidPath = makeSquarePath(0, 0, 3)
+            layers = [
+                { z: 0.2, layerIndex: 0, paths: [solidPath], pathIsHole: [false] }
+            ]
+
+            result = treeSupport.findAccessibleTrunkPosition(0, 0, layers, 1.0, 30)
+
+            expect(result).not.toBeNull()
+
+            # The result must be outside the solid block.
+            expect(treeSupport.isTrunkAccessible(result.x, result.y, layers)).toBe(true)
+
+            # Y should be preserved (same as centroid Y = 0) when ±X is accessible first.
+            expect(result.y).toBeCloseTo(0, 5)
+
+        test 'should apply clearance so trunk circle does not overlap solid walls', ->
+
+            # Solid block covers (−4,−4) to (4,4) — completely surrounds the centroid (0,0).
+            # Without clearance, the search finds the first accessible position just outside
+            # the solid edge (e.g., at x≈5, y=0 for a step of 1).
+            # With clearance=1.5 the result must be pushed further: the nearest clearance
+            # boundary point (result.x − 1.5, 0) must also be outside the solid at x=4.
+            solidPath = makeSquarePath(0, 0, 4)  # solid from (−4,−4) to (4,4)
+            layers = [
+                { z: 0.2, layerIndex: 0, paths: [solidPath], pathIsHole: [false] }
+            ]
+
+            clearance = 1.5
+
+            # Without clearance: first accessible point is just outside the 4mm edge.
+            resultNoClearance = treeSupport.findAccessibleTrunkPosition(0, 0, layers, 1.0, 20, Infinity, 0)
+
+            expect(resultNoClearance).not.toBeNull()
+            distNoClearance = Math.sqrt(resultNoClearance.x ** 2 + resultNoClearance.y ** 2)
+            expect(distNoClearance).toBeGreaterThan(3.9)
+
+            # With clearance=1.5: the result centre must be at least (4 + 1.5) = 5.5mm from
+            # the search origin so that the nearest clearance boundary point is outside the
+            # solid edge at 4mm.
+            resultWithClearance = treeSupport.findAccessibleTrunkPosition(0, 0, layers, 1.0, 20, Infinity, clearance)
+
+            expect(resultWithClearance).not.toBeNull()
+            distWithClearance = Math.sqrt(resultWithClearance.x ** 2 + resultWithClearance.y ** 2)
+            expect(distWithClearance).toBeGreaterThanOrEqual(4 + clearance - 0.1)
+
+            # All four cardinal clearance boundary points must also be accessible.
+            for angleIdx in [0...4]
+
+                angle = angleIdx * Math.PI / 2
+                cx = resultWithClearance.x + clearance * Math.cos(angle)
+                cy = resultWithClearance.y + clearance * Math.sin(angle)
+                expect(treeSupport.isTrunkAccessible(cx, cy, layers)).toBe(true)
+
+            return
 
     describe 'buildTreeStructure with trunk override', ->
 
@@ -1292,6 +1387,7 @@ describe 'Tree Support Module', ->
             region = makeRegion(-4, 4, -4, 4, 20)
 
             # Solid block covers (−5,−5) to (5,5): completely surrounds the centroid.
+            # Only at low layers (Z ≤ trunkTopZ area) — high layers are hollow.
             solidPath = makeSquarePath(0, 0, 5)
             layerSolidRegions = [
                 { z: 0.2, layerIndex: 0, paths: [solidPath], pathIsHole: [false] }
@@ -1314,13 +1410,53 @@ describe 'Tree Support Module', ->
             trunkX = trunkSeg.x1
             trunkY = trunkSeg.y1
 
-            # Trunk must lie outside the solid region (|x| or |y| > 5).
-            isOutside = Math.abs(trunkX) > 5.0 or Math.abs(trunkY) > 5.0
+            # Trunk must lie outside the solid region — with clearance of trunkRadius (1.2mm),
+            # the trunk circle must not touch the solid edge at ±5mm.
+            trunkClearance = nozzleDiameter * treeSupport.TRUNK_RADIUS_MULTIPLIER
 
-            expect(isOutside).toBe(true)
+            # Trunk centre must be at least (5 + clearance) away from the blocked centre.
+            dist = Math.sqrt(trunkX * trunkX + trunkY * trunkY)
 
-            # Trunk position must be accessible (not blocked at any layer).
-            expect(treeSupport.isTrunkAccessible(trunkX, trunkY, layerSolidRegions)).toBe(true)
+            expect(dist).toBeGreaterThanOrEqual(5 + trunkClearance - 0.1)
+
+            # Trunk position must be accessible (not blocked at relevant layers).
+            trunkTopZ = trunkSeg.z2
+            expect(treeSupport.isTrunkAccessible(trunkX, trunkY, layerSolidRegions, trunkTopZ)).toBe(true)
+
+        test 'upright arch: trunk centroid should NOT be relocated when only layers above trunkTopZ are solid', ->
+
+            nozzleDiameter = 0.4
+            layerHeight = 0.2
+
+            # Overhang at Z=15 — centroid at (0,0).
+            region = makeRegion(-5, 5, -5, 5, 15)
+
+            # Hollow at low Z (trunk lives here); solid only above the overhang (arch cap).
+            solidCapPath = makeSquarePath(0, 0, 5)
+            layerSolidRegions = [
+                { z: 0.2,  layerIndex: 0,  paths: [], pathIsHole: [] }
+                { z: 0.4,  layerIndex: 1,  paths: [], pathIsHole: [] }
+                { z: 16.2, layerIndex: 80, paths: [solidCapPath], pathIsHole: [false] }
+                { z: 18.4, layerIndex: 91, paths: [solidCapPath], pathIsHole: [false] }
+            ]
+
+            slicer = makeSlicer()
+
+            treeSupport.generateTreePattern(
+                slicer, region, 14, 70,
+                0, 0,
+                nozzleDiameter, layerSolidRegions,
+                'buildPlate', 0, layerHeight
+            )
+
+            trunkSeg = region._treeSegments.find (s) -> s.type is 'trunk'
+
+            expect(trunkSeg).toBeDefined()
+
+            # Trunk should remain at the centroid — arch cap layers are above trunkTopZ
+            # and must NOT trigger relocation.
+            expect(Math.abs(trunkSeg.x1)).toBeLessThan(1.5)
+            expect(Math.abs(trunkSeg.y1)).toBeLessThan(1.5)
 
         test 'should generate support for branches in arch cavity even though lower layers were solid', ->
 
