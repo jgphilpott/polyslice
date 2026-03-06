@@ -9,6 +9,12 @@ primitives = require('../../utils/primitives')
 # Triangles smaller than this are treated as degenerate and skipped.
 DEGENERATE_TRIANGLE_THRESHOLD = 0.0001
 
+# Small tolerance added to the minimumSupportZ comparison in 'everywhere' mode.
+# Layer heights are computed by floating-point addition, so the accumulated Z of
+# the layer just above a solid surface may be fractionally less than
+# highestSolidZ + layerHeight.  This epsilon absorbs that error.
+Z_EPSILON = 1e-9
+
 module.exports =
 
     # Detect overhanging faces based on support threshold angle.
@@ -397,32 +403,31 @@ module.exports =
             return true  # Clear path from build plate
 
         else if supportPlacement is 'everywhere'
-            # For everywhere mode, find the highest solid surface at or below current layer.
+            # Find the highest solid surface strictly below the current layer.
             highestSolidZ = minZ
             hasBlockingGeometry = false
 
             for layerData in layerSolidRegions
-                if layerData.layerIndex <= currentLayerIndex
+                if layerData.layerIndex < currentLayerIndex
                     if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
                         hasBlockingGeometry = true
                         highestSolidZ = Math.max(highestSolidZ, layerData.z)
 
+            # If the current layer itself has solid geometry at this point the support
+            # would be embedded inside the printed object — block it.
+            currentLayerData = layerSolidRegions[currentLayerIndex]
+            if currentLayerData? and @isPointInsideSolidGeometry(point, currentLayerData.paths, currentLayerData.pathIsHole)
+                return false
+
             if not hasBlockingGeometry
-                return true  # Clear path from build plate
+                return true  # Clear path — no solid below this XY position
 
-            # Check if solid geometry has ended (look back a few layers).
-            # Guard against CoffeeScript descending range [1..0] when layersToCheck = 0.
-            layersToCheck = Math.min(3, currentLayerIndex)
-            if layersToCheck > 0
-                for i in [1..layersToCheck]
-                    checkLayerIndex = currentLayerIndex - i
-                    layerData = layerSolidRegions[checkLayerIndex]
-                    if @isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
-                        return false  # Still solid
-
-            # Solid geometry has ended, start support above it
+            # Allow support just above the highest solid surface below.
+            # This produces the "clip until full overlap" behaviour: support is generated
+            # at every layer where the node is not embedded, so it naturally terminates
+            # when it meets the object on curved surfaces.
             minimumSupportZ = highestSolidZ + layerHeight
-            return currentZ >= minimumSupportZ
+            return currentZ >= minimumSupportZ - Z_EPSILON
 
         return false
 

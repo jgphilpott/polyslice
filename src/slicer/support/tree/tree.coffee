@@ -4,7 +4,8 @@
 # The structure converges as it descends toward the build plate:
 #   - Many fine twig tips spread across the overhang area (top)
 #   - Twig tips merge into branch nodes at approximately 45-degree angles
-#   - Branches converge to a single vertical trunk column (bottom)
+#   - Branches converge to a single vertical trunk column (middle)
+#   - Roots spread outward and downward from the trunk base (bottom)
 
 coders = require('../../gcode/coders')
 normalSupportModule = require('../normal/normal')
@@ -23,7 +24,9 @@ BRANCH_CLUSTER_SIZE = 3.0
 
 # Cross-section radius multipliers by node type (in nozzle diameters).
 # Trunk is widest for structural stability; twigs are finest for easy overhang contact.
+# Roots are slightly wider than branches to provide a stable base footprint.
 TRUNK_RADIUS_MULTIPLIER = 3.0
+ROOT_RADIUS_MULTIPLIER = 2.0
 BRANCH_RADIUS_MULTIPLIER = 1.8
 TWIG_RADIUS_MULTIPLIER = 0.8
 
@@ -39,9 +42,25 @@ CIRCLE_CHORD_SIN_FACTOR = Math.sin(Math.PI / CIRCLE_SEGMENTS)
 # material are printed at the same Z level, physically bonding the joint.
 TWIG_OVERLAP_LAYERS = 1
 
+# Number of root segments spread radially outward and downward from the trunk base.
+# Roots connect the trunk to the build plate at multiple XY positions, increasing
+# the base footprint and improving the structural stability of the tree support.
+ROOT_COUNT = 4
+
+# Fractional distances (as multiples of rootHeight) sampled along each root ray
+# when checking for solid geometry in 'everywhere' mode.
+# Sampling from 0.5× to 2× rootHeight detects curved surfaces (e.g. dome walls)
+# that lie further from the trunk than the root base point itself.
+ROOT_RAY_SAMPLE_FRACTIONS = [0.5, 1.0, 1.5, 2.0]
+
 module.exports =
 
     TWIG_OVERLAP_LAYERS: TWIG_OVERLAP_LAYERS
+    ROOT_COUNT: ROOT_COUNT
+    ROOT_RADIUS_MULTIPLIER: ROOT_RADIUS_MULTIPLIER
+    ROOT_RAY_SAMPLE_FRACTIONS: ROOT_RAY_SAMPLE_FRACTIONS
+    CONTACT_SPACING_MULTIPLIER: CONTACT_SPACING_MULTIPLIER
+    BRANCH_CLUSTER_SIZE: BRANCH_CLUSTER_SIZE
 
     # Return the interpolated face Z at (x, y) by searching all region faces.
     # Returns null if the point lies outside every face's 2D XY projection.
@@ -76,9 +95,11 @@ module.exports =
 
         return null
 
-    # Build the complete tree segment structure for a support region.
-    # Pre-computes all trunk, branch, and twig line segments from build plate to overhang.
+    # Build the tree segment structure for a support region.
+    # Pre-computes trunk, branch, and twig line segments from build plate to overhang.
     # Segments are cached on the region object so they are computed only once per slice.
+    # Root segments are generated dynamically in generateTreePattern based on the
+    # effective trunk base (first printable trunk layer) and are not included here.
     # Returns an array of {x1, y1, z1, x2, y2, z2, type} segment objects.
     buildTreeStructure: (region, nozzleDiameter, buildPlateZ, layerHeight) ->
 
@@ -281,12 +302,13 @@ module.exports =
     # The shape consists of:
     #   - Outer circle (O): polygon approximation using CIRCLE_SEGMENTS segments
     #   - Inner X fill:     two diagonal lines crossing the center at ±45 degrees
-    # The radius scales with nodeType: trunk is largest, branch is medium, twig is smallest.
+    # The radius scales with nodeType: trunk is largest, roots and branches are medium, twig is smallest.
     renderNodeAt: (slicer, px, py, z, centerOffsetX, centerOffsetY, nozzleDiameter, nodeType, supportLineWidth, supportSpeed, travelSpeed) ->
 
         # Radius scales with node type so the structure tapers naturally from trunk to twig.
         switch nodeType
             when 'trunk' then halfSize = nozzleDiameter * TRUNK_RADIUS_MULTIPLIER
+            when 'root' then halfSize = nozzleDiameter * ROOT_RADIUS_MULTIPLIER
             when 'branch' then halfSize = nozzleDiameter * BRANCH_RADIUS_MULTIPLIER
             else halfSize = nozzleDiameter * TWIG_RADIUS_MULTIPLIER
 
@@ -356,9 +378,11 @@ module.exports =
     # Generate tree-style support G-code for a region at a given layer.
     # Finds the cross-section of every tree segment (trunk, branch, twig) at height Z
     # and renders a circular O+X node at each intersection point:
-    #   - Bottom layers: one large trunk node at the centroid (convergence)
+    #   - Bottom layers: trunk node plus root nodes spreading outward from the effective base
     #   - Middle layers: medium branch nodes spreading outward from the trunk
     #   - Top layers: many small twig nodes spread across the overhang contact area
+    # Roots are generated dynamically based on region._effectiveTrunkBaseZ, which is set
+    # to the first layer Z at which the trunk actually prints (handling floating trunks).
     # Returns true if any G-code was emitted, false otherwise.
     generateTreePattern: (slicer, region, z, layerIndex, centerOffsetX, centerOffsetY, nozzleDiameter, layerSolidRegions, supportPlacement, minZ, layerHeight) ->
 
@@ -402,6 +426,113 @@ module.exports =
             )
 
                 supportPoints.push({ x: px, y: py, type: seg.type })
+
+        # Track the lowest Z at which the trunk actually prints.
+        # This gives the effective base for root placement even when the trunk starts
+        # above the physical build plate (e.g., 'everywhere' mode on an arch print).
+        trunkPrinted = supportPoints.some (p) -> p.type is 'trunk'
+
+        if trunkPrinted and (not region._effectiveTrunkBaseZ? or z < region._effectiveTrunkBaseZ)
+
+            region._effectiveTrunkBaseZ = z
+
+        # Generate root cross-sections dynamically from the effective trunk base.
+        # Roots spread radially outward at the base (spread = rootHeight for 45° angle)
+        # and converge back to the trunk XY over the rootHeight vertical range.
+        if region._effectiveTrunkBaseZ?
+
+            trunkSeg = segments.find (s) -> s.type is 'trunk'
+
+            if trunkSeg?
+
+                trunkX = trunkSeg.x1
+                trunkY = trunkSeg.y1
+
+                contactSpacing = nozzleDiameter * CONTACT_SPACING_MULTIPLIER
+                trunkHeight = Math.abs(trunkSeg.z2 - trunkSeg.z1)
+                rootSpread = Math.min(contactSpacing * BRANCH_CLUSTER_SIZE, trunkHeight)
+                effectiveBaseZ = region._effectiveTrunkBaseZ
+                # rootHeight equals rootSpread/2; roots spread by rootHeight horizontally
+                # so horizontal == vertical, giving exactly a 45-degree outward angle.
+                rootHeight = rootSpread * 0.5
+                rootTopZ = effectiveBaseZ + rootHeight
+
+                if z >= effectiveBaseZ and z <= rootTopZ and rootHeight >= layerHeight
+
+                    # Pre-compute which roots are actually supported on first visit.
+                    # A root is valid only if its spread direction leads toward a solid
+                    # surface in 'everywhere' mode — this eliminates hanging roots that
+                    # point into empty space beyond the edge of the surface the trunk
+                    # rests on.
+                    if not region._validRootIndices?
+
+                        region._validRootIndices = []
+
+                        # Pre-filter: only layers at or below effectiveBaseZ within the
+                        # rootHeight window.  This avoids iterating all layers on tall
+                        # prints for every root × sampleFraction combination.
+                        relevantLayers = layerSolidRegions.filter (ld) ->
+                            ld.z <= effectiveBaseZ and (effectiveBaseZ - ld.z) <= rootHeight
+
+                        for i in [0...ROOT_COUNT]
+
+                            angle = i * 2 * Math.PI / ROOT_COUNT
+
+                            rootIsSupported = true
+
+                            if supportPlacement is 'everywhere'
+
+                                # Cast a ray in the root direction and sample multiple
+                                # distances (0.5× to 2× rootHeight) to detect nearby solid
+                                # surfaces such as the interior of a curved dome.
+                                # A root is "hanging" only if NO solid geometry is found at
+                                # ANY sample distance within rootHeight layers of effectiveBaseZ.
+                                rootIsSupported = false
+
+                                foundSolid = false
+
+                                for sampleFraction in ROOT_RAY_SAMPLE_FRACTIONS
+
+                                    break if foundSolid
+
+                                    sampleX = trunkX + rootHeight * sampleFraction * Math.cos(angle)
+                                    sampleY = trunkY + rootHeight * sampleFraction * Math.sin(angle)
+                                    samplePoint = { x: sampleX, y: sampleY }
+
+                                    for layerData in relevantLayers
+
+                                        if normalSupportModule.isPointInsideSolidGeometry(
+                                            samplePoint, layerData.paths, layerData.pathIsHole
+                                        )
+
+                                            foundSolid = true
+                                            break
+
+                                rootIsSupported = foundSolid
+
+                            region._validRootIndices.push(i) if rootIsSupported
+
+                    # Linear interpolation: t=0 at effective base (roots at full spread),
+                    # t=1 at rootTopZ (roots converged back to trunk XY).
+                    t = (z - effectiveBaseZ) / rootHeight
+
+                    for i in region._validRootIndices
+
+                        angle = i * 2 * Math.PI / ROOT_COUNT
+                        # Spread equals rootHeight for a 45-degree outward angle.
+                        rootEndX = trunkX + rootHeight * Math.cos(angle)
+                        rootEndY = trunkY + rootHeight * Math.sin(angle)
+
+                        # Interpolate from spread XY (base) toward trunk XY (top).
+                        rootX = rootEndX + t * (trunkX - rootEndX)
+                        rootY = rootEndY + t * (trunkY - rootEndY)
+
+                        if normalSupportModule.canGenerateSupportAt(
+                            slicer, { x: rootX, y: rootY }, z,
+                            layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex
+                        )
+
+                            supportPoints.push({ x: rootX, y: rootY, type: 'root' })
 
         # Collapse multiple paths that converge to the same trunk position.
         deduplicated = @deduplicatePoints(supportPoints, nozzleDiameter * 0.5)
