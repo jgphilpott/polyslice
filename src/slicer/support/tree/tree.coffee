@@ -100,7 +100,7 @@ module.exports =
                     fpMinY = Math.min(fpMinY, point.y)
                     fpMaxY = Math.max(fpMaxY, point.y)
 
-        isAccessible = (x, y) =>
+        isAccessible = (x, y) ->
 
             # Quick bounding box pre-check: outside all solid geometry if beyond footprint.
             if x < fpMinX or x > fpMaxX or y < fpMinY or y > fpMaxY
