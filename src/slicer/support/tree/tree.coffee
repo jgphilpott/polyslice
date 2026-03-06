@@ -62,6 +62,83 @@ module.exports =
     CONTACT_SPACING_MULTIPLIER: CONTACT_SPACING_MULTIPLIER
     BRANCH_CLUSTER_SIZE: BRANCH_CLUSTER_SIZE
 
+    # Check if a trunk at (trunkX, trunkY) is accessible from the build plate.
+    # Returns true if no layer has solid geometry at this XY position.
+    isTrunkAccessible: (trunkX, trunkY, layerSolidRegions) ->
+
+        point = { x: trunkX, y: trunkY }
+
+        for layerData in layerSolidRegions
+
+            if normalSupportModule.isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
+
+                return false
+
+        return true
+
+    # Find the nearest accessible trunk position for 'buildPlate' tree support.
+    # Searches outward from the ideal centroid (cx, cy) until a position is found
+    # that is clear of solid geometry at every layer.
+    # Returns { x, y } or null if none found within the search radius.
+    findAccessibleTrunkPosition: (cx, cy, layerSolidRegions, searchStep, maxSearchRadius) ->
+
+        # Build solid footprint bounding box from all layer paths for fast pre-check.
+        # Any position outside this bounding box is guaranteed to be accessible.
+        fpMinX = Infinity
+        fpMaxX = -Infinity
+        fpMinY = Infinity
+        fpMaxY = -Infinity
+
+        for layerData in layerSolidRegions
+
+            for path in layerData.paths
+
+                for point in path
+
+                    fpMinX = Math.min(fpMinX, point.x)
+                    fpMaxX = Math.max(fpMaxX, point.x)
+                    fpMinY = Math.min(fpMinY, point.y)
+                    fpMaxY = Math.max(fpMaxY, point.y)
+
+        isAccessible = (x, y) =>
+
+            # Quick bounding box pre-check: outside all solid geometry if beyond footprint.
+            if x < fpMinX or x > fpMaxX or y < fpMinY or y > fpMaxY
+
+                return true
+
+            point = { x, y }
+
+            for layerData in layerSolidRegions
+
+                if normalSupportModule.isPointInsideSolidGeometry(point, layerData.paths, layerData.pathIsHole)
+
+                    return false
+
+            return true
+
+        # Check the centroid itself first.
+        return { x: cx, y: cy } if isAccessible(cx, cy)
+
+        # Expanding search: ring by ring outward from centroid.
+        radius = searchStep
+
+        while radius <= maxSearchRadius
+
+            numAngles = Math.max(8, Math.ceil(2 * Math.PI * radius / searchStep))
+
+            for i in [0...numAngles]
+
+                angle = i * 2 * Math.PI / numAngles
+                candidateX = cx + radius * Math.cos(angle)
+                candidateY = cy + radius * Math.sin(angle)
+
+                return { x: candidateX, y: candidateY } if isAccessible(candidateX, candidateY)
+
+            radius += searchStep
+
+        return null
+
     # Return the interpolated face Z at (x, y) by searching all region faces.
     # Returns null if the point lies outside every face's 2D XY projection.
     getFaceZAtPoint: (x, y, faces) ->
@@ -100,8 +177,10 @@ module.exports =
     # Segments are cached on the region object so they are computed only once per slice.
     # Root segments are generated dynamically in generateTreePattern based on the
     # effective trunk base (first printable trunk layer) and are not included here.
+    # Optional trunkXOverride / trunkYOverride place the trunk at a specific XY position
+    # instead of the tip centroid; used when the centroid is inaccessible from the build plate.
     # Returns an array of {x1, y1, z1, x2, y2, z2, type} segment objects.
-    buildTreeStructure: (region, nozzleDiameter, buildPlateZ, layerHeight) ->
+    buildTreeStructure: (region, nozzleDiameter, buildPlateZ, layerHeight, trunkXOverride = null, trunkYOverride = null) ->
 
         contactSpacing = nozzleDiameter * CONTACT_SPACING_MULTIPLIER
         interfaceGap = layerHeight * 1.5
@@ -141,17 +220,26 @@ module.exports =
 
         return [] if tips.length is 0
 
-        # Compute the trunk base position: centroid of all contact tips in XY.
-        trunkX = 0
-        trunkY = 0
+        # Compute the trunk base position: centroid of all contact tips in XY,
+        # or use the override coordinates if provided (e.g. when the centroid is
+        # blocked from the build plate and an accessible position was found nearby).
+        if trunkXOverride? and trunkYOverride?
 
-        for tip in tips
+            trunkX = trunkXOverride
+            trunkY = trunkYOverride
 
-            trunkX += tip.x
-            trunkY += tip.y
+        else
 
-        trunkX /= tips.length
-        trunkY /= tips.length
+            trunkX = 0
+            trunkY = 0
+
+            for tip in tips
+
+                trunkX += tip.x
+                trunkY += tip.y
+
+            trunkX /= tips.length
+            trunkY /= tips.length
 
         # Cluster tips into branch groups using a grid anchored to the region's own minX/minY.
         # Using floor((tip - min) / spacing) keeps cell boundaries region-local so clustering
@@ -393,6 +481,32 @@ module.exports =
 
             region._treeSegments = @buildTreeStructure(region, nozzleDiameter, minZ, layerHeight)
 
+            # For 'buildPlate' tree support: if the computed trunk centroid is not accessible
+            # from the build plate (blocked by solid geometry at some lower layer), search for
+            # a nearby accessible trunk position and rebuild the tree from there.
+            # This enables branches that start from an accessible trunk to reach overhang areas
+            # that solid walls would otherwise block from direct vertical access.
+            if supportPlacement is 'buildPlate' and region._treeSegments.length > 0 and layerSolidRegions.length > 0
+
+                trunkSeg = region._treeSegments.find (s) -> s.type is 'trunk'
+
+                if trunkSeg? and not @isTrunkAccessible(trunkSeg.x1, trunkSeg.y1, layerSolidRegions)
+
+                    contactSpacing = nozzleDiameter * CONTACT_SPACING_MULTIPLIER
+                    maxSearchRadius = Math.max(60, region.maxZ - minZ)
+
+                    accessibleTrunk = @findAccessibleTrunkPosition(
+                        trunkSeg.x1, trunkSeg.y1,
+                        layerSolidRegions, contactSpacing, maxSearchRadius
+                    )
+
+                    if accessibleTrunk?
+
+                        region._treeSegments = @buildTreeStructure(
+                            region, nozzleDiameter, minZ, layerHeight,
+                            accessibleTrunk.x, accessibleTrunk.y
+                        )
+
         segments = region._treeSegments
 
         return false if segments.length is 0
@@ -419,13 +533,31 @@ module.exports =
                 px = seg.x1 + t * (seg.x2 - seg.x1)
                 py = seg.y1 + t * (seg.y2 - seg.y1)
 
-            # Verify no solid geometry blocks the support path from below.
-            if normalSupportModule.canGenerateSupportAt(
-                slicer, { x: px, y: py }, z,
-                layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex
-            )
+            # Use the appropriate collision check based on support placement and segment type.
+            # For 'buildPlate' tree support, trunk segments use the strict cumulative check
+            # (clear vertical path from build plate), while branch and twig segments use a
+            # relaxed current-layer check.  This allows branches from an accessible trunk to
+            # enter overhang cavities that become accessible at higher Z, even if the same XY
+            # position was inside solid geometry at lower layers.
+            if supportPlacement is 'buildPlate' and seg.type isnt 'trunk'
 
-                supportPoints.push({ x: px, y: py, type: seg.type })
+                currentLayerData = layerSolidRegions[layerIndex]
+
+                isAccessible = if currentLayerData?
+                    not normalSupportModule.isPointInsideSolidGeometry(
+                        { x: px, y: py }, currentLayerData.paths, currentLayerData.pathIsHole
+                    )
+                else
+                    true
+
+            else
+
+                isAccessible = normalSupportModule.canGenerateSupportAt(
+                    slicer, { x: px, y: py }, z,
+                    layerSolidRegions, supportPlacement, minZ, layerHeight, layerIndex
+                )
+
+            supportPoints.push({ x: px, y: py, type: seg.type }) if isAccessible
 
         # Track the lowest Z at which the trunk actually prints.
         # This gives the effective base for root placement even when the trunk starts
