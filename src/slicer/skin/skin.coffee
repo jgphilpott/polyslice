@@ -325,6 +325,17 @@ module.exports =
 
                     slicer.gcode += coders.codeLinearMovement(slicer, offsetWaypointX, offsetWaypointY, z, null, travelSpeedMmMin).replace(slicer.newline, (if verbose then "; Moving to skin infill line" + slicer.newline else slicer.newline))
 
+                # Ensure nozzle is at exact startPoint before extruding.
+                # Combing may end at a backed-off position when the destination is on a hole boundary.
+                lastCombingPoint = combingPath[combingPath.length - 1]
+
+                if (startPoint.x - lastCombingPoint.x) ** 2 + (startPoint.y - lastCombingPoint.y) ** 2 > 0.001 ** 2
+
+                    offsetStartX = startPoint.x + centerOffsetX
+                    offsetStartY = startPoint.y + centerOffsetY
+
+                    slicer.gcode += coders.codeLinearMovement(slicer, offsetStartX, offsetStartY, z, null, travelSpeedMmMin)
+
             dx = endPoint.x - startPoint.x
             dy = endPoint.y - startPoint.y
 
