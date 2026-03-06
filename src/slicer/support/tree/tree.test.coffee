@@ -1033,7 +1033,6 @@ describe 'Tree Support Module', ->
         test 'should return false when blocked on only one of multiple layers', ->
 
             solidAtLowZ = makeSquarePath(0, 0, 5)
-            emptyLayers = []
 
             layers = [
                 { z: 0.2, layerIndex: 0, paths: [solidAtLowZ], pathIsHole: [false] }
