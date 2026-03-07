@@ -1445,6 +1445,27 @@ describe 'Slicing', ->
 
             return finalMesh
 
+        # Helper to extract all G-code lines for a given layer number from a verbose slice result.
+        getLayerLines = (gcodeResult, layerNumber) ->
+
+            lines = gcodeResult.split('\n')
+            layerStart = -1
+            layerEnd = -1
+
+            for lineIndex in [0...lines.length]
+
+                if lines[lineIndex].includes("LAYER: #{layerNumber} of")
+                    layerStart = lineIndex
+                else if layerStart >= 0 and lines[lineIndex].includes("LAYER: #{layerNumber + 1} of")
+                    layerEnd = lineIndex
+                    break
+
+            return [] if layerStart < 0
+
+            layerEnd = lines.length if layerEnd < 0
+
+            return lines.slice(layerStart, layerEnd)
+
         test 'should classify single hollow cylinder correctly (level 0 outer, level 1 hole)', ->
 
             # Create a single hollow cylinder.
@@ -2349,22 +2370,9 @@ describe 'Slicing', ->
 
             result = slicer.slice(finalMesh)
 
-            # Extract layer 1 (first bottom skin layer).
-            lines = result.split('\n')
-            layer1Start = -1
-            layer2Start = -1
-
-            for lineIndex in [0...lines.length]
-
-                if lines[lineIndex].includes('LAYER: 1 of')
-                    layer1Start = lineIndex
-                else if layer1Start >= 0 and lines[lineIndex].includes('LAYER: 2 of')
-                    layer2Start = lineIndex
-                    break
-
-            expect(layer1Start).toBeGreaterThan(-1)
-            layer2Start = lines.length if layer2Start < 0
-            layer1Lines = lines.slice(layer1Start, layer2Start)
+            # Extract layer 1 (first bottom skin layer) using the shared helper.
+            layer1Lines = getLayerLines(result, 1)
+            expect(layer1Lines.length).toBeGreaterThan(0)
 
             # Verify all 4 paths have outer walls (ring outer, ring hole, cyl1, cyl2).
             outerWallCount = layer1Lines.filter((l) -> l.includes('TYPE: WALL-OUTER')).length
@@ -2461,22 +2469,9 @@ describe 'Slicing', ->
 
             result = slicer.slice(finalMesh)
 
-            # Extract layer 1 (first bottom skin layer).
-            lines = result.split('\n')
-            layer1Start = -1
-            layer2Start = -1
-
-            for lineIndex in [0...lines.length]
-
-                if lines[lineIndex].includes('LAYER: 1 of')
-                    layer1Start = lineIndex
-                else if layer1Start >= 0 and lines[lineIndex].includes('LAYER: 2 of')
-                    layer2Start = lineIndex
-                    break
-
-            expect(layer1Start).toBeGreaterThan(-1)
-            layer2Start = lines.length if layer2Start < 0
-            layer1Lines = lines.slice(layer1Start, layer2Start)
+            # Extract layer 1 (first bottom skin layer) using the shared helper.
+            layer1Lines = getLayerLines(result, 1)
+            expect(layer1Lines.length).toBeGreaterThan(0)
 
             # All 4 paths (2 outer + 2 hole) must have outer walls.
             outerWallTotal = layer1Lines.filter((l) -> l.includes('TYPE: WALL-OUTER')).length

@@ -828,43 +828,46 @@ module.exports =
             # Track which paths have had their walls generated to avoid double-processing.
             wallsGeneratedForPath = {}
 
-            # Returns true if the given hole path is geometrically inside the given structure.
-            isDirectChildHole = (holePathIndex, structurePathIndex) =>
+            # Precompute direct parent-child adjacency once per layer.
+            # For each path at level N, its direct parent is the containing path at level N-1.
+            # This avoids running pointInPolygon on every recursive call (O(n²) once vs O(n³)).
+            directChildHolesOf = {}
+            directChildStructuresOf = {}
 
-                holePath = paths[holePathIndex]
-                structurePath = paths[structurePathIndex]
+            for childIdx in [0...paths.length]
 
-                return holePath.length > 0 and structurePath.length > 0 and
-                    primitives.pointInPolygon(holePath[0], structurePath)
+                childPath = paths[childIdx]
 
-            # Find all direct child holes of a structure (holes at level+1 inside this structure).
-            getChildHolesForStructure = (structurePathIndex) =>
+                continue if childPath.length is 0
 
-                structureLevel = pathNestingLevel[structurePathIndex]
-                childHoleLevel = structureLevel + 1
-                childHoleIndices = pathsByNestingLevel[childHoleLevel]
+                childLevel = pathNestingLevel[childIdx]
+                parentLevel = childLevel - 1
 
-                return [] unless childHoleIndices
+                continue if parentLevel < 0
 
-                return childHoleIndices.filter (holeIdx) =>
-                    isDirectChildHole(holeIdx, structurePathIndex)
+                parentCandidates = pathsByNestingLevel[parentLevel]
 
-            # Find all direct child structures of a hole (structures at level+1 inside this hole).
-            getChildStructuresForHole = (holePathIndex) =>
+                continue unless parentCandidates
 
-                holeLevel = pathNestingLevel[holePathIndex]
-                childStructLevel = holeLevel + 1
-                childStructIndices = pathsByNestingLevel[childStructLevel]
+                for parentIdx in parentCandidates
 
-                return [] unless childStructIndices
+                    parentPath = paths[parentIdx]
 
-                holePath = paths[holePathIndex]
+                    continue if parentPath.length is 0
 
-                return childStructIndices.filter (structIdx) =>
+                    if primitives.pointInPolygon(childPath[0], parentPath)
 
-                    structPath = paths[structIdx]
+                        if pathIsHole[childIdx]
 
-                    return structPath.length > 0 and primitives.pointInPolygon(structPath[0], holePath)
+                            directChildHolesOf[parentIdx] ?= []
+                            directChildHolesOf[parentIdx].push(childIdx)
+
+                        else
+
+                            directChildStructuresOf[parentIdx] ?= []
+                            directChildStructuresOf[parentIdx].push(childIdx)
+
+                        break
 
             # Sort path indices by greedy nearest-neighbor from a given starting position.
             sortPathsByNearest = (pathIndices, startPos) =>
@@ -913,19 +916,12 @@ module.exports =
                 path = paths[structurePathIndex]
 
                 # 1. Generate walls for this structure.
-                shouldGenerateSkinWalls = false
-
-                if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[structurePathIndex]
-
-                    if isAbsoluteTopOrBottom
-
-                        shouldGenerateSkinWalls = true
-
-                innermostWall = generateWallsForPath(path, structurePathIndex, false, shouldGenerateSkinWalls)
+                # generateSkinWalls is only used for holes; pass false explicitly for structures.
+                innermostWall = generateWallsForPath(path, structurePathIndex, false, false)
                 innermostWalls[structurePathIndex] = innermostWall
 
                 # 2. Generate walls for direct child holes (nearest-neighbor sorted from current position).
-                childHoleIndices = getChildHolesForStructure(structurePathIndex)
+                childHoleIndices = directChildHolesOf[structurePathIndex] or []
                 sortedChildHoleIndices = sortPathsByNearest(childHoleIndices, lastPathEndPoint)
 
                 for holeIdx in sortedChildHoleIndices
@@ -957,7 +953,7 @@ module.exports =
                 # 4. Recursively process grandchild structures inside each child hole.
                 for holeIdx in sortedChildHoleIndices
 
-                    grandchildIndices = getChildStructuresForHole(holeIdx)
+                    grandchildIndices = directChildStructuresOf[holeIdx] or []
                     sortedGrandchildren = sortPathsByNearest(grandchildIndices, lastPathEndPoint)
 
                     for grandchildIdx in sortedGrandchildren
