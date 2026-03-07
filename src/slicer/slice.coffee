@@ -699,43 +699,6 @@ module.exports =
             # Get distinct nesting levels sorted ascending.
             nestingLevels = Object.keys(pathsByNestingLevel).map(Number).sort((a, b) -> a - b)
             minNestingLevel = nestingLevels[0]
-            maxNestingLevel = nestingLevels[nestingLevels.length - 1]
-
-            # Determine direction: compare distance from starting position to the
-            # centroid of the nearest path at outermost vs innermost nesting level.
-            # Using centroids avoids O(points) vertex iteration and is a sufficient proxy.
-            calcMinDistToLevel = (level) =>
-
-                levelPathIndices = pathsByNestingLevel[level]
-                return Infinity if not levelPathIndices or levelPathIndices.length is 0
-
-                minDist = Infinity
-
-                for pathIdx in levelPathIndices
-
-                    centroid = calculatePathCentroid(paths[pathIdx])
-
-                    if centroid
-
-                        dist = calculateDistance(lastPathEndPoint, centroid)
-                        minDist = Math.min(minDist, dist)
-
-                return minDist
-
-            # Use direction-based ordering only for deeply nested structures (matryoshka-style).
-            # For simple holes (maxNestingLevel <= 1), always process outer boundary first.
-            if maxNestingLevel > 1
-
-                distToOutermost = calcMinDistToLevel(minNestingLevel)
-                distToInnermost = calcMinDistToLevel(maxNestingLevel)
-                processOuterToInner = distToOutermost <= distToInnermost
-
-            else
-
-                processOuterToInner = true
-
-            # Order nesting levels based on direction.
-            orderedNestingLevels = if processOuterToInner then nestingLevels else nestingLevels.slice().reverse()
 
             # Helper: generate skin infill for all structures at a given nesting level.
             # Called after the corresponding hole level has been processed, ensuring hole skin
@@ -857,106 +820,157 @@ module.exports =
 
                     completedObjectIndices[pathIdx] = true
 
-            # Process all paths grouped by nesting level in the determined order.
-            for level in orderedNestingLevels
+            # Process paths as per-object trees. Each top-level structure is completed
+            # (walls → child holes' walls → skin/infill → grandchild structures) before
+            # moving on. This ensures each nested object is fully printed before the next,
+            # even when sibling structures at the same level each have their own child holes.
 
-                levelPathIndices = pathsByNestingLevel[level]
+            # Track which paths have had their walls generated to avoid double-processing.
+            wallsGeneratedForPath = {}
 
-                # Greedy nearest-neighbor: pick closest path, print it, then pick next
-                # closest using the updated lastPathEndPoint from the previous print.
-                remainingLevelPathIndices = levelPathIndices.slice()
+            # Returns true if the given hole path is geometrically inside the given structure.
+            isDirectChildHole = (holePathIndex, structurePathIndex) =>
 
-                while remainingLevelPathIndices.length > 0
+                holePath = paths[holePathIndex]
+                structurePath = paths[structurePathIndex]
+
+                return holePath.length > 0 and structurePath.length > 0 and
+                    primitives.pointInPolygon(holePath[0], structurePath)
+
+            # Find all direct child holes of a structure (holes at level+1 inside this structure).
+            getChildHolesForStructure = (structurePathIndex) =>
+
+                structureLevel = pathNestingLevel[structurePathIndex]
+                childHoleLevel = structureLevel + 1
+                childHoleIndices = pathsByNestingLevel[childHoleLevel]
+
+                return [] unless childHoleIndices
+
+                return childHoleIndices.filter (holeIdx) =>
+                    isDirectChildHole(holeIdx, structurePathIndex)
+
+            # Find all direct child structures of a hole (structures at level+1 inside this hole).
+            getChildStructuresForHole = (holePathIndex) =>
+
+                holeLevel = pathNestingLevel[holePathIndex]
+                childStructLevel = holeLevel + 1
+                childStructIndices = pathsByNestingLevel[childStructLevel]
+
+                return [] unless childStructIndices
+
+                holePath = paths[holePathIndex]
+
+                return childStructIndices.filter (structIdx) =>
+
+                    structPath = paths[structIdx]
+
+                    return structPath.length > 0 and primitives.pointInPolygon(structPath[0], holePath)
+
+            # Sort path indices by greedy nearest-neighbor from a given starting position.
+            sortPathsByNearest = (pathIndices, startPos) =>
+
+                remaining = pathIndices.slice()
+                sorted = []
+                currentPos = startPos
+
+                while remaining.length > 0
 
                     nearestIdx = -1
                     nearestDist = Infinity
 
-                    for pathIdx in remainingLevelPathIndices
+                    for pathIdx in remaining
 
-                        pathCentroid = calculatePathCentroid(paths[pathIdx])
+                        centroid = calculatePathCentroid(paths[pathIdx])
 
-                        if pathCentroid
+                        if centroid
 
-                            dist = calculateDistance(lastPathEndPoint, pathCentroid)
+                            dist = calculateDistance(currentPos, centroid)
 
                             if dist < nearestDist
 
                                 nearestDist = dist
                                 nearestIdx = pathIdx
 
-                    nearestIdx = remainingLevelPathIndices[0] if nearestIdx < 0
+                    nearestIdx = remaining[0] if nearestIdx < 0
+                    remaining = remaining.filter((idx) -> idx isnt nearestIdx)
+                    sorted.push(nearestIdx)
 
-                    remainingLevelPathIndices = remainingLevelPathIndices.filter((idx) -> idx isnt nearestIdx)
+                    centroid = calculatePathCentroid(paths[nearestIdx])
+                    currentPos = centroid if centroid
 
-                    path = paths[nearestIdx]
-                    isHole = pathIsHole[nearestIdx]
+                return sorted
 
-                    # Determine if skin walls should be generated.
-                    shouldGenerateSkinWalls = false
+            # Recursively process a structure and all its nested content:
+            # 1. Generate this structure's walls.
+            # 2. Generate all direct child holes' walls (nearest-neighbor sorted).
+            # 3. Generate skin/infill for this structure (before recursing into grandchildren).
+            # 4. Recursively process grandchild structures inside each child hole.
+            processObjectTree = (structurePathIndex) =>
 
-                    if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[nearestIdx]
+                return if wallsGeneratedForPath[structurePathIndex]
+                wallsGeneratedForPath[structurePathIndex] = true
 
-                        if isHole
+                path = paths[structurePathIndex]
 
-                            if isAbsoluteTopOrBottom
+                # 1. Generate walls for this structure.
+                shouldGenerateSkinWalls = false
 
-                                shouldGenerateSkinWalls = true
+                if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[structurePathIndex]
 
-                            else if slicer.getExposureDetection()
+                    if isAbsoluteTopOrBottom
 
-                                shouldGenerateSkinWalls = exposureModule.shouldGenerateHoleSkinWalls(path, layerIndex, skinLayerCount, totalLayers, allLayers)
+                        shouldGenerateSkinWalls = true
 
-                        else
+                innermostWall = generateWallsForPath(path, structurePathIndex, false, shouldGenerateSkinWalls)
+                innermostWalls[structurePathIndex] = innermostWall
 
-                            # Only generate structure skin walls in Phase 1 if there are holes on this layer.
-                            # For nested structures with holes, Phase 1 generates walls for all paths to seal them.
-                            if isAbsoluteTopOrBottom
+                # 2. Generate walls for direct child holes (nearest-neighbor sorted from current position).
+                childHoleIndices = getChildHolesForStructure(structurePathIndex)
+                sortedChildHoleIndices = sortPathsByNearest(childHoleIndices, lastPathEndPoint)
 
-                                shouldGenerateSkinWalls = true
+                for holeIdx in sortedChildHoleIndices
 
-                    innermostWall = generateWallsForPath(path, nearestIdx, isHole, shouldGenerateSkinWalls)
-                    innermostWalls[nearestIdx] = innermostWall
+                    continue if wallsGeneratedForPath[holeIdx]
+                    wallsGeneratedForPath[holeIdx] = true
 
-                    # Sequential completion for sibling structures at the same nesting level.
-                    # When multiple structures exist at the same level and can complete immediately,
-                    # generate skin/infill right after each structure's walls rather than waiting
-                    # for all walls at this level to finish.
-                    # - Outer-to-inner: can complete if no child holes at level+1 (deepest structure level).
-                    # - Inner-to-outer: can always complete (child holes were already processed earlier).
-                    if not isHole
+                    holePath = paths[holeIdx]
+                    holeShouldGenerateSkinWalls = false
 
-                        canCompleteSequentially = if processOuterToInner
-                            not pathsByNestingLevel[level + 1]
-                        else
-                            true
+                    if layerNeedsSkin and not pathsWithInsufficientSpacingForSkinWalls[holeIdx]
 
-                        if canCompleteSequentially
+                        if isAbsoluteTopOrBottom
 
-                            generateSkinInfillForStructureLevel(level)
+                            holeShouldGenerateSkinWalls = true
 
-                # After all walls for this nesting level, generate skin infill for the appropriate structure.
-                # For outer-to-inner: after processing a hole level, generate skin for the parent structure.
-                # For inner-to-outer: after processing a structure level, generate skin immediately
-                #   (child holes at level+1 were already processed earlier in inner-to-outer order).
-                # Also handle structures with no child holes (generate skin immediately).
-                if processOuterToInner
+                        else if slicer.getExposureDetection()
 
-                    if level % 2 is 1
+                            holeShouldGenerateSkinWalls = exposureModule.shouldGenerateHoleSkinWalls(holePath, layerIndex, skinLayerCount, totalLayers, allLayers)
 
-                        # Hole level just processed; parent structure's skin can now be generated.
-                        generateSkinInfillForStructureLevel(level - 1)
+                    holeInnermostWall = generateWallsForPath(holePath, holeIdx, true, holeShouldGenerateSkinWalls)
+                    innermostWalls[holeIdx] = holeInnermostWall
 
-                    else if not pathsByNestingLevel[level + 1]
+                # 3. Generate skin/infill for this structure before recursing into grandchildren.
+                # generateSkinInfillForStructureLevel skips paths whose innermostWalls are not yet
+                # set, so only this structure is processed now; unprocessed siblings are skipped.
+                generateSkinInfillForStructureLevel(pathNestingLevel[structurePathIndex])
 
-                        # Structure at the deepest even level with no child holes.
-                        generateSkinInfillForStructureLevel(level)
+                # 4. Recursively process grandchild structures inside each child hole.
+                for holeIdx in sortedChildHoleIndices
 
-                else
+                    grandchildIndices = getChildStructuresForHole(holeIdx)
+                    sortedGrandchildren = sortPathsByNearest(grandchildIndices, lastPathEndPoint)
 
-                    if level % 2 is 0
+                    for grandchildIdx in sortedGrandchildren
 
-                        # Inner-to-outer: structure level just processed; child holes were already processed.
-                        generateSkinInfillForStructureLevel(level)
+                        processObjectTree(grandchildIdx)
+
+            # Process top-level structures in nearest-neighbor order.
+            topLevelStructureIndices = (pathsByNestingLevel[minNestingLevel] or []).filter (idx) -> not pathIsHole[idx]
+            sortedTopLevelStructures = sortPathsByNearest(topLevelStructureIndices, lastPathEndPoint)
+
+            for topLevelIdx in sortedTopLevelStructures
+
+                processObjectTree(topLevelIdx)
 
         else
 
