@@ -917,6 +917,23 @@ module.exports =
                     innermostWall = generateWallsForPath(path, nearestIdx, isHole, shouldGenerateSkinWalls)
                     innermostWalls[nearestIdx] = innermostWall
 
+                    # Sequential completion for sibling structures at the same nesting level.
+                    # When multiple structures exist at the same level and can complete immediately,
+                    # generate skin/infill right after each structure's walls rather than waiting
+                    # for all walls at this level to finish.
+                    # - Outer-to-inner: can complete if no child holes at level+1 (deepest structure level).
+                    # - Inner-to-outer: can always complete (child holes were already processed earlier).
+                    if not isHole
+
+                        canCompleteSequentially = if processOuterToInner
+                            not pathsByNestingLevel[level + 1]
+                        else
+                            true
+
+                        if canCompleteSequentially
+
+                            generateSkinInfillForStructureLevel(level)
+
                 # After all walls for this nesting level, generate skin infill for the appropriate structure.
                 # For outer-to-inner: after processing a hole level, generate skin for the parent structure.
                 # For inner-to-outer: after processing a structure level, generate skin immediately
