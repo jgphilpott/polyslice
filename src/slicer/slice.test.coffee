@@ -1445,6 +1445,27 @@ describe 'Slicing', ->
 
             return finalMesh
 
+        # Helper to extract all G-code lines for a given layer number from a verbose slice result.
+        getLayerLines = (gcodeResult, layerNumber) ->
+
+            lines = gcodeResult.split('\n')
+            layerStart = -1
+            layerEnd = -1
+
+            for lineIndex in [0...lines.length]
+
+                if lines[lineIndex].includes("LAYER: #{layerNumber} of")
+                    layerStart = lineIndex
+                else if layerStart >= 0 and lines[lineIndex].includes("LAYER: #{layerNumber + 1} of")
+                    layerEnd = lineIndex
+                    break
+
+            return [] if layerStart < 0
+
+            layerEnd = lines.length if layerEnd < 0
+
+            return lines.slice(layerStart, layerEnd)
+
         test 'should classify single hollow cylinder correctly (level 0 outer, level 1 hole)', ->
 
             # Create a single hollow cylinder.
@@ -2274,6 +2295,217 @@ describe 'Slicing', ->
                     break
 
             expect(skinInfillAfterLeaf).toBe(true)
+
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should complete each sibling structure sequentially when multiple at same nesting level', ->
+
+            # Create a hollow ring with TWO solid cylinders inside its hole.
+            # The ring outer boundary is level 0, the ring hole is level 1,
+            # and the two cylinders are BOTH at level 2 (sibling structures).
+            # This mimics the Lego brick scenario: multiple nested objects at the same level.
+            #
+            # The recursive outer-to-inner approach processes each object completely
+            # (walls + skin/infill) before moving to the next. Expected order on a bottom skin layer:
+            #   Ring outer walls  ← 1st WALL-OUTER
+            #   Ring hole walls   ← 2nd WALL-OUTER
+            #   Ring outer skin   ← ring skin infill
+            #   Cylinder 1 walls  ← 3rd WALL-OUTER (nearest grandchild)
+            #   Cylinder 1 skin   ← sequential completion (skin infill between 3rd and 4th WALL-OUTER)
+            #   Cylinder 2 walls  ← 4th WALL-OUTER
+            #   Cylinder 2 skin   ← sequential completion
+            #
+            # Without the fix (two-pass behavior):
+            #   Cylinder 2 walls  ← 1st WALL-OUTER (inner-to-outer, closest to home)
+            #   Cylinder 1 walls  ← 2nd WALL-OUTER
+            #   Ring hole walls, Ring outer walls
+            #   Cylinder 2+1 skin ← skin infill lumped after all cylinder walls
+
+            height = 1.2
+
+            # Hollow ring: outer=25, inner=18.
+            ringOuterGeom = new THREE.CylinderGeometry(25, 25, height, 32)
+            ringOuterMesh = new THREE.Mesh(ringOuterGeom, new THREE.MeshBasicMaterial())
+            ringOuterMesh.rotation.x = Math.PI / 2
+            ringOuterMesh.updateMatrixWorld()
+
+            ringHoleGeom = new THREE.CylinderGeometry(18, 18, height * 1.2, 32)
+            ringHoleMesh = new THREE.Mesh(ringHoleGeom, new THREE.MeshBasicMaterial())
+            ringHoleMesh.rotation.x = Math.PI / 2
+            ringHoleMesh.updateMatrixWorld()
+
+            hollowRingMesh = await Polytree.subtract(ringOuterMesh, ringHoleMesh)
+
+            # Solid cylinder 1 at y=+8 (inside the hole, radius 18 > 8 + 5 = 13).
+            solidGeom1 = new THREE.CylinderGeometry(5, 5, height, 32)
+            solidMesh1 = new THREE.Mesh(solidGeom1, new THREE.MeshBasicMaterial())
+            solidMesh1.rotation.x = Math.PI / 2
+            solidMesh1.position.y = 8
+            solidMesh1.updateMatrixWorld()
+
+            # Solid cylinder 2 at y=-8 (inside the hole, on the opposite side).
+            solidGeom2 = new THREE.CylinderGeometry(5, 5, height, 32)
+            solidMesh2 = new THREE.Mesh(solidGeom2, new THREE.MeshBasicMaterial())
+            solidMesh2.rotation.x = Math.PI / 2
+            solidMesh2.position.y = -8
+            solidMesh2.updateMatrixWorld()
+
+            # Combine: hollow ring + both solid cylinders.
+            combined12 = await Polytree.unite(hollowRingMesh, solidMesh1)
+            combined123 = await Polytree.unite(combined12, solidMesh2)
+            finalMesh = new THREE.Mesh(combined123.geometry, combined123.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(false)
+
+            result = slicer.slice(finalMesh)
+
+            # Extract layer 1 (first bottom skin layer) using the shared helper.
+            layer1Lines = getLayerLines(result, 1)
+            expect(layer1Lines.length).toBeGreaterThan(0)
+
+            # Verify all 4 paths have outer walls (ring outer, ring hole, cyl1, cyl2).
+            outerWallCount = layer1Lines.filter((l) -> l.includes('TYPE: WALL-OUTER')).length
+            expect(outerWallCount).toBeGreaterThanOrEqual(4)
+
+            # Key assertion: sequential completion for sibling structures.
+            # The recursive approach processes: ring outer → ring hole → ring skin → cyl1 → cyl1 skin → cyl2 → cyl2 skin.
+            # Cylinder 1's skin infill must appear between the 3rd WALL-OUTER (cyl1) and
+            # the 4th WALL-OUTER (cyl2). This confirms each sibling is completed before the next starts.
+            # Two-pass (broken) behavior: both cylinder walls appear before any skin infill.
+            thirdWallOuterLineIndex = -1
+            fourthWallOuterLineIndex = -1
+            skinInfillBetweenCylinders = false
+            wallOuterCount = 0
+
+            for lineIndex in [0...layer1Lines.length]
+
+                rawLine = layer1Lines[lineIndex]
+
+                if rawLine.includes('TYPE: WALL-OUTER')
+                    wallOuterCount++
+                    if wallOuterCount is 3
+                        thirdWallOuterLineIndex = lineIndex
+                    else if wallOuterCount is 4
+                        fourthWallOuterLineIndex = lineIndex
+                else if rawLine.includes('Moving to skin infill line') and
+                        thirdWallOuterLineIndex >= 0 and fourthWallOuterLineIndex < 0
+                    skinInfillBetweenCylinders = true
+
+            expect(thirdWallOuterLineIndex).toBeGreaterThan(-1)
+            expect(fourthWallOuterLineIndex).toBeGreaterThan(-1)
+
+            # Skin infill for the first sibling cylinder appears before the second cylinder's walls.
+            expect(skinInfillBetweenCylinders).toBe(true)
+
+            expect(result).not.toContain('NaN')
+            expect(result).not.toContain('undefined')
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should process each hollow sibling structure completely before starting the next', ->
+
+            # Create TWO standalone hollow cylinders (each a structure with its own child hole).
+            # This is the core Lego brick stud scenario: sibling hollow structures where each
+            # has its own inner hole at the same nesting level.
+            #
+            # Without the fix (two-pass / inner-to-outer):
+            #   Stud 1 hole walls ← "inner walls for both printed first"
+            #   Stud 2 hole walls ← both inner walls batched together
+            #   Stud 2 outer walls + skin
+            #   Stud 1 outer walls + skin
+            #
+            # With the fix (recursive outer-to-inner, each object complete before next):
+            #   Stud 1 outer walls  ← 1st WALL-OUTER
+            #   Stud 1 hole walls   ← 2nd WALL-OUTER
+            #   Stud 1 skin infill  ← Moving to skin infill (between 2nd and 3rd WALL-OUTER)
+            #   Stud 2 outer walls  ← 3rd WALL-OUTER
+            #   Stud 2 hole walls   ← 4th WALL-OUTER
+            #   Stud 2 skin infill
+
+            height = 1.2
+
+            makeHollowCylinder = (outerR, innerR, posY) ->
+
+                outerGeom = new THREE.CylinderGeometry(outerR, outerR, height, 32)
+                outerMesh = new THREE.Mesh(outerGeom, new THREE.MeshBasicMaterial())
+                outerMesh.rotation.x = Math.PI / 2
+                outerMesh.position.y = posY
+                outerMesh.updateMatrixWorld()
+
+                innerGeom = new THREE.CylinderGeometry(innerR, innerR, height * 1.2, 32)
+                innerMesh = new THREE.Mesh(innerGeom, new THREE.MeshBasicMaterial())
+                innerMesh.rotation.x = Math.PI / 2
+                innerMesh.position.y = posY
+                innerMesh.updateMatrixWorld()
+
+                return Polytree.subtract(outerMesh, innerMesh)
+
+            stud1 = await makeHollowCylinder(7, 4, 10)
+            stud2 = await makeHollowCylinder(7, 4, -10)
+
+            combined = await Polytree.unite(stud1, stud2)
+            finalMesh = new THREE.Mesh(combined.geometry, combined.material)
+            finalMesh.position.set(0, 0, height / 2)
+            finalMesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.4)
+            slicer.setShellWallThickness(0.8)
+            slicer.setInfillDensity(0)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(false)
+
+            result = slicer.slice(finalMesh)
+
+            # Extract layer 1 (first bottom skin layer) using the shared helper.
+            layer1Lines = getLayerLines(result, 1)
+            expect(layer1Lines.length).toBeGreaterThan(0)
+
+            # All 4 paths (2 outer + 2 hole) must have outer walls.
+            outerWallTotal = layer1Lines.filter((l) -> l.includes('TYPE: WALL-OUTER')).length
+            expect(outerWallTotal).toBeGreaterThanOrEqual(4)
+
+            # Key assertion: stud 1's skin infill appears BETWEEN the 2nd WALL-OUTER (stud1 hole)
+            # and the 3rd WALL-OUTER (stud2 outer). This confirms that stud 1 is fully
+            # completed (outer walls + inner hole walls + skin) before stud 2 begins.
+            # Without the fix, the inner holes for both studs would print first (batched),
+            # so the first skin infill would appear after the 3rd or 4th WALL-OUTER.
+            secondWallOuterIndex = -1
+            thirdWallOuterIndex = -1
+            skinInfillAfterStud1Hole = false
+            wallOuterCount = 0
+
+            for lineIndex in [0...layer1Lines.length]
+
+                rawLine = layer1Lines[lineIndex]
+
+                if rawLine.includes('TYPE: WALL-OUTER')
+                    wallOuterCount++
+                    if wallOuterCount is 2
+                        secondWallOuterIndex = lineIndex
+                    else if wallOuterCount is 3
+                        thirdWallOuterIndex = lineIndex
+                else if rawLine.includes('Moving to skin infill line') and
+                        secondWallOuterIndex >= 0 and thirdWallOuterIndex < 0
+                    skinInfillAfterStud1Hole = true
+
+            expect(secondWallOuterIndex).toBeGreaterThan(-1)
+            expect(thirdWallOuterIndex).toBeGreaterThan(-1)
+
+            # Stud 1 skin infill must appear between W#2 (stud1 hole) and W#3 (stud2 outer).
+            expect(skinInfillAfterStud1Hole).toBe(true)
 
             expect(result).not.toContain('NaN')
             expect(result).not.toContain('undefined')
