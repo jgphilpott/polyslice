@@ -7,6 +7,82 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.3.0] - 2026-03-08
+
+### Added
+- **Tree Support: Root Structures** - Added root components to tree support for improved base stability (PR #178)
+  - Roots extend outward from the trunk base at a 45° angle for a stable footprint
+  - Dynamic placement: roots follow the effective trunk base Z for floating trunks
+  - Hanging roots suppressed in `everywhere` mode via `_validRootIndices` ray-cast
+  - Broadened ray-cast (`ROOT_RAY_SAMPLE_FRACTIONS = [0.5, 1.0, 1.5, 2.0]`) for curved surface coverage
+- **Sequential Wall Printing for Nested Objects** - Implemented nesting-level-ordered wall processing for matryoshka-style objects (PR #170)
+  - Walls are now printed outer-to-inner level by level, then nearest-neighbour within each level
+  - Reduces travel distance when printing objects-within-objects
+  - Centroid-based distance calculation for efficient level sorting
+
+### Changed
+- **Lightning Infill: Asymmetric Forks and Zig-Zag Kinks** - Improved visual realism of the lightning infill pattern (PR #169)
+  - Left/right sub-branches now fork at different positions (35–45% and 55–65% along the main branch) instead of both at the midpoint
+  - Each line segment (main and sub-branches) gains a zig-zag kink via the new `addKinkedLine` helper
+  - Kink position oscillates in range [0.40–0.55] for natural randomness
+- **Tree Support: Anatomically-Correct Cross-Sections** - Revamped tree support trunk/branch/twig rendering (PR #172)
+  - Cross-section size now varies by type (trunk largest, twig smallest)
+  - Circular O+X cross-section shape for all levels
+  - Single shared trunk segment emitted (not one per branch)
+  - Trunk segment guaranteed even when `branchRootZ` is clamped by the 45° constraint
+  - Translation-independent clustering anchored to `minX/minY` with `floor`
+- **Raft Adhesion: Per-Region Separation** - Each contact region now gets its own independent raft (PR #176)
+  - Raft regions computed from first-layer paths using nesting parity (odd level = hole)
+  - Nested islands at even nesting levels each receive their own raft region
+  - Default `raftMargin` reduced from 5mm to 3mm
+  - Fixed edge-line generation using `edgeEpsilon = 0.001` tolerance to handle floating-point imprecision
+
+### Fixed
+- **Visualizer: Gizmo Visibility on First Click** - Restored TransformControls gizmo appearance on first model click (PR #164)
+  - Arc-hit check now guarded with `if (transformControls.object)` so it only fires when the gizmo is attached
+  - Detached gizmo geometry at the origin no longer intercepts clicks before the mesh-hit check
+- **Wipe Nozzle: Smart Wipe Never Activating** - Fixed smart wipe always falling back to simple `G0 X5 Y5` (PR #165)
+  - Root cause: `coders.coffee` checked `slicer._meshBounds` but `slice.coffee` only set `slicer.meshBounds`
+  - `slice.coffee` now stores `slicer._meshBounds = boundingBox` alongside center offsets
+- **Skin: Fully Covered Region Detection for Inverted Pyramids** - Fixed missing O-shape skin and center FILL on inverted pyramid transition layers (PR #166)
+  - `identifyFullyCoveredRegions` in `cavity.coffee` now handles both smaller-region-from-above and smaller-region-from-below cases
+  - Refactored two near-identical passes into a shared `findCoveredRegions` helper
+- **Infill: Concentric Pattern Inside Holes** - Fixed concentric infill lines printing inside hole areas (PR #167)
+  - Each loop is now clipped edge-by-edge using `clipLineWithHoles` instead of 50% point-in-hole sampling
+  - Valid segments grouped into polylines; nearest-neighbour `while` loop minimises travel between polylines
+- **Setters: Case-Insensitive String Input** - Fixed string property setters silently ignoring valid input with non-matching case (PR #168)
+  - `setSupportPlacement`: normalize input then store canonical camelCase (`"buildPlate"`, `"everywhere"`)
+  - `setSpeedUnit`: added `toLowerCase()` normalization; maps to canonical `"millimeterSecond"`, `"inchSecond"`, `"meterSecond"`
+  - `setPositioningMode`, `setExtruderMode`: added `toLowerCase()` before comparison
+- **Skin: Sequential Skin for Nested Objects** - Fixed innermost rings of deeply nested objects receiving skin on all layers instead of only top/bottom (PR #171)
+  - `isAreaInsideAnyHoleWall` in the mixed-layer branch of `generateSkinInfillForStructureLevel` reverted to use unfiltered hole wall arrays so ancestor holes correctly suppress false-positive skin on middle layers
+  - Filtered arrays retained for absolute top/bottom layers to prevent clipping
+- **Skin: Oversized Infill Gap at Covered-Area Skin Wall** - Fixed gap between O-shape skin infill and covered-area (fully-covered region) skin wall being `nozzleDiameter` instead of `infillGap` (PR #173)
+  - Each `coveredAreaSkinWall` is now inset by `infillGap` (0.5× nozzle diameter) before being used as an exclusion zone, matching the hole skin wall behaviour
+- **Tests: Compatibility after `three-mesh-bvh` Upgrade** - Removed `three-bvh-csg` dependency from the test suite (PR #174)
+  - `three-mesh-bvh@0.9.9` introduced a circular reference that crashed the module; tests now build sheet-with-holes geometry using native `THREE.Shape` + `THREE.ExtrudeGeometry`
+- **Skin: Sphere Pole Layers Showing Full-Circle Skin** - Fixed sphere pole layers generating a full-circle skin pass instead of ring skin + center infill (PR #175)
+  - Raised `candidateRatio` threshold in `findCoveredRegions` from 0.9 to 0.97
+  - Raised `filterFullyCoveredSkinWalls` threshold from 0.9 to 0.99
+- **Tree Support: Orphaned Twig Segments** - Fixed tree support twigs spawning in mid-air with no branch cross-section beneath them (PR #177)
+  - Branch endpoint Z now derived from the 45° constraint applied from each tip back to the centroid (`nodeZ = min(tip.z − tdist)`)
+  - Non-zero branch height guaranteed by nudging `node.z` to `branchRootZ + layerHeight` when clamped
+  - One layer of twig/branch overlap (`TWIG_OVERLAP_LAYERS = 1`) for a physical bond at the joint
+- **Skin/Infill: Lego Brick Non-Parallel Skin Lines** - Fixed non-parallel diagonal skin infill lines in bottom layers of nested hollow structures like a lego brick (PR #179)
+  - Removed separate Phase 1 structure skin wall `TYPE: SKIN` section; skin wall + diagonal infill now emitted together in a single section
+  - After combing travel, an explicit G0 to `startPoint` is emitted if the last waypoint is not already there, ensuring correct extrusion start
+  - `isAreaInsideAnyHoleWall` checks in the mixed-layer branch use filtered (direct-child-only) arrays so ancestor holes do not suppress skin for inner structures
+- **Tree Support: Trunk Relocation Regression in `buildPlate` Mode** - Fixed `isTrunkAccessible` causing false-negative relocation on upright arch/dome (PR #180)
+  - `isTrunkAccessible` now accepts a `maxZ` parameter and only checks layers at or below that height, excluding solid cap layers above the overhang
+  - `findAccessibleTrunkPosition` accepts a `clearance` parameter; center + 4 boundary points all checked to prevent overlap
+  - Search order tries ±X first (preserving Y), then ±Y, then diagonals, ensuring Y-centred results for sideways overhangs
+- **Slicing: Sequential Printing for Sibling Nested Structures** - Fixed sibling structures at the same nesting level not being printed sequentially (PR #181)
+  - `directChildHolesOf` / `directChildStructuresOf` maps precomputed once per layer via `pointInPolygon`, replacing per-call lookups
+  - Recursive `processObjectTree` handles each structure's walls → child holes' walls → skin/infill → grandchildren in order
+- **Skin: Small Covered Regions (Lego Studs) Not Detected** - Fixed small features (~2% of parent area, e.g. lego studs) failing coverage detection on transition layers (PR #182)
+  - Removed the 10% minimum size ratio lower bound from `findCoveredRegions`; only the 55% upper bound and other guards remain
+  - Stud circles now correctly detected as covered regions, producing `SKIN` (outer ring) + `FILL` (under each stud) on transition layers
+
 ## [26.2.2] - 2026-02-27
 
 ### Added
