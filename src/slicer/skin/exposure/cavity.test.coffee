@@ -1158,7 +1158,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
             # Regression test for the lego brick issue.
             # A large flat slab has 6 small cylinders on top (like lego studs).
-            # The stud cross-sections are ~3-5% of the slab area, well below the old 10%
+            # Each stud cross-section is only around 2% of the slab area, well below the old 10%
             # minimum size ratio threshold that blocked their detection as covered regions.
             # After the fix (removing the 10% lower bound), these small features should
             # be detected as fully covered regions so that:
@@ -1198,6 +1198,8 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             finalMesh.updateMatrixWorld()
 
             # Configure slicer with exposure detection enabled.
+            slicer.setNozzleDiameter(0.4)
+            slicer.setExposureDetectionResolution(961)
             slicer.setLayerHeight(0.2)
             slicer.setShellSkinThickness(0.8)  # 4 skin layers.
             slicer.setShellWallThickness(0.8)
@@ -1227,19 +1229,27 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
 
                     if layerMatch
                         currentLayer = parseInt(layerMatch[1])
-                        layerSections[currentLayer] = { skin: 0, fill: 0 }
+                        layerSections[currentLayer] = { skin: 0, fillLines: 0, fillRegions: 0, lastType: null }
 
                 else if currentLayer? and line.includes('TYPE: SKIN')
 
                     layerSections[currentLayer].skin++
+                    layerSections[currentLayer].lastType = 'SKIN'
 
                 else if currentLayer? and line.includes('TYPE: FILL')
 
-                    layerSections[currentLayer].fill++
+                    section = layerSections[currentLayer]
+                    section.fillLines++
+
+                    if section.lastType isnt 'FILL'
+                        section.fillRegions++
+
+                    section.lastType = 'FILL'
 
             # Layer 47 is the first transition layer (top of slab, 4 layers before stud top).
             # It must have both SKIN (exposed ring) and FILL (under each stud) sections.
             layer47 = layerSections[47]
             expect(layer47).toBeDefined()
-            expect(layer47.skin).toBeGreaterThan(0)  # Exposed area around the studs.
-            expect(layer47.fill).toBeGreaterThan(0)  # Regular infill under the studs.
+            expect(layer47.skin).toBeGreaterThan(0)       # Exposed area around the studs.
+            expect(layer47.fillLines).toBeGreaterThan(0)  # Regular infill under the studs.
+            expect(layer47.fillRegions).toBeGreaterThanOrEqual(6)  # One region per stud (6 total).

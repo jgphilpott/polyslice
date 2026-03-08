@@ -6,7 +6,7 @@ bounds = require('../../utils/bounds')
 # fully covered interior regions.  A candidate qualifies when:
 # - It is interior to currentPath (does not touch its boundary).
 # - It is the smaller of the two paired regions (candidateArea < refArea).
-# - A reference region covers ≥50% of its area.
+# - A reference region covers ≥50% of the candidate region's area.
 # - The size ratio between the two regions is below the step-transition ceiling (<55%).
 #   No lower bound is imposed: small features such as studs on a large slab are
 #   legitimate covered regions even when their area is a tiny fraction of the reference.
