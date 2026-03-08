@@ -7,7 +7,9 @@ bounds = require('../../utils/bounds')
 # - It is interior to currentPath (does not touch its boundary).
 # - It is the smaller of the two paired regions (candidateArea < refArea).
 # - A reference region covers ≥50% of its area.
-# - The size ratio between the two regions is within the step-transition range (10-55%).
+# - The size ratio between the two regions is below the step-transition ceiling (<55%).
+#   No lower bound is imposed: small features such as studs on a large slab are
+#   legitimate covered regions even when their area is a tiny fraction of the reference.
 #
 # The boundary check is applied to the candidate only.  The reference region may
 # legitimately extend to the layer boundary (e.g. the larger slab in an inverted
@@ -75,9 +77,10 @@ findCoveredRegions = (regionCandidates, regionRefs, currentPathBounds, currentAr
                             largerArea = Math.max(candidateArea, refArea)
                             sizeRatio = smallerArea / largerArea
 
-                            # Filter: size ratio 10-55% (excludes tiny holes and similar-sized regions).
+                            # Filter: size ratio <55% (excludes similar-sized regions).
+                            # No minimum: small features like studs on a large slab are valid covered regions.
                             # Candidate must be the smaller of the two regions.
-                            if sizeRatio >= 0.10 and sizeRatio < 0.55 and candidateArea < refArea
+                            if sizeRatio < 0.55 and candidateArea < refArea
 
                                 covered.push(candidate)
                                 break

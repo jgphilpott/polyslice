@@ -1151,3 +1151,95 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             expect(sphereLayerSections[sphereTotalLayers - 9].fill).toBeGreaterThan(0)
             expect(sphereLayerSections[sphereTotalLayers - 8].skin).toBeGreaterThan(0)
             expect(sphereLayerSections[sphereTotalLayers - 8].fill).toBeGreaterThan(0)
+
+    describe 'Small Features on Large Base (Lego Stud Scenario)', ->
+
+        test 'should detect multiple small cylinders on large flat slab as fully covered regions', ->
+
+            # Regression test for the lego brick issue.
+            # A large flat slab has 6 small cylinders on top (like lego studs).
+            # The stud cross-sections are ~3-5% of the slab area, well below the old 10%
+            # minimum size ratio threshold that blocked their detection as covered regions.
+            # After the fix (removing the 10% lower bound), these small features should
+            # be detected as fully covered regions so that:
+            # - The skin infill on the transition layers has exclusion zones under the studs.
+            # - Each stud area gets a skin wall + regular infill instead of skin infill.
+            slabWidth = 48
+            slabDepth = 24
+            slabHeight = 10
+            studRadius = 2.4  # Standard lego stud radius (4.8mm diameter).
+            studHeight = 6
+
+            # Create the large flat slab.
+            slabGeometry = new THREE.BoxGeometry(slabWidth, slabDepth, slabHeight)
+            slabMesh = new THREE.Mesh(slabGeometry, new THREE.MeshBasicMaterial())
+            slabMesh.position.set(0, 0, 0)
+            slabMesh.updateMatrixWorld()
+
+            # Create 6 small cylinders (2x3 grid) positioned on top of the slab.
+            xPositions = [-16, 0, 16]
+            yPositions = [-8, 8]
+            combinedMesh = slabMesh
+
+            for xPos in xPositions
+
+                for yPos in yPositions
+
+                    studGeometry = new THREE.CylinderGeometry(studRadius, studRadius, studHeight, 20)
+                    studMesh = new THREE.Mesh(studGeometry, new THREE.MeshBasicMaterial())
+                    studMesh.position.set(xPos, yPos, (slabHeight + studHeight) / 2)
+                    studMesh.rotation.x = Math.PI / 2
+                    studMesh.updateMatrixWorld()
+
+                    combinedMesh = await Polytree.unite(combinedMesh, studMesh)
+
+            finalMesh = new THREE.Mesh(combinedMesh.geometry, combinedMesh.material)
+            finalMesh.position.set(0, 0, slabHeight / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer with exposure detection enabled.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setShellWallThickness(0.8)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+            slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
+
+            result = slicer.slice(finalMesh)
+
+            # The slab is 10mm tall → ~50 layers.
+            # The studs are 6mm tall → ~30 more layers.
+            # Transition layers (top of slab, below the studs): layers 47-50.
+            # These layers should have:
+            # - TYPE: SKIN for the exposed outer area (around the studs).
+            # - TYPE: FILL for the covered areas below each stud.
+            lines = result.split('\n')
+            layerSections = {}
+            currentLayer = null
+
+            for line in lines
+
+                if line.includes('LAYER:')
+
+                    layerMatch = line.match(/LAYER:\s*(\d+) of/)
+
+                    if layerMatch
+                        currentLayer = parseInt(layerMatch[1])
+                        layerSections[currentLayer] = { skin: 0, fill: 0 }
+
+                else if currentLayer? and line.includes('TYPE: SKIN')
+
+                    layerSections[currentLayer].skin++
+
+                else if currentLayer? and line.includes('TYPE: FILL')
+
+                    layerSections[currentLayer].fill++
+
+            # Layer 47 is the first transition layer (top of slab, 4 layers before stud top).
+            # It must have both SKIN (exposed ring) and FILL (under each stud) sections.
+            layer47 = layerSections[47]
+            expect(layer47).toBeDefined()
+            expect(layer47.skin).toBeGreaterThan(0)  # Exposed area around the studs.
+            expect(layer47.fill).toBeGreaterThan(0)  # Regular infill under the studs.
