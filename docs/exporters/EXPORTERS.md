@@ -108,15 +108,15 @@ const { Exporter } = require("@jgphilpott/polyslice");
 async function printFile(filepath) {
     // Read G-code file
     const gcode = fs.readFileSync(filepath, "utf8");
-    
+
     // Connect to printer
     await Exporter.connectSerial({
         path: "/dev/ttyUSB0",
         baudRate: 115200
     });
-    
+
     console.log("Connected! Starting print...");
-    
+
     // Stream with acknowledgment (recommended for Node.js)
     const result = await Exporter.streamGCodeWithAck(gcode, {
         onProgress: (current, total, line) => {
@@ -124,9 +124,9 @@ async function printFile(filepath) {
             process.stdout.write(`\rProgress: ${percent}%`);
         }
     });
-    
+
     console.log(`\nComplete! Sent ${result.totalLines} lines.`);
-    
+
     // Disconnect
     await Exporter.disconnectSerial();
 }
@@ -143,16 +143,16 @@ const exporter = window.PolysliceExporter;
 async function streamToPrinter(gcode) {
     // Connect (will prompt user to select port)
     await exporter.connectSerial({ baudRate: 115200 });
-    
+
     // Stream with delay (browser must use delay-based method)
     await exporter.streamGCode(gcode, {
         delay: 50,  // 50ms between lines
         onProgress: (current, total, line) => {
-            document.getElementById("progress").textContent = 
+            document.getElementById("progress").textContent =
                 `${current}/${total}: ${line}`;
         }
     });
-    
+
     // Disconnect
     await exporter.disconnectSerial();
 }
@@ -169,29 +169,29 @@ async function sliceAndPrint(mesh) {
         printer: new Printer("Ender3"),
         filament: new Filament("GenericPLA")
     });
-    
+
     // 2. Generate G-code
     const gcode = slicer.slice(mesh);
-    
+
     // 3. Save a copy to file
     await Exporter.saveToFile(gcode, "print-backup.gcode");
-    
+
     // 4. Connect to printer
     await Exporter.connectSerial({
         path: "/dev/ttyUSB0",
         baudRate: 115200
     });
-    
+
     // 5. Stream to printer with acknowledgment
     await Exporter.streamGCodeWithAck(gcode, {
         onProgress: (current, total) => {
             console.log(`${Math.round((current / total) * 100)}%`);
         }
     });
-    
+
     // 6. Disconnect
     await Exporter.disconnectSerial();
-    
+
     console.log("Print complete!");
 }
 ```
