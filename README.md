@@ -1,5 +1,5 @@
 <p align="center">
-    <img width="300" height="300" src="./imgs/logo-lowpoly.png">
+    <img width="183" height="183" src="./imgs/logo-lowpoly.png">
 </p>
 
 <p align="center">
@@ -52,7 +52,7 @@ For browser usage, use the ES module-compatible bundle:
 <script type="importmap">
 {
     "imports": {
-        "three": "https://unpkg.com/three@0.183.0/build/three.module.min.js",
+        "three": "https://unpkg.com/three@0.183.2/build/three.module.min.js",
         "@jgphilpott/polyslice": "https://unpkg.com/@jgphilpott/polyslice/dist/index.browser.esm.js"
     }
 }
