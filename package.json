@@ -1,7 +1,7 @@
 {
   "name": "@jgphilpott/polyslice",
-  "version": "26.2.2",
-  "description": "An AI powered slicer designed specifically for three.js - slice meshes directly to G-code without intermediary file formats.",
+  "version": "26.3.0",
+  "description": "Where three.js intersects the physical world, slice your creations into life!",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "browser": "dist/index.browser.js",
@@ -64,15 +64,15 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
-    "@jgphilpott/polyconvert": "^1.0.6",
-    "@jgphilpott/polytree": "^0.1.7",
+    "@jgphilpott/polyconvert": "^1.0.7",
+    "@jgphilpott/polytree": "^0.1.8",
     "polygon-clipping": "^0.15.7",
     "three": "^0.183.2",
     "three-subdivide": "^1.1.5"
   },
   "peerDependencies": {
-    "@jgphilpott/polytree": "^0.1.7",
-    "three": "^0.183.1",
+    "@jgphilpott/polytree": "^0.1.8",
+    "three": "^0.183.2",
     "three-subdivide": "^1.1.5"
   },
   "optionalDependencies": {

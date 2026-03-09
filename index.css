@@ -20,6 +20,7 @@ body {
   height: 150px;
   cursor: pointer;
   z-index: 1000;
+  clip-path: polygon(15px 0px, 60px 0px, 150px 90px, 150px 135px);
 }
 
 /* Warp speed canvas background */
