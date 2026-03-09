@@ -24,7 +24,16 @@ export function setupEventListeners(handleFileUploadCallback, handleDownloadCall
   document.getElementById('download').addEventListener('click', handleDownloadCallback);
 
   // Reset button
-  document.getElementById('reset').addEventListener('click', resetViewCallback);
+  document.getElementById('reset').addEventListener('click', () => {
+    if (confirm('Are you sure you want to reset? This will restore all settings to their default values.')) {
+      const resetIcon = document.getElementById('reset');
+      resetIcon.classList.add('spinning');
+      resetIcon.addEventListener('animationend', () => {
+        resetIcon.classList.remove('spinning');
+      }, { once: true });
+      resetViewCallback();
+    }
+  });
 }
 
 /**

@@ -52,6 +52,15 @@ body {
   transform: scale(1.1);
 }
 
+@keyframes spin-once {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+#reset.spinning {
+  animation: spin-once 0.5s ease-in-out;
+}
+
 .icon-row {
   display: flex;
   flex-direction: row;
