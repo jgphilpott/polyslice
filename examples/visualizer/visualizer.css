@@ -59,6 +59,7 @@ body {
 
 #reset.spinning {
   animation: spin-once 0.5s ease-in-out;
+  transition: none;
 }
 
 .icon-row {

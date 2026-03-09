@@ -28,7 +28,7 @@ import {
   showGCodeLegends,
   updateDownloadButtonVisibility
 } from './modules/ui.js';
-import { clearSlicingSettings, saveCheckboxStates, saveAxisCheckboxStates, saveSettingsStates, saveSlicingSettings } from './modules/state.js';
+import { clearSlicingSettings, clearFolderStates, saveCheckboxStates, saveAxisCheckboxStates, saveSettingsStates, saveSlicingSettings } from './modules/state.js';
 import { centerCamera, resetCameraToDefault } from './modules/camera.js';
 import {
   setupMovementTypeToggles,
@@ -481,6 +481,7 @@ function resetView() {
 
   // Reset slicing settings
   clearSlicingSettings();
+  clearFolderStates();
 
   // Detach TransformControls before resetting rotation.
   if (transformControls) {

@@ -206,3 +206,14 @@ export function loadFolderStates() {
   }
   return null;
 }
+
+/**
+ * Clear folder open/closed states from localStorage.
+ */
+export function clearFolderStates() {
+  try {
+    localStorage.removeItem('visualizer-folder-states');
+  } catch (error) {
+    console.warn('Failed to clear folder states from localStorage:', error);
+  }
+}
