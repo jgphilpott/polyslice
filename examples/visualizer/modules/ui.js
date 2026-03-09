@@ -4,7 +4,7 @@
  */
 
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { saveSlicingSettings, loadSlicingSettings } from './state.js';
+import { saveSlicingSettings, loadSlicingSettings, saveFolderStates, loadFolderStates } from './state.js';
 
 /**
  * Create the legends for movement types and axes.
@@ -215,6 +215,30 @@ export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallb
 
   slicingGUI.add(params, 'slice').name('Slice');
   slicingGUI.open();
+
+  // Collect the open/closed state of all folders and persist it.
+  const collectFolderStates = () => {
+    const states = {};
+    for (const folder of slicingGUI.folders) {
+      states[folder._title] = !folder._closed;
+    }
+    return states;
+  };
+
+  // Apply saved folder states, then attach a save handler to each folder.
+  const savedFolderStates = loadFolderStates();
+  for (const folder of slicingGUI.folders) {
+    if (savedFolderStates && folder._title in savedFolderStates) {
+      if (savedFolderStates[folder._title]) {
+        folder.open();
+      } else {
+        folder.close();
+      }
+    }
+    folder.$title.addEventListener('click', () => {
+      saveFolderStates(collectFolderStates());
+    });
+  }
 
   // Store params on the GUI instance for access in sliceModel
   slicingGUI.userData = params;
