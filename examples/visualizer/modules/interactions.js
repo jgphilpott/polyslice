@@ -6,6 +6,9 @@
 import * as THREE from 'three';
 import { focusCameraOnPoint } from './camera.js';
 
+// Duration of the reset icon spin animation in milliseconds (matches CSS).
+const SPIN_ANIMATION_DURATION_MS = 500;
+
 /**
  * Setup main event listeners for upload, download, and reset buttons.
  */
@@ -24,7 +27,22 @@ export function setupEventListeners(handleFileUploadCallback, handleDownloadCall
   document.getElementById('download').addEventListener('click', handleDownloadCallback);
 
   // Reset button
-  document.getElementById('reset').addEventListener('click', resetViewCallback);
+  document.getElementById('reset').addEventListener('click', () => {
+    if (confirm('Are you sure you want to reset? This will restore all settings to their default values.')) {
+      const resetIcon = document.getElementById('reset');
+      // Force a reflow so the animation restarts even if clicked while still spinning.
+      resetIcon.classList.remove('spinning');
+      void resetIcon.offsetWidth;
+      resetIcon.classList.add('spinning');
+      // Remove the class when the animation ends; timeout fallback handles
+      // cases where animationend never fires (e.g. prefers-reduced-motion).
+      let spinTimeout;
+      const cleanup = () => { clearTimeout(spinTimeout); resetIcon.classList.remove('spinning'); };
+      resetIcon.addEventListener('animationend', cleanup, { once: true });
+      spinTimeout = setTimeout(cleanup, SPIN_ANIMATION_DURATION_MS + 100);
+      resetViewCallback();
+    }
+  });
 }
 
 /**

@@ -4,7 +4,7 @@
  */
 
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { saveSlicingSettings, loadSlicingSettings } from './state.js';
+import { saveSlicingSettings, loadSlicingSettings, saveFolderStates, loadFolderStates } from './state.js';
 
 /**
  * Create the legends for movement types and axes.
@@ -166,7 +166,15 @@ export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallb
 
   slicingGUI = new GUI({ title: 'Slicer' });
 
-  let h = slicingGUI.addFolder('Model Rotation');
+  // Build a named folder map to avoid relying on lil-gui private properties.
+  // Each entry tracks the folder reference and its current open state.
+  const folderMap = {};
+  const trackFolder = (title, folder, defaultOpen) => {
+    folderMap[title] = { folder, isOpen: defaultOpen };
+    return folder;
+  };
+
+  let h = trackFolder('Model Rotation', slicingGUI.addFolder('Model Rotation'), true);
   h.add(params, 'rotationX', -180, 180, 1).name('Rotation X (°)').onChange((value) => {
     saveSlicingSettings(params);
     if (rotateCallback) rotateCallback('x', value);
@@ -187,26 +195,26 @@ export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallb
     rotateCallback('z', params.rotationZ);
   }
 
-  h = slicingGUI.addFolder('Printer & Filament');
+  h = trackFolder('Printer & Filament', slicingGUI.addFolder('Printer & Filament'), true);
   h.add(params, 'printer', PRINTER_OPTIONS).name('Printer').onChange(() => saveSlicingSettings(params));
   h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament').onChange(() => saveSlicingSettings(params));
   h.add(params, 'nozzleTemperature', 150, 300, 5).name('Nozzle Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
   h.add(params, 'bedTemperature', 0, 120, 5).name('Bed Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
   h.add(params, 'fanSpeed', 0, 100, 5).name('Fan Speed (%)').onFinishChange(() => saveSlicingSettings(params));
 
-  h = slicingGUI.addFolder('Slicer Settings');
+  h = trackFolder('Slicer Settings', slicingGUI.addFolder('Slicer Settings'), true);
   h.add(params, 'shellWallThickness', 0.4, 2.0, 0.4).name('Shell Wall Thickness (mm)').onFinishChange(() => saveSlicingSettings(params));
   h.add(params, 'shellSkinThickness', 0.4, 2.0, 0.4).name('Shell Skin Thickness (mm)').onFinishChange(() => saveSlicingSettings(params));
   h.add(params, 'layerHeight', 0.1, 0.4, 0.05).name('Layer Height (mm)').onFinishChange(() => saveSlicingSettings(params));
   h.add(params, 'infillDensity', 0, 100, 5).name('Infill Density (%)').onFinishChange(() => saveSlicingSettings(params));
   h.add(params, 'infillPattern', INFILL_PATTERN_OPTIONS).name('Infill Pattern').onChange(() => saveSlicingSettings(params));
 
-  h = slicingGUI.addFolder('Adhesion');
+  h = trackFolder('Adhesion', slicingGUI.addFolder('Adhesion'), false);
   h.add(params, 'adhesionEnabled').name('Adhesion Enabled').onChange(() => saveSlicingSettings(params));
   h.add(params, 'adhesionType', ['skirt', 'brim', 'raft']).name('Adhesion Type').onChange(() => saveSlicingSettings(params));
   h.close();
 
-  h = slicingGUI.addFolder('Support');
+  h = trackFolder('Support', slicingGUI.addFolder('Support'), false);
   h.add(params, 'supportEnabled').name('Support Enabled').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportType', ['normal', 'tree']).name('Support Type').onChange(() => saveSlicingSettings(params));
   h.add(params, 'supportPlacement', ['buildPlate', 'everywhere']).name('Support Placement').onChange(() => saveSlicingSettings(params));
@@ -215,6 +223,28 @@ export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallb
 
   slicingGUI.add(params, 'slice').name('Slice');
   slicingGUI.open();
+
+  // Collect the current open/closed state of all folders.
+  const collectFolderStates = () =>
+    Object.fromEntries(Object.entries(folderMap).map(([title, entry]) => [title, entry.isOpen]));
+
+  // Apply saved folder states (skipped when resetting to defaults), then
+  // attach a click listener to each folder title to persist state on toggle.
+  const savedFolderStates = useDefaults ? null : loadFolderStates();
+  for (const [title, entry] of Object.entries(folderMap)) {
+    if (savedFolderStates && title in savedFolderStates) {
+      entry.isOpen = savedFolderStates[title];
+      if (entry.isOpen) {
+        entry.folder.open();
+      } else {
+        entry.folder.close();
+      }
+    }
+    entry.folder.$title.addEventListener('click', () => {
+      entry.isOpen = !entry.isOpen;
+      saveFolderStates(collectFolderStates());
+    });
+  }
 
   // Store params on the GUI instance for access in sliceModel
   slicingGUI.userData = params;

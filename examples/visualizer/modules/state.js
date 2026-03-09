@@ -180,3 +180,40 @@ export function clearSlicingSettings() {
     console.warn('Failed to clear slicing settings from localStorage:', error);
   }
 }
+
+/**
+ * Save folder open/closed states to localStorage.
+ */
+export function saveFolderStates(states) {
+  try {
+    localStorage.setItem('visualizer-folder-states', JSON.stringify(states));
+  } catch (error) {
+    console.warn('Failed to save folder states to localStorage:', error);
+  }
+}
+
+/**
+ * Load folder open/closed states from localStorage.
+ */
+export function loadFolderStates() {
+  try {
+    const saved = localStorage.getItem('visualizer-folder-states');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (error) {
+    console.warn('Failed to load folder states from localStorage:', error);
+  }
+  return null;
+}
+
+/**
+ * Clear folder open/closed states from localStorage.
+ */
+export function clearFolderStates() {
+  try {
+    localStorage.removeItem('visualizer-folder-states');
+  } catch (error) {
+    console.warn('Failed to clear folder states from localStorage:', error);
+  }
+}
