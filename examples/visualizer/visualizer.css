@@ -23,6 +23,7 @@ body {
   height: 150px;
   z-index: 1000;
   cursor: pointer;
+  clip-path: polygon(15px 0px, 60px 0px, 150px 90px, 150px 135px);
 }
 
 /* Controls panel */
