@@ -6,8 +6,9 @@ primitives = require('../../utils/primitives')
 # Scan regionCandidates against regionRefs and return candidates that qualify as
 # fully covered interior regions.  A candidate qualifies when:
 # - It is interior to currentPath (does not touch its boundary).
-# - It is NOT a hole path (i.e. not enclosed by another path in the same layer set).
-#   Hole paths represent empty space in an adjacent layer, not solid features.
+# - It is a solid feature at its nesting level, NOT a hole path.  Nesting parity is
+#   determined by counting how many other paths in regionCandidates contain the
+#   candidate's centre (even = solid structure, odd = hole/cavity).
 # - It is the smaller of the two paired regions (candidateArea < refArea).
 # - A reference region covers ≥50% of the candidate region's area.
 # - The size ratio between the two regions is below the step-transition ceiling (<55%).
@@ -39,25 +40,42 @@ findCoveredRegions = (regionCandidates, regionRefs, currentPathBounds, currentAr
         )
         continue if touchesBoundary
 
-        # Skip candidates that are hole paths (enclosed by another path in the same set).
-        # Hole paths represent empty space (cavities/openings) in the adjacent layer, not
-        # solid features.  Treating them as covered regions would suppress skin infill
-        # on the corresponding exposure patches in the current layer (e.g. dome zenith).
+        # Determine whether this candidate is a hole path using the even-odd nesting rule.
+        # Count how many other paths in regionCandidates contain the candidate's centre point.
+        # Odd containment count → the candidate is inside an odd number of paths → it is
+        # empty space (a hole or cavity) in the adjacent layer, not a solid feature.
+        # Even containment count (0 included) → it is a solid structure at that nesting level.
+        #
+        # This handles arbitrarily deep nesting (structure→hole→structure→…) correctly:
+        #   - outer structure: 0 containing paths (even) → structure ✓
+        #   - hole inside that structure: 1 containing path (odd) → hole ✓
+        #   - structure inside the hole: 2 containing paths (even) → structure ✓
+        #
+        # Bounding-box containment is checked first as a cheap pre-filter so that the more
+        # expensive pointInPolygon call is only made for paths whose bounds actually enclose
+        # the candidate centre.
         candidateCenterX = (candidateBounds.minX + candidateBounds.maxX) / 2
         candidateCenterY = (candidateBounds.minY + candidateBounds.maxY) / 2
-        isHolePath = false
+        nestingCount = 0
 
         for otherPath in regionCandidates
 
             continue if otherPath is candidate
             continue if otherPath.length < 3
 
+            otherBounds = bounds.calculatePathBounds(otherPath)
+            continue unless otherBounds?
+
+            # Cheap bounding-box pre-filter.
+            continue if candidateCenterX < otherBounds.minX or candidateCenterX > otherBounds.maxX
+            continue if candidateCenterY < otherBounds.minY or candidateCenterY > otherBounds.maxY
+
             if primitives.pointInPolygon({ x: candidateCenterX, y: candidateCenterY }, otherPath)
 
-                isHolePath = true
-                break
+                nestingCount += 1
 
-        continue if isHolePath
+        # Odd nesting count → hole/cavity path; skip it.
+        continue if nestingCount % 2 is 1
 
         candidateWidth = candidateBounds.maxX - candidateBounds.minX
         candidateHeight = candidateBounds.maxY - candidateBounds.minY

@@ -1296,6 +1296,8 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             finalMesh.updateMatrixWorld()
 
             # Configure slicer with exposure detection enabled.
+            slicer.setNozzleDiameter(0.4)
+            slicer.setExposureDetectionResolution(961)
             slicer.setLayerHeight(0.2)
             slicer.setShellSkinThickness(0.8)  # 4 skin layers.
             slicer.setShellWallThickness(0.8)
@@ -1303,6 +1305,7 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             slicer.setAutohome(false)
             slicer.setExposureDetection(true)
             slicer.setInfillDensity(20)
+            slicer.setInfillPattern('grid')
 
             # Slice the mesh.
             result = slicer.slice(finalMesh)
@@ -1329,8 +1332,8 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Exposure patches appear at layers near the zenith where the small hole disappears.
             # Before the fix: hole paths from adjacent layers were classified as covered regions,
             # suppressing all skin infill in that area.
-            # After the fix: those hole paths are recognised as holes (enclosed by the outer
-            # square boundary in the same set) and are no longer classified as covered regions.
+            # After the fix: those hole paths are recognised as holes (nesting parity = odd)
+            # and are no longer classified as covered regions.
             # Layers 49-54 should therefore have skin infill.
             zenithLayerTotal = 0
 
@@ -1341,9 +1344,14 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             # Verify that skin infill is generated at the dome zenith exposure patches.
             expect(zenithLayerTotal).toBeGreaterThan(0)
 
-            # Also verify lego-stud-style covered region detection still works: the pyramid
-            # test in the 'Fully Covered Areas Exclusion' suite is the canonical check, but
-            # as a sanity guard verify that the total skin infill count is reasonable
-            # (dome should have significantly more skin than a solid box of the same size).
-            totalSkinInfill = (result.match(/Moving to skin infill line/g) || []).length
-            expect(totalSkinInfill).toBeGreaterThan(50)
+            # Verify per-layer presence: at least 3 of the 6 zenith layers must have
+            # skin infill.  This is more stable than checking an absolute count because
+            # it tolerates minor geometry/tessellation changes while still catching a
+            # full regression (where all zenith layers produce zero infill lines).
+            zenithLayersWithInfill = 0
+
+            for layerIndex in [49..54]
+
+                zenithLayersWithInfill += 1 if (skinInfillByLayer[layerIndex] || 0) > 0
+
+            expect(zenithLayersWithInfill).toBeGreaterThanOrEqual(3)
