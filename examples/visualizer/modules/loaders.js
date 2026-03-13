@@ -5,10 +5,78 @@
 
 import * as THREE from 'three';
 import { GCodeLoaderExtended } from '../libs/GCodeLoaderExtended.js';
+import { loadSlicingSettings } from './state.js';
 
 // File extensions
 export const MODEL_EXTENSIONS = ['stl', 'obj', '3mf', 'amf', 'ply', 'gltf', 'glb', 'dae'];
 export const GCODE_EXTENSIONS = ['gcode', 'gco', 'nc'];
+
+// Fallback build plate dimensions (mm) for known printers when Polyslice is unavailable.
+const PRINTER_BUILD_PLATES = {
+  Ender3: { width: 220, length: 220 },
+  Ender3V2: { width: 220, length: 220 },
+  Ender3Pro: { width: 220, length: 220 },
+  PrusaI3MK3S: { width: 250, length: 210 },
+  AnycubicI3Mega: { width: 210, length: 210 },
+  UltimakerS5: { width: 330, length: 240 },
+  BambuLabP1P: { width: 256, length: 256 }
+};
+
+const DEFAULT_BUILD_PLATE_WIDTH = 220;
+const DEFAULT_BUILD_PLATE_LENGTH = 220;
+
+/**
+ * Get the build plate dimensions for the currently selected printer.
+ * Tries to use window.Polyslice.Printer when available; falls back to a
+ * lookup table and then to the Ender3 defaults (220 × 220 mm).
+ */
+function getBuildPlateDimensions() {
+  try {
+    const savedSettings = loadSlicingSettings();
+    const printerName = (savedSettings && savedSettings.printer) ? savedSettings.printer : 'Ender3';
+
+    if (window.Polyslice?.Printer) {
+      const printer = new window.Polyslice.Printer(printerName);
+      return { width: printer.getSizeX(), length: printer.getSizeY() };
+    }
+
+    const preset = PRINTER_BUILD_PLATES[printerName];
+    if (preset) {
+      return preset;
+    }
+  } catch (error) {
+    console.warn('Could not determine build plate dimensions:', error);
+  }
+
+  return { width: DEFAULT_BUILD_PLATE_WIDTH, length: DEFAULT_BUILD_PLATE_LENGTH };
+}
+
+/**
+ * Position a loaded mesh on the build plate by:
+ *  1. Placing its bottom face at Z = 0 (lay flat on the build plate).
+ *  2. Centering it in XY at (buildPlateWidth / 2, buildPlateLength / 2).
+ *
+ * This matches the positioning applied by the Polyslice slicer so that the
+ * model's visual location in the viewport corresponds to its printed location
+ * in the generated G-code.
+ */
+export function positionMeshOnBuildPlate(object) {
+  const { width: buildPlateWidth, length: buildPlateLength } = getBuildPlateDimensions();
+
+  const box = new THREE.Box3().setFromObject(object);
+  if (box.isEmpty()) {
+    console.warn('positionMeshOnBuildPlate: bounding box is empty, skipping positioning');
+    return;
+  }
+
+  const centerX = (box.min.x + box.max.x) / 2;
+  const centerY = (box.min.y + box.max.y) / 2;
+  const minZ = box.min.z;
+
+  object.position.x += (buildPlateWidth / 2) - centerX;
+  object.position.y += (buildPlateLength / 2) - centerY;
+  object.position.z += -minZ;
+}
 
 /**
  * Handle file upload event.
@@ -135,6 +203,10 @@ export function loadModel(file, scene, callbacks) {
  */
 export function displayMesh(object, filename, scene, callbacks) {
   const { centerCamera, hideForkMeBanner, hideGCodeLegends, createSlicingGUI, updateMeshInfo } = callbacks;
+
+  // Center the model on the build plate and lay it flat at Z = 0 so its
+  // position matches the location it will occupy in the sliced G-code.
+  positionMeshOnBuildPlate(object);
 
   scene.add(object);
 
