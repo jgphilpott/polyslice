@@ -15,7 +15,7 @@ import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 // Import modules
-import { initScene, scene, camera, renderer, controls, axesLines, gridHelper, onWindowResize, animate } from './modules/scene.js';
+import { initScene, scene, camera, renderer, controls, axesLines, gridHelper, onWindowResize, animate, updateBuildVolume } from './modules/scene.js';
 import {
   createLegend,
   createLayerSlider,
@@ -51,7 +51,9 @@ import {
   loadModel,
   displayMesh as displayMeshHelper,
   loadGCode as loadGCodeHelper,
-  updateMeshInfo
+  updateMeshInfo,
+  positionMeshOnBuildPlate,
+  getBuildPlateDimensions
 } from './modules/loaders.js';
 import {
   setupLayerSlider as setupLayerSliderHelper,
@@ -178,6 +180,8 @@ function radiansToDegrees(radians) {
 
 /**
  * Sync the TransformControls current rotation back to the slicing GUI sliders.
+ * Called on every objectChange event during a gizmo drag; does NOT reposition
+ * the mesh (repositioning happens once at drag-end via dragging-changed).
  */
 function syncTransformToSliders() {
   const mesh = transformControls?.object;
@@ -214,9 +218,19 @@ function initTransformControls() {
 
   // Disable orbit controls while the user is dragging the rotation gizmo.
   // Track that a drag occurred so the pointerup handler can ignore it.
+  // When the drag ends (event.value === false), reposition the mesh on the
+  // build plate so the final G-code position and the viewport position match.
   transformControls.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value;
-    if (event.value) wasDraggingGizmo = true;
+    if (event.value) {
+      wasDraggingGizmo = true;
+    } else {
+      // Drag just ended – reposition once so the viewport matches the slicer.
+      const mesh = transformControls.object;
+      if (mesh) {
+        positionMeshOnBuildPlate(mesh);
+      }
+    }
   });
 
   // Sync drag interactions back to the GUI sliders.
@@ -262,12 +276,27 @@ function initTransformControls() {
 }
 
 /**
- * Apply a rotation in degrees to one axis of a mesh.
+ * Apply a rotation in degrees to one axis of a mesh and re-center the mesh on
+ * the build plate so the displayed position continues to match the sliced G-code.
  */
 function applyMeshRotation(mesh, axis, degrees) {
   if (!mesh) return;
   mesh.rotation[axis] = degrees * Math.PI / 180;
   mesh.updateMatrixWorld(true);
+  positionMeshOnBuildPlate(mesh);
+}
+
+/**
+ * Re-position the currently loaded mesh on the build plate and update the
+ * scene axes and grid to reflect the selected printer's build volume.
+ * Called when the printer selection changes.
+ */
+function repositionMesh() {
+  if (meshObject) {
+    positionMeshOnBuildPlate(meshObject);
+  }
+  const { width, length, height } = getBuildPlateDimensions();
+  updateBuildVolume(width, length, height);
 }
 
 /**
@@ -298,7 +327,8 @@ function loadModelWrapper(file) {
               sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper);
             },
             false,
-            (axis, degrees) => applyMeshRotation(meshObject, axis, degrees)
+            (axis, degrees) => applyMeshRotation(meshObject, axis, degrees),
+            repositionMesh
           );
         },
         updateMeshInfo
@@ -499,7 +529,8 @@ function resetView() {
     createSlicingGUI(
       () => sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper),
       true,
-      (axis, degrees) => applyMeshRotation(meshObject, axis, degrees)
+      (axis, degrees) => applyMeshRotation(meshObject, axis, degrees),
+      repositionMesh
     );
   }
 
