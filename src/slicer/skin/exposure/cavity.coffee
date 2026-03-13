@@ -1,10 +1,13 @@
 # Cavity detection module for Polyslice.
 
 bounds = require('../../utils/bounds')
+primitives = require('../../utils/primitives')
 
 # Scan regionCandidates against regionRefs and return candidates that qualify as
 # fully covered interior regions.  A candidate qualifies when:
 # - It is interior to currentPath (does not touch its boundary).
+# - It is NOT a hole path (i.e. not enclosed by another path in the same layer set).
+#   Hole paths represent empty space in an adjacent layer, not solid features.
 # - It is the smaller of the two paired regions (candidateArea < refArea).
 # - A reference region covers ≥50% of the candidate region's area.
 # - The size ratio between the two regions is below the step-transition ceiling (<55%).
@@ -35,6 +38,26 @@ findCoveredRegions = (regionCandidates, regionRefs, currentPathBounds, currentAr
             candidateBounds.maxY >= currentPathBounds.maxY - BOUNDARY_EPSILON
         )
         continue if touchesBoundary
+
+        # Skip candidates that are hole paths (enclosed by another path in the same set).
+        # Hole paths represent empty space (cavities/openings) in the adjacent layer, not
+        # solid features.  Treating them as covered regions would suppress skin infill
+        # on the corresponding exposure patches in the current layer (e.g. dome zenith).
+        candidateCenterX = (candidateBounds.minX + candidateBounds.maxX) / 2
+        candidateCenterY = (candidateBounds.minY + candidateBounds.maxY) / 2
+        isHolePath = false
+
+        for otherPath in regionCandidates
+
+            continue if otherPath is candidate
+            continue if otherPath.length < 3
+
+            if primitives.pointInPolygon({ x: candidateCenterX, y: candidateCenterY }, otherPath)
+
+                isHolePath = true
+                break
+
+        continue if isHolePath
 
         candidateWidth = candidateBounds.maxX - candidateBounds.minX
         candidateHeight = candidateBounds.maxY - candidateBounds.minY

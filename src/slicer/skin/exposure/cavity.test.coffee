@@ -1253,3 +1253,97 @@ describe 'Exposure Detection - Cavity and Hole Detection', ->
             expect(layer47.skin).toBeGreaterThan(0)       # Exposed area around the studs.
             expect(layer47.fillLines).toBeGreaterThan(0)  # Regular infill under the studs.
             expect(layer47.fillRegions).toBeGreaterThanOrEqual(6)  # One region per stud (6 total).
+
+    describe 'Dome Zenith Skin Infill (Regression)', ->
+
+        test 'should generate skin infill on dome zenith exposure patches', ->
+
+            # Regression test for the dome zenith bug introduced in PR 182.
+            # When the 10% minimum size ratio was removed from findCoveredRegions to fix
+            # lego stud detection, hole paths from adjacent layers (the small circular opening
+            # near the zenith of the dome cavity) were incorrectly classified as "fully covered
+            # regions".  This caused their corresponding skin infill to be suppressed.
+            #
+            # The fix: check whether a candidate path is enclosed by another path in the same
+            # set (i.e. it is a hole path representing empty space, not a solid feature).
+            # Hole paths must not be classified as covered regions.
+            #
+            # Geometry: box 25x25x12mm with a hemispherical cavity of radius 10mm opening at
+            # the build plate.  The cavity reaches its zenith at z=10mm (layer 50 of 60).
+            # Layers 47-54 are near the zenith and should have skin infill on the small
+            # circular exposure patches where the dome ceiling transitions to solid.
+            width = 25
+            depth = 25
+            thickness = 12
+            radius = 10
+
+            boxGeometry = new THREE.BoxGeometry(width, depth, thickness)
+            boxMesh = new THREE.Mesh(boxGeometry, new THREE.MeshBasicMaterial())
+
+            sphereGeometry = new THREE.SphereGeometry(radius, 64, 48)
+            sphereMesh = new THREE.Mesh(sphereGeometry, new THREE.MeshBasicMaterial())
+
+            # Place sphere center at the bottom face so the upper hemisphere carves a cavity.
+            sphereMesh.position.set(0, 0, -(thickness / 2))
+            sphereMesh.updateMatrixWorld()
+
+            # Perform CSG subtraction to create the dome cavity.
+            resultMesh = await Polytree.subtract(boxMesh, sphereMesh)
+
+            # Position final mesh with build plate at Z=0.
+            finalMesh = new THREE.Mesh(resultMesh.geometry, resultMesh.material)
+            finalMesh.position.set(0, 0, thickness / 2)
+            finalMesh.updateMatrixWorld()
+
+            # Configure slicer with exposure detection enabled.
+            slicer.setLayerHeight(0.2)
+            slicer.setShellSkinThickness(0.8)  # 4 skin layers.
+            slicer.setShellWallThickness(0.8)
+            slicer.setVerbose(true)
+            slicer.setAutohome(false)
+            slicer.setExposureDetection(true)
+            slicer.setInfillDensity(20)
+
+            # Slice the mesh.
+            result = slicer.slice(finalMesh)
+
+            # Parse the G-code and find skin infill lines per layer.
+            lines = result.split('\n')
+            skinInfillByLayer = {}
+            currentLayer = null
+
+            for line in lines
+
+                layerMatch = line.match(/LAYER:\s*(\d+) of/)
+
+                if layerMatch
+
+                    currentLayer = parseInt(layerMatch[1])
+
+                else if currentLayer? and line.includes('Moving to skin infill line')
+
+                    skinInfillByLayer[currentLayer] = (skinInfillByLayer[currentLayer] || 0) + 1
+
+            # Total layers = 60 (12mm / 0.2mm).
+            # The dome zenith is at z=10mm (layer 50).
+            # Exposure patches appear at layers near the zenith where the small hole disappears.
+            # Before the fix: hole paths from adjacent layers were classified as covered regions,
+            # suppressing all skin infill in that area.
+            # After the fix: those hole paths are recognised as holes (enclosed by the outer
+            # square boundary in the same set) and are no longer classified as covered regions.
+            # Layers 49-54 should therefore have skin infill.
+            zenithLayerTotal = 0
+
+            for layerIndex in [49..54]
+
+                zenithLayerTotal += skinInfillByLayer[layerIndex] || 0
+
+            # Verify that skin infill is generated at the dome zenith exposure patches.
+            expect(zenithLayerTotal).toBeGreaterThan(0)
+
+            # Also verify lego-stud-style covered region detection still works: the pyramid
+            # test in the 'Fully Covered Areas Exclusion' suite is the canonical check, but
+            # as a sanity guard verify that the total skin infill count is reasonable
+            # (dome should have significantly more skin than a solid box of the same size).
+            totalSkinInfill = (result.match(/Moving to skin infill line/g) || []).length
+            expect(totalSkinInfill).toBeGreaterThan(50)
