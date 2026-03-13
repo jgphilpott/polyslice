@@ -51,7 +51,8 @@ import {
   loadModel,
   displayMesh as displayMeshHelper,
   loadGCode as loadGCodeHelper,
-  updateMeshInfo
+  updateMeshInfo,
+  positionMeshOnBuildPlate
 } from './modules/loaders.js';
 import {
   setupLayerSlider as setupLayerSliderHelper,
@@ -196,6 +197,10 @@ function syncTransformToSliders() {
   });
 
   saveSlicingSettings(params);
+
+  // Re-center the mesh on the build plate after each gizmo drag event so the
+  // viewport position stays in sync with where the slicer will place the G-code.
+  positionMeshOnBuildPlate(mesh);
 }
 
 /**
@@ -262,12 +267,25 @@ function initTransformControls() {
 }
 
 /**
- * Apply a rotation in degrees to one axis of a mesh.
+ * Apply a rotation in degrees to one axis of a mesh and re-center the mesh on
+ * the build plate so the displayed position continues to match the sliced G-code.
  */
 function applyMeshRotation(mesh, axis, degrees) {
   if (!mesh) return;
   mesh.rotation[axis] = degrees * Math.PI / 180;
   mesh.updateMatrixWorld(true);
+  positionMeshOnBuildPlate(mesh);
+}
+
+/**
+ * Re-position the currently loaded mesh on the build plate.
+ * Called when the printer selection changes so the mesh stays aligned with
+ * the new build plate center.
+ */
+function repositionMesh() {
+  if (meshObject) {
+    positionMeshOnBuildPlate(meshObject);
+  }
 }
 
 /**
@@ -298,7 +316,8 @@ function loadModelWrapper(file) {
               sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper);
             },
             false,
-            (axis, degrees) => applyMeshRotation(meshObject, axis, degrees)
+            (axis, degrees) => applyMeshRotation(meshObject, axis, degrees),
+            repositionMesh
           );
         },
         updateMeshInfo
@@ -499,7 +518,8 @@ function resetView() {
     createSlicingGUI(
       () => sliceModel(loadedModelForSlicing, currentFilename, loadGCodeWrapper),
       true,
-      (axis, degrees) => applyMeshRotation(meshObject, axis, degrees)
+      (axis, degrees) => applyMeshRotation(meshObject, axis, degrees),
+      repositionMesh
     );
   }
 

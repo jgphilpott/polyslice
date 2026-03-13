@@ -126,7 +126,7 @@ export function createMoveSlider() {
 /**
  * Create the slicing GUI for loaded 3D models.
  */
-export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallback = null) {
+export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallback = null, repositionCallback = null) {
 
   let slicingGUI = window.slicingGUI;
 
@@ -195,8 +195,17 @@ export function createSlicingGUI(sliceCallback, useDefaults = false, rotateCallb
     rotateCallback('z', params.rotationZ);
   }
 
+  // Re-center after all three initial rotations have been applied.
+  if (repositionCallback) {
+    repositionCallback();
+  }
+
   h = trackFolder('Printer & Filament', slicingGUI.addFolder('Printer & Filament'), true);
-  h.add(params, 'printer', PRINTER_OPTIONS).name('Printer').onChange(() => saveSlicingSettings(params));
+  h.add(params, 'printer', PRINTER_OPTIONS).name('Printer').onChange(() => {
+    saveSlicingSettings(params);
+    // Re-center the mesh for the newly selected printer's build plate dimensions.
+    if (repositionCallback) repositionCallback();
+  });
   h.add(params, 'filament', FILAMENT_OPTIONS).name('Filament').onChange(() => saveSlicingSettings(params));
   h.add(params, 'nozzleTemperature', 150, 300, 5).name('Nozzle Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
   h.add(params, 'bedTemperature', 0, 120, 5).name('Bed Temp (°C)').onFinishChange(() => saveSlicingSettings(params));
