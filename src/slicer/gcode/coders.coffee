@@ -892,7 +892,7 @@ module.exports =
 
         try # Get package version (this will be available in the compiled context).
 
-            pkg = require('../../package.json')
+            pkg = require('../../../package.json')
             version = pkg.version
 
         catch
