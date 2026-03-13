@@ -15,7 +15,7 @@ import { ColladaLoader } from 'three/addons/loaders/ColladaLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 // Import modules
-import { initScene, scene, camera, renderer, controls, axesLines, gridHelper, onWindowResize, animate } from './modules/scene.js';
+import { initScene, scene, camera, renderer, controls, axesLines, gridHelper, onWindowResize, animate, updateBuildVolume } from './modules/scene.js';
 import {
   createLegend,
   createLayerSlider,
@@ -52,7 +52,8 @@ import {
   displayMesh as displayMeshHelper,
   loadGCode as loadGCodeHelper,
   updateMeshInfo,
-  positionMeshOnBuildPlate
+  positionMeshOnBuildPlate,
+  getBuildPlateDimensions
 } from './modules/loaders.js';
 import {
   setupLayerSlider as setupLayerSliderHelper,
@@ -179,6 +180,8 @@ function radiansToDegrees(radians) {
 
 /**
  * Sync the TransformControls current rotation back to the slicing GUI sliders.
+ * Called on every objectChange event during a gizmo drag; does NOT reposition
+ * the mesh (repositioning happens once at drag-end via dragging-changed).
  */
 function syncTransformToSliders() {
   const mesh = transformControls?.object;
@@ -197,10 +200,6 @@ function syncTransformToSliders() {
   });
 
   saveSlicingSettings(params);
-
-  // Re-center the mesh on the build plate after each gizmo drag event so the
-  // viewport position stays in sync with where the slicer will place the G-code.
-  positionMeshOnBuildPlate(mesh);
 }
 
 /**
@@ -219,9 +218,19 @@ function initTransformControls() {
 
   // Disable orbit controls while the user is dragging the rotation gizmo.
   // Track that a drag occurred so the pointerup handler can ignore it.
+  // When the drag ends (event.value === false), reposition the mesh on the
+  // build plate so the final G-code position and the viewport position match.
   transformControls.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value;
-    if (event.value) wasDraggingGizmo = true;
+    if (event.value) {
+      wasDraggingGizmo = true;
+    } else {
+      // Drag just ended – reposition once so the viewport matches the slicer.
+      const mesh = transformControls.object;
+      if (mesh) {
+        positionMeshOnBuildPlate(mesh);
+      }
+    }
   });
 
   // Sync drag interactions back to the GUI sliders.
@@ -278,14 +287,16 @@ function applyMeshRotation(mesh, axis, degrees) {
 }
 
 /**
- * Re-position the currently loaded mesh on the build plate.
- * Called when the printer selection changes so the mesh stays aligned with
- * the new build plate center.
+ * Re-position the currently loaded mesh on the build plate and update the
+ * scene axes and grid to reflect the selected printer's build volume.
+ * Called when the printer selection changes.
  */
 function repositionMesh() {
   if (meshObject) {
     positionMeshOnBuildPlate(meshObject);
   }
+  const { width, length, height } = getBuildPlateDimensions();
+  updateBuildVolume(width, length, height);
 }
 
 /**

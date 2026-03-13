@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-// Constants
+// Default build volume dimensions (mm) – matches the Ender3 preset.
 export const AXIS_LENGTH = 220;
 
 // Scene state
@@ -69,16 +69,18 @@ export function initScene() {
 
 /**
  * Create custom axes with proper colors and thickness.
+ * @param {number} sizeX - Length of the X axis in mm.
+ * @param {number} sizeY - Length of the Y axis in mm.
+ * @param {number} sizeZ - Length of the Z axis in mm.
  */
-function createAxes() {
+function createAxes(sizeX = AXIS_LENGTH, sizeY = AXIS_LENGTH, sizeZ = AXIS_LENGTH) {
 
-  const axisLength = AXIS_LENGTH;
   const axisThickness = 3;
 
   // Create X axis (red)
   const xGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(axisLength, 0, 0),
+    new THREE.Vector3(sizeX, 0, 0),
   ]);
   const xMaterial = new THREE.LineBasicMaterial({
     color: 0xff0000,
@@ -90,7 +92,7 @@ function createAxes() {
   // Create Y axis (green)
   const yGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, axisLength, 0),
+    new THREE.Vector3(0, sizeY, 0),
   ]);
   const yMaterial = new THREE.LineBasicMaterial({
     color: 0x00ff00,
@@ -102,7 +104,7 @@ function createAxes() {
   // Create Z axis (blue)
   const zGeometry = new THREE.BufferGeometry().setFromPoints([
     new THREE.Vector3(0, 0, 0),
-    new THREE.Vector3(0, 0, axisLength),
+    new THREE.Vector3(0, 0, sizeZ),
   ]);
   const zMaterial = new THREE.LineBasicMaterial({
     color: 0x0000ff,
@@ -117,12 +119,11 @@ function createAxes() {
 
 /**
  * Create grid helper on the XY plane.
+ * @param {number} sizeX - Width of the grid in mm (X direction).
+ * @param {number} sizeY - Length of the grid in mm (Y direction).
  */
-function createGridHelper() {
+function createGridHelper(sizeX = AXIS_LENGTH, sizeY = AXIS_LENGTH) {
 
-  // Draw grid in X+ / Y+ quadrant on the XY plane (Z=0)
-  const sizeX = AXIS_LENGTH;
-  const sizeY = AXIS_LENGTH;
   const divisions = 20;
   const colorCenterLine = 0x888888;
   const colorGrid = 0x444444;
@@ -160,6 +161,72 @@ function createGridHelper() {
 
   gridHelper = group;
   scene.add(gridHelper);
+
+}
+
+/**
+ * Update the scene axes and grid to match new printer build volume dimensions.
+ * Updates the existing Three.js objects in-place so that all references held by
+ * event listeners (axis visibility toggles) continue to work correctly.
+ *
+ * @param {number} width  - Build plate width  in mm (X axis).
+ * @param {number} length - Build plate length in mm (Y axis).
+ * @param {number} height - Build volume height in mm (Z axis).
+ */
+export function updateBuildVolume(width, length, height) {
+
+  if (axesLines) {
+    // Update each axis line's endpoint position in-place.
+    const xPos = axesLines[0].geometry.attributes.position;
+    xPos.setXYZ(1, width, 0, 0);
+    xPos.needsUpdate = true;
+
+    const yPos = axesLines[1].geometry.attributes.position;
+    yPos.setXYZ(1, 0, length, 0);
+    yPos.needsUpdate = true;
+
+    const zPos = axesLines[2].geometry.attributes.position;
+    zPos.setXYZ(1, 0, 0, height);
+    zPos.needsUpdate = true;
+  }
+
+  if (gridHelper) {
+    // Dispose existing child geometries and remove them from the group.
+    while (gridHelper.children.length > 0) {
+      const child = gridHelper.children[0];
+      child.geometry.dispose();
+      gridHelper.remove(child);
+    }
+
+    // Rebuild the grid for the new build plate dimensions.
+    const divisions = 20;
+    const colorCenterLine = 0x888888;
+    const colorGrid = 0x444444;
+
+    const materialCenter = new THREE.LineBasicMaterial({ color: colorCenterLine });
+    const materialGrid = new THREE.LineBasicMaterial({ color: colorGrid });
+
+    const stepX = width / divisions;
+    const stepY = length / divisions;
+
+    for (let x = 0; x <= width + 0.001; x += stepX) {
+      const geom = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(x, 0, 0),
+        new THREE.Vector3(x, length, 0),
+      ]);
+      const isCenter = Math.abs(x) < 1e-6;
+      gridHelper.add(new THREE.Line(geom, isCenter ? materialCenter : materialGrid));
+    }
+
+    for (let y = 0; y <= length + 0.001; y += stepY) {
+      const geom = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, y, 0),
+        new THREE.Vector3(width, y, 0),
+      ]);
+      const isCenter = Math.abs(y) < 1e-6;
+      gridHelper.add(new THREE.Line(geom, isCenter ? materialCenter : materialGrid));
+    }
+  }
 
 }
 

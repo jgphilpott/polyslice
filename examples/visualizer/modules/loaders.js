@@ -13,31 +13,34 @@ export const GCODE_EXTENSIONS = ['gcode', 'gco', 'nc'];
 
 // Fallback build plate dimensions (mm) for known printers when Polyslice is unavailable.
 const PRINTER_BUILD_PLATES = {
-  Ender3: { width: 220, length: 220 },
-  Ender3V2: { width: 220, length: 220 },
-  Ender3Pro: { width: 220, length: 220 },
-  PrusaI3MK3S: { width: 250, length: 210 },
-  AnycubicI3Mega: { width: 210, length: 210 },
-  UltimakerS5: { width: 330, length: 240 },
-  BambuLabP1P: { width: 256, length: 256 }
+  Ender3: { width: 220, length: 220, height: 250 },
+  Ender3V2: { width: 220, length: 220, height: 250 },
+  Ender3Pro: { width: 220, length: 220, height: 250 },
+  PrusaI3MK3S: { width: 250, length: 210, height: 210 },
+  AnycubicI3Mega: { width: 210, length: 210, height: 205 },
+  UltimakerS5: { width: 330, length: 240, height: 300 },
+  BambuLabP1P: { width: 256, length: 256, height: 256 }
 };
 
 const DEFAULT_BUILD_PLATE_WIDTH = 220;
 const DEFAULT_BUILD_PLATE_LENGTH = 220;
+const DEFAULT_BUILD_PLATE_HEIGHT = 250;
 
 /**
  * Get the build plate dimensions for the currently selected printer.
  * Tries to use window.Polyslice.Printer when available; falls back to a
- * lookup table and then to the Ender3 defaults (220 × 220 mm).
+ * lookup table and then to the Ender3 defaults (220 × 220 × 250 mm).
+ *
+ * @returns {{ width: number, length: number, height: number }}
  */
-function getBuildPlateDimensions() {
+export function getBuildPlateDimensions() {
   try {
     const savedSettings = loadSlicingSettings();
     const printerName = (savedSettings && savedSettings.printer) ? savedSettings.printer : 'Ender3';
 
     if (window.Polyslice?.Printer) {
       const printer = new window.Polyslice.Printer(printerName);
-      return { width: printer.getSizeX(), length: printer.getSizeY() };
+      return { width: printer.getSizeX(), length: printer.getSizeY(), height: printer.getSizeZ() };
     }
 
     const preset = PRINTER_BUILD_PLATES[printerName];
@@ -48,7 +51,7 @@ function getBuildPlateDimensions() {
     console.warn('Could not determine build plate dimensions:', error);
   }
 
-  return { width: DEFAULT_BUILD_PLATE_WIDTH, length: DEFAULT_BUILD_PLATE_LENGTH };
+  return { width: DEFAULT_BUILD_PLATE_WIDTH, length: DEFAULT_BUILD_PLATE_LENGTH, height: DEFAULT_BUILD_PLATE_HEIGHT };
 }
 
 /**
