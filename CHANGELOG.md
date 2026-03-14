@@ -7,6 +7,35 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.3.1] - 2026-03-14
+
+### Added
+- **Visualizer: Persist Folder Open/Closed States** - lil-gui folder open/closed states are now saved to `localStorage` and restored on reload (PR #184)
+  - `saveFolderStates()` and `loadFolderStates()` added to `state.js`; `clearFolderStates()` called in `resetView()`
+  - `trackFolder()` helper in `ui.js` wires up `open`/`close` events without relying on private `_title`/`_closed` lil-gui internals
+  - Folder states are ignored when `useDefaults` is active so a full reset produces a clean slate
+- **Visualizer: Reset Icon Spin Animation and Confirm Prompt** - reset button now asks for confirmation and plays a one-shot spin on confirm (PR #184)
+  - `@keyframes spin-once` CSS animation and `.spinning` class added to `visualizer.css`
+  - Reflow-trick restart, named `SPIN_ANIMATION_DURATION_MS` constant, and `animationend`-driven class removal
+  - `transition: none` on `#reset.spinning` prevents keyframe/transition conflict
+- **Visualizer: Build-Plate-Centered Model Positioning** - loaded models now appear at the same position the slicer uses, eliminating the visual "teleport" on first slice (PR #185)
+  - `positionMeshOnBuildPlate(object)` exported from `loaders.js`; called on load, after rotation (drag-end), and on printer change
+  - `getBuildPlateDimensions()` reads printer dimensions from `localStorage`, falls back to a bundled preset table, then defaults to Ender3 220 × 220 × 250 mm
+  - `updateBuildVolume(width, length, height)` in `scene.js` updates axis endpoints and rebuilds grid lines in-place, preserving all existing visibility-toggle event listeners
+  - `applyMeshRotation` and `initTransformControls` (drag-end) call `positionMeshOnBuildPlate` so rotation never drifts the mesh off-centre
+  - Printer `onChange` handler calls `repositionMesh()` to re-centre and redraw the build volume for the new printer
+
+### Fixed
+- **G-code Metadata: Version Always Showing "Unknown"** - corrected the `require` path in `coders.coffee` so the real `package.json` version is embedded in the `; Version:` header (PR #186)
+  - Root cause: path resolved to `src/package.json` (non-existent) instead of the root `package.json`
+  - Fixed by changing `require('../../package.json')` → `require('../../../package.json')`
+  - Metadata test strengthened to assert the emitted version equals `pkg.version` and explicitly rejects `"Unknown"`
+- **Skin: Dome Zenith Skin Infill Suppressed by Misclassified Hole Paths** - fixed the regression introduced in PR #182 where small circular hole boundaries near the dome cavity zenith were incorrectly classified as fully-covered regions, suppressing skin infill (PR #187)
+  - Root cause: removing the 10% size-ratio lower bound (PR #182) allowed interior hole paths to pass all remaining `findCoveredRegions` checks
+  - Fix: after the boundary-touch check, each candidate's bounding-box centre is tested against all other `regionCandidates` using a bounding-box pre-filter + `pointInPolygon`; an odd nesting count identifies the candidate as a hole/cavity and skips it
+  - Even-odd rule handles arbitrarily deep nesting (`structure → hole → structure → …`) and correctly preserves lego-stud detection from PR #182
+  - Dome GCode examples regenerated; regression test added to `cavity.test.coffee`
+
 ## [26.3.0] - 2026-03-08
 
 ### Added
@@ -266,7 +295,9 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 Initial release for January 2026. See GitHub releases and commit history for details on previous versions.
 
-[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.2.2...HEAD
+[Unreleased]: https://github.com/jgphilpott/polyslice/compare/v26.3.1...HEAD
+[26.3.1]: https://github.com/jgphilpott/polyslice/compare/v26.3.0...v26.3.1
+[26.3.0]: https://github.com/jgphilpott/polyslice/compare/v26.2.2...v26.3.0
 [26.2.2]: https://github.com/jgphilpott/polyslice/compare/v26.2.1...v26.2.2
 [26.2.1]: https://github.com/jgphilpott/polyslice/compare/v26.2.0...v26.2.1
 [26.2.0]: https://github.com/jgphilpott/polyslice/compare/v26.1.2...v26.2.0
