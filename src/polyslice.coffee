@@ -89,6 +89,8 @@ class Polyslice
         @supportPlacement = options.supportPlacement ?= "buildPlate" # String ['buildPlate', 'everywhere'].
         @supportThreshold = conversions.angleToInternal(options.supportThreshold ?= 55, this.angleUnit) # Number (degrees internal).
         @supportGap = conversions.lengthToInternal(options.supportGap ?= 0.2, this.lengthUnit) # Number (mm internal) - air gap between support and object.
+
+        # Normal support settings.
         @supportDensity = options.supportDensity ?= 50 # Number 0-100 (percentage) - density of normal support grid.
 
         # Tree support settings.
