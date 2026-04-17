@@ -52,24 +52,27 @@ Implements grid-based support generation:
 
 ### Tree Support Sub-Module (`tree/tree.coffee`)
 
-Template for future tree support implementation:
+Implements tree support generation:
 
-- **`generateTreeSupport()`**: Placeholder method (NOT YET IMPLEMENTED)
-- Will implement: branch generation, path optimization, converging structures
-- Tests: `tree.test.coffee` (2 basic tests)
+- **`buildTreeStructure()`**: Pre-computes trunk, branch, and twig line segments. Accepts an `opts` object `{ supportGap, branchAngle, twigAngle }`.
+- **`generateTreePattern()`**: Renders tree support G-code per layer using slicer configuration
+- **`findAccessibleTrunkPosition()`**: Searches for an unblocked trunk XY when the centroid is inside solid geometry
+- **`isTrunkAccessible()`**: Checks whether a trunk position has a clear vertical path to the build plate
+- **`getFaceZAtPoint()`**: Barycentric interpolation to compute contact tip Z on the overhang surface
+- Tests: `tree.test.coffee`
 
 ### File Structure
 
 ```
 src/slicer/support/
 ├── support.coffee          # Main dispatcher + shared utilities
-├── support.test.coffee     # Main support tests (19 tests)
+├── support.test.coffee     # Main support tests
 ├── normal/
 │   ├── normal.coffee       # Normal support implementation
-│   └── normal.test.coffee  # Normal support tests (5 tests)
+│   └── normal.test.coffee  # Normal support tests
 └── tree/
-    ├── tree.coffee         # Tree support template
-    └── tree.test.coffee    # Tree support tests (2 tests)
+    ├── tree.coffee         # Tree support implementation
+    └── tree.test.coffee    # Tree support tests
 ```
 
 ## Support Types
@@ -79,13 +82,7 @@ Currently supported:
 | Type | Description |
 |------|-------------|
 | `'normal'` | Region-based grid pattern supports |
-
-Planned for future:
-
-| Type | Description |
-|------|-------------|
-| `'tree'` | Tree-like branching supports |
-| `'organic'` | Smooth organic supports |
+| `'tree'` | Tree-like branching supports with trunk, branches, twigs, and optional roots |
 
 ## Support Placement
 
@@ -131,9 +128,15 @@ This ensures physically feasible support structures that respect both solid geom
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `supportEnabled` | `false` | Enable/disable support generation |
-| `supportType` | `'normal'` | Type of support structure |
+| `supportType` | `'normal'` | Type of support structure (`'normal'` or `'tree'`) |
 | `supportPlacement` | `'buildPlate'` | Where supports can originate |
-| `supportThreshold` | `45` | Angle in degrees requiring support |
+| `supportThreshold` | `55` | Overhang angle in degrees requiring support |
+| `supportGap` | `0.2` | Air gap in mm between support top and object underside |
+| `supportDensity` | `50` | Normal grid density as % (0 = no lines, 100 = maximum) |
+| `supportRootsEnabled` | `true` | Generate root structures at tree trunk base |
+| `supportRootCount` | `4` | Number of radial roots (1–8) |
+| `supportBranchAngle` | `45` | Angle in degrees of branches rising from trunk |
+| `supportTwigAngle` | `45` | Angle in degrees of twigs rising from branch nodes |
 
 ## Overhang Detection Algorithm
 
@@ -380,9 +383,15 @@ Both caches are cleared at the start of each slice operation.
 ```coffeescript
 slicer = new Polyslice({
     supportEnabled: true
-    supportType: 'normal'
-    supportPlacement: 'buildPlate'  # or 'everywhere'
-    supportThreshold: 45  # degrees
+    supportType: 'normal'          # or 'tree'
+    supportPlacement: 'buildPlate' # or 'everywhere'
+    supportThreshold: 55           # degrees
+    supportGap: 0.2                # mm air gap
+    supportDensity: 50             # % grid density (normal only)
+    supportRootsEnabled: true      # tree only
+    supportRootCount: 4            # tree only, 1-8
+    supportBranchAngle: 45         # tree only, degrees
+    supportTwigAngle: 45           # tree only, degrees
 })
 
 gcode = slicer.slice(mesh)
@@ -465,16 +474,18 @@ The `generateRegionSupportPattern()` function creates coordinated support grids:
 ### Grid Parameters
 
 ```coffeescript
-supportSpacing = nozzleDiameter * 2.0    # Grid line spacing
-supportGap = nozzleDiameter / 2          # Gap between support and object
+# Line spacing from slicer.getSupportDensity() (default 50%)
+supportSpacing = nozzleDiameter / (supportDensity / 100)
+# Gap from slicer.getSupportGap() (default 0.2mm)
+supportGap = slicer.getSupportGap()
 supportLineWidth = nozzleDiameter * 0.8  # Thinner for easier removal
 ```
 
 ### Pattern Generation
 
-1. **Shrink bounds** with gap to prevent touching object:
+1. **Shrink bounds** with `supportGap` to prevent touching object:
    ```coffeescript
-   supportGap = nozzleDiameter / 2
+   supportGap = slicer.getSupportGap()
    minX = region.minX + supportGap  # Shrink inward
    maxX = region.maxX - supportGap  # Shrink inward
    # Similar for Y
@@ -519,18 +530,79 @@ o o o o o o o
 
 ### Gap Between Support and Object
 
-The support gap ensures supports don't touch the printed part:
+The support gap ensures supports don't touch the printed part. Controlled by `supportGap` (default 0.2mm):
 
 ```coffeescript
-supportGap = nozzleDiameter / 2  # e.g., 0.2mm with 0.4mm nozzle
+supportGap = slicer.getSupportGap()  # e.g. 0.2mm by default
 ```
 
-- Follows same convention as infill gap
 - Creates clearance for easy support removal
 - Prevents adhesion between support and object
 - Support region is SMALLER than overhang region by gap amount on all sides
+- Larger values → easier removal, lower surface quality at overhang
+- Smaller values → better surface quality, harder to remove
 
-## Comparison: Old vs New Algorithm
+## Tree Support Structure
+
+Tree supports grow upward from a single trunk column, splitting into angled branches and fine twig tips that contact the overhang surface. Roots spread outward from the trunk base for stability.
+
+### Anatomy
+
+```
+  [contact tips]   ← twig endpoints, spaced contactSpacing apart
+      ╱╲╱╲         ← twig segments (rise at supportTwigAngle)
+    [branch nodes] ← one node per cluster of tips
+      ╲╱           ← branch segments (rise at supportBranchAngle)
+    [trunk]        ← single vertical column
+    ╱|╲            ← root segments spreading outward
+[build plate]
+```
+
+### Segment Types and Radii
+
+| Type | Radius Multiplier | Purpose |
+|------|-------------------|---------|
+| trunk | 3.0× nozzle | Structural stability |
+| branch | 1.8× nozzle | Mid-level arms |
+| twig | 0.8× nozzle | Fine tips near overhang |
+| root | 2.0× nozzle | Wide base footprint |
+
+### Angle Configuration
+
+`supportBranchAngle` and `supportTwigAngle` control the Z height computed for each node from its horizontal distance to the trunk:
+
+```coffeescript
+# Branch Z base from trunk top
+branchRootZ = tipZ - horizontalDist / Math.tan(branchAngle * PI / 180)
+
+# Twig node Z from contact tip
+nodeZ = tipZ - twigDist / Math.tan(twigAngle * PI / 180)
+```
+
+At the default 45° both tangents equal 1.0, giving `Z = tipZ - dist`.
+
+### Root Configuration
+
+```coffeescript
+rootsEnabled = slicer.getSupportRootsEnabled()  # toggle
+rootCount = slicer.getSupportRootCount()         # 1-8, default 4
+
+for i in [0...rootCount]
+    angle = i * 2 * PI / rootCount
+    rootEndX = trunkX + rootHeight * Math.cos(angle)
+    rootEndY = trunkY + rootHeight * Math.sin(angle)
+```
+
+In `everywhere` mode, roots whose spread direction leads into empty space are automatically omitted via ray-sampling against layer solid regions.
+
+### Trunk Accessibility
+
+For `buildPlate` support, if the computed trunk centroid falls inside solid geometry the algorithm searches outward in axis-aligned then diagonal directions to find a clear position:
+
+```coffeescript
+findAccessibleTrunkPosition: (cx, cy, layerSolidRegions, searchStep, maxSearchRadius, maxZ, clearance)
+# Returns { x, y } or null if none found within maxSearchRadius
+```
 
 ### Old Algorithm (Point-Based Clustering)
 
@@ -651,9 +723,15 @@ All caches are cleared at the start of each slice operation.
 ```coffeescript
 slicer = new Polyslice({
     supportEnabled: true
-    supportType: 'normal'
-    supportPlacement: 'buildPlate'  # or 'everywhere'
-    supportThreshold: 45  # degrees
+    supportType: 'normal'          # or 'tree'
+    supportPlacement: 'buildPlate' # or 'everywhere'
+    supportThreshold: 55           # degrees
+    supportGap: 0.2                # mm air gap
+    supportDensity: 50             # % grid density (normal only)
+    supportRootsEnabled: true      # tree only
+    supportRootCount: 4            # tree only, 1-8
+    supportBranchAngle: 45         # tree only, degrees
+    supportTwigAngle: 45           # tree only, degrees
 })
 
 gcode = slicer.slice(mesh)
@@ -661,11 +739,11 @@ gcode = slicer.slice(mesh)
 
 ## Important Conventions
 
-1. **Threshold interpretation**: 45° means faces more than 45° from vertical need support
+1. **Threshold interpretation**: 55° means faces more than 55° from vertical need support
 2. **Interface gap**: 1.5× layer height gap for easy removal
 3. **Line width**: 0.8× nozzle diameter for easier breakaway
-4. **Grid spacing**: 2.0× nozzle diameter for proper density
-5. **Support gap**: 0.5× nozzle diameter gap from object (same as infill gap)
+4. **Grid spacing**: Derived from `supportDensity` — `nozzleDiameter / (density / 100)`; at 50% default this equals `nozzleDiameter * 2.0`
+5. **Support gap**: Configurable via `supportGap` (default 0.2mm); used by both normal and tree support
 6. **Edge matching**: 0.001mm tolerance for shared edge detection
 7. **Face grouping**: Adjacent faces (sharing edges) pooled into single region
 8. **Area coverage**: Support grid covers bounding box MINUS gap on all sides
@@ -677,12 +755,15 @@ gcode = slicer.slice(mesh)
 14. **Placement modes**:
     - `'buildPlate'`: Blocks support if ANY solid geometry at this XY in layers below
     - `'everywhere'`: Stops support at solid surfaces, resumes above them
-15. **Cache management**: All three caches (_overhangFaces, _supportRegions, _layerSolidRegions) cleared between slices
+15. **Cache management**: All three caches (`_overhangFaces`, `_supportRegions`, `_layerSolidRegions`) cleared between slices
 16. **Sub-module architecture**:
-    - Main module dispatches based on `supportType` ('normal' or 'tree')
+    - Main module dispatches based on `supportType` (`'normal'` or `'tree'`)
     - Normal support implementation in `normal/normal.coffee`
-    - Tree support template in `tree/tree.coffee` (not yet implemented)
+    - Tree support implementation in `tree/tree.coffee`
     - Shared utilities in main `support.coffee` module
+17. **Tree branch/twig angles**: Must be in (0°, 90°) exclusive; both 0° (horizontal) and 90° (vertical) produce degenerate geometry
+18. **Root count**: 1–8 roots, evenly spaced radially; fractional values are floored
+19. **Density 0 short-circuit**: Setting `supportDensity` to 0 produces no normal support lines for any region
 
 ## Example Results
 
