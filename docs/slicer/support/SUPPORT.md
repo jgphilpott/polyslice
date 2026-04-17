@@ -16,7 +16,7 @@ const slicer = new Polyslice({
     supportType: "normal",          // "normal" or "tree"
     supportPlacement: "buildPlate", // Where supports originate
     supportThreshold: 45,           // Overhang angle threshold in degrees
-    supportGap: 0.2,                // Air gap between support and object (mm)
+    supportGap: 0.2,                // Lateral X/Y clearance between support edge and part (mm)
     supportDensity: 50,             // Normal support grid density (%)
     // Tree-specific options:
     supportRootsEnabled: true,      // Generate roots at trunk base
@@ -103,7 +103,7 @@ const threshold = slicer.getSupportThreshold(); // 55
 
 Type: Number (mm) | Default: `0.2`
 
-The air gap between the top of the support structure and the underside of the printed object. A larger gap makes supports easier to remove but may reduce surface quality at the overhang.
+The lateral clearance between the support region boundary and the printed part's outline in the X/Y plane. Increasing this value shrinks the support area inward on all sides, leaving a small gap between the support edge and the part wall for easier removal. Note: the vertical interface gap (Z) between the support top surface and the object underside is fixed at `1.5 × layerHeight`.
 
 ```javascript
 slicer.setSupportGap(0.3);

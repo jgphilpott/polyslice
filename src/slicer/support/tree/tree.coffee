@@ -535,11 +535,11 @@ module.exports =
 
         verbose = slicer.getVerbose()
 
-        supportGap = slicer.getSupportGap()
-        rootsEnabled = slicer.getSupportRootsEnabled()
-        rootCount = slicer.getSupportRootCount()
-        branchAngle = slicer.getSupportBranchAngle()
-        twigAngle = slicer.getSupportTwigAngle()
+        supportGap = slicer.supportGap
+        rootsEnabled = slicer.supportRootsEnabled
+        rootCount = Math.floor(slicer.supportRootCount)
+        branchAngle = slicer.supportBranchAngle
+        twigAngle = slicer.supportTwigAngle
 
         # Build tree structure once per region per slice (cached on the region object).
         if not region._treeSegments?

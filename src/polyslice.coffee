@@ -95,7 +95,7 @@ class Polyslice
 
         # Tree support settings.
         @supportRootsEnabled = options.supportRootsEnabled ?= true # Boolean - generate root structures at base of tree support.
-        @supportRootCount = options.supportRootCount ?= 4 # Number (1-8) - number of roots spreading from trunk base.
+        @supportRootCount = Math.floor(options.supportRootCount ?= 4) # Number (1-8) - number of roots spreading from trunk base.
         @supportBranchAngle = conversions.angleToInternal(options.supportBranchAngle ?= 45, this.angleUnit) # Number (degrees internal) - angle of branches from trunk.
         @supportTwigAngle = conversions.angleToInternal(options.supportTwigAngle ?= 45, this.angleUnit) # Number (degrees internal) - angle of twigs from branch nodes.
 

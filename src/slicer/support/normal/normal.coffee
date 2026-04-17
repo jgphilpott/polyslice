@@ -271,7 +271,7 @@ module.exports =
 
         # Support line spacing derived from supportDensity setting.
         # Density 0 produces no support lines (treated as disabled for this region).
-        supportDensity = slicer.getSupportDensity()
+        supportDensity = slicer.supportDensity
 
         return if supportDensity <= 0
 
@@ -279,7 +279,7 @@ module.exports =
 
         # Shrink region bounds to create gap between support and object.
         # This ensures supports don't touch the printed part for easy removal.
-        supportGap = slicer.getSupportGap()
+        supportGap = slicer.supportGap
         minX = region.minX + supportGap
         maxX = region.maxX - supportGap
         minY = region.minY + supportGap

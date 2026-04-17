@@ -131,7 +131,7 @@ This ensures physically feasible support structures that respect both solid geom
 | `supportType` | `'normal'` | Type of support structure (`'normal'` or `'tree'`) |
 | `supportPlacement` | `'buildPlate'` | Where supports can originate |
 | `supportThreshold` | `55` | Overhang angle in degrees requiring support |
-| `supportGap` | `0.2` | Air gap in mm between support top and object underside |
+| `supportGap` | `0.2` | Lateral X/Y clearance in mm between the support region boundary and the part outline (the vertical Z interface gap is fixed at `1.5 × layerHeight`) |
 | `supportDensity` | `50` | Normal grid density as % (0 = no lines, 100 = maximum) |
 | `supportRootsEnabled` | `true` | Generate root structures at tree trunk base |
 | `supportRootCount` | `4` | Number of radial roots (1–8) |
@@ -474,10 +474,10 @@ The `generateRegionSupportPattern()` function creates coordinated support grids:
 ### Grid Parameters
 
 ```coffeescript
-# Line spacing from slicer.getSupportDensity() (default 50%)
+# Line spacing from slicer.supportDensity (default 50%)
 supportSpacing = nozzleDiameter / (supportDensity / 100)
-# Gap from slicer.getSupportGap() (default 0.2mm)
-supportGap = slicer.getSupportGap()
+# Gap from slicer.supportGap (default 0.2mm)
+supportGap = slicer.supportGap
 supportLineWidth = nozzleDiameter * 0.8  # Thinner for easier removal
 ```
 
@@ -485,7 +485,7 @@ supportLineWidth = nozzleDiameter * 0.8  # Thinner for easier removal
 
 1. **Shrink bounds** with `supportGap` to prevent touching object:
    ```coffeescript
-   supportGap = slicer.getSupportGap()
+   supportGap = slicer.supportGap
    minX = region.minX + supportGap  # Shrink inward
    maxX = region.maxX - supportGap  # Shrink inward
    # Similar for Y
@@ -530,15 +530,16 @@ o o o o o o o
 
 ### Gap Between Support and Object
 
-The support gap ensures supports don't touch the printed part. Controlled by `supportGap` (default 0.2mm):
+The support gap controls the lateral X/Y clearance, shrinking support region bounds on all sides. Controlled by `supportGap` (default 0.2mm):
 
 ```coffeescript
-supportGap = slicer.getSupportGap()  # e.g. 0.2mm by default
+supportGap = slicer.supportGap  # e.g. 0.2mm by default
 ```
 
-- Creates clearance for easy support removal
-- Prevents adhesion between support and object
+- Creates lateral clearance between support edge and part boundary for easy removal
+- Prevents adhesion between support sides and object walls
 - Support region is SMALLER than overhang region by gap amount on all sides
+- The vertical Z interface gap is fixed at `1.5 × layerHeight`
 - Larger values → easier removal, lower surface quality at overhang
 - Smaller values → better surface quality, harder to remove
 
