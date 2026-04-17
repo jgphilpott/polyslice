@@ -67,7 +67,7 @@
     "@jgphilpott/polyconvert": "^1.0.7",
     "@jgphilpott/polytree": "^0.1.8",
     "polygon-clipping": "^0.15.7",
-    "three": "^0.183.2",
+    "three": "^0.184.0",
     "three-subdivide": "^1.1.5"
   },
   "peerDependencies": {
@@ -85,7 +85,7 @@
     "eslint": "^10.2.0",
     "eslint-config-prettier": "^10.1.8",
     "jest": "^30.3.0",
-    "prettier": "^3.8.2",
+    "prettier": "^3.8.3",
     "three-bvh-csg": "^0.0.18",
     "three-mesh-bvh": "^0.9.9",
     "uglify-js": "^3.19.3"
