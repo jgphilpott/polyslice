@@ -269,13 +269,17 @@ module.exports =
         # Interface gap between top of support and bottom of overhang.
         interfaceGap = layerHeight * 1.5
 
-        # Support line spacing (grid pattern).
-        # Use tighter spacing for better coverage.
-        supportSpacing = nozzleDiameter * 2.0
+        # Support line spacing derived from supportDensity setting.
+        # Density 0 produces no support lines (treated as disabled for this region).
+        supportDensity = slicer.supportDensity
+
+        return if supportDensity <= 0
+
+        supportSpacing = nozzleDiameter / (supportDensity / 100)
 
         # Shrink region bounds to create gap between support and object.
         # This ensures supports don't touch the printed part for easy removal.
-        supportGap = nozzleDiameter / 2
+        supportGap = slicer.supportGap
         minX = region.minX + supportGap
         maxX = region.maxX - supportGap
         minY = region.minY + supportGap

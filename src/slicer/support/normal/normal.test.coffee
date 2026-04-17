@@ -2,6 +2,7 @@
 
 normalSupport = require('./normal')
 THREE = require('three')
+Polyslice = require('../../../index')
 
 describe 'Normal Support Module', ->
 
@@ -332,3 +333,110 @@ describe 'Normal Support Module', ->
             # Degenerate triangles must be skipped, so the point should not be
             # considered inside any support wedge, and the call must not throw.
             expect(result).toBe(false)
+
+    describe 'generateRegionSupportPattern', ->
+
+        # Helper: create a minimal slicer for pattern generation tests.
+        makeSlicer = ->
+
+            slicer = new Polyslice({ progressCallback: null })
+            slicer.gcode = ''
+            slicer.cumulativeE = 0
+
+            return slicer
+
+        # Helper: create a region with a flat rectangular overhang at the given Z.
+        makeRegion = (minX, maxX, minY, maxY, regionZ) ->
+
+            faces = [
+                {
+                    vertices: [
+                        { x: minX, y: minY, z: regionZ }
+                        { x: maxX, y: minY, z: regionZ }
+                        { x: maxX, y: maxY, z: regionZ }
+                    ]
+                }
+                {
+                    vertices: [
+                        { x: minX, y: minY, z: regionZ }
+                        { x: maxX, y: maxY, z: regionZ }
+                        { x: minX, y: maxY, z: regionZ }
+                    ]
+                }
+            ]
+
+            return {
+                faces: faces
+                minX: minX
+                maxX: maxX
+                minY: minY
+                maxY: maxY
+                minZ: regionZ
+                maxZ: regionZ
+                centerX: (minX + maxX) / 2
+                centerY: (minY + maxY) / 2
+            }
+
+        test 'should produce G-code for a valid region with default settings', ->
+
+            slicer = makeSlicer()
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            normalSupport.generateRegionSupportPattern(
+                slicer, region, 5, 0, 0, 0, 0.4, [], 'buildPlate', 0, 0.2
+            )
+
+            expect(slicer.gcode.length).toBeGreaterThan(0)
+
+        test 'should produce no G-code when supportDensity is 0', ->
+
+            slicer = makeSlicer()
+            slicer.setSupportDensity(0)
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            normalSupport.generateRegionSupportPattern(
+                slicer, region, 5, 0, 0, 0, 0.4, [], 'buildPlate', 0, 0.2
+            )
+
+            # Density 0 triggers an early return — no support lines generated.
+            expect(slicer.gcode).toBe('')
+
+        test 'should produce no G-code when supportGap collapses the region', ->
+
+            slicer = makeSlicer()
+
+            # A 20mm-wide region collapsed by a 15mm gap on each side leaves no room.
+            slicer.setSupportGap(15)
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            normalSupport.generateRegionSupportPattern(
+                slicer, region, 5, 0, 0, 0, 0.4, [], 'buildPlate', 0, 0.2
+            )
+
+            expect(slicer.gcode).toBe('')
+
+        test 'smaller supportDensity should produce wider line spacing', ->
+
+            # A lower density value means fewer lines over the same area.
+            # Count extruding G1 moves as a proxy for line count.
+            countExtrusions = (gcode) ->
+                return gcode.split('\n').filter((l) -> /^G1 .*E/.test(l)).length
+
+            slicerHigh = makeSlicer()
+            slicerHigh.setSupportDensity(80)
+            region1 = makeRegion(-10, 10, -10, 10, 20)
+
+            normalSupport.generateRegionSupportPattern(
+                slicerHigh, region1, 5, 0, 0, 0, 0.4, [], 'buildPlate', 0, 0.2
+            )
+
+            slicerLow = makeSlicer()
+            slicerLow.setSupportDensity(20)
+            region2 = makeRegion(-10, 10, -10, 10, 20)
+
+            normalSupport.generateRegionSupportPattern(
+                slicerLow, region2, 5, 0, 0, 0, 0.4, [], 'buildPlate', 0, 0.2
+            )
+
+            # Higher density must produce more extrusion moves than lower density.
+            expect(countExtrusions(slicerHigh.gcode)).toBeGreaterThan(countExtrusions(slicerLow.gcode))

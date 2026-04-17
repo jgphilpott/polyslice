@@ -134,6 +134,30 @@ module.exports =
 
         return conversions.angleFromInternal(slicer.supportThreshold, slicer.angleUnit)
 
+    getSupportGap: (slicer) ->
+
+        return conversions.lengthFromInternal(slicer.supportGap, slicer.lengthUnit)
+
+    getSupportDensity: (slicer) ->
+
+        return slicer.supportDensity
+
+    getSupportRootsEnabled: (slicer) ->
+
+        return slicer.supportRootsEnabled
+
+    getSupportRootCount: (slicer) ->
+
+        return slicer.supportRootCount
+
+    getSupportBranchAngle: (slicer) ->
+
+        return conversions.angleFromInternal(slicer.supportBranchAngle, slicer.angleUnit)
+
+    getSupportTwigAngle: (slicer) ->
+
+        return conversions.angleFromInternal(slicer.supportTwigAngle, slicer.angleUnit)
+
     getAdhesionEnabled: (slicer) ->
 
         return slicer.adhesionEnabled
@@ -615,6 +639,60 @@ module.exports =
             if angleInDegrees >= 0 and angleInDegrees <= 90
 
                 slicer.supportThreshold = angleInDegrees
+
+        return slicer
+
+    setSupportGap: (slicer, gap = 0.2) ->
+
+        if typeof gap is "number" and gap >= 0
+
+            slicer.supportGap = conversions.lengthToInternal(gap, slicer.lengthUnit)
+
+        return slicer
+
+    setSupportDensity: (slicer, density = 50) ->
+
+        if typeof density is "number" and density >= 0 and density <= 100
+
+            slicer.supportDensity = Number density
+
+        return slicer
+
+    setSupportRootsEnabled: (slicer, enabled = true) ->
+
+        slicer.supportRootsEnabled = Boolean enabled
+
+        return slicer
+
+    setSupportRootCount: (slicer, count = 4) ->
+
+        if typeof count is "number" and count >= 1 and count <= 8
+
+            slicer.supportRootCount = Math.floor(Number count)
+
+        return slicer
+
+    setSupportBranchAngle: (slicer, angle = 45) ->
+
+        if typeof angle is "number"
+
+            angleInDegrees = conversions.angleToInternal(angle, slicer.angleUnit)
+
+            if angleInDegrees > 0 and angleInDegrees < 90
+
+                slicer.supportBranchAngle = angleInDegrees
+
+        return slicer
+
+    setSupportTwigAngle: (slicer, angle = 45) ->
+
+        if typeof angle is "number"
+
+            angleInDegrees = conversions.angleToInternal(angle, slicer.angleUnit)
+
+            if angleInDegrees > 0 and angleInDegrees < 90
+
+                slicer.supportTwigAngle = angleInDegrees
 
         return slicer
 

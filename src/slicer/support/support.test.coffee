@@ -67,7 +67,7 @@ describe 'Support Module', ->
 
             expect(result).toBeUndefined()
 
-            # Tree supports should return early (not yet implemented).
+            # Tree supports are also implemented and return undefined at this layer call.
             slicer.setSupportType('tree')
 
             result = supportModule.generateSupportGCode(slicer, mesh, 0, 0, 0, 0)
@@ -90,7 +90,7 @@ describe 'Support Module', ->
 
             expect(result).toBeUndefined()
 
-            # Everywhere placement should return early (not yet implemented).
+            # Everywhere placement also proceeds (returns undefined for now).
             slicer.setSupportPlacement('everywhere')
 
             result = supportModule.generateSupportGCode(slicer, mesh, 0, 0, 0, 0)
@@ -131,6 +131,123 @@ describe 'Support Module', ->
             result = supportModule.generateSupportGCode(slicer, mesh, 0, 0, 0, 0)
 
             expect(result).toBeUndefined()
+
+        test 'should default supportGap to 0.2mm', ->
+
+            expect(slicer.getSupportGap()).toBeCloseTo(0.2, 5)
+
+        test 'should set and get supportGap', ->
+
+            slicer.setSupportGap(0.5)
+
+            expect(slicer.getSupportGap()).toBeCloseTo(0.5, 5)
+
+        test 'should reject negative supportGap', ->
+
+            slicer.setSupportGap(-1)
+
+            # Value should remain at default.
+            expect(slicer.getSupportGap()).toBeCloseTo(0.2, 5)
+
+        test 'should default supportDensity to 50', ->
+
+            expect(slicer.getSupportDensity()).toBe(50)
+
+        test 'should set and get supportDensity', ->
+
+            slicer.setSupportDensity(30)
+
+            expect(slicer.getSupportDensity()).toBe(30)
+
+        test 'should reject supportDensity outside 0-100 range', ->
+
+            slicer.setSupportDensity(120)
+
+            expect(slicer.getSupportDensity()).toBe(50)
+
+            slicer.setSupportDensity(-10)
+
+            expect(slicer.getSupportDensity()).toBe(50)
+
+        test 'should default supportRootsEnabled to true', ->
+
+            expect(slicer.getSupportRootsEnabled()).toBe(true)
+
+        test 'should set and get supportRootsEnabled', ->
+
+            slicer.setSupportRootsEnabled(false)
+
+            expect(slicer.getSupportRootsEnabled()).toBe(false)
+
+            slicer.setSupportRootsEnabled(true)
+
+            expect(slicer.getSupportRootsEnabled()).toBe(true)
+
+        test 'should default supportRootCount to 4', ->
+
+            expect(slicer.getSupportRootCount()).toBe(4)
+
+        test 'should set and get supportRootCount', ->
+
+            slicer.setSupportRootCount(8)
+
+            expect(slicer.getSupportRootCount()).toBe(8)
+
+        test 'should reject supportRootCount outside 1-8 range', ->
+
+            slicer.setSupportRootCount(0)
+
+            expect(slicer.getSupportRootCount()).toBe(4)
+
+            slicer.setSupportRootCount(9)
+
+            expect(slicer.getSupportRootCount()).toBe(4)
+
+        test 'should floor fractional supportRootCount values', ->
+
+            slicer.setSupportRootCount(3.9)
+
+            expect(slicer.getSupportRootCount()).toBe(3)
+
+        test 'should default supportBranchAngle to 45 degrees', ->
+
+            expect(slicer.getSupportBranchAngle()).toBe(45)
+
+        test 'should set and get supportBranchAngle', ->
+
+            slicer.setSupportBranchAngle(60)
+
+            expect(slicer.getSupportBranchAngle()).toBe(60)
+
+        test 'should reject supportBranchAngle outside 0-90 range (exclusive)', ->
+
+            slicer.setSupportBranchAngle(0)
+
+            expect(slicer.getSupportBranchAngle()).toBe(45)
+
+            slicer.setSupportBranchAngle(90)
+
+            expect(slicer.getSupportBranchAngle()).toBe(45)
+
+        test 'should default supportTwigAngle to 45 degrees', ->
+
+            expect(slicer.getSupportTwigAngle()).toBe(45)
+
+        test 'should set and get supportTwigAngle', ->
+
+            slicer.setSupportTwigAngle(30)
+
+            expect(slicer.getSupportTwigAngle()).toBe(30)
+
+        test 'should reject supportTwigAngle outside 0-90 range (exclusive)', ->
+
+            slicer.setSupportTwigAngle(0)
+
+            expect(slicer.getSupportTwigAngle()).toBe(45)
+
+            slicer.setSupportTwigAngle(90)
+
+            expect(slicer.getSupportTwigAngle()).toBe(45)
 
     describe 'Overhang Detection', ->
 

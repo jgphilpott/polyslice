@@ -230,17 +230,24 @@ module.exports =
     # effective trunk base (first printable trunk layer) and are not included here.
     # Optional trunkXOverride / trunkYOverride place the trunk at a specific XY position
     # instead of the tip centroid; used when the centroid is inaccessible from the build plate.
+    # opts may contain: { supportGap, branchAngle, twigAngle } (all optional, with defaults).
     # Returns an array of {x1, y1, z1, x2, y2, z2, type} segment objects.
-    buildTreeStructure: (region, nozzleDiameter, buildPlateZ, layerHeight, trunkXOverride = null, trunkYOverride = null) ->
+    buildTreeStructure: (region, nozzleDiameter, buildPlateZ, layerHeight, trunkXOverride = null, trunkYOverride = null, opts = {}) ->
 
         contactSpacing = nozzleDiameter * CONTACT_SPACING_MULTIPLIER
         interfaceGap = layerHeight * 1.5
-        supportGap = nozzleDiameter / 2
+        effectiveSupportGap = if opts.supportGap? then opts.supportGap else nozzleDiameter / 2
 
-        minX = region.minX + supportGap
-        maxX = region.maxX - supportGap
-        minY = region.minY + supportGap
-        maxY = region.maxY - supportGap
+        # Precompute angle tangents once for efficiency; used in twig and branch Z calculations.
+        branchAngle = if opts.branchAngle? then opts.branchAngle else 45
+        twigAngle = if opts.twigAngle? then opts.twigAngle else 45
+        branchTan = Math.tan(branchAngle * Math.PI / 180)
+        twigTan = Math.tan(twigAngle * Math.PI / 180)
+
+        minX = region.minX + effectiveSupportGap
+        maxX = region.maxX - effectiveSupportGap
+        minY = region.minY + effectiveSupportGap
+        maxY = region.maxY - effectiveSupportGap
 
         return [] if minX >= maxX or minY >= maxY
 
@@ -322,9 +329,10 @@ module.exports =
             cx /= clusterTips.length
             cy /= clusterTips.length
 
-            # Compute the branch node Z from the 45-degree constraint applied to each tip.
-            # nodeZ = min(tip.z - tdist) guarantees every twig rises at ≤ 45 degrees from
-            # the branch endpoint to its contact tip, eliminating orphaned twig segments.
+            # Compute the branch node Z using twigAngle constraint applied to each tip.
+            # nodeZ = min(tip.z - tdist / twigTan) ensures every twig rises at <= twigAngle
+            # from the branch endpoint to its contact tip, eliminating orphaned twig segments.
+            # At 45°: tan(45°) = 1, so tdist / 1 = tdist (matches the original behaviour).
             nodeZ = Infinity
 
             for tip in clusterTips
@@ -332,7 +340,7 @@ module.exports =
                 tdx = tip.x - cx
                 tdy = tip.y - cy
                 tdist = Math.sqrt(tdx * tdx + tdy * tdy)
-                nodeZ = Math.min(nodeZ, tip.z - tdist)
+                nodeZ = Math.min(nodeZ, tip.z - tdist / twigTan)
 
             nodeZ = Math.max(nodeZ, buildPlateZ + layerHeight)
 
@@ -344,10 +352,10 @@ module.exports =
             branchNodes.push({ x: cx, y: cy, z: nodeZ, tips: clusterTips })
 
         # Compute branch root heights: where each branch diverges from the shared trunk.
-        # The ideal root height is determined by the 45° angle constraint
-        # (vertical rise = horizontal spread from trunk to branch centroid).
+        # The ideal root height is determined by the branchAngle constraint
+        # (idealZ = node.z - dist / branchTan).
         # Root Z is clamped to the first printable layer above the build plate;
-        # the clamp may reduce the effective angle below 45° for wide or low overhangs.
+        # the clamp may reduce the effective angle for wide or low overhangs.
         branchRootZs = []
 
         for node in branchNodes
@@ -356,7 +364,7 @@ module.exports =
             dy = node.y - trunkY
             dist = Math.sqrt(dx * dx + dy * dy)
 
-            idealZ = node.z - dist
+            idealZ = node.z - dist / branchTan
             branchRootZs.push(Math.max(idealZ, buildPlateZ + layerHeight))
 
         # Single shared trunk segment: vertical column from build plate to the highest
@@ -527,10 +535,16 @@ module.exports =
 
         verbose = slicer.getVerbose()
 
+        supportGap = slicer.supportGap
+        rootsEnabled = slicer.supportRootsEnabled
+        rootCount = Math.floor(slicer.supportRootCount)
+        branchAngle = slicer.supportBranchAngle
+        twigAngle = slicer.supportTwigAngle
+
         # Build tree structure once per region per slice (cached on the region object).
         if not region._treeSegments?
 
-            region._treeSegments = @buildTreeStructure(region, nozzleDiameter, minZ, layerHeight)
+            region._treeSegments = @buildTreeStructure(region, nozzleDiameter, minZ, layerHeight, null, null, { supportGap, branchAngle, twigAngle })
 
             # For 'buildPlate' tree support: if the computed trunk centroid is not accessible
             # from the build plate (blocked by solid geometry at some lower layer), search for
@@ -557,7 +571,8 @@ module.exports =
 
                         region._treeSegments = @buildTreeStructure(
                             region, nozzleDiameter, minZ, layerHeight,
-                            accessibleTrunk.x, accessibleTrunk.y
+                            accessibleTrunk.x, accessibleTrunk.y,
+                            { supportGap, branchAngle, twigAngle }
                         )
 
         segments = region._treeSegments
@@ -624,7 +639,7 @@ module.exports =
         # Generate root cross-sections dynamically from the effective trunk base.
         # Roots spread radially outward at the base (spread = rootHeight for 45° angle)
         # and converge back to the trunk XY over the rootHeight vertical range.
-        if region._effectiveTrunkBaseZ?
+        if rootsEnabled and region._effectiveTrunkBaseZ?
 
             trunkSeg = segments.find (s) -> s.type is 'trunk'
 
@@ -659,9 +674,9 @@ module.exports =
                         relevantLayers = layerSolidRegions.filter (ld) ->
                             ld.z <= effectiveBaseZ and (effectiveBaseZ - ld.z) <= rootHeight
 
-                        for i in [0...ROOT_COUNT]
+                        for i in [0...rootCount]
 
-                            angle = i * 2 * Math.PI / ROOT_COUNT
+                            angle = i * 2 * Math.PI / rootCount
 
                             rootIsSupported = true
 
@@ -703,7 +718,7 @@ module.exports =
 
                     for i in region._validRootIndices
 
-                        angle = i * 2 * Math.PI / ROOT_COUNT
+                        angle = i * 2 * Math.PI / rootCount
                         # Spread equals rootHeight for a 45-degree outward angle.
                         rootEndX = trunkX + rootHeight * Math.cos(angle)
                         rootEndY = trunkY + rootHeight * Math.sin(angle)
