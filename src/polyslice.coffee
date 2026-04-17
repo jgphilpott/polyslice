@@ -88,6 +88,14 @@ class Polyslice
         @supportType = options.supportType ?= "normal" # String ['normal', 'tree'].
         @supportPlacement = options.supportPlacement ?= "buildPlate" # String ['buildPlate', 'everywhere'].
         @supportThreshold = conversions.angleToInternal(options.supportThreshold ?= 55, this.angleUnit) # Number (degrees internal).
+        @supportGap = conversions.lengthToInternal(options.supportGap ?= 0.2, this.lengthUnit) # Number (mm internal) - air gap between support and object.
+        @supportDensity = options.supportDensity ?= 50 # Number 0-100 (percentage) - density of normal support grid.
+
+        # Tree support settings.
+        @supportRootsEnabled = options.supportRootsEnabled ?= true # Boolean - generate root structures at base of tree support.
+        @supportRootCount = options.supportRootCount ?= 4 # Number (1-8) - number of roots spreading from trunk base.
+        @supportBranchAngle = conversions.angleToInternal(options.supportBranchAngle ?= 45, this.angleUnit) # Number (degrees internal) - angle of branches from trunk.
+        @supportTwigAngle = conversions.angleToInternal(options.supportTwigAngle ?= 45, this.angleUnit) # Number (degrees internal) - angle of twigs from branch nodes.
 
         # Build plate adhesion settings for first layer stability.
         @adhesionEnabled = options.adhesionEnabled ?= false # Boolean.
@@ -301,6 +309,24 @@ class Polyslice
 
     getSupportThreshold: ->
         accessors.getSupportThreshold(this)
+
+    getSupportGap: ->
+        accessors.getSupportGap(this)
+
+    getSupportDensity: ->
+        accessors.getSupportDensity(this)
+
+    getSupportRootsEnabled: ->
+        accessors.getSupportRootsEnabled(this)
+
+    getSupportRootCount: ->
+        accessors.getSupportRootCount(this)
+
+    getSupportBranchAngle: ->
+        accessors.getSupportBranchAngle(this)
+
+    getSupportTwigAngle: ->
+        accessors.getSupportTwigAngle(this)
 
     getAdhesionEnabled: ->
         accessors.getAdhesionEnabled(this)
@@ -549,6 +575,24 @@ class Polyslice
 
     setSupportThreshold: (angle = 55) ->
         accessors.setSupportThreshold(this, angle)
+
+    setSupportGap: (gap = 0.2) ->
+        accessors.setSupportGap(this, gap)
+
+    setSupportDensity: (density = 50) ->
+        accessors.setSupportDensity(this, density)
+
+    setSupportRootsEnabled: (enabled = true) ->
+        accessors.setSupportRootsEnabled(this, enabled)
+
+    setSupportRootCount: (count = 4) ->
+        accessors.setSupportRootCount(this, count)
+
+    setSupportBranchAngle: (angle = 45) ->
+        accessors.setSupportBranchAngle(this, angle)
+
+    setSupportTwigAngle: (angle = 45) ->
+        accessors.setSupportTwigAngle(this, angle)
 
     setAdhesionEnabled: (enabled = false) ->
         accessors.setAdhesionEnabled(this, enabled)
