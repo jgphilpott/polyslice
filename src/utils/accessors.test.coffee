@@ -335,6 +335,84 @@ describe 'Accessors (Getters and Setters)', ->
             radianSlicer.setSupportThreshold(Math.PI / 4) # 45 degrees.
             expect(radianSlicer.getSupportThreshold()).toBeCloseTo(Math.PI / 4, 3)
 
+            # Test supportGap (default 0.2mm, must be >= 0).
+            expect(slicer.getSupportGap()).toBeCloseTo(0.2, 5)
+
+            slicer.setSupportGap(0.5)
+            expect(slicer.getSupportGap()).toBeCloseTo(0.5, 5)
+
+            # Should ignore negative values.
+            slicer.setSupportGap(-0.1)
+            expect(slicer.getSupportGap()).toBeCloseTo(0.5, 5) # unchanged.
+
+            # Test supportDensity (default 50, valid range 0-100).
+            expect(slicer.getSupportDensity()).toBe(50)
+
+            slicer.setSupportDensity(30)
+            expect(slicer.getSupportDensity()).toBe(30)
+
+            slicer.setSupportDensity(0)
+            expect(slicer.getSupportDensity()).toBe(0)
+
+            # Should ignore values outside 0-100.
+            slicer.setSupportDensity(110)
+            expect(slicer.getSupportDensity()).toBe(0) # unchanged.
+
+            slicer.setSupportDensity(-5)
+            expect(slicer.getSupportDensity()).toBe(0) # unchanged.
+
+            # Test supportRootsEnabled (default true).
+            expect(slicer.getSupportRootsEnabled()).toBe(true)
+
+            slicer.setSupportRootsEnabled(false)
+            expect(slicer.getSupportRootsEnabled()).toBe(false)
+
+            slicer.setSupportRootsEnabled(true)
+            expect(slicer.getSupportRootsEnabled()).toBe(true)
+
+            # Test supportRootCount (default 4, valid range 1-8).
+            expect(slicer.getSupportRootCount()).toBe(4)
+
+            slicer.setSupportRootCount(6)
+            expect(slicer.getSupportRootCount()).toBe(6)
+
+            # Should floor fractional values.
+            slicer.setSupportRootCount(3.7)
+            expect(slicer.getSupportRootCount()).toBe(3)
+
+            # Should ignore values outside 1-8.
+            slicer.setSupportRootCount(0)
+            expect(slicer.getSupportRootCount()).toBe(3) # unchanged.
+
+            slicer.setSupportRootCount(9)
+            expect(slicer.getSupportRootCount()).toBe(3) # unchanged.
+
+            # Test supportBranchAngle (default 45, valid range exclusive of 0 and 90).
+            expect(slicer.getSupportBranchAngle()).toBe(45)
+
+            slicer.setSupportBranchAngle(60)
+            expect(slicer.getSupportBranchAngle()).toBe(60)
+
+            # Should ignore boundary values.
+            slicer.setSupportBranchAngle(0)
+            expect(slicer.getSupportBranchAngle()).toBe(60) # unchanged.
+
+            slicer.setSupportBranchAngle(90)
+            expect(slicer.getSupportBranchAngle()).toBe(60) # unchanged.
+
+            # Test supportTwigAngle (default 45, valid range exclusive of 0 and 90).
+            expect(slicer.getSupportTwigAngle()).toBe(45)
+
+            slicer.setSupportTwigAngle(30)
+            expect(slicer.getSupportTwigAngle()).toBe(30)
+
+            # Should ignore boundary values.
+            slicer.setSupportTwigAngle(0)
+            expect(slicer.getSupportTwigAngle()).toBe(30) # unchanged.
+
+            slicer.setSupportTwigAngle(90)
+            expect(slicer.getSupportTwigAngle()).toBe(30) # unchanged.
+
         test 'should set and get adhesion settings', ->
 
             expect(slicer.getAdhesionEnabled()).toBe(false)

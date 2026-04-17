@@ -67,7 +67,7 @@ describe 'Support Module', ->
 
             expect(result).toBeUndefined()
 
-            # Tree supports should return early (not yet implemented).
+            # Tree supports are also implemented and return undefined at this layer call.
             slicer.setSupportType('tree')
 
             result = supportModule.generateSupportGCode(slicer, mesh, 0, 0, 0, 0)
@@ -90,7 +90,7 @@ describe 'Support Module', ->
 
             expect(result).toBeUndefined()
 
-            # Everywhere placement should return early (not yet implemented).
+            # Everywhere placement also proceeds (returns undefined for now).
             slicer.setSupportPlacement('everywhere')
 
             result = supportModule.generateSupportGCode(slicer, mesh, 0, 0, 0, 0)

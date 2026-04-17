@@ -57,6 +57,13 @@ describe 'Polyslice', ->
             expect(slicer.getSupportEnabled()).toBe(false)
             expect(slicer.getSupportType()).toBe('normal')
             expect(slicer.getSupportPlacement()).toBe('buildPlate')
+            expect(slicer.getSupportThreshold()).toBe(55)
+            expect(slicer.getSupportGap()).toBeCloseTo(0.2, 5)
+            expect(slicer.getSupportDensity()).toBe(50)
+            expect(slicer.getSupportRootsEnabled()).toBe(true)
+            expect(slicer.getSupportRootCount()).toBe(4)
+            expect(slicer.getSupportBranchAngle()).toBe(45)
+            expect(slicer.getSupportTwigAngle()).toBe(45)
 
             # Test new adhesion settings
             expect(slicer.getAdhesionEnabled()).toBe(false)

@@ -1539,3 +1539,82 @@ describe 'Tree Support Module', ->
             expect(trunk2).toBeDefined()
             expect(trunk2.x1).toBeCloseTo(trunk1.x1, 3)
             expect(trunk2.y1).toBeCloseTo(trunk1.y1, 3)
+
+        test 'should accept opts.supportGap and collapse the region when gap is too large', ->
+
+            # A 20mm-wide region with a 15mm gap on each side collapses → empty array.
+            region = makeRegion(-10, 10, -10, 10, 20)
+            segments = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2, null, null, { supportGap: 15 })
+
+            expect(Array.isArray(segments)).toBe(true)
+            expect(segments.length).toBe(0)
+
+        test 'should produce fewer contact tips with a larger supportGap', ->
+
+            # A larger gap shrinks the contact-tip grid, resulting in fewer tips and
+            # therefore fewer branch/twig segments.
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            segmentsSmallGap = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2, null, null, { supportGap: 0.2 })
+            segmentsLargeGap = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2, null, null, { supportGap: 4 })
+
+            # More gap → fewer tips → fewer twig/branch segments.
+            twigSmall = segmentsSmallGap.filter (s) -> s.type is 'twig'
+            twigLarge = segmentsLargeGap.filter (s) -> s.type is 'twig'
+
+            expect(twigSmall.length).toBeGreaterThan(twigLarge.length)
+
+        test 'should accept opts.branchAngle and alter branch geometry', ->
+
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            # Shallow angle (30°): branches spread more horizontally per unit of Z.
+            segmentsShallow = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2, null, null, { branchAngle: 30 })
+
+            # Steep angle (80°): branches are nearly vertical.
+            segmentsSteep = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2, null, null, { branchAngle: 80 })
+
+            # Both configurations must produce branch segments.
+            branchShallow = segmentsShallow.filter (s) -> s.type is 'branch'
+            branchSteep = segmentsSteep.filter (s) -> s.type is 'branch'
+
+            expect(branchShallow.length).toBeGreaterThan(0)
+            expect(branchSteep.length).toBeGreaterThan(0)
+
+            # A steeper angle means the branch root Z is higher (branches start closer to the tip).
+            # For the same horizontal distance, a steep angle yields a higher branchRootZ.
+            sumShallow = 0
+            sumShallow += s.z1 for s in branchShallow
+            avgBranchRootZShallow = sumShallow / branchShallow.length
+
+            sumSteep = 0
+            sumSteep += s.z1 for s in branchSteep
+            avgBranchRootZSteep = sumSteep / branchSteep.length
+
+            expect(avgBranchRootZSteep).toBeGreaterThan(avgBranchRootZShallow)
+
+        test 'should accept opts.twigAngle and alter twig geometry', ->
+
+            region = makeRegion(-10, 10, -10, 10, 20)
+
+            # Steep twigAngle (80°): twigs are nearly vertical — twig roots are close to the tip Z.
+            segmentsSteep = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2, null, null, { twigAngle: 80 })
+
+            # Shallow twigAngle (30°): twigs are more horizontal — twig roots are further below the tip.
+            segmentsShallow = treeSupport.buildTreeStructure(region, 0.4, 0, 0.2, null, null, { twigAngle: 30 })
+
+            twigSteep = segmentsSteep.filter (s) -> s.type is 'twig'
+            twigShallow = segmentsShallow.filter (s) -> s.type is 'twig'
+
+            expect(twigSteep.length).toBeGreaterThan(0)
+            expect(twigShallow.length).toBeGreaterThan(0)
+
+            # A shallower twig angle means the twig-to-branch node Z is lower.
+            # Compare the minimum twig start Z (z1) across both configurations.
+            minTwigZ1Steep = twigSteep[0].z1
+            minTwigZ1Steep = Math.min(minTwigZ1Steep, s.z1) for s in twigSteep
+
+            minTwigZ1Shallow = twigShallow[0].z1
+            minTwigZ1Shallow = Math.min(minTwigZ1Shallow, s.z1) for s in twigShallow
+
+            expect(minTwigZ1Shallow).toBeLessThan(minTwigZ1Steep)
