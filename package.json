@@ -65,7 +65,7 @@
   },
   "dependencies": {
     "@jgphilpott/polyconvert": "^1.0.7",
-    "@jgphilpott/polytree": "^0.1.8",
+    "@jgphilpott/polytree": "^0.1.9",
     "polygon-clipping": "^0.15.7",
     "three": "^0.184.0",
     "three-subdivide": "^1.1.5"
@@ -82,7 +82,7 @@
     "@dgreenheck/three-pinata": "^2.0.1",
     "coffeescript": "^2.7.0",
     "esbuild": "^0.28.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.2.1",
     "eslint-config-prettier": "^10.1.8",
     "jest": "^30.3.0",
     "prettier": "^3.8.3",
