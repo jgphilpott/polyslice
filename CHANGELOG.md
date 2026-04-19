@@ -7,6 +7,24 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.4.0] - 2026-04-19
+
+### Added
+- **Support: Configurable `supportGap` Option** - the lateral air gap between support structures and the printed object is now user-configurable instead of hardcoded (PR #189)
+  - Shared by both normal and tree support; accepted by all `set*`/`get*` accessor pairs
+  - Default `0.2` mm preserves existing behaviour; `setSupportGap` validates `>= 0`
+- **Support: Configurable `supportDensity` Option** - normal support grid density is now settable as a percentage (PR #189)
+  - Range 0–100; default `50` matches the previously hardcoded line-spacing equivalent
+  - Setting to `0` produces no support lines for any region (early-return short-circuit)
+- **Tree Support: Configurable `supportRootsEnabled` Option** - root structures at the trunk base can now be toggled on or off (PR #189)
+  - Boolean flag; default `true` preserves existing behaviour
+- **Tree Support: Configurable `supportRootCount` Option** - number of radial roots spreading from the trunk base is now configurable (PR #189)
+  - Integer 1–8; default `4`; fractional inputs are floored internally
+- **Tree Support: Configurable `supportBranchAngle` Option** - angle of branches rising from the trunk is now configurable (PR #189)
+  - Degrees in range (0°, 90°) exclusive; default `45`
+- **Tree Support: Configurable `supportTwigAngle` Option** - angle of twigs rising from branch nodes to contact tips is now configurable (PR #189)
+  - Degrees in range (0°, 90°) exclusive; default `45`
+
 ## [26.3.1] - 2026-03-14
 
 ### Added
