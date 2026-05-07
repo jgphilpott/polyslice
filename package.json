@@ -31,7 +31,7 @@
     "slice:wayfinding": "npm run compile && node examples/scripts/slice-holes.js && node examples/scripts/slice-pillars.js",
     "slice:skin": "npm run compile && node examples/scripts/slice-arch.js && node examples/scripts/slice-dome.js && node examples/scripts/slice-pyramid.js",
     "slice:matryoshka": "npm run compile && node examples/scripts/slice-matryoshka.js",
-    "slice:benchmarks": "npm run compile && node examples/scripts/slice-lego.js && node examples/scripts/slice-benchy.js low-poly",
+    "slice:benchmarks": "npm run compile && node examples/scripts/slice-lego.js && node examples/scripts/slice-piggy.js && node examples/scripts/slice-benchy.js low-poly",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
     "format": "prettier --write src/**/*.js",
