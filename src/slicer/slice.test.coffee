@@ -82,6 +82,31 @@ describe 'Slicing', ->
             expect(result).toContain('G28')
             expect(result).toContain('Printing')
 
+        test 'should honor parent group rotation when slicing', ->
+
+            geometry = new THREE.BoxGeometry(20, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+
+            group = new THREE.Group()
+            group.rotation.z = Math.PI / 2
+            group.add(mesh)
+            group.updateMatrixWorld(true)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(false)
+
+            result = slicer.slice(group)
+
+            rotatedWidth = slicer.meshBounds.maxX - slicer.meshBounds.minX
+            rotatedHeight = slicer.meshBounds.maxY - slicer.meshBounds.minY
+
+            expect(result).toContain('G1')
+            expect(rotatedWidth).toBeCloseTo(10, 3)
+            expect(rotatedHeight).toBeCloseTo(20, 3)
+
         test 'should generate movement commands for cube layers', ->
 
             # Create a small cube.
@@ -422,6 +447,38 @@ describe 'Slicing', ->
             result = slicer.slice(mesh)
 
             expect(result).toContain('G0 X5 Y5') # Simple fallback wipe should be present.
+
+    describe 'Mesh Without Normals', ->
+
+        test 'should slice a mesh without vertex normals (e.g., 3MF from MakerWorld)', ->
+
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            geometry.deleteAttribute('normal')
+
+            # Confirm no normals are present before slicing.
+            expect(geometry.attributes.normal).toBeUndefined()
+
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(0) # No infill for faster test.
+            slicer.setVerbose(false)
+
+            # Slicing must succeed without throwing a TypeError about missing normals.
+            result = null
+
+            expect(-> result = slicer.slice(mesh)).not.toThrow()
+
+            # Normals should have been computed on the cloned geometry during slicing.
+            # The original geometry must remain unchanged.
+            expect(geometry.attributes.normal).toBeUndefined()
+
+            expect(result.length).toBeGreaterThan(0)
+            expect(result).toContain('G1') # Should have movement commands.
 
     describe 'Torus Slicing with Holes', ->
 

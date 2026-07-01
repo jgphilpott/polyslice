@@ -55,6 +55,8 @@ module.exports =
         slicer._layerSolidRegions = null
         slicer._supportRegions = null
 
+        scene?.updateMatrixWorld?(true)
+
         # Extract mesh from scene if provided.
         originalMesh = preprocessingModule.extractMesh(scene)
 
@@ -79,7 +81,24 @@ module.exports =
         # any shared state modifications (e.g., from computeBoundingBox calls).
         mesh = originalMesh.clone(true)
         mesh.geometry = originalMesh.geometry.clone()
-        mesh.updateMatrixWorld()
+
+        worldPosition = new THREE.Vector3()
+        worldQuaternion = new THREE.Quaternion()
+        worldScale = new THREE.Vector3()
+
+        originalMesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale)
+
+        mesh.position.copy(worldPosition)
+        mesh.quaternion.copy(worldQuaternion)
+        mesh.scale.copy(worldScale)
+        mesh.updateMatrixWorld(true)
+
+        # Ensure geometry has vertex normals before slicing.
+        # Some file formats (e.g., 3MF from MakerWorld) do not include normal data.
+        # Polytree.fromMesh requires normals to convert mesh geometry into polygons.
+        if mesh.geometry and mesh.geometry.isBufferGeometry and not mesh.geometry.attributes?.normal
+
+            mesh.geometry.computeVertexNormals()
 
         # Report pre-print progress.
         @reportProgress(slicer, "pre-print", 5, null, null, "Generating pre-print sequence...")
