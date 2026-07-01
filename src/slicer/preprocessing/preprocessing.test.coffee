@@ -191,6 +191,7 @@ describe 'Mesh Preprocessing', ->
 
                 result = preprocessing.extractMesh(scene)
                 expect(result).toBe(mesh1)
+                expect(result).not.toBe(mesh2)
 
                 return # Explicitly return undefined for Jest.
 
@@ -275,15 +276,19 @@ describe 'Mesh Preprocessing', ->
 
                 originalUnite = Polytree.unite
 
-                Polytree.unite = (meshA, meshB, asyncFlag) ->
+                try
 
-                    throw new Error('forced unite failure')
+                    Polytree.unite = (meshA, meshB, asyncFlag) ->
 
-                result = preprocessing.autoJoinOverlappingMeshes([mesh1, mesh2])
+                        throw new Error('forced unite failure')
 
-                Polytree.unite = originalUnite
+                    result = preprocessing.autoJoinOverlappingMeshes([mesh1, mesh2])
 
-                expect(result).toBe(mesh1)
+                    expect(result).toBe(mesh1)
+
+                finally
+
+                    Polytree.unite = originalUnite
 
                 return # Explicitly return undefined for Jest.
 
