@@ -1,6 +1,6 @@
 # Mesh preprocessing module for Polyslice.
 
-Polytree = require('@jgphilpott/polytree')
+{ Polytree } = require('@jgphilpott/polytree')
 
 LoopSubdivision = require('three-subdivide').LoopSubdivision
 
@@ -43,6 +43,8 @@ module.exports =
 
     # Preprocess mesh to improve triangle density in sparse regions.
     preprocessMesh: (mesh) ->
+
+        THREE = getTHREE()
 
         geometry = mesh.geometry
 

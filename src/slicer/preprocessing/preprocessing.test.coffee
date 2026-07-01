@@ -4,7 +4,7 @@ Polyslice = require('../../index')
 
 preprocessing = require('./preprocessing')
 
-Polytree = require('@jgphilpott/polytree')
+{ Polytree } = require('@jgphilpott/polytree')
 
 THREE = require('three')
 

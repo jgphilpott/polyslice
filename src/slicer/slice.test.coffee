@@ -111,7 +111,7 @@ describe 'Slicing', ->
             result = slicer.slice(group)
             widthWithAutoJoin = slicer.meshBounds.maxX - slicer.meshBounds.minX
 
-            expect(result).toContain('LAYER:')
+            expect(result).toContain('G1')
             expect(widthWithAutoJoin).toBeGreaterThan(widthWithoutAutoJoin)
 
         test 'should honor parent group rotation when slicing', ->
