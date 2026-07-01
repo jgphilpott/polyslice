@@ -278,7 +278,7 @@ describe 'Mesh Preprocessing', ->
 
                 try
 
-                    Polytree.unite = (meshA, meshB, asyncFlag) ->
+                    Polytree.unite = (meshA, meshB, _asyncFlag) ->
 
                         throw new Error('forced unite failure')
 

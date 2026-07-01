@@ -190,7 +190,7 @@ module.exports =
 
             for meshIndex in [1...meshesForJoin.length]
 
-                # Use sync Polytree unite in the current synchronous slicing pipeline.
+                # Use sync Polytree unite (`false` = sync mode) in the current slicing pipeline.
                 joinedMesh = Polytree.unite(joinedMesh, meshesForJoin[meshIndex], false)
 
                 if not joinedMesh or not joinedMesh.isMesh
