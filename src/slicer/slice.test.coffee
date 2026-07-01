@@ -82,6 +82,31 @@ describe 'Slicing', ->
             expect(result).toContain('G28')
             expect(result).toContain('Printing')
 
+        test 'should honor parent group rotation when slicing', ->
+
+            geometry = new THREE.BoxGeometry(20, 10, 10)
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+
+            group = new THREE.Group()
+            group.rotation.z = Math.PI / 2
+            group.add(mesh)
+            group.updateMatrixWorld(true)
+
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(false)
+
+            result = slicer.slice(group)
+
+            width = slicer.meshBounds.maxX - slicer.meshBounds.minX
+            height = slicer.meshBounds.maxY - slicer.meshBounds.minY
+
+            expect(result).toContain('G1')
+            expect(width).toBeCloseTo(10, 3)
+            expect(height).toBeCloseTo(20, 3)
+
         test 'should generate movement commands for cube layers', ->
 
             # Create a small cube.
@@ -427,33 +452,8 @@ describe 'Slicing', ->
 
         test 'should slice a mesh without vertex normals (e.g., 3MF from MakerWorld)', ->
 
-            # Create a BufferGeometry manually with only position data (no normals).
-            # This simulates 3MF files from MakerWorld that omit normal attributes.
-            geometry = new THREE.BufferGeometry()
-
-            # Define a simple box using raw position data (no normal attribute).
-            positions = new Float32Array([
-                # Front face (two triangles)
-                -5, -5,  5,   5, -5,  5,   5,  5,  5,
-                -5, -5,  5,   5,  5,  5,  -5,  5,  5,
-                # Back face
-                 5, -5, -5,  -5, -5, -5,  -5,  5, -5,
-                 5, -5, -5,  -5,  5, -5,   5,  5, -5,
-                # Top face
-                -5,  5,  5,   5,  5,  5,   5,  5, -5,
-                -5,  5,  5,   5,  5, -5,  -5,  5, -5,
-                # Bottom face
-                -5, -5, -5,   5, -5, -5,   5, -5,  5,
-                -5, -5, -5,   5, -5,  5,  -5, -5,  5,
-                # Right face
-                 5, -5,  5,   5, -5, -5,   5,  5, -5,
-                 5, -5,  5,   5,  5, -5,   5,  5,  5,
-                # Left face
-                -5, -5, -5,  -5, -5,  5,  -5,  5,  5,
-                -5, -5, -5,  -5,  5,  5,  -5,  5, -5
-            ])
-
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+            geometry = new THREE.BoxGeometry(10, 10, 10)
+            geometry.deleteAttribute('normal')
 
             # Confirm no normals are present before slicing.
             expect(geometry.attributes.normal).toBeUndefined()
