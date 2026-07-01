@@ -81,6 +81,12 @@ module.exports =
         mesh.geometry = originalMesh.geometry.clone()
         mesh.updateMatrixWorld()
 
+        # Ensure geometry has vertex normals before slicing.
+        # Some file formats (e.g., 3MF from MakerWorld) do not include normal data.
+        # Polytree.fromMesh requires normals to convert mesh geometry into polygons.
+        if not mesh.geometry.attributes.normal
+            mesh.geometry.computeVertexNormals()
+
         # Report pre-print progress.
         @reportProgress(slicer, "pre-print", 5, null, null, "Generating pre-print sequence...")
 

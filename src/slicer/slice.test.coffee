@@ -423,6 +423,63 @@ describe 'Slicing', ->
 
             expect(result).toContain('G0 X5 Y5') # Simple fallback wipe should be present.
 
+    describe 'Mesh Without Normals', ->
+
+        test 'should slice a mesh without vertex normals (e.g., 3MF from MakerWorld)', ->
+
+            # Create a BufferGeometry manually with only position data (no normals).
+            # This simulates 3MF files from MakerWorld that omit normal attributes.
+            geometry = new THREE.BufferGeometry()
+
+            # Define a simple box using raw position data (no normal attribute).
+            positions = new Float32Array([
+                # Front face (two triangles)
+                -5, -5,  5,   5, -5,  5,   5,  5,  5,
+                -5, -5,  5,   5,  5,  5,  -5,  5,  5,
+                # Back face
+                 5, -5, -5,  -5, -5, -5,  -5,  5, -5,
+                 5, -5, -5,  -5,  5, -5,   5,  5, -5,
+                # Top face
+                -5,  5,  5,   5,  5,  5,   5,  5, -5,
+                -5,  5,  5,   5,  5, -5,  -5,  5, -5,
+                # Bottom face
+                -5, -5, -5,   5, -5, -5,   5, -5,  5,
+                -5, -5, -5,   5, -5,  5,  -5, -5,  5,
+                # Right face
+                 5, -5,  5,   5, -5, -5,   5,  5, -5,
+                 5, -5,  5,   5,  5, -5,   5,  5,  5,
+                # Left face
+                -5, -5, -5,  -5, -5,  5,  -5,  5,  5,
+                -5, -5, -5,  -5,  5,  5,  -5,  5, -5
+            ])
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+
+            # Confirm no normals are present before slicing.
+            expect(geometry.attributes.normal).toBeUndefined()
+
+            material = new THREE.MeshBasicMaterial()
+            mesh = new THREE.Mesh(geometry, material)
+
+            mesh.position.set(0, 0, 5)
+            mesh.updateMatrixWorld()
+
+            slicer.setLayerHeight(0.2)
+            slicer.setInfillDensity(0) # No infill for faster test.
+            slicer.setVerbose(false)
+
+            # Slicing must succeed without throwing a TypeError about missing normals.
+            result = null
+
+            expect(-> result = slicer.slice(mesh)).not.toThrow()
+
+            # Normals should have been computed on the cloned geometry during slicing.
+            # The original geometry must remain unchanged.
+            expect(geometry.attributes.normal).toBeUndefined()
+
+            expect(result.length).toBeGreaterThan(0)
+            expect(result).toContain('G1') # Should have movement commands.
+
     describe 'Torus Slicing with Holes', ->
 
         test 'should generate infill clipped by hole walls', ->
