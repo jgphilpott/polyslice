@@ -100,12 +100,12 @@ describe 'Slicing', ->
 
             result = slicer.slice(group)
 
-            width = slicer.meshBounds.maxX - slicer.meshBounds.minX
-            height = slicer.meshBounds.maxY - slicer.meshBounds.minY
+            rotatedWidth = slicer.meshBounds.maxX - slicer.meshBounds.minX
+            rotatedHeight = slicer.meshBounds.maxY - slicer.meshBounds.minY
 
             expect(result).toContain('G1')
-            expect(width).toBeCloseTo(10, 3)
-            expect(height).toBeCloseTo(20, 3)
+            expect(rotatedWidth).toBeCloseTo(10, 3)
+            expect(rotatedHeight).toBeCloseTo(20, 3)
 
         test 'should generate movement commands for cube layers', ->
 

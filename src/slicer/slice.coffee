@@ -55,9 +55,7 @@ module.exports =
         slicer._layerSolidRegions = null
         slicer._supportRegions = null
 
-        if scene?.updateMatrixWorld and typeof scene.updateMatrixWorld is "function"
-
-            scene.updateMatrixWorld(true)
+        scene?.updateMatrixWorld?(true)
 
         # Extract mesh from scene if provided.
         originalMesh = preprocessingModule.extractMesh(scene)
@@ -98,7 +96,7 @@ module.exports =
         # Ensure geometry has vertex normals before slicing.
         # Some file formats (e.g., 3MF from MakerWorld) do not include normal data.
         # Polytree.fromMesh requires normals to convert mesh geometry into polygons.
-        if mesh.geometry?.isBufferGeometry and not mesh.geometry.attributes?.normal
+        if mesh.geometry and mesh.geometry.isBufferGeometry and not mesh.geometry.attributes?.normal
 
             mesh.geometry.computeVertexNormals()
 
