@@ -1,7 +1,7 @@
 {
   "name": "@jgphilpott/polyslice",
-  "version": "26.4.0",
-  "description": "Where three.js intersects the physical world, slice your creations into life!",
+  "version": "26.7.0",
+  "description": "Where three.js comes to life, slice your creations into reality!",
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "browser": "dist/index.browser.js",

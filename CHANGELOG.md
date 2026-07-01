@@ -7,6 +7,13 @@ and this project adheres to a calendar-based versioning scheme (YY.M.N).
 
 ## [Unreleased]
 
+## [26.7.0] - 2026-07-01
+
+### Fixed
+- **Slicer: Crash When Slicing 3MF Files Without Vertex Normals** - slicing meshes that omit vertex normal data (e.g. 3MF files exported from MakerWorld) no longer throws `TypeError: Cannot read properties of undefined (reading 'array')` (PR #192)
+  - `src/slicer/slice.coffee` calls `computeVertexNormals()` on the internal geometry clone when the `normal` attribute is absent; the caller's original mesh is left unmodified
+  - Test suite extended with a `Mesh Without Normals` describe block that constructs a position-only `BufferGeometry`, confirms slicing completes without error, produces valid G-code, and verifies the original geometry is unchanged
+
 ## [26.4.0] - 2026-04-19
 
 ### Added
