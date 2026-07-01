@@ -1,13 +1,50 @@
 # Mesh preprocessing module for Polyslice.
 
+{ Polytree } = require('@jgphilpott/polytree')
+
 LoopSubdivision = require('three-subdivide').LoopSubdivision
+
+getTHREE = ->
+
+    return if typeof window isnt 'undefined' then window.THREE else require('three')
+
+pushUniqueMesh = (meshes, mesh) ->
+
+    return if not mesh or not mesh.isMesh
+
+    if not meshes.includes(mesh)
+
+        meshes.push(mesh)
+
+cloneMeshWithWorldTransform = (mesh) ->
+
+    THREE = getTHREE()
+
+    clonedMesh = mesh.clone(true)
+
+    if mesh.geometry and mesh.geometry.clone
+
+        clonedMesh.geometry = mesh.geometry.clone()
+
+    worldPosition = new THREE.Vector3()
+    worldQuaternion = new THREE.Quaternion()
+    worldScale = new THREE.Vector3()
+
+    mesh.matrixWorld.decompose(worldPosition, worldQuaternion, worldScale)
+
+    clonedMesh.position.copy(worldPosition)
+    clonedMesh.quaternion.copy(worldQuaternion)
+    clonedMesh.scale.copy(worldScale)
+    clonedMesh.updateMatrixWorld(true)
+
+    return clonedMesh
 
 module.exports =
 
     # Preprocess mesh to improve triangle density in sparse regions.
     preprocessMesh: (mesh) ->
 
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
+        THREE = getTHREE()
 
         geometry = mesh.geometry
 
@@ -35,7 +72,7 @@ module.exports =
 
         return false if not geometry
 
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
+        THREE = getTHREE()
 
         positionAttribute = geometry.getAttribute('position')
         return false if not positionAttribute
@@ -66,8 +103,6 @@ module.exports =
     # Subdivide geometry using Loop subdivision algorithm.
     subdivideGeometry: (geometry) ->
 
-        THREE = if typeof window isnt 'undefined' then window.THREE else require('three')
-
         params = {
             split: true
             uvSmooth: false
@@ -78,21 +113,94 @@ module.exports =
 
         return LoopSubdivision.modify(geometry, 1, params)
 
-    # Extract mesh from scene object.
+    # Extract all meshes from scene object.
+    extractMeshes: (scene) ->
+
+        return [] if not scene
+
+        meshes = []
+
+        traverseNode = (node) ->
+
+            return if not node
+
+            pushUniqueMesh(meshes, node)
+            pushUniqueMesh(meshes, node.mesh)
+
+            if node.children and node.children.length > 0
+
+                for child in node.children
+
+                    traverseNode(child)
+
+        traverseNode(scene)
+
+        return meshes
+
+    # Extract first mesh from scene object.
     extractMesh: (scene) ->
 
-        return null if not scene
+        meshes = @extractMeshes(scene)
 
-        if scene.isMesh then return scene
-
-        if scene.children and scene.children.length > 0
-
-            for child in scene.children
-
-                if child.isMesh then return child
-
-        if scene.mesh and scene.mesh.isMesh
-
-            return scene.mesh
+        return meshes[0] if meshes.length > 0
 
         return null
+
+    # Check if any meshes overlap by world-space bounding boxes.
+    hasOverlappingMeshes: (meshes = []) ->
+
+        return false if not Array.isArray(meshes) or meshes.length < 2
+
+        THREE = getTHREE()
+
+        worldBounds = []
+
+        for mesh in meshes
+
+            worldBounds.push(new THREE.Box3().setFromObject(mesh))
+
+        for firstMeshIndex in [0...worldBounds.length]
+
+            for secondMeshIndex in [firstMeshIndex + 1...worldBounds.length]
+
+                if worldBounds[firstMeshIndex].intersectsBox(worldBounds[secondMeshIndex])
+
+                    return true
+
+        return false
+
+    # Auto-join overlapping meshes into a single mesh.
+    autoJoinOverlappingMeshes: (meshes = []) ->
+
+        return null if not Array.isArray(meshes) or meshes.length is 0
+
+        return meshes[0] if meshes.length is 1
+
+        return meshes[0] if not @hasOverlappingMeshes(meshes)
+
+        try
+
+            meshesForJoin = []
+
+            for mesh in meshes
+
+                meshesForJoin.push(cloneMeshWithWorldTransform(mesh))
+
+            joinedMesh = meshesForJoin[0]
+
+            for meshIndex in [1...meshesForJoin.length]
+
+                # Use sync Polytree unite (`false` = sync mode) in the current slicing pipeline.
+                joinedMesh = Polytree.unite(joinedMesh, meshesForJoin[meshIndex], false)
+
+                if not joinedMesh or not joinedMesh.isMesh
+
+                    return meshes[0]
+
+            joinedMesh.updateMatrixWorld(true)
+
+            return joinedMesh
+
+        catch error
+
+            return meshes[0]

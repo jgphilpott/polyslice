@@ -4,6 +4,8 @@ Polyslice = require('../../index')
 
 preprocessing = require('./preprocessing')
 
+{ Polytree } = require('@jgphilpott/polytree')
+
 THREE = require('three')
 
 describe 'Mesh Preprocessing', ->
@@ -41,6 +43,26 @@ describe 'Mesh Preprocessing', ->
 
             slicerWithPreprocessing = new Polyslice({ meshPreprocessing: true })
             expect(slicerWithPreprocessing.getMeshPreprocessing()).toBe(true)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should have preprocessingAutoJoin disabled by default', ->
+
+            expect(slicer.getPreprocessingAutoJoin()).toBe(false)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should allow enabling preprocessingAutoJoin', ->
+
+            slicer.setPreprocessingAutoJoin(true)
+            expect(slicer.getPreprocessingAutoJoin()).toBe(true)
+
+            return # Explicitly return undefined for Jest.
+
+        test 'should accept preprocessingAutoJoin in constructor', ->
+
+            slicerWithAutoJoin = new Polyslice({ preprocessingAutoJoin: true })
+            expect(slicerWithAutoJoin.getPreprocessingAutoJoin()).toBe(true)
 
             return # Explicitly return undefined for Jest.
 
@@ -89,6 +111,36 @@ describe 'Mesh Preprocessing', ->
             return # Explicitly return undefined for Jest.
 
     describe 'Module Functions', ->
+
+        describe 'extractMeshes', ->
+
+            test 'should return empty array for null input', ->
+
+                expect(preprocessing.extractMeshes(null)).toEqual([])
+
+                return # Explicitly return undefined for Jest.
+
+            test 'should return all meshes from nested groups', ->
+
+                scene = new THREE.Scene()
+                group = new THREE.Group()
+                nestedGroup = new THREE.Group()
+
+                mesh1 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial())
+                mesh2 = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshBasicMaterial())
+
+                nestedGroup.add(mesh2)
+                group.add(mesh1)
+                group.add(nestedGroup)
+                scene.add(group)
+
+                result = preprocessing.extractMeshes(scene)
+
+                expect(result.length).toBe(2)
+                expect(result).toContain(mesh1)
+                expect(result).toContain(mesh2)
+
+                return # Explicitly return undefined for Jest.
 
         describe 'extractMesh', ->
 
@@ -139,6 +191,104 @@ describe 'Mesh Preprocessing', ->
 
                 result = preprocessing.extractMesh(scene)
                 expect(result).toBe(mesh1)
+                expect(result).not.toBe(mesh2)
+
+                return # Explicitly return undefined for Jest.
+
+        describe 'hasOverlappingMeshes', ->
+
+            test 'should return true for overlapping meshes', ->
+
+                mesh1 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+                mesh2 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+
+                mesh1.position.set(0, 0, 5)
+                mesh2.position.set(2, 0, 5)
+                mesh1.updateMatrixWorld(true)
+                mesh2.updateMatrixWorld(true)
+
+                expect(preprocessing.hasOverlappingMeshes([mesh1, mesh2])).toBe(true)
+
+                return # Explicitly return undefined for Jest.
+
+            test 'should return false for non-overlapping meshes', ->
+
+                mesh1 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+                mesh2 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+
+                mesh1.position.set(0, 0, 5)
+                mesh2.position.set(20, 0, 5)
+                mesh1.updateMatrixWorld(true)
+                mesh2.updateMatrixWorld(true)
+
+                expect(preprocessing.hasOverlappingMeshes([mesh1, mesh2])).toBe(false)
+
+                return # Explicitly return undefined for Jest.
+
+        describe 'autoJoinOverlappingMeshes', ->
+
+            test 'should join overlapping meshes into one mesh', ->
+
+                mesh1 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+                mesh2 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+
+                mesh1.position.set(0, 0, 5)
+                mesh2.position.set(2, 0, 5)
+                mesh1.updateMatrixWorld(true)
+                mesh2.updateMatrixWorld(true)
+
+                result = preprocessing.autoJoinOverlappingMeshes([mesh1, mesh2])
+
+                bbox = new THREE.Box3().setFromObject(result)
+                size = new THREE.Vector3()
+                bbox.getSize(size)
+
+                expect(result).not.toBe(mesh1)
+                expect(size.x).toBeGreaterThan(10)
+
+                return # Explicitly return undefined for Jest.
+
+            test 'should keep first mesh when no overlap is detected', ->
+
+                mesh1 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+                mesh2 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+
+                mesh1.position.set(0, 0, 5)
+                mesh2.position.set(20, 0, 5)
+                mesh1.updateMatrixWorld(true)
+                mesh2.updateMatrixWorld(true)
+
+                result = preprocessing.autoJoinOverlappingMeshes([mesh1, mesh2])
+
+                expect(result).toBe(mesh1)
+
+                return # Explicitly return undefined for Jest.
+
+            test 'should fall back to first mesh when join fails', ->
+
+                mesh1 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+                mesh2 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+
+                mesh1.position.set(0, 0, 5)
+                mesh2.position.set(2, 0, 5)
+                mesh1.updateMatrixWorld(true)
+                mesh2.updateMatrixWorld(true)
+
+                originalUnite = Polytree.unite
+
+                try
+
+                    Polytree.unite = (meshA, meshB, _asyncFlag) ->
+
+                        throw new Error('forced unite failure')
+
+                    result = preprocessing.autoJoinOverlappingMeshes([mesh1, mesh2])
+
+                    expect(result).toBe(mesh1)
+
+                finally
+
+                    Polytree.unite = originalUnite
 
                 return # Explicitly return undefined for Jest.
 

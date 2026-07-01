@@ -832,6 +832,15 @@ describe 'Accessors (Getters and Setters)', ->
             slicer.setMeshPreprocessing(false)
             expect(slicer.getMeshPreprocessing()).toBe(false)
 
+        test 'should set and get preprocessing auto join setting', ->
+
+            expect(slicer.getPreprocessingAutoJoin()).toBe(false) # default.
+            slicer.setPreprocessingAutoJoin(true)
+            expect(slicer.getPreprocessingAutoJoin()).toBe(true)
+
+            slicer.setPreprocessingAutoJoin(false)
+            expect(slicer.getPreprocessingAutoJoin()).toBe(false)
+
     describe 'Post-Print Settings', ->
 
         test 'should set and get buzzer setting', ->

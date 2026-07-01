@@ -82,6 +82,39 @@ describe 'Slicing', ->
             expect(result).toContain('G28')
             expect(result).toContain('Printing')
 
+        test 'should auto-join overlapping meshes when preprocessingAutoJoin is enabled', ->
+
+            group = new THREE.Group()
+
+            mesh1 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+            mesh2 = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshBasicMaterial())
+
+            mesh1.position.set(0, 0, 5)
+            mesh2.position.set(3, 0, 5)
+
+            mesh1.updateMatrixWorld(true)
+            mesh2.updateMatrixWorld(true)
+
+            group.add(mesh1)
+            group.add(mesh2)
+            group.updateMatrixWorld(true)
+
+            slicer.setAutohome(false)
+            slicer.setLayerHeight(0.2)
+            slicer.setVerbose(false)
+
+            slicer.setPreprocessingAutoJoin(false)
+            slicer.slice(group)
+            widthWithoutAutoJoin = slicer.meshBounds.maxX - slicer.meshBounds.minX
+
+            slicer.setPreprocessingAutoJoin(true)
+            result = slicer.slice(group)
+            widthWithAutoJoin = slicer.meshBounds.maxX - slicer.meshBounds.minX
+
+            expect(result).toContain('G1')
+            expect(widthWithoutAutoJoin).toBeGreaterThan(0)
+            expect(widthWithAutoJoin).toBeGreaterThan(widthWithoutAutoJoin)
+
         test 'should honor parent group rotation when slicing', ->
 
             geometry = new THREE.BoxGeometry(20, 10, 10)

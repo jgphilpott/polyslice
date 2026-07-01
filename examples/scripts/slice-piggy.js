@@ -71,6 +71,7 @@ async function main() {
     infillDensity: 20,
     bedTemperature: 0,
     layerHeight: 0.2,
+    preprocessingAutoJoin: true,
     testStrip: false,
     metadata: false,
     verbose: true

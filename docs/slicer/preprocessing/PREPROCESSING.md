@@ -134,16 +134,23 @@ The preprocessing step is called automatically before slicing begins:
 
 ```javascript
 // Inside the slice() method:
-// 1. Extract mesh from scene
-mesh = preprocessing.extractMesh(mesh);
+// 1. Extract meshes from scene
+meshList = preprocessing.extractMeshes(scene);
 
-// 2. Preprocess if needed
+// 2. Optional overlap-aware auto join
+if (slicer.getPreprocessingAutoJoin()) {
+  mesh = preprocessing.autoJoinOverlappingMeshes(meshList);
+} else {
+  mesh = meshList[0];
+}
+
+// 3. Preprocess if needed
 mesh = preprocessing.preprocessMesh(mesh);
 
-// 3. Apply world transformation
+// 4. Apply world transformation
 mesh.updateMatrixWorld(true);
 
-// 4. Proceed with slicing...
+// 5. Proceed with slicing...
 ```
 
 ## File Structure
@@ -162,6 +169,7 @@ src/slicer/preprocessing/
 ## Notes
 
 - Preprocessing only runs when triangle density is below threshold
+- Auto-join only runs when `preprocessingAutoJoin` is enabled and overlapping meshes are detected
 - Original mesh is not modified; a new mesh is created if subdivision is applied
 - Transform properties (position, rotation, scale) are preserved
 - The algorithm is designed to be conservative to avoid unnecessary overhead

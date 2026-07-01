@@ -57,8 +57,14 @@ module.exports =
 
         scene?.updateMatrixWorld?(true)
 
-        # Extract mesh from scene if provided.
-        originalMesh = preprocessingModule.extractMesh(scene)
+        # Extract mesh candidates from scene if provided.
+        meshCandidates = preprocessingModule.extractMeshes(scene)
+
+        originalMesh = meshCandidates[0]
+
+        if slicer.getPreprocessingAutoJoin()
+
+            originalMesh = preprocessingModule.autoJoinOverlappingMeshes(meshCandidates)
 
         # If no mesh provided, just generate basic initialization sequence.
         if not originalMesh

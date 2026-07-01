@@ -22,6 +22,8 @@ const slicer = new Polyslice(options);
 | `fanSpeed` | number | `100` | Fan speed percentage 0-100 |
 | `exposureDetection` | boolean | `true` | Enable adaptive skin layer generation |
 | `exposureDetectionResolution` | number | `961` | Sample count for exposure detection (31×31 grid) |
+| `meshPreprocessing` | boolean | `false` | Enable Loop subdivision for sparse meshes before slicing |
+| `preprocessingAutoJoin` | boolean | `false` | Auto-join overlapping meshes into one solid before slicing |
 | `wipeNozzle` | boolean | `true` | Perform wipe move during post-print |
 | `smartWipeNozzle` | boolean | `true` | Use smart wipe (avoids mesh) vs simple X+5, Y+5 |
 | `buzzer` | boolean | `true` | Sound buzzer at end of print |
