@@ -158,6 +158,7 @@ class Polyslice
 
         # Mesh preprocessing settings to improve slicing quality.
         @meshPreprocessing = options.meshPreprocessing ?= false # Boolean - enable mesh subdivision for sparse geometries.
+        @preprocessingAutoJoin = options.preprocessingAutoJoin ?= false # Boolean - auto-join overlapping meshes before slicing.
 
         # Post-print settings.
         @buzzer = options.buzzer ?= true # Boolean - sound buzzer at end of post-print.
@@ -453,6 +454,9 @@ class Polyslice
     getMeshPreprocessing: ->
         accessors.getMeshPreprocessing(this)
 
+    getPreprocessingAutoJoin: ->
+        accessors.getPreprocessingAutoJoin(this)
+
     getBuzzer: ->
         accessors.getBuzzer(this)
 
@@ -718,6 +722,9 @@ class Polyslice
 
     setMeshPreprocessing: (enabled = false) ->
         accessors.setMeshPreprocessing(this, enabled)
+
+    setPreprocessingAutoJoin: (enabled = false) ->
+        accessors.setPreprocessingAutoJoin(this, enabled)
 
     setBuzzer: (buzzer = true) ->
         accessors.setBuzzer(this, buzzer)

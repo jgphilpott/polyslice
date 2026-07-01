@@ -322,6 +322,10 @@ module.exports =
 
         return slicer.meshPreprocessing
 
+    getPreprocessingAutoJoin: (slicer) ->
+
+        return slicer.preprocessingAutoJoin
+
     getBuzzer: (slicer) ->
 
         return slicer.buzzer
@@ -973,6 +977,12 @@ module.exports =
     setMeshPreprocessing: (slicer, enabled = false) ->
 
         slicer.meshPreprocessing = Boolean enabled
+
+        return slicer
+
+    setPreprocessingAutoJoin: (slicer, enabled = false) ->
+
+        slicer.preprocessingAutoJoin = Boolean enabled
 
         return slicer
 
