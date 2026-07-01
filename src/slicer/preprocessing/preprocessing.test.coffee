@@ -275,7 +275,7 @@ describe 'Mesh Preprocessing', ->
 
                 originalUnite = Polytree.unite
 
-                Polytree.unite = ->
+                Polytree.unite = (meshA, meshB, asyncFlag) ->
 
                     throw new Error('forced unite failure')
 

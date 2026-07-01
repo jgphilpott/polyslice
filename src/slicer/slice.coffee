@@ -62,7 +62,7 @@ module.exports =
 
         originalMesh = meshCandidates[0]
 
-        if slicer.getPreprocessingAutoJoin and slicer.getPreprocessingAutoJoin()
+        if slicer.getPreprocessingAutoJoin()
 
             originalMesh = preprocessingModule.autoJoinOverlappingMeshes(meshCandidates)
 
